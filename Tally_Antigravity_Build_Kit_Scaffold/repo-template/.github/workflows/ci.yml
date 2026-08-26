@@ -1,0 +1,11 @@
+name: ios-ci
+on:
+  push:
+  pull_request:
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder
+        run: echo "Configure xcodebuild, swiftlint, swiftformat, and tests"

@@ -1,0 +1,15 @@
+name: TallyApp
+options:
+  bundleIdPrefix: com.tally
+targets:
+  TallyApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TallyApp
+    dependencies:
+      - package: TallyPackages
+packages:
+  TallyPackages:
+    path: ../../

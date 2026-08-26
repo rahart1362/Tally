@@ -1,0 +1,95 @@
+project:
+  name: Tally
+  type: native-ios-app
+  objective: >-
+    Build a privacy-first iOS student app for Canvas course visibility, grades,
+    alerts, schedules, offline caching, and optional Apple/Microsoft/Google integrations.
+  constraints:
+    - No Tally account required
+    - Authenticate with student Canvas credentials only
+    - No server-side retention of Canvas data
+    - Encrypted on-device cache only
+    - Local notifications are primary reminder channel
+    - If live refresh exceeds 10 seconds, show cache and stale-data breadcrumb
+
+phases:
+  - id: P1
+    name: Foundation
+    tasks:
+      - id: P1-T1
+        name: Initialize repository structure
+        acceptance:
+          - Monorepo folders created
+          - Build/state/log/checkpoint folders created
+          - Base README and AGENT_GUIDE created
+      - id: P1-T2
+        name: Initialize Xcode app and SPM packages
+        acceptance:
+          - App builds successfully
+          - Packages linked
+          - CI bootstrap files added
+      - id: P1-T3
+        name: Install quality tooling
+        acceptance:
+          - SwiftLint configured
+          - SwiftFormat configured
+          - Basic GitHub Actions workflow present
+  - id: P2
+    name: Design System and Navigation
+    tasks:
+      - id: P2-T1
+        name: Implement theme, typography, spacing, reusable cards
+      - id: P2-T2
+        name: Implement app shell and bottom navigation
+      - id: P2-T3
+        name: Build screen placeholders matching mockups
+  - id: P3
+    name: Auth, Canvas Client, and Cache
+    tasks:
+      - id: P3-T1
+        name: Implement Canvas OAuth PKCE flow
+      - id: P3-T2
+        name: Implement Canvas API client with typed models
+      - id: P3-T3
+        name: Implement encrypted local cache and freshness model
+      - id: P3-T4
+        name: Implement refresh orchestrator with 10-second fallback rule
+  - id: P4
+    name: Core Features
+    tasks:
+      - id: P4-T1
+        name: Dashboard feature
+      - id: P4-T2
+        name: Courses list feature
+      - id: P4-T3
+        name: Course detail feature
+      - id: P4-T4
+        name: To-do feature
+      - id: P4-T5
+        name: Calendar feature
+      - id: P4-T6
+        name: Insights feature
+  - id: P5
+    name: Integrations and Notifications
+    tasks:
+      - id: P5-T1
+        name: Apple calendar + widgets + shortcuts
+      - id: P5-T2
+        name: Microsoft 365 adapter
+      - id: P5-T3
+        name: Google Workspace adapter
+      - id: P5-T4
+        name: Multi-rule reminder engine
+  - id: P6
+    name: Hardening
+    tasks:
+      - id: P6-T1
+        name: Accessibility pass
+      - id: P6-T2
+        name: Privacy and security review
+      - id: P6-T3
+        name: Performance profiling and optimization
+      - id: P6-T4
+        name: Offline/reconnect validation
+      - id: P6-T5
+        name: Final documentation and release readiness
