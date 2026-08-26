@@ -1,6 +1,7 @@
 name: TallyApp
 options:
   bundleIdPrefix: com.tally
+  xcodeVersion: "15.4"
 targets:
   TallyApp:
     type: application
