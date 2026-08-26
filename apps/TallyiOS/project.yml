@@ -9,6 +9,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: TallyApp
+    infoPlist: TallyApp/Info.plist
     dependencies:
       - package: TallyPackages
         product: TallyAppFeature
