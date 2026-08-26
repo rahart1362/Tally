@@ -10,6 +10,7 @@ targets:
       - path: TallyApp
     dependencies:
       - package: TallyPackages
+        product: TallyAppFeature
 packages:
   TallyPackages:
     path: ../../
