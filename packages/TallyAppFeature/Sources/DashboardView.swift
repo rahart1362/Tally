@@ -9,31 +9,29 @@ public struct DashboardView: View {
     
     public var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
-                // Background
+            ScrollView {
+                LazyVStack(spacing: 24) {
+                    headerView
+                    
+                    overallGradeCard
+                    
+                    alertsSection
+                    
+                    scheduleSection
+                }
+                .padding(.horizontal)
+                .padding(.top, 16)
+            }
+            .background(
                 VStack(spacing: 0) {
                     Color.Tally.navyBackground
                         .frame(height: 300)
-                        .ignoresSafeArea()
                     Color.Tally.lightGrayBg
-                        .ignoresSafeArea()
                 }
-                
-                ScrollView {
-                    LazyVStack(spacing: 24) {
-                        headerView
-                        
-                        overallGradeCard
-                        
-                        alertsSection
-                        
-                        scheduleSection
-                    }
-                    .padding(.horizontal)
-                }
-                .refreshable {
-                    await RefreshOrchestrator.shared.refreshAll()
-                }
+                .ignoresSafeArea()
+            )
+            .refreshable {
+                await RefreshOrchestrator.shared.refreshAll()
             }
             .navigationBarHidden(true)
         }

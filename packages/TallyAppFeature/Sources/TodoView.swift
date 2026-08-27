@@ -8,27 +8,27 @@ public struct TodoView: View {
     
     public var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                headerView
+                
+                ScrollView {
+                    LazyVStack(spacing: 24) {
+                        todoSection(title: "Due This Week", items: viewModel.dueThisWeek)
+                        todoSection(title: "Missing", items: viewModel.missing)
+                        todoSection(title: "Due Later", items: viewModel.dueLater)
+                    }
+                    .padding()
+                }
+            }
+            .padding(.top, 16)
+            .background(
                 VStack(spacing: 0) {
                     Color.Tally.navyBackground
                         .frame(height: 120)
-                        .ignoresSafeArea()
                     Color.Tally.lightGrayBg
-                        .ignoresSafeArea()
                 }
-                
-                VStack(spacing: 0) {
-                    headerView
-                    
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            todoSection(title: "Due This Week", items: viewModel.dueThisWeek)
-                            todoSection(title: "Due Later", items: viewModel.dueLater)
-                        }
-                        .padding()
-                    }
-                }
-            }
+                .ignoresSafeArea()
+            )
             .navigationBarHidden(true)
         }
     }

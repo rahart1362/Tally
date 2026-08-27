@@ -8,31 +8,30 @@ public struct CoursesView: View {
     
     public var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                headerView
+                
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(viewModel.courses) { course in
+                            NavigationLink(destination: LazyView(CourseDetailView(course: course))) {
+                                courseCard(course)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .padding(.top, 16)
+            .background(
                 VStack(spacing: 0) {
                     Color.Tally.navyBackground
                         .frame(height: 150)
-                        .ignoresSafeArea()
                     Color.Tally.lightGrayBg
-                        .ignoresSafeArea()
                 }
-                
-                VStack(spacing: 0) {
-                    headerView
-                    
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(viewModel.courses) { course in
-                                NavigationLink(destination: LazyView(CourseDetailView(course: course))) {
-                                    courseCard(course)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        .padding()
-                    }
-                }
-            }
+                .ignoresSafeArea()
+            )
             .navigationBarHidden(true)
         }
     }

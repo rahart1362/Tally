@@ -10,33 +10,32 @@ public struct SettingsView: View {
     
     public var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                // Header
+                Text("Settings")
+                    .font(.Tally.title)
+                    .foregroundColor(Color.Tally.cardBackground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                
+                ScrollView {
+                    LazyVStack(spacing: 20) {
+                        securitySection
+                        accountSection
+                        aboutSection
+                    }
+                    .padding()
+                }
+            }
+            .padding(.top, 16)
+            .background(
                 VStack(spacing: 0) {
                     Color.Tally.navyBackground
                         .frame(height: 100)
-                        .ignoresSafeArea()
                     Color.Tally.lightGrayBg
-                        .ignoresSafeArea()
                 }
-                
-                VStack(spacing: 0) {
-                    // Header
-                    Text("Settings")
-                        .font(.Tally.title)
-                        .foregroundColor(Color.Tally.cardBackground)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                    
-                    ScrollView {
-                        LazyVStack(spacing: 20) {
-                            securitySection
-                            accountSection
-                            aboutSection
-                        }
-                        .padding()
-                    }
-                }
-            }
+                .ignoresSafeArea()
+            )
             .navigationBarHidden(true)
             .alert("Authentication Failed", isPresented: $showingBiometricError) {
                 Button("OK", role: .cancel) {}

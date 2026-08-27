@@ -8,42 +8,41 @@ public struct InsightsView: View {
     
     public var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
-                VStack(spacing: 0) {
-                    Color.Tally.navyBackground
-                        .frame(height: 100)
-                        .ignoresSafeArea()
-                    Color.Tally.lightGrayBg
-                        .ignoresSafeArea()
-                }
-                
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("Insights")
-                            .font(.Tally.title)
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Insights")
+                        .font(.Tally.title)
+                        .foregroundColor(Color.Tally.cardBackground)
+                    Spacer()
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 22))
                             .foregroundColor(Color.Tally.cardBackground)
-                        Spacer()
-                        NavigationLink(destination: SettingsView()) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 22))
-                                .foregroundColor(Color.Tally.cardBackground)
+                    }
+                }
+                .padding()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        performanceTrendCard
+                        
+                        HStack(spacing: 20) {
+                            categoryBreakdownCard
+                            studyStreakCard
                         }
                     }
                     .padding()
-                    
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            performanceTrendCard
-                            
-                            HStack(spacing: 20) {
-                                categoryBreakdownCard
-                                studyStreakCard
-                            }
-                        }
-                        .padding()
-                    }
                 }
             }
+            .padding(.top, 16)
+            .background(
+                VStack(spacing: 0) {
+                    Color.Tally.navyBackground
+                        .frame(height: 100)
+                    Color.Tally.lightGrayBg
+                }
+                .ignoresSafeArea()
+            )
             .navigationBarHidden(true)
         }
     }

@@ -28,6 +28,14 @@ public struct CourseDetailView: View {
             }
             .background(Color.Tally.lightGrayBg)
         }
+        .background(
+            VStack(spacing: 0) {
+                Color.Tally.navyBackground
+                    .frame(height: 180)
+                Color.Tally.lightGrayBg
+            }
+            .ignoresSafeArea()
+        )
         .navigationBarHidden(true)
     }
     
@@ -79,8 +87,6 @@ public struct CourseDetailView: View {
             }
         }
         .padding()
-        .padding(.top, 40) // Status bar padding approx
-        .background(Color.Tally.navyBackground)
     }
     
     private var tabBar: some View {
