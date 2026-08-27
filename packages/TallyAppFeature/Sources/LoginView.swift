@@ -21,17 +21,12 @@ public struct LoginView: View {
             VStack(spacing: 40) {
                 Spacer()
                 
-                // Tally Emblem & Wordmark (Using imported XCAssets)
+                // Tally Wordmark (Using imported XCAssets)
                 VStack(spacing: 20) {
-                    Image("TallyEmblem")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 120, height: 120)
-                    
                     Image("TallyLogo")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 200)
+                        .frame(width: 240)
                 }
                 
                 Spacer()

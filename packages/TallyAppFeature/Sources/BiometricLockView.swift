@@ -20,15 +20,10 @@ public struct BiometricLockView: View {
                 Spacer()
                 
                 // Tally branding
-                Image("TallyEmblem")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 100, height: 100)
-                
                 Image("TallyLogo")
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 40)
+                    .frame(height: 50)
                 
                 Text("Locked")
                     .font(.Tally.headline)

@@ -40,7 +40,7 @@ public struct DashboardView: View {
     private var headerView: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Image("TallyLogo")
+                Image("TallyEmblem")
                     .resizable()
                     .scaledToFit()
                     .frame(height: 32)
