@@ -29,7 +29,7 @@ let package = Package(
         .target(name: "TallyCalendarSync", dependencies: ["TallyDomain", "TallyObservability"], path: "packages/TallyCalendarSync/Sources"),
         .target(name: "TallyNotifications", dependencies: ["TallyDomain", "TallyObservability"], path: "packages/TallyNotifications/Sources"),
         .target(name: "TallyAppFeature", dependencies: [
-            "TallyDesignSystem", "TallyDomain", "TallyData", "TallyCalendarSync", "TallyNotifications", "TallyObservability"
+            "TallyDesignSystem", "TallyDomain", "TallyData", "TallyCalendarSync", "TallyNotifications", "TallyObservability", "TallySecurity"
         ], path: "packages/TallyAppFeature/Sources"),
         .target(name: "TallyTestingKit", dependencies: ["TallyDomain"], path: "packages/TallyTestingKit/Sources")
     ]

@@ -18,11 +18,18 @@ public struct InsightsView: View {
                 }
                 
                 VStack(spacing: 0) {
-                    Text("Insights")
-                        .font(.Tally.title)
-                        .foregroundColor(Color.Tally.cardBackground)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+                    HStack {
+                        Text("Insights")
+                            .font(.Tally.title)
+                            .foregroundColor(Color.Tally.cardBackground)
+                        Spacer()
+                        NavigationLink(destination: SettingsView()) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 22))
+                                .foregroundColor(Color.Tally.cardBackground)
+                        }
+                    }
+                    .padding()
                     
                     ScrollView {
                         VStack(spacing: 20) {

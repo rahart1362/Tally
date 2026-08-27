@@ -12,5 +12,7 @@
     <string>1.0</string>
     <key>UILaunchScreen</key>
     <dict/>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Tally uses Face ID to protect your academic data when you open the app.</string>
 </dict>
 </plist>
