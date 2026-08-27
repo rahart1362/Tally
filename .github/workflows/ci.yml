@@ -2,6 +2,9 @@ name: CI
 on:
   push:
     branches: [ main ]
+permissions:
+  contents: read
+  actions: write
 jobs:
   build-and-package:
     runs-on: macos-15

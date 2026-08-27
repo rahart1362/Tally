@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tally iOS App Replica</title>
+<style>
+  :root {
+    --primary-dark: #0D1B2A;
+    --primary-white: #FFFFFF;
+    --brand-gold: #E5B75A;
+    --calc-blue: #3B82F6;
+    --psych-green: #10B981;
+    --bio-purple: #8B5CF6;
+    --hist-orange: #F59E0B;
+    --eng-blue: #0EA5E9;
+    --alert-red: #EF4444;
+    --text-dark: #111827;
+    --text-gray: #6B7280;
+    --bg-light: #F9FAFB;
+    --divider: #E5E7EB;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #e0e5ec;
+  }
+
+  /* iPhone 16 Pro Frame */
+  .device-wrapper {
+    position: relative;
+    width: 417px;
+    height: 876px;
+    padding: 12px;
+  }
+  
+  .hardware-button {
+    position: absolute;
+    background: #333;
+    border-radius: 2px;
+  }
+  .btn-action { left: 0; top: 200px; width: 4px; height: 30px; }
+  .btn-vol-up { left: 0; top: 250px; width: 4px; height: 60px; }
+  .btn-vol-down { left: 0; top: 320px; width: 4px; height: 60px; }
+  .btn-power { right: 0; top: 270px; width: 4px; height: 90px; }
+  .btn-camera { right: 0; top: 500px; width: 4px; height: 50px; border-radius: 4px; }
+  
+  .device {
+    width: 393px;
+    height: 852px;
+    background: #000;
+    border-radius: 55px;
+    position: relative;
+    box-shadow: 0 0 0 2px #333, 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    padding: 6px;
+  }
+  
+  .screen-container {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-light);
+    border-radius: 49px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .dynamic-island {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 35px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 9999;
+  }
+  
+  .home-indicator {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 5px;
+    background: #000;
+    border-radius: 100px;
+    z-index: 9999;
+  }
+  
+  /* App Screens */
+  .app-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+  .app-screen::-webkit-scrollbar { display: none; }
+  .app-screen.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  /* Scroll padding for tab bar and notch */
+  .content-area {
+    padding-top: 55px; /* for notch */
+    padding-bottom: 90px; /* for tab bar */
+    flex: 1;
+  }
+
+  /* Utility Classes */
+  .dark-header {
+    background: var(--primary-dark);
+    color: var(--primary-white);
+    padding: 55px 20px 20px 20px;
+    position: relative;
+    z-index: 10;
+  }
+  .dark-header-content {
+    border-radius: 0 0 24px 24px;
+    margin-top: -55px;
+    padding-top: 55px;
+  }
+  
+  .card {
+    background: var(--primary-white);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 16px 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  }
+  
+  /* specific text styles */
+  .text-h1 { font-size: 28px; font-weight: 700; }
+  .text-h2 { font-size: 20px; font-weight: 600; }
+  .text-h3 { font-size: 16px; font-weight: 600; }
+  .text-body { font-size: 14px; font-weight: 400; color: var(--text-dark); }
+  .text-caption { font-size: 12px; font-weight: 400; color: var(--text-gray); }
+  .text-gold { color: var(--brand-gold); }
+  
+  /* SVG Icons */
+  .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Login Screen */
+  #login-screen {
+    background: var(--primary-dark);
+    justify-content: center;
+    align-items: center;
+    color: var(--primary-white);
+  }
+  .emblem {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+  }
+  .emblem-t {
+    font-family: Georgia, serif;
+    font-size: 80px;
+    color: #FFFDD0;
+    -webkit-text-stroke: 2px var(--brand-gold);
+    line-height: 1;
+  }
+  .tally-title {
+    font-family: Georgia, serif;
+    font-size: 40px;
+    color: #FFFDD0;
+    -webkit-text-stroke: 1px var(--brand-gold);
+    text-shadow: 0 4px 4px rgba(0,0,0,0.5);
+    margin-bottom: 60px;
+  }
+  .login-btn {
+    background: var(--primary-white);
+    color: var(--primary-dark);
+    border: none;
+    padding: 16px 32px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Tab Bar */
+  .tab-bar {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 85px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 10px 25px 10px;
+    border-top: 1px solid var(--divider);
+    z-index: 1000;
+  }
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-gray);
+    font-size: 10px;
+    cursor: pointer;
+    width: 20%;
+  }
+  .tab-item.active {
+    color: var(--primary-dark);
+  }
+  .tab-item svg {
+    margin-bottom: 4px;
+  }
+
+  /* Dashboard Screen */
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .dash-greeting {
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .dash-date {
+    font-size: 14px;
+    color: #9CA3AF;
+  }
+  
+  .grade-ring-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .circular-chart {
+    display: block;
+    margin: 0 auto;
+    max-width: 100px;
+    max-height: 100px;
+  }
+  .circle-bg { fill: none; stroke: #eee; stroke-width: 3.8; }
+  .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; }
+  .circular-chart.gold .circle { stroke: var(--brand-gold); }
+  .percentage { fill: #111; font-family: sans-serif; font-size: 0.5em; text-anchor: middle; font-weight: bold; }
+  
+  .trend-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  
+  .alert-card {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .alert-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    margin-right: 12px;
+  }
+  .alert-badge.red { background: var(--alert-red); }
+  .alert-badge.green { background: var(--psych-green); }
+  .alert-badge.blue { background: var(--calc-blue); }
+  
+  .schedule-item {
+    display: flex;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .schedule-time { width: 60px; font-size: 12px; color: var(--text-gray); text-align: right; margin-right: 16px; padding-top: 2px; }
+  .schedule-line { width: 2px; background: var(--divider); position: relative; margin-right: 16px; }
+  .schedule-dot { width: 10px; height: 10px; border-radius: 50%; position: absolute; left: -4px; top: 4px; }
+  .schedule-content { flex: 1; }
+  .schedule-content h4 { font-size: 14px; margin-bottom: 2px; }
+  .schedule-content p { font-size: 12px; color: var(--text-gray); }
+
+  /* Courses Screen */
+  .course-card {
+    display: flex;
+    flex-direction: column;
+    border-left: 4px solid;
+    position: relative;
+  }
+  .course-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .course-info { display: flex; align-items: center; }
+  .course-icon-box { width: 40px; height: 40px; border-radius: 8px; display: flex; justify-content: center; align-items: center; margin-right: 12px; color: white; }
+  .course-grade-large { font-size: 28px; font-weight: bold; }
+  .sparkline { width: 100%; height: 30px; margin-top: 10px; }
+  
+  /* Course Detail Screen */
+  .cd-header {
+    background: var(--primary-dark);
+    color: white;
+    padding: 55px 20px 0 20px;
+  }
+  .cd-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .cd-grade-display { display: flex; align-items: baseline; margin-bottom: 20px; }
+  .cd-grade-display h1 { font-size: 60px; margin-right: 12px; }
+  .cd-tabs {
+    display: flex;
+    padding: 0 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+  .cd-tab {
+    padding: 10px 0;
+    margin-right: 24px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .cd-tab.active {
+    color: white;
+    border-bottom: 3px solid var(--calc-blue);
+  }
+  
+  .assignment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider);
+  }
+  .assignment-item:last-child { border-bottom: none; }
+  .score-badge {
+    padding: 4px 8px;
+    background: #E0F2FE;
+    color: var(--calc-blue);
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .bar-chart { display: flex; align-items: flex-end; height: 100px; gap: 8px; margin-top: 16px; }
+  .bar { flex: 1; background: var(--divider); border-radius: 4px 4px 0 0; position: relative; }
+  .bar.highlight { background: var(--calc-blue); }
+  .bar-label { position: absolute; bottom: -20px; width: 100%; text-align: center; font-size: 10px; color: var(--text-gray); }
+
+  /* To-Do Screen */
+  .todo-header { display: flex; justify-content: space-between; align-items: center; padding: 55px 20px 10px 20px; background: var(--primary-white); border-bottom: 1px solid var(--divider); }
+  .todo-section { padding: 20px; }
+  .todo-section h3 { margin-bottom: 16px; font-size: 18px; }
+  .todo-item { display: flex; align-items: center; margin-bottom: 16px; }
+  .todo-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; }
+  
+  /* Calendar Screen */
+  .cal-header { padding: 55px 20px 10px 20px; background: var(--primary-white); }
+  .week-strip { display: flex; justify-content: space-between; margin-top: 16px; margin-bottom: 10px; }
+  .day-col { display: flex; flex-direction: column; align-items: center; }
+  .day-name { font-size: 12px; color: var(--text-gray); margin-bottom: 4px; }
+  .day-num { width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 14px; }
+  .day-num.active { background: var(--primary-dark); color: white; }
+  
+  .timeline { padding: 10px 20px; position: relative; }
+  .time-slot { height: 60px; border-top: 1px solid var(--divider); position: relative; }
+  .time-label { position: absolute; top: -8px; left: 0; font-size: 12px; color: var(--text-gray); background: var(--bg-light); padding-right: 8px; }
+  .event-block { position: absolute; left: 60px; right: 0; border-radius: 8px; padding: 8px; border-left: 4px solid; }
+  
+  .fab { position: absolute; bottom: 100px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--primary-dark); color: white; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 100; }
+
+  /* Insights Screen */
+  .donut-chart { position: relative; width: 150px; height: 150px; margin: 0 auto; }
+  .donut-hole { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: white; border-radius: 50%; }
+  
+  .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 4px; margin-right: 8px; }
+  
+</style>
+</head>
+<body>
+
+<div class="device-wrapper">
+  <!-- Hardware buttons -->
+  <div class="hardware-button btn-action"></div>
+  <div class="hardware-button btn-vol-up"></div>
+  <div class="hardware-button btn-vol-down"></div>
+  <div class="hardware-button btn-power"></div>
+  <div class="hardware-button btn-camera"></div>
+
+  <div class="device">
+    <div class="screen-container">
+      <div class="dynamic-island"></div>
+      
+      <!-- 1. Login Screen -->
+      <div id="login-screen" class="app-screen active">
+        <div class="emblem">
+          <div class="emblem-t">T</div>
+        </div>
+        <div class="tally-title">Tally</div>
+        <button class="login-btn" onclick="navigateTo('dashboard-screen')">Connect with Canvas</button>
+      </div>
+
+      <!-- 2. Dashboard Screen -->
+      <div id="dashboard-screen" class="app-screen">
+        <div class="dark-header dark-header-content">
+          <div class="dash-header">
+            <div>
+              <div class="dash-date">Monday, May 6</div>
+              <div class="dash-greeting">Good morning, Alex 👋</div>
+            </div>
+            <div style="position:relative">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              <div style="position:absolute; top:0; right:0; width:8px; height:8px; background:var(--alert-red); border-radius:50%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="content-area" style="padding-top: 0">
+          <div class="card">
+            <h2 class="text-h3" style="margin-bottom:16px;">Overall Grade</h2>
+            <div class="grade-ring-container">
+              <div style="width: 100px;">
+                <svg viewBox="0 0 36 36" class="circular-chart gold">
+                  <path class="circle-bg"
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path class="circle"
+                    stroke-dasharray="87.2, 100"
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <text x="18" y="22.5" class="percentage">B+</text>
+                </svg>
+              </div>
+              <div class="trend-indicator">
+                <div style="color:var(--psych-green); font-weight:bold; font-size:18px;">▲ 5.2%</div>
+                <div class="text-caption">vs last month</div>
+                <div class="text-caption" style="margin-top:8px;">APR 6 — MAY 6</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h2 class="text-h2">Alerts</h2>
+            <span class="text-gold" style="font-size:14px;">View all</span>
+          </div>
+          
+          <div style="padding: 0 20px;">
+            <div class="card" style="margin:0 0 12px 0; padding:12px; display:flex; align-items:center;">
+              <div class="alert-badge red">2</div>
+              <div style="flex:1">
+                <div class="text-h3">Missing Assignments</div>
+                <div class="text-caption">Calculus II & Biology 101</div>
+              </div>
+              <svg class="icon" style="width:16px; color:#ccc" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+            </div>
+            <div class="card" style="margin:0 0 12px 0; padding:12px; display:flex; align-items:center;">
+              <div class="alert-badge green">1</div>
+              <div style="flex:1">
+                <div class="text-h3">Upcoming Quiz</div>
+                <div class="text-caption">Intro to Psychology • Tomorrow</div>
+              </div>
+              <svg class="icon" style="width:16px; color:#ccc" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+            </div>
+            <div class="card" style="margin:0 0 12px 0; padding:12px; display:flex; align-items:center;">
+              <div class="alert-badge blue">1</div>
+              <div style="flex:1">
+                <div class="text-h3">Grade Updated</div>
+                <div class="text-caption">World History Essay • B+</div>
+              </div>
+              <svg class="icon" style="width:16px; color:#ccc" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+            </div>
+          </div>
+
+          <div style="padding: 20px 20px 0 20px;">
+            <h2 class="text-h2" style="margin-bottom:16px;">Today's Schedule</h2>
+            <div class="schedule-item">
+              <div class="schedule-time">8:00 AM</div>
+              <div class="schedule-line">
+                <div class="schedule-dot" style="background:var(--psych-green);"></div>
+              </div>
+              <div class="schedule-content">
+                <h4>Intro to Psychology</h4>
+                <p>Lecture • Room 302</p>
+              </div>
+            </div>
+            <div class="schedule-item">
+              <div class="schedule-time">10:00 AM</div>
+              <div class="schedule-line">
+                <div class="schedule-dot" style="background:var(--calc-blue);"></div>
+              </div>
+              <div class="schedule-content">
+                <h4>Calculus II</h4>
+                <p>Seminar • Math Building</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Courses Screen -->
+      <div id="courses-screen" class="app-screen">
+        <div class="dark-header dark-header-content" style="display:flex; justify-content:space-between; align-items:center;">
+          <h1 class="text-h1">Spring 2024 ▾</h1>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
+        </div>
+        <div class="content-area" style="padding-top:0;">
+          
+          <div class="card course-card" style="border-left-color: var(--calc-blue);" onclick="navigateTo('course-detail-screen')">
+            <div class="course-card-top">
+              <div class="course-info">
+                <div class="course-icon-box" style="background: var(--calc-blue);">∑</div>
+                <div>
+                  <div class="text-h3">Calculus II</div>
+                  <div class="text-caption">MATH 122</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="course-grade-large" style="color:var(--calc-blue)">A-</div>
+                <div class="text-caption" style="font-weight:bold">90.1%</div>
+              </div>
+            </div>
+            <div class="text-caption">Next: Problem Set 7 • May 10</div>
+            <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+              <path d="M0,25 C20,25 30,10 50,15 C70,20 80,5 100,2" fill="none" stroke="var(--calc-blue)" stroke-width="2"/>
+            </svg>
+          </div>
+
+          <div class="card course-card" style="border-left-color: var(--psych-green);">
+            <div class="course-card-top">
+              <div class="course-info">
+                <div class="course-icon-box" style="background: var(--psych-green);">Ψ</div>
+                <div>
+                  <div class="text-h3">Intro to Psychology</div>
+                  <div class="text-caption">PSY 101</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="course-grade-large" style="color:var(--psych-green)">B+</div>
+                <div class="text-caption" style="font-weight:bold">87.2%</div>
+              </div>
+            </div>
+            <div class="text-caption">Next: Chapter 6 Quiz • May 8</div>
+            <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+              <path d="M0,20 C30,20 40,25 60,15 C80,5 90,10 100,5" fill="none" stroke="var(--psych-green)" stroke-width="2"/>
+            </svg>
+          </div>
+
+          <div class="card course-card" style="border-left-color: var(--bio-purple);">
+            <div class="course-card-top">
+              <div class="course-info">
+                <div class="course-icon-box" style="background: var(--bio-purple);">DNA</div>
+                <div>
+                  <div class="text-h3">Biology 101</div>
+                  <div class="text-caption">BIO 101</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="course-grade-large" style="color:var(--bio-purple)">A</div>
+                <div class="text-caption" style="font-weight:bold">93.4%</div>
+              </div>
+            </div>
+            <div class="text-caption">Next: Lab Report 4 • May 12</div>
+            <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+              <path d="M0,10 L30,15 L50,5 L80,10 L100,2" fill="none" stroke="var(--bio-purple)" stroke-width="2"/>
+            </svg>
+          </div>
+
+          <div class="card course-card" style="border-left-color: var(--hist-orange);">
+            <div class="course-card-top">
+              <div class="course-info">
+                <div class="course-icon-box" style="background: var(--hist-orange);">🏛</div>
+                <div>
+                  <div class="text-h3">World History</div>
+                  <div class="text-caption">HIST 210</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="course-grade-large" style="color:var(--hist-orange)">B</div>
+                <div class="text-caption" style="font-weight:bold">82.0%</div>
+              </div>
+            </div>
+            <div class="text-caption">Next: Essay 2 • May 15</div>
+            <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+              <path d="M0,5 L20,15 L50,25 L70,15 L100,20" fill="none" stroke="var(--hist-orange)" stroke-width="2"/>
+            </svg>
+          </div>
+
+          <div class="card course-card" style="border-left-color: var(--eng-blue);">
+            <div class="course-card-top">
+              <div class="course-info">
+                <div class="course-icon-box" style="background: var(--eng-blue);">✎</div>
+                <div>
+                  <div class="text-h3">English Comp</div>
+                  <div class="text-caption">ENG 101</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="course-grade-large" style="color:var(--eng-blue)">A-</div>
+                <div class="text-caption" style="font-weight:bold">89.0%</div>
+              </div>
+            </div>
+            <div class="text-caption">Next: Final Draft • May 20</div>
+            <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+              <path d="M0,20 C40,20 50,5 100,10" fill="none" stroke="var(--eng-blue)" stroke-width="2"/>
+            </svg>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 4. Course Detail Screen -->
+      <div id="course-detail-screen" class="app-screen">
+        <div class="cd-header">
+          <div class="cd-nav">
+            <div style="display:flex; align-items:center; cursor:pointer;" onclick="navigateTo('courses-screen')">
+              <svg class="icon" viewBox="0 0 24 24" style="width:20px; margin-right:8px;"><path d="M15 18l-6-6 6-6"></path></svg>
+              <span style="font-size:16px;">Calculus II</span>
+            </div>
+            <div>
+              <svg class="icon" viewBox="0 0 24 24" style="width:20px; margin-right:12px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <svg class="icon" viewBox="0 0 24 24" style="width:20px;"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+            </div>
+          </div>
+          <div style="font-size:14px; opacity:0.8; margin-bottom:8px;">MATH 122</div>
+          <div class="cd-grade-display">
+            <h1>A-</h1>
+            <div>
+              <div style="font-size:24px; font-weight:600;">90.1%</div>
+              <div style="color:var(--psych-green); font-size:12px;">▲ 6.3% since Apr 6</div>
+            </div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none" style="margin-bottom:20px;">
+            <path d="M0,25 C20,25 30,10 50,15 C70,20 80,5 100,2" fill="none" stroke="white" stroke-width="2"/>
+          </svg>
+          <div class="cd-tabs">
+            <div class="cd-tab active">Overview</div>
+            <div class="cd-tab">Assignments</div>
+            <div class="cd-tab">Grades</div>
+            <div class="cd-tab">People</div>
+          </div>
+        </div>
+        
+        <div class="content-area" style="padding-top:0">
+          <div class="card" style="margin-top:20px;">
+            <h2 class="text-h3" style="margin-bottom:12px;">Recent Assignments</h2>
+            <div class="assignment-item">
+              <div>
+                <div class="text-h3" style="font-size:14px;">Midterm Exam</div>
+                <div class="text-caption">May 1</div>
+              </div>
+              <div class="score-badge">92/100</div>
+            </div>
+            <div class="assignment-item">
+              <div>
+                <div class="text-h3" style="font-size:14px;">Problem Set 6</div>
+                <div class="text-caption">Apr 28</div>
+              </div>
+              <div class="score-badge">85/100</div>
+            </div>
+            <div class="assignment-item">
+              <div>
+                <div class="text-h3" style="font-size:14px;">Quiz 4</div>
+                <div class="text-caption">Apr 20</div>
+              </div>
+              <div class="score-badge">88/100</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="text-h3" style="margin-bottom:12px;">Grade Distribution</h2>
+            <div class="bar-chart">
+              <div class="bar" style="height: 10%"><div class="bar-label">F</div></div>
+              <div class="bar" style="height: 15%"><div class="bar-label">D</div></div>
+              <div class="bar" style="height: 30%"><div class="bar-label">C</div></div>
+              <div class="bar" style="height: 50%"><div class="bar-label">B</div></div>
+              <div class="bar highlight" style="height: 80%"><div class="bar-label" style="font-weight:bold; color:var(--text-dark);">You</div></div>
+            </div>
+          </div>
+          
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center;">
+              <svg class="icon" viewBox="0 0 24 24" style="color:var(--brand-gold); margin-right:12px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+              <div class="text-h3">What If? Calculator</div>
+            </div>
+            <svg class="icon" viewBox="0 0 24 24" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. To-Do Screen -->
+      <div id="todo-screen" class="app-screen">
+        <div class="todo-header">
+          <div class="text-h2">Sorted by Due Date ▾</div>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </div>
+        <div class="content-area" style="padding-top:0">
+          <div class="todo-section">
+            <h3 class="text-h3">Due This Week</h3>
+            <div class="card" style="margin:0 0 12px 0;">
+              <div class="todo-item" style="margin-bottom:0;">
+                <div class="todo-dot" style="background:var(--psych-green);"></div>
+                <div style="flex:1;">
+                  <div class="text-h3" style="font-size:14px;">Chapter 6 Quiz</div>
+                  <div class="text-caption">Intro to Psych • May 8</div>
+                </div>
+                <svg class="icon" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+              </div>
+            </div>
+            <div class="card" style="margin:0 0 12px 0;">
+              <div class="todo-item" style="margin-bottom:0;">
+                <div class="todo-dot" style="background:var(--calc-blue);"></div>
+                <div style="flex:1;">
+                  <div class="text-h3" style="font-size:14px;">Problem Set 7</div>
+                  <div class="text-caption">Calculus II • May 10</div>
+                </div>
+                <svg class="icon" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+              </div>
+            </div>
+            <div class="card" style="margin:0 0 12px 0;">
+              <div class="todo-item" style="margin-bottom:0;">
+                <div class="todo-dot" style="background:var(--bio-purple);"></div>
+                <div style="flex:1;">
+                  <div class="text-h3" style="font-size:14px;">Lab Report 4</div>
+                  <div class="text-caption">Biology 101 • May 12</div>
+                </div>
+                <svg class="icon" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+              </div>
+            </div>
+          </div>
+          
+          <div class="todo-section" style="padding-top:0">
+            <h3 class="text-h3">Due Later</h3>
+            <div class="card" style="margin:0 0 12px 0;">
+              <div class="todo-item" style="margin-bottom:0;">
+                <div class="todo-dot" style="background:var(--hist-orange);"></div>
+                <div style="flex:1;">
+                  <div class="text-h3" style="font-size:14px;">Essay 2</div>
+                  <div class="text-caption">World History • May 15</div>
+                </div>
+                <svg class="icon" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+              </div>
+            </div>
+            <div class="card" style="margin:0 0 12px 0;">
+              <div class="todo-item" style="margin-bottom:0;">
+                <div class="todo-dot" style="background:var(--eng-blue);"></div>
+                <div style="flex:1;">
+                  <div class="text-h3" style="font-size:14px;">Final Draft</div>
+                  <div class="text-caption">English Comp • May 20</div>
+                </div>
+                <svg class="icon" style="width:16px; color:#ccc"><path d="M9 18l6-6-6-6"></path></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Calendar Screen -->
+      <div id="calendar-screen" class="app-screen">
+        <div class="cal-header">
+          <div class="text-h2">May 2024 ▾</div>
+          <div class="week-strip">
+            <div class="day-col"><div class="day-name">S</div><div class="day-num">5</div></div>
+            <div class="day-col"><div class="day-name">M</div><div class="day-num active">6</div></div>
+            <div class="day-col"><div class="day-name">T</div><div class="day-num">7</div></div>
+            <div class="day-col"><div class="day-name">W</div><div class="day-num">8</div></div>
+            <div class="day-col"><div class="day-name">T</div><div class="day-num">9</div></div>
+            <div class="day-col"><div class="day-name">F</div><div class="day-num">10</div></div>
+            <div class="day-col"><div class="day-name">S</div><div class="day-num">11</div></div>
+          </div>
+        </div>
+        <div class="content-area timeline" style="padding-top:10px">
+          <div class="time-slot"><div class="time-label">8 AM</div>
+            <div class="event-block" style="top:0; height:60px; background:rgba(16, 185, 129, 0.1); border-left-color:var(--psych-green);">
+              <div class="text-h3" style="font-size:12px; color:var(--psych-green);">Intro to Psych</div>
+              <div class="text-caption">Lecture • Rm 302</div>
+            </div>
+          </div>
+          <div class="time-slot"><div class="time-label">9 AM</div></div>
+          <div class="time-slot"><div class="time-label">10 AM</div>
+            <div class="event-block" style="top:0; height:60px; background:rgba(59, 130, 246, 0.1); border-left-color:var(--calc-blue);">
+              <div class="text-h3" style="font-size:12px; color:var(--calc-blue);">Calculus II</div>
+              <div class="text-caption">Seminar • Math Bldg</div>
+            </div>
+          </div>
+          <div class="time-slot"><div class="time-label">11 AM</div></div>
+          <div class="time-slot"><div class="time-label">12 PM</div>
+            <div class="event-block" style="top:0; height:60px; background:rgba(139, 92, 246, 0.1); border-left-color:var(--bio-purple);">
+              <div class="text-h3" style="font-size:12px; color:var(--bio-purple);">Biology 101</div>
+              <div class="text-caption">Lab • Science 1</div>
+            </div>
+          </div>
+          <div class="time-slot"><div class="time-label">1 PM</div></div>
+          <div class="time-slot"><div class="time-label">2 PM</div>
+            <div class="event-block" style="top:0; height:60px; background:rgba(245, 158, 11, 0.1); border-left-color:var(--hist-orange);">
+              <div class="text-h3" style="font-size:12px; color:var(--hist-orange);">World History</div>
+              <div class="text-caption">Lecture • Hall A</div>
+            </div>
+          </div>
+          <div class="time-slot"><div class="time-label">3 PM</div></div>
+          <div class="time-slot"><div class="time-label">4 PM</div>
+            <div class="event-block" style="top:0; height:60px; background:rgba(14, 165, 233, 0.1); border-left-color:var(--eng-blue);">
+              <div class="text-h3" style="font-size:12px; color:var(--eng-blue);">English Comp</div>
+              <div class="text-caption">Workshop • Rm 102</div>
+            </div>
+          </div>
+        </div>
+        <div class="fab">
+          <svg class="icon" style="color:white; width:28px;" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
+        </div>
+      </div>
+
+      <!-- 7. Insights/More Screen -->
+      <div id="more-screen" class="app-screen">
+        <div class="dark-header dark-header-content" style="display:flex; justify-content:space-between; align-items:center;">
+          <h1 class="text-h1">Insights</h1>
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+        </div>
+        <div class="content-area" style="padding-top:0">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+              <h2 class="text-h3">Performance Trend</h2>
+              <span class="text-caption">3 Months ▾</span>
+            </div>
+            <svg viewBox="0 0 300 100" style="width:100%; height:100px;">
+              <!-- Simple line chart -->
+              <path d="M 0 80 Q 50 60, 100 70 T 200 40 T 300 20" fill="none" stroke="var(--calc-blue)" stroke-width="3"/>
+              <circle cx="300" cy="20" r="4" fill="var(--calc-blue)" />
+              <text x="270" y="10" font-size="10" fill="var(--calc-blue)">87.2%</text>
+              <text x="0" y="95" font-size="10" fill="var(--text-gray)">FEB</text>
+              <text x="100" y="95" font-size="10" fill="var(--text-gray)">MAR</text>
+              <text x="200" y="95" font-size="10" fill="var(--text-gray)">APR</text>
+              <text x="280" y="95" font-size="10" fill="var(--text-gray)">MAY</text>
+            </svg>
+          </div>
+
+          <div class="card">
+            <h2 class="text-h3" style="margin-bottom:16px;">Category Breakdown</h2>
+            <div style="display:flex; align-items:center;">
+              <div style="flex:1;">
+                <svg class="donut-chart" viewBox="0 0 100 100">
+                  <!-- simplified donut -->
+                  <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--primary-dark)" stroke-width="20" stroke-dasharray="251.2" stroke-dashoffset="0"></circle>
+                  <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--calc-blue)" stroke-width="20" stroke-dasharray="251.2" stroke-dashoffset="75.36"></circle>
+                  <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--psych-green)" stroke-width="20" stroke-dasharray="251.2" stroke-dashoffset="175.84"></circle>
+                  <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--bio-purple)" stroke-width="20" stroke-dasharray="251.2" stroke-dashoffset="226.08"></circle>
+                </svg>
+              </div>
+              <div style="flex:1;">
+                <div class="legend-item"><div class="legend-color" style="background:var(--calc-blue);"></div> Assignments 40%</div>
+                <div class="legend-item"><div class="legend-color" style="background:var(--primary-dark);"></div> Exams 30%</div>
+                <div class="legend-item"><div class="legend-color" style="background:var(--psych-green);"></div> Quizzes 20%</div>
+                <div class="legend-item"><div class="legend-color" style="background:var(--bio-purple);"></div> Discussions 10%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="display:flex; align-items:center;">
+            <div style="font-size:32px; margin-right:16px;">🔥</div>
+            <div>
+              <div class="text-h3">Study Streak</div>
+              <div style="color:var(--hist-orange); font-weight:bold;">12 days</div>
+              <div class="text-caption">Keep it up!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Tab Bar -->
+      <div class="tab-bar" id="tab-bar" style="display:none;">
+        <div class="tab-item active" onclick="navigateTo('dashboard-screen')" id="tab-dashboard-screen">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          Dashboard
+        </div>
+        <div class="tab-item" onclick="navigateTo('courses-screen')" id="tab-courses-screen">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          Courses
+        </div>
+        <div class="tab-item" onclick="navigateTo('calendar-screen')" id="tab-calendar-screen">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          Calendar
+        </div>
+        <div class="tab-item" onclick="navigateTo('todo-screen')" id="tab-todo-screen">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          To Do
+        </div>
+        <div class="tab-item" onclick="navigateTo('more-screen')" id="tab-more-screen">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+          More
+        </div>
+      </div>
+      
+      <div class="home-indicator"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function navigateTo(screenId) {
+    // Hide all screens
+    document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
+    // Show target screen
+    document.getElementById(screenId).classList.add('active');
+    
+    // Toggle Tab Bar
+    const tabBar = document.getElementById('tab-bar');
+    if (screenId === 'login-screen' || screenId === 'course-detail-screen') {
+      tabBar.style.display = 'none';
+    } else {
+      tabBar.style.display = 'flex';
+      // Update active tab
+      document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+      const activeTab = document.getElementById('tab-' + screenId);
+      if (activeTab) activeTab.classList.add('active');
+    }
+  }
+
+  // Interactive Tab Bar logic for Course Detail
+  document.querySelectorAll('.cd-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      document.querySelectorAll('.cd-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
