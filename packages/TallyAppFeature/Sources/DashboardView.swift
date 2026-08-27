@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyData
 
 public struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -30,6 +31,9 @@ public struct DashboardView: View {
                     }
                     .padding(.horizontal)
                 }
+                .refreshable {
+                    await RefreshOrchestrator.shared.refreshAll()
+                }
             }
             .navigationBarHidden(true)
         }
@@ -38,10 +42,11 @@ public struct DashboardView: View {
     private var headerView: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Tally")
-                    .font(.custom("Georgia", size: 28))
-                    .foregroundColor(Color.Tally.brandGold)
-                    .fontWeight(.bold)
+                Image("TallyLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 32)
+                    .padding(.bottom, 4)
                 Text("Good morning, Alex 👋")
                     .font(.Tally.title2)
                     .foregroundColor(Color.Tally.cardBackground)

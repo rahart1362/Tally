@@ -20,20 +20,15 @@ public struct BiometricLockView: View {
                 Spacer()
                 
                 // Tally branding
-                Text("T")
-                    .font(.custom("Georgia", size: 60))
-                    .fontWeight(.bold)
-                    .foregroundColor(Color.Tally.brandGold)
+                Image("TallyEmblem")
+                    .resizable()
+                    .scaledToFit()
                     .frame(width: 100, height: 100)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color.white.opacity(0.1))
-                    )
                 
-                Text("Tally")
-                    .font(.custom("Georgia", size: 34))
-                    .fontWeight(.bold)
-                    .foregroundColor(Color.Tally.brandGold)
+                Image("TallyLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 40)
                 
                 Text("Locked")
                     .font(.Tally.headline)
