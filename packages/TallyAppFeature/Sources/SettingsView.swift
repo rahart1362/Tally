@@ -149,6 +149,8 @@ public struct SettingsView: View {
     // MARK: - Integrations Section
     
     @State private var syncCalendar: Bool = true
+    @State private var syncMS365: Bool = false
+    @State private var syncGoogle: Bool = false
     @State private var pushNotifications: Bool = true
     
     private var integrationsSection: some View {
@@ -160,7 +162,7 @@ public struct SettingsView: View {
                 settingsRow(icon: "clock.arrow.circlepath", iconColor: Color.Tally.biologyPurple, title: "Background Sync", detail: "Optimized (Every 6h)")
                 Divider().padding(.leading, 64)
                 
-                // Calendar Sync Toggle
+                // Calendar Sync Toggle (Apple)
                 HStack(spacing: 16) {
                     Image(systemName: "calendar.badge.plus")
                         .font(.system(size: 22))
@@ -177,6 +179,52 @@ public struct SettingsView: View {
                     }
                     Spacer()
                     Toggle("", isOn: $syncCalendar)
+                        .tint(Color.Tally.psychologyGreen)
+                        .labelsHidden()
+                }
+                .padding(16)
+                Divider().padding(.leading, 64)
+                
+                // Calendar Sync Toggle (MS365)
+                HStack(spacing: 16) {
+                    Image(systemName: "envelope.badge")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color.Tally.calculusBlue)
+                        .frame(width: 32)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Microsoft 365")
+                            .font(.Tally.headline)
+                            .foregroundColor(Color.Tally.textPrimary)
+                        Text("Sync to Outlook / School Account")
+                            .font(.Tally.caption)
+                            .foregroundColor(Color.Tally.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $syncMS365)
+                        .tint(Color.Tally.psychologyGreen)
+                        .labelsHidden()
+                }
+                .padding(16)
+                Divider().padding(.leading, 64)
+                
+                // Calendar Sync Toggle (Google)
+                HStack(spacing: 16) {
+                    Image(systemName: "g.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color.Tally.historyOrange)
+                        .frame(width: 32)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Google Workspace")
+                            .font(.Tally.headline)
+                            .foregroundColor(Color.Tally.textPrimary)
+                        Text("Sync to Google Calendar")
+                            .font(.Tally.caption)
+                            .foregroundColor(Color.Tally.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $syncGoogle)
                         .tint(Color.Tally.psychologyGreen)
                         .labelsHidden()
                 }
