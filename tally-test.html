@@ -202,7 +202,8 @@
     width: 100%;
     height: 85px;
     background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     display: flex;
     justify-content: space-around;
     padding: 10px 10px 25px 10px;
@@ -406,6 +407,16 @@
     <div class="screen-container">
       <div class="dynamic-island"></div>
       
+            <!-- 0. Biometric Lock Screen -->
+      <div id="lock-screen" class="app-screen" style="z-index: 2000; background: rgba(13, 27, 42, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: white; justify-content: center; align-items: center;">
+        <div style="margin-bottom: 20px;">
+          <h1 style="font-family: Georgia, serif; font-size: 32px; color: #FFFDD0; -webkit-text-stroke: 1px #E5B75A;">TALLY</h1>
+        </div>
+        <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Locked</h2>
+        <p style="color: #9CA3AF; margin-bottom: 40px; font-size: 14px;">Verify it's you to continue.</p>
+        <svg class="icon" style="width: 48px; height: 48px; color: #3B82F6; margin-bottom: 40px;" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"></path><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path></svg>
+        <button style="background: transparent; color: #3B82F6; border: none; font-size: 16px; font-weight: 600; cursor: pointer;" onclick="unlockApp()">Unlock with Face ID</button>
+      </div>
       <!-- 1. Login Screen -->
             <div id="login-screen" class="app-screen active">
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 40px;">
@@ -420,6 +431,10 @@
           <div class="dash-header">
             <div>
               <div class="dash-date">Monday, May 6</div>
+          <div id="stale-banner" style="background: rgba(239, 68, 68, 0.1); color: var(--alert-red); padding: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; display: none;">
+            <svg class="icon" style="width: 16px; height: 16px; margin-right: 8px;" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01"></path></svg>
+            Viewing offline/stale data. Pull to refresh.
+          </div>
               <div class="dash-greeting">Good morning, Alex 👋</div>
             </div>
             <div style="position:relative">
@@ -912,6 +927,23 @@
 </div>
 
 <script>
+    function unlockApp() {
+    document.getElementById('lock-screen').classList.remove('active');
+    document.getElementById('dashboard-screen').classList.add('active');
+    document.querySelector('.tab-bar').style.display = 'flex';
+  }
+  
+  function logoutApp() {
+    document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
+    document.getElementById('login-screen').classList.add('active');
+    document.querySelector('.tab-bar').style.display = 'none';
+  }
+  
+  // Simulate pull to refresh failed
+  setTimeout(() => {
+    const banner = document.getElementById('stale-banner');
+    if(banner) banner.style.display = 'flex';
+  }, 10000);
   function navigateTo(screenId) {
     // Hide all screens
     document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
@@ -941,6 +973,9 @@
 </script>
 </body>
 </html>
+
+
+
 
 
 
