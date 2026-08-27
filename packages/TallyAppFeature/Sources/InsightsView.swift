@@ -30,6 +30,9 @@ public struct InsightsView: View {
                             categoryBreakdownCard
                             studyStreakCard
                         }
+                        
+                        atRiskCard
+                        workloadCard
                     }
                     .padding()
                 }
@@ -155,6 +158,44 @@ public struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .tallyCardStyle()
+    }
+    
+    private var atRiskCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(Color.Tally.alertRed)
+                Text("At Risk Courses")
+                    .font(.Tally.headline)
+            }
+            
+            ForEach(viewModel.atRiskCourses, id: \.self) { course in
+                Text(course)
+                    .font(.Tally.subheadline)
+                    .foregroundColor(Color.Tally.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tallyCardStyle()
+    }
+    
+    private var workloadCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .foregroundColor(Color.Tally.historyOrange)
+                Text("Heavy Workload Coming Up")
+                    .font(.Tally.headline)
+            }
+            
+            ForEach(viewModel.heavyWorkloadWeeks, id: \.self) { week in
+                Text(week)
+                    .font(.Tally.subheadline)
+                    .foregroundColor(Color.Tally.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .tallyCardStyle()
     }
 }

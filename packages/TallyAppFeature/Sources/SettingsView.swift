@@ -21,6 +21,7 @@ public struct SettingsView: View {
                 ScrollView {
                     LazyVStack(spacing: 20) {
                         securitySection
+                        integrationsSection
                         accountSection
                         aboutSection
                     }
@@ -145,6 +146,71 @@ public struct SettingsView: View {
         }
     }
     
+    // MARK: - Integrations Section
+    
+    @State private var syncCalendar: Bool = true
+    @State private var pushNotifications: Bool = true
+    
+    private var integrationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(title: "Integrations & Sync", icon: "arrow.triangle.2.circlepath")
+            
+            VStack(spacing: 0) {
+                // Background Sync
+                settingsRow(icon: "clock.arrow.circlepath", iconColor: Color.Tally.biologyPurple, title: "Background Sync", detail: "Optimized (Every 6h)")
+                Divider().padding(.leading, 64)
+                
+                // Calendar Sync Toggle
+                HStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color.Tally.alertRed)
+                        .frame(width: 32)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Apple Calendar")
+                            .font(.Tally.headline)
+                            .foregroundColor(Color.Tally.textPrimary)
+                        Text("Sync courses & exams to iOS Calendar")
+                            .font(.Tally.caption)
+                            .foregroundColor(Color.Tally.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $syncCalendar)
+                        .tint(Color.Tally.psychologyGreen)
+                        .labelsHidden()
+                }
+                .padding(16)
+                Divider().padding(.leading, 64)
+                
+                // Notifications Toggle
+                HStack(spacing: 16) {
+                    Image(systemName: "bell.badge")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color.Tally.historyOrange)
+                        .frame(width: 32)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reminders")
+                            .font(.Tally.headline)
+                            .foregroundColor(Color.Tally.textPrimary)
+                        Text("Push notifications 24h before due dates")
+                            .font(.Tally.caption)
+                            .foregroundColor(Color.Tally.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $pushNotifications)
+                        .tint(Color.Tally.psychologyGreen)
+                        .labelsHidden()
+                }
+                .padding(16)
+            }
+            .background(Color.Tally.cardBackground)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        }
+    }
+    
     // MARK: - Account Section
     
     private var accountSection: some View {
@@ -153,8 +219,6 @@ public struct SettingsView: View {
             
             VStack(spacing: 0) {
                 settingsRow(icon: "building.columns", iconColor: Color.Tally.calculusBlue, title: "Institution", detail: "Canvas LMS")
-                Divider().padding(.leading, 64)
-                settingsRow(icon: "arrow.triangle.2.circlepath", iconColor: Color.Tally.historyOrange, title: "Sync Frequency", detail: "Every 10s")
                 Divider().padding(.leading, 64)
                 Button(action: {
                     print("Clear Cache tapped")
