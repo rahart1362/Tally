@@ -13,11 +13,14 @@ jobs:
       - name: Install dependencies
         run: brew install xcodegen
       - name: Generate Xcode Project
-        run: xcodegen -s apps/TallyiOS/project.yml
+        run: |
+          cd apps/TallyiOS
+          xcodegen -s project.yml
       - name: Build Unsigned App
         run: |
+          cd apps/TallyiOS
           xcodebuild clean build \
-            -project apps/TallyiOS/TallyApp.xcodeproj \
+            -project TallyApp.xcodeproj \
             -scheme TallyApp \
             -sdk iphoneos \
             -configuration Debug \
@@ -27,6 +30,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
       - name: Package IPA
         run: |
+          cd apps/TallyiOS
           mkdir -p Payload
           cp -r build/Build/Products/Debug-iphoneos/TallyApp.app Payload/
           zip -r TallyApp.ipa Payload
@@ -34,5 +38,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TallyApp-Unsigned-IPA
-          path: TallyApp.ipa
+          path: apps/TallyiOS/TallyApp.ipa
 
