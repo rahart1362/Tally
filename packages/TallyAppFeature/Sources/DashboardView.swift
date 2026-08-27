@@ -4,12 +4,25 @@ import TallyData
 
 public struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
+    @ObservedObject private var orchestrator = RefreshOrchestrator.shared
     
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
+                if orchestrator.isShowingStaleData {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("Viewing offline/stale data. Pull to refresh.")
+                    }
+                    .font(.Tally.caption)
+                    .foregroundColor(Color.Tally.alertRed)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.Tally.alertRed.opacity(0.1))
+                }
+                
                 LazyVStack(spacing: 24) {
                     headerView
                     
@@ -33,7 +46,7 @@ public struct DashboardView: View {
             .refreshable {
                 await RefreshOrchestrator.shared.refreshAll()
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
     
@@ -53,14 +66,22 @@ public struct DashboardView: View {
                     .foregroundColor(Color.Tally.cardBackground.opacity(0.7))
             }
             Spacer()
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "bell")
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.Tally.cardBackground)
-                Circle()
-                    .fill(Color.Tally.alertRed)
-                    .frame(width: 10, height: 10)
-                    .offset(x: -2, y: 2)
+            HStack(spacing: 20) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "bell")
+                        .font(.system(size: 24))
+                        .foregroundColor(Color.Tally.cardBackground)
+                    Circle()
+                        .fill(Color.Tally.alertRed)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 2, y: -2)
+                }
+                
+                NavigationLink(destination: SettingsView()) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 24))
+                        .foregroundColor(Color.Tally.cardBackground)
+                }
             }
         }
         .padding(.top, 20)
@@ -162,33 +183,36 @@ public struct DashboardView: View {
             
             VStack(spacing: 0) {
                 ForEach(viewModel.schedule) { item in
-                    HStack(alignment: .top, spacing: 16) {
-                        Text(item.time)
-                            .font(.Tally.subheadline)
-                            .foregroundColor(Color.Tally.textSecondary)
-                            .frame(width: 70, alignment: .trailing)
-                        
-                        ZStack(alignment: .top) {
-                            Rectangle()
-                                .fill(item.color.opacity(0.3))
-                                .frame(width: 2)
-                            Circle()
-                                .fill(item.color)
-                                .frame(width: 10, height: 10)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.courseName)
-                                .font(.Tally.headline)
-                                .foregroundColor(Color.Tally.textPrimary)
-                            Text("\(item.type) • \(item.location)")
-                                .font(.Tally.caption)
+                    NavigationLink(destination: CourseDetailView(course: CourseItem(name: item.courseName, code: "C101", icon: "book", color: item.color, gradeLetter: "A", percentage: 95.0, nextAssignment: "None", dueDate: "TBD"))) {
+                        HStack(alignment: .top, spacing: 16) {
+                            Text(item.time)
+                                .font(.Tally.subheadline)
                                 .foregroundColor(Color.Tally.textSecondary)
+                                .frame(width: 70, alignment: .trailing)
+                            
+                            ZStack(alignment: .top) {
+                                Rectangle()
+                                    .fill(item.color.opacity(0.3))
+                                    .frame(width: 2)
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 10, height: 10)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.courseName)
+                                    .font(.Tally.headline)
+                                    .foregroundColor(Color.Tally.textPrimary)
+                                Text("\(item.type) • \(item.location)")
+                                    .font(.Tally.caption)
+                                    .foregroundColor(Color.Tally.textSecondary)
+                            }
+                            .padding(.bottom, 24)
+                            
+                            Spacer()
                         }
-                        .padding(.bottom, 24)
-                        
-                        Spacer()
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .padding(.top, 8)
@@ -199,3 +223,4 @@ public struct DashboardView: View {
 public extension Font.Tally {
     static let subheadline = Font.system(.subheadline, weight: .regular)
 }
+

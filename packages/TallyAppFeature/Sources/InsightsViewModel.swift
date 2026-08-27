@@ -20,3 +20,4 @@ public class InsightsViewModel: ObservableObject {
         self.isLoading = false
     }
 }
+

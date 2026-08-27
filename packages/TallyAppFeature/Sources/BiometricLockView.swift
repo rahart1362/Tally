@@ -13,8 +13,10 @@ public struct BiometricLockView: View {
     public var body: some View {
         ZStack {
             // Dark blurred background
-            Color.Tally.navyBackground
+            Rectangle()
+                .fill(.ultraThinMaterial)
                 .ignoresSafeArea()
+                .background(Color.Tally.navyBackground.opacity(0.6).ignoresSafeArea())
             
             VStack(spacing: 32) {
                 Spacer()
@@ -80,3 +82,4 @@ public struct BiometricLockView: View {
         }
     }
 }
+

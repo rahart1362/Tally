@@ -7,7 +7,7 @@ public struct TodoView: View {
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 headerView
                 
@@ -29,7 +29,7 @@ public struct TodoView: View {
                 }
                 .ignoresSafeArea()
             )
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
     
@@ -95,3 +95,4 @@ public struct TodoView: View {
         }
     }
 }
+

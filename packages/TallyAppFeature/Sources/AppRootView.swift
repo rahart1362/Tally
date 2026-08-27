@@ -5,7 +5,7 @@ import TallyData
 public struct AppRootView: View {
     @ObservedObject private var biometricManager = BiometricAuthManager.shared
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isLoggedIn: Bool = false
+    @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     
     public init() {
         // Register background task early
@@ -39,7 +39,9 @@ public struct AppRootView: View {
             switch newPhase {
             case .background:
                 // Lock the app when it goes to background (if biometric is enabled)
-                biometricManager.lockIfEnabled()
+                if isLoggedIn {
+                    biometricManager.lockIfEnabled()
+                }
                 // Schedule next background refresh based on battery/6h policy
                 BackgroundSyncManager.shared.scheduleNextRefresh()
             case .active:
@@ -66,3 +68,4 @@ public struct AppRootView: View {
         }
     }
 }
+

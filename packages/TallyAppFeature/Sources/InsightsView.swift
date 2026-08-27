@@ -7,7 +7,7 @@ public struct InsightsView: View {
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 HStack {
                     Text("Insights")
@@ -43,7 +43,7 @@ public struct InsightsView: View {
                 }
                 .ignoresSafeArea()
             )
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
     
@@ -158,3 +158,4 @@ public struct InsightsView: View {
         .tallyCardStyle()
     }
 }
+

@@ -7,7 +7,7 @@ public struct CoursesView: View {
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 headerView
                 
@@ -32,7 +32,7 @@ public struct CoursesView: View {
                 }
                 .ignoresSafeArea()
             )
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
     
@@ -132,3 +132,4 @@ struct LazyView<Content: View>: View {
         build()
     }
 }
+

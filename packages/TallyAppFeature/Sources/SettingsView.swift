@@ -9,7 +9,7 @@ public struct SettingsView: View {
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 Text("Settings")
@@ -36,7 +36,7 @@ public struct SettingsView: View {
                 }
                 .ignoresSafeArea()
             )
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .alert("Authentication Failed", isPresented: $showingBiometricError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -156,9 +156,23 @@ public struct SettingsView: View {
                 Divider().padding(.leading, 64)
                 settingsRow(icon: "arrow.triangle.2.circlepath", iconColor: Color.Tally.historyOrange, title: "Sync Frequency", detail: "Every 10s")
                 Divider().padding(.leading, 64)
-                settingsRow(icon: "trash", iconColor: Color.Tally.alertRed, title: "Clear Cache", detail: nil, isDestructive: true)
+                Button(action: {
+                    print("Clear Cache tapped")
+                }) {
+                    settingsRow(icon: "trash", iconColor: Color.Tally.alertRed, title: "Clear Cache", detail: nil, isDestructive: true)
+                }
                 Divider().padding(.leading, 64)
-                settingsRow(icon: "rectangle.portrait.and.arrow.right", iconColor: Color.Tally.alertRed, title: "Sign Out", detail: nil, isDestructive: true)
+                Button(action: {
+                    do {
+                        try KeychainManager.shared.delete(account: "canvas")
+                        BiometricAuthManager.shared.disableBiometric()
+                        UserDefaults.standard.set(false, forKey: "isLoggedIn")
+                    } catch {
+                        print("Failed to sign out: \(error)")
+                    }
+                }) {
+                    settingsRow(icon: "rectangle.portrait.and.arrow.right", iconColor: Color.Tally.alertRed, title: "Sign Out", detail: nil, isDestructive: true)
+                }
             }
             .background(Color.Tally.cardBackground)
             .cornerRadius(12)
@@ -221,3 +235,4 @@ public struct SettingsView: View {
         .padding(16)
     }
 }
+

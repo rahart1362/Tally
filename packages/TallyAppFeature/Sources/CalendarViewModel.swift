@@ -32,3 +32,4 @@ public class CalendarViewModel: ObservableObject {
         self.isLoading = false
     }
 }
+

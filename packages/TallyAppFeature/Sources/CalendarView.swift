@@ -7,7 +7,7 @@ public struct CalendarView: View {
     public init() {}
     
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
                     headerView
@@ -34,8 +34,9 @@ public struct CalendarView: View {
                         .shadow(radius: 4, y: 4)
                 }
                 .padding()
+                .padding(.bottom, 20)
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .background(Color.Tally.lightGrayBg.ignoresSafeArea())
         }
     }
@@ -141,3 +142,4 @@ public struct CalendarView: View {
         }
     }
 }
+

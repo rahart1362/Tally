@@ -36,7 +36,7 @@ public struct CourseDetailView: View {
             }
             .ignoresSafeArea()
         )
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
     
     private var headerView: some View {
@@ -187,3 +187,4 @@ public struct CourseDetailView: View {
         .tallyCardStyle()
     }
 }
+

@@ -30,3 +30,4 @@ public class CourseDetailViewModel: ObservableObject {
         self.isLoading = false
     }
 }
+

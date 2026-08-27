@@ -36,6 +36,13 @@ public struct MainTabView: View {
                     Text("More")
                 }
         }
-        .accentColor(Color.Tally.navyBackground)
+        .tint(Color.Tally.navyBackground)
+        .onAppear {
+            let appearance = UITabBarAppearance()
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
     }
 }
