@@ -1,12 +1,16 @@
 import SwiftUI
 import TallySecurity
+import TallyData
 
 public struct AppRootView: View {
     @ObservedObject private var biometricManager = BiometricAuthManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var isLoggedIn: Bool = false
     
-    public init() {}
+    public init() {
+        // Register background task early
+        BackgroundSyncManager.shared.registerTask()
+    }
     
     public var body: some View {
         ZStack {
@@ -25,6 +29,9 @@ public struct AppRootView: View {
         }
         .onAppear {
             isLoggedIn = KeychainManager.shared.hasToken(forAccount: "canvas")
+            if isLoggedIn {
+                forceRefresh()
+            }
         }
         .animation(.easeInOut(duration: 0.3), value: biometricManager.isLocked)
         .animation(.easeInOut(duration: 0.3), value: isLoggedIn)
@@ -33,12 +40,29 @@ public struct AppRootView: View {
             case .background:
                 // Lock the app when it goes to background (if biometric is enabled)
                 biometricManager.lockIfEnabled()
+                // Schedule next background refresh based on battery/6h policy
+                BackgroundSyncManager.shared.scheduleNextRefresh()
             case .active:
                 // Refresh biometric availability when returning to foreground
                 biometricManager.checkBiometricAvailability()
+                // Force an on-demand refresh when launching/foregrounding
+                if isLoggedIn {
+                    forceRefresh()
+                }
             default:
                 break
             }
+        }
+        .onChange(of: isLoggedIn) { loggedIn in
+            if loggedIn {
+                forceRefresh()
+            }
+        }
+    }
+    
+    private func forceRefresh() {
+        Task {
+            await RefreshOrchestrator.shared.refreshAll()
         }
     }
 }

@@ -16,5 +16,13 @@
     <string>Tally uses Face ID to protect your academic data when you open the app.</string>
     <key>NSCalendarsWriteOnlyAccessUsageDescription</key>
     <string>Tally needs access to your calendar to sync assignment due dates and class schedules.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+    </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.tally.app.refresh</string>
+    </array>
 </dict>
 </plist>
