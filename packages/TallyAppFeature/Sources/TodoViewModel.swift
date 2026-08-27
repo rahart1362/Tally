@@ -19,6 +19,10 @@ public class TodoViewModel: ObservableObject {
         TodoItem(taskName: "Lab Report", courseName: "Biology 101", dueDate: "Friday, 5:00 PM", color: Color.Tally.biologyPurple)
     ]
     
+    @Published public var missing: [TodoItem] = [
+        TodoItem(taskName: "Week 3 Quiz", courseName: "Psychology 101", dueDate: "Past Due", color: Color.Tally.psychologyGreen)
+    ]
+    
     @Published public var dueLater: [TodoItem] = [
         TodoItem(taskName: "Essay Draft", courseName: "World History", dueDate: "Oct 20, 11:59 PM", color: Color.Tally.historyOrange),
         TodoItem(taskName: "Peer Review", courseName: "English Composition", dueDate: "Oct 22, 11:59 PM", color: Color.Tally.englishBlue)
