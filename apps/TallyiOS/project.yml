@@ -1,6 +1,5 @@
 name: TallyApp
 options:
-  bundleIdPrefix: com.tally
   xcodeVersion: "15.4"
 targets:
   TallyApp:
@@ -10,6 +9,10 @@ targets:
     sources:
       - path: TallyApp
     infoPlist: TallyApp/Info.plist
+    # App identity (bundle ID, team, domain) lives ONLY in this file. GO-LIVE blocker GL-02.
+    configFiles:
+      Debug: Config/Identity.xcconfig
+      Release: Config/Identity.xcconfig
     dependencies:
       - package: TallyPackages
         product: TallyAppFeature

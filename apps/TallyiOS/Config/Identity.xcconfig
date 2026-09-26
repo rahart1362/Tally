@@ -1,0 +1,26 @@
+// =============================================================================
+// Tally app identity: the SINGLE place to set the domain, bundle ID and team.
+//
+// GO-LIVE BLOCKER GL-02 (docs/GO-LIVE.md). Every line tagged as a go-live
+// placeholder must be replaced before the first TestFlight upload. The bundle ID becomes
+// permanent after that upload. List what remains with:
+//     scripts/go-live/find-placeholders.sh
+//
+// Note: in .xcconfig files "//" starts a comment, so full URLs are NOT stored
+// here. The app builds https://$(TALLY_ORG_DOMAIN)/... at runtime from the
+// TallyOrgDomain Info.plist key.
+// =============================================================================
+
+// Your registered domain. It hosts the privacy policy, the support page and the
+// OAuth universal-link callback (apple-app-site-association).
+TALLY_ORG_DOMAIN = tally.example.com // GO-LIVE-PLACEHOLDER
+
+// Reverse-DNS form of the same domain, e.g. com.yourdomain
+TALLY_BUNDLE_ID_PREFIX = com.example // GO-LIVE-PLACEHOLDER
+
+// Your 10-character Apple Developer Team ID (App Store Connect > Membership).
+DEVELOPMENT_TEAM = // GO-LIVE-PLACEHOLDER
+
+// Derived. Do not edit; these follow from the values above.
+PRODUCT_BUNDLE_IDENTIFIER = $(TALLY_BUNDLE_ID_PREFIX).tally
+TALLY_APP_GROUP_ID = group.$(PRODUCT_BUNDLE_IDENTIFIER)
