@@ -1,42 +1,87 @@
 name: CI
 on:
+  pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+
 permissions:
   contents: read
-  actions: write
-jobs:
-  build-and-package:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: brew install xcodegen
-      - name: Generate Xcode Project
-        run: |
-          cd apps/TallyiOS
-          xcodegen -s project.yml
-      - name: Build Unsigned App
-        run: |
-          cd apps/TallyiOS
-          xcodebuild clean build \
-            -project TallyApp.xcodeproj \
-            -scheme TallyApp \
-            -sdk iphoneos \
-            -configuration Debug \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Package IPA
-        run: |
-          cd apps/TallyiOS
-          mkdir -p Payload
-          cp -r build/Build/Products/Debug-iphoneos/TallyApp.app Payload/
-          zip -r TallyApp.ipa Payload
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TallyApp-Unsigned-IPA
-          path: apps/TallyiOS/TallyApp.ipa
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app # App Store uploads require Xcode 26+ since 2026-04-28
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  hygiene:
+    name: Hygiene gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: App icon is 1024x1024 with no alpha
+        run: |
+          info="$(file apps/TallyiOS/TallyApp/Assets.xcassets/AppIcon.appiconset/Icon-1024.png)"
+          echo "$info"
+          echo "$info" | grep -q "1024 x 1024, 8-bit/color RGB,"
+      - name: No fabricated calendar or notification writes (PMO R12)
+        run: |
+          ! grep -rnE "Calculus III Midterm|simulated_exam_alert|simulated_event_1" packages apps
+      - name: Go-live placeholders (report only; the release gate enforces)
+        run: scripts/go-live/find-placeholders.sh || echo "::notice::Go-live placeholders remain (expected before go-live, see docs/GO-LIVE.md GL-02)"
+
+  ios-build:
+    name: iOS build (Xcode 26.6)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Build for iOS Simulator (Debug)
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild build -project TallyApp.xcodeproj -scheme TallyApp \
+            -destination 'generic/platform=iOS Simulator' -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/dd" | tee "$RUNNER_TEMP/build-sim.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-sim.log"
+      - name: Build for iOS device (Release, unsigned)
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild build -project TallyApp.xcodeproj -scheme TallyApp \
+            -destination 'generic/platform=iOS' -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO \
+            | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-device.log"
+      - name: Verify built app identity
+        run: |
+          app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :TallyOrgDomain" "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :TallyAppGroupID" "$app/Info.plist"
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-logs
+          path: ${{ runner.temp }}/build-*.log
+          retention-days: 7

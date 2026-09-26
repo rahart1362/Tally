@@ -128,15 +128,14 @@ public struct SettingsView: View {
                         Text("Data Protection")
                             .font(.Tally.headline)
                             .foregroundColor(Color.Tally.textPrimary)
-                        Text("All cached data is encrypted at rest")
+                        // LEGACY (M0): the previous "encrypted at rest" claim was false.
+                        // Accurate copy returns with encryption WP-ENC-08.
+                        Text("Encrypted cache is in development")
                             .font(.Tally.caption)
                             .foregroundColor(Color.Tally.textSecondary)
                     }
-                    
+
                     Spacer()
-                    
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Color.Tally.psychologyGreen)
                 }
                 .padding(16)
             }

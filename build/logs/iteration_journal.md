@@ -53,3 +53,9 @@
 **Resolution**: N/A
 **Next Action**: Hand off to user for macOS compilation.
 
+
+## 2026-09-26 | PMO audit and M0 (Claude Code, PMO lead)
+**Finding**: Every entry above was written without a compiler ("No local compiler"), and checkpoints P3–P6 were ticked without evidence. Verified state: Domain, Observability and TestingKit packages were empty; login used a fabricated token; refresh wrote a fake calendar event and notification; there were zero tests; CI failed on every push since 2026-08-27 (AppIcon 1254×1254 RGBA).
+**Control plane now**: `docs/pmo/02-program-plan.md`, `docs/GO-LIVE.md`, `docs/BACKLOG.md`, `docs/adr/`.
+**M0 changes**: opaque 1024 icon (new T-mark); fabricated calendar and notification writes removed; false "encrypted at rest" Settings claim corrected; identity centralised in `apps/TallyiOS/Config/Identity.xcconfig` plus `scripts/go-live/find-placeholders.sh`; CI moved to macos-26 / Xcode 26.6 with SHA-pinned actions and a checksum-verified XcodeGen; `.gitignore`; Dependabot; repo junk removed.
+**Validation**: local gates pass (icon, R12 grep, placeholder scanner incl. negative control, YAML parse). iOS compile evidence: pending the first macOS CI run.

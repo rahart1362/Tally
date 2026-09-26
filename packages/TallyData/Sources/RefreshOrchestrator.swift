@@ -1,7 +1,5 @@
 import Foundation
 import TallyCache
-import TallyNotifications
-import TallyCalendarSync
 
 public class RefreshOrchestrator: ObservableObject {
     public static let shared = RefreshOrchestrator()
@@ -14,8 +12,8 @@ public class RefreshOrchestrator: ObservableObject {
     
     public init() {}
     
-    /// Simulates a background pull from Canvas, saving data to the cache,
-    /// and triggering local notifications/calendar sync.
+    /// Legacy stand-in for the refresh path: toggles refresh state only.
+    /// It fetches nothing and writes nothing (see PMO ruling R12).
     public func refreshAll() async {
         await MainActor.run {
             self.isRefreshing = true
@@ -34,30 +32,13 @@ public class RefreshOrchestrator: ObservableObject {
         }
         
         do {
-            // Simulate network delay
+            // LEGACY PLACEHOLDER (M0): there is still no Canvas call here; it is
+            // replaced by TallyCore's RefreshCoordinator in M1/M2. The fabricated
+            // calendar event and exam notification that used to be written to
+            // the user's real Calendar and notification centre were removed
+            // (PMO ruling R12, data-integrity defect).
             try await Task.sleep(nanoseconds: 1_500_000_000)
-            
-            // In a real app, this would call CanvasAPIClient and decode DTOs.
-            // For now, we simulate success and update the sync integrations.
-            
-            // Sync calendar event (simulated)
-            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
-            CalendarSyncManager.shared.syncEvent(
-                id: "simulated_event_1",
-                title: "Calculus III Midterm",
-                startDate: tomorrow,
-                endDate: tomorrow.addingTimeInterval(3600),
-                notes: "Synced from Canvas"
-            )
-            
-            // Schedule a reminder notification for 1 hour before the exam
-            NotificationManager.shared.scheduleReminder(
-                id: "simulated_exam_alert",
-                title: "Upcoming Exam",
-                body: "Your Calculus III Midterm is in 1 hour.",
-                date: tomorrow.addingTimeInterval(-3600)
-            )
-            
+
             timeoutTask.cancel()
             
             await MainActor.run { [weak self] in
