@@ -5,7 +5,7 @@ Builds on `docs/pmo/00-baseline-audit.md`. Aligned with `reviews/architecture.md
 
 Deliverables:
 - This report.
-- `docs/pmo/ux/first-run-prototype.html`. It is a single self-contained file, 54.6 KB, all fictional sample data. It shows 8 steps at iPhone size in light and dark, and simulates Larger Text, Reduce Motion and Reduce Transparency. Verified with headless Chromium (Playwright) on 2026-09-26: 1 request (the file itself), 0 external requests, 0 console errors, no horizontal scroll at 390 px.
+- `docs/pmo/ux/first-run-prototype.html`. It is a single self-contained file, all fictional sample data. It shows 8 first-run steps at iPhone size in light and dark, and simulates Larger Text, Reduce Motion and Reduce Transparency. Step 9 ("Concept: at a glance") was added later for `docs/pmo/ux/insights-at-a-glance.md`; the file is now 66.8 KB. Verified with headless Chromium (Playwright) on 2026-09-26: 1 request (the file itself), 0 external requests, 0 console errors, no horizontal scroll at 390 px.
 
 Measurement method:
 - Contrast figures are WCAG 2.x relative-luminance ratios, computed in Python from the hex values in code or tokens (script kept in the session scratchpad, not the repo).

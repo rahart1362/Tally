@@ -9,6 +9,7 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
 ### GL-01 — Canvas access authorization · `OPEN` · strategy chosen: **both in parallel** (owner, 2026-09-26)
 - **What:** Tally's "Sign in with Canvas" only works at a school whose Canvas recognises Tally's app key (`client_id`). Keys come either from each school's Canvas admin, or from Instructure as a *global* key that each school can switch on or off. Asking students to paste a personal token is prohibited by Instructure. Separately, Instructure's API Policy restricts "competitive purposes" and apps that "mirror or replicate" Instructure products.
 - **Strategy (owner decision):** pursue **both** routes at once. (a) An Instructure global developer key plus written API-Policy permission via the Partner Program (GTM-02). (b) Per-school keys as individual schools' Canvas admins register Tally. v1 ships an in-app **"Request Tally at my school"** flow and a school-admin setup guide.
+- **Drafts ready:** `docs/go-to-market/instructure-partner-request.md` (route a; the owner sends it) · `docs/go-to-market/school-admin-setup-guide.md` (route b).
 - **Done when:** Instructure's written permission is on file **and** at least one key (global or school) works on real Canvas (GL-05).
 - **Engineering impact:** none on the build. The app is identical either way; only the key configuration differs. Development and testing use sample data and a locally run open-source Canvas.
 - **Refs:** `docs/pmo/02-program-plan.md` §0, §6 · `docs/pmo/reviews/security.md` D1, D2, D4
@@ -35,6 +36,7 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
   3. Publish the privacy policy, the support page and `/.well-known/apple-app-site-association` on the domain. These are static files; any static host works.
   4. Register the bundle ID and App Group in the Apple Developer portal.
   5. Run the script. **Done when it prints `No go-live placeholders remain.`**
+  6. Docs are not scanned. Also fill the `[[...]]` fields in `docs/go-to-market/*.md` (`grep -rn '\[\[' docs/go-to-market`).
 
 ### GL-03 — Legal review · `OPEN`
 - **What:** counsel sign-off before submission on four areas:

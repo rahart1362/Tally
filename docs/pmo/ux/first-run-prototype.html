@@ -260,6 +260,44 @@ button{font:inherit}
 .webph{margin-top:14px;border:1.5px dashed var(--sep);border-radius:18px;padding:18px;text-align:center;color:var(--t2);font-size:.82em}
 .field{height:44px;border-radius:10px;background:var(--card);border:.5px solid var(--sep);margin:10px 0}
 .toast{position:absolute;left:24px;right:24px;bottom:120px;z-index:65;background:var(--t1);color:var(--canvas);padding:10px 14px;border-radius:14px;font-size:.8em;text-align:center}
+/* ---------- step 9: at-a-glance concept ---------- */
+.hero.compact{padding:12px 14px 4px}
+.hc{display:flex;gap:12px;align-items:center}
+.ring.sm{width:calc(66px * var(--fs));height:calc(66px * var(--fs))}
+.ring.sm .pct{font-size:.74em}.ring.sm .ltr{font-size:.6em}
+.hc .meta{flex:1;min-width:0;font-size:.8em;color:var(--onhero2);line-height:1.35}
+.hc .meta b{color:var(--onhero);font-size:1.12em}
+.band{display:inline-flex;gap:3px;align-items:center;font-size:.68em;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.band.hi{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,var(--card))}
+.band.md{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card))}
+.why{font-size:.74em;color:var(--t2);margin-top:2px}
+.done{width:44px;height:44px;margin:-8px -8px -8px -10px;display:flex;align-items:center;justify-content:center;flex:none}
+.done i{width:22px;height:22px;border-radius:50%;border:2px solid var(--t3);display:block}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:12px 12px 8px;height:120px}
+.wd{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;font-size:.66em;color:var(--t2)}
+.wd .bar{width:70%;max-width:24px;border-radius:6px;background:color-mix(in srgb,var(--accent) 38%,var(--card))}
+.wd.busy .bar{background:var(--warn)}
+.wd.today b{color:var(--accent)}
+.wd .n{font-weight:700;color:var(--t1);min-height:1.2em}
+.callout{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:.5px solid var(--sep);font-size:.8em}
+.callout .ico{color:var(--warn)}
+.dayhead{font-size:.72em;font-weight:700;color:var(--t2);padding:10px 14px 0;text-transform:uppercase;letter-spacing:.03em}
+.lock{position:absolute;inset:0;background:radial-gradient(130% 80% at 30% 0%,#2B4C7E 0%,#0B1A33 55%,#04070D 100%);color:#fff;text-align:center;overflow:hidden}
+.lock .inl{margin-top:66px;font-size:.78em;font-weight:600;opacity:.92;display:flex;gap:5px;justify-content:center;align-items:center}
+.lock .clk{font-size:5.2em;font-weight:700;line-height:1;margin-top:2px;letter-spacing:-.02em}
+.lock .dt{font-size:1em;font-weight:600;opacity:.9;margin-top:2px}
+.acc{display:flex;gap:10px;justify-content:center;margin-top:14px;padding:0 10px}
+.acc>div{background:rgba(255,255,255,.16);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.acc .circ{width:66px;height:66px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.62em;line-height:1.15;flex:none}
+.acc .circ b{font-size:1.9em}
+.acc .rect{width:168px;height:66px;border-radius:16px;text-align:left;padding:8px 11px;font-size:.66em;line-height:1.3;flex:none}
+.acc .rect b{font-size:1.15em;display:block}
+.redact{letter-spacing:.06em;opacity:.85}
+.ln{position:absolute;left:10px;right:10px;border-radius:22px;padding:10px 12px;text-align:left;font-size:.74em;background:rgba(246,247,250,.88);color:#0F172A;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:flex;gap:10px;align-items:flex-start}
+.phone[data-theme="dark"] .ln{background:rgba(38,42,52,.88);color:#F3F5F9}
+.ln b{display:block}
+.ln .tm{margin-left:auto;opacity:.7;font-size:.9em;white-space:nowrap}
+.lnote{position:absolute;left:24px;right:24px;bottom:30px;font-size:.66em;opacity:.9;text-align:center}
 .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 </head>
@@ -341,10 +379,11 @@ var STEPS=[
  {id:"handoff", name:"5 Sign-in hand-off"},
  {id:"sync",    name:"6 First sync"},
  {id:"fresh",   name:"7 Dashboard (fresh)"},
- {id:"stale",   name:"8 Dashboard (stale)"}
+ {id:"stale",   name:"8 Dashboard (stale)"},
+ {id:"concept", name:"9 Concept: at a glance"}
 ];
 var S={step:0, theme:"both", big:false, rm:false, rt:false, overlay:null, toast:null, query:"north", syncStage:0,
-       staleVariant:"delayed", dashMode:null, timers:[]};
+       staleVariant:"delayed", conceptVariant:"default", dashMode:null, timers:[]};
 try{ if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) S.rm=true; }catch(e){}
 
 function clearTimers(){ S.timers.forEach(clearTimeout); S.timers=[]; }
@@ -528,6 +567,80 @@ function scrDash(mode){
     crumb+'<div class="pad" style="padding-bottom:110px">'+body+'</div></div>'+tabbar()};
 }
 
+/* ---------- Step 9: at-a-glance concept (fictional sample data) ---------- */
+function nextUpRows(exam){
+  var r = exam ? [
+    ["hi","High","Reading Response 5","HIST 210","Due Tue 11:59 PM","Exam course · ~4% of HIST 210","--c4"],
+    ["hi","High","Problem Set 6","MATH 122","Overdue · accepted until Fri","Late beats zero · ~2% of MATH 122","--c1"],
+    ["md","Medium","Chapter 7 Review Quiz","HIST 210","Due Mon 9:00 AM","Exam course · practice","--c4"]
+  ] : [
+    ["hi","High","Lab Report 4","BIO 101","Due today 6:00 PM","Due in 6 h · ~5% of BIO 101 · below your goal","--c3"],
+    ["hi","High","Problem Set 6","MATH 122","Overdue · accepted until Fri","Late beats zero · ~2% of MATH 122","--c1"],
+    ["hi","High","Week 5 Discussion","PSY 101","Due in 2 h","Due soon · small","--c2"]
+  ];
+  return '<div class="sechead"><h2>Next up</h2><a href="#" tabindex="-1">See All</a></div><div class="card list">'+
+    r.map(function(x){return '<div class="row"><span class="done" role="button" aria-label="Mark '+x[2]+' done"><i></i></span><div class="grow"><div class="ttl">'+x[2]+'</div>'+
+      '<div class="sub"><span class="cdot" style="background:var('+x[6]+');width:8px;height:8px;margin-right:4px" aria-hidden="true"></span><span class="code">'+x[3]+'</span> · '+x[4]+'</div>'+
+      '<div class="why">'+x[5]+'</div></div><span class="band '+x[0]+'">'+x[1]+'</span></div>';}).join("")+
+    (exam?'<div class="row"><span style="color:var(--t3)">'+ic("i-info")+'</span><div class="grow"><div class="sub">3 lower-priority items hidden in exam mode</div></div><span class="sechead" style="margin:0"><a href="#" tabindex="-1">Show</a></span></div>':'')+
+    '</div>';
+}
+function attention(exam){
+  var r = exam ? [["info","i-clockx","Due date moved earlier","HIST 210 Midterm → Wed Oct 7, 9:00 AM"]] : [
+    ["danger","i-tri","BIO 101 is below your goal","88.9% · goal 90% · Lab Report 4 can close the gap"],
+    ["warn","i-cal","Busy Thursday: 4 items due","About 18% of your grades in play"],
+    ["info","i-clockx","Due date moved earlier","HIST 210 Midterm → Wed Oct 7, 9:00 AM"]];
+  return '<div class="sechead"><h2>Needs attention</h2><a href="#" tabindex="-1">See All</a></div><div class="card list">'+
+    r.map(function(x){return '<div class="row"><span class="itile '+x[0]+'">'+ic(x[1])+'</span><div class="grow"><div class="ttl">'+x[2]+'</div><div class="sub">'+x[3]+'</div></div>'+ic("i-chev","chev")+'</div>';}).join("")+'</div>';
+}
+function weekStrip(expanded){
+  var d=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], n=[1,2,1,4,0,1,2], h=[22,40,22,78,4,22,40];
+  var bars='<div class="week" role="img" aria-label="Week ahead: Monday 1 due, Tuesday 2, Wednesday 1, Thursday 4 busy, Friday none, Saturday 1, Sunday 2">'+
+    d.map(function(x,i){return '<div class="wd'+(i===0?' today':'')+(i===3?' busy':'')+'"><span class="n">'+(n[i]||'')+(i===3?' '+ic("i-tri"):'')+'</span><span class="bar" style="height:'+h[i]+'%"></span><b>'+x+'</b></div>';}).join("")+'</div>';
+  var call='<div class="callout">'+ic("i-tri")+'<span><b>Thursday is busy:</b> 4 due, about 18% of your grades in play.</span></div>';
+  var list = expanded ? '<div class="dayhead">Thu, Oct 1</div>'+
+    [["Lab Report 5","BIO 101","--c3","11:59 PM"],["Problem Set 7","MATH 122","--c1","11:59 PM"],["Quiz 4","PSY 101","--c2","9:00 AM"],["Discussion 6","ENG 101","--c5","11:59 PM"]]
+    .map(function(x){return '<div class="row"><span class="cdot" style="background:var('+x[2]+')" aria-hidden="true"></span><div class="grow"><div class="ttl">'+x[0]+'</div><div class="sub"><span class="code">'+x[1]+'</span> · '+x[3]+'</div></div></div>';}).join("") : "";
+  return '<div class="sechead"><h2>'+(expanded?'Your week':'Week ahead')+'</h2><a href="#" tabindex="-1">Calendar</a></div><div class="card list">'+bars+call+list+'</div>';
+}
+function compactHero(){
+  return '<div class="hero compact reveal"><div class="hc"><div class="ring sm"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="12"/>'+
+   '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--gold)" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(314.16*0.872).toFixed(1)+' 400"/></svg>'+
+   '<div class="val"><span class="pct serif">87%</span><span class="ltr">B+</span></div></div>'+
+   '<div class="meta"><b>87.2% · B+</b><br>Average of 5 courses<br>'+ic("i-up")+' +5.2 pts vs last month</div></div>'+
+   '<div class="herofoot"><span class="st">'+ic("i-ok")+' Updated just now</span><button class="rbtn" aria-label="Refresh now">'+ic("i-refresh")+'</button></div></div>';
+}
+function examHero(){
+  return '<div class="hero reveal"><div class="lbl" style="justify-content:space-between"><span>EXAM MODE</span><span style="font-weight:500;letter-spacing:0">Exit</span></div>'+
+   '<div class="serif" style="margin-top:8px;font-size:1.3em;font-weight:700">HIST 210 Midterm</div>'+
+   '<div style="color:var(--onhero2);font-size:.85em">Wed, Oct 7 · 9:00 AM · in 3 days</div>'+
+   '<div class="chipbtn">'+ic("i-chart")+' To keep a B in HIST 210 you need 74% or more</div>'+
+   '<div class="herofoot"><span class="st">'+ic("i-bell")+' Reminders: 3 days, 1 day, morning of</span></div></div>';
+}
+function scrLock(){
+  var ln=function(bottom,title,body,tm){return '<div class="ln" style="bottom:'+bottom+'px"><svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><use href="#tmark"/></svg><div><b>'+title+'</b>'+body+'</div><span class="tm">'+tm+'</span></div>';};
+  return {dark:true, html:'<div class="lock" aria-label="Lock Screen concept">'+ribbon()+
+    '<div class="inl">'+ic("i-check")+' Next: Lab Report 4, 6 PM</div>'+
+    '<div class="clk">9:41</div><div class="dt">Monday, September 28</div>'+
+    '<div class="acc"><div class="circ"><b>2</b>due today</div>'+
+    '<div class="rect"><b>Lab Report 4</b>BIO 101 · Due 6:00 PM</div>'+
+    '<div class="circ" aria-label="Standing widget, redacted while locked">'+ic("i-lock")+'<span class="redact">▮▮%</span></div></div>'+
+    ln(170,"Lab Report 4 · BIO 101","Due today at 6:00 PM","now")+
+    ln(104,"New grade posted","Calculus II","9:02")+
+    '<div class="lnote">No grade values on the Lock Screen (R10). The Standing widget is opt-in and redacted while locked.</div></div>'};
+}
+function scrConcept(){
+  var v=S.conceptVariant;
+  if(v==="lock") return scrLock();
+  var nav='<div class="nav" style="align-items:flex-start"><div><div class="ltitle serif" role="heading" aria-level="1">Dashboard</div><div class="subtitle">Good morning, Alex · Mon, Sep 28</div></div>'+
+    '<div style="display:flex;gap:8px;margin-top:2px"><span class="gbtn" aria-label="Inbox, 3 new">'+ic("i-bell")+'<span class="badge">3</span></span><span class="gbtn" aria-label="Settings and account">'+ic("i-person")+'</span></div></div>';
+  var body;
+  if(v==="exam") body=examHero()+nextUpRows(true)+attention(true);
+  else if(v==="week") body=compactHero()+weekStrip(true)+nextUpRows(false);
+  else body=compactHero()+nextUpRows(false)+attention(false)+weekStrip(false);
+  return {dark:false, html:'<div class="view anim">'+ribbon()+'<div class="fade-top"></div>'+nav+'<div class="pad" style="padding-bottom:110px">'+body+'</div></div>'+tabbar()};
+}
+
 function screenFor(id){
   switch(id){
     case "launch": return scrLaunch();
@@ -538,6 +651,7 @@ function screenFor(id){
     case "sync": return scrDash("sync");
     case "fresh": return scrDash(S.dashMode==="refreshing"?"refreshing":"fresh");
     case "stale": return scrDash("stale");
+    case "concept": return scrConcept();
   }
 }
 
@@ -566,7 +680,10 @@ var NOTES={
   rules:["Severity uses icon shape and words, not only colour (red disc = missing, clock = upcoming, arrow = grade).","The system tab bar with Liquid Glass. The UITabBarAppearance override is removed and “More” is now “Insights”.","Pull to refresh and the visible refresh button do the same thing."]},
  stale:{t:"8 · Dashboard — stale breadcrumb",
   see:["The kit’s own copy, in a compact bar pinned under the title (<code>safeAreaBar(edge: .top)</code>, iOS 26), with a Retry action.","Switch the variant below: delayed, offline, sign-in expired."],
-  rules:["Shown only after 10 s without a response (delayed), when the network path is down (offline), or after a 401 (sign-in expired).","The icon and text carry the meaning. Amber is secondary: primary text on the tint is 13.85:1 (light).","It clears automatically when fresh data arrives, and VoiceOver announces “Updated just now”."]}
+  rules:["Shown only after 10 s without a response (delayed), when the network path is down (offline), or after a 401 (sign-in expired).","The icon and text carry the meaning. Amber is secondary: primary text on the tint is 13.85:1 (light).","It clears automatically when fresh data arrives, and VoiceOver announces “Updated just now”."]},
+ concept:{t:"9 · Concept: insights at a glance",
+  see:["<b>Default</b>: compact hero (freshness kept), then <b>Next up</b>: the top 3 items by priority score, each with a band word and the reason. Then Needs attention and the Week ahead strip.","<b>Week ahead</b>: appears Sunday evening, or on tap. It shows the load strip, the busiest-day callout and that day’s items.","<b>Exam mode</b> (suggested, never forced): a countdown, a local goal-seek line (“need 74%”), and Next up filtered to the exam course and missing work.","<b>Lock Screen</b>: accessory widgets and notifications with titles only, no grade values. The opt-in Standing widget is redacted while locked."],
+  rules:["Spec: <code>docs/pmo/ux/insights-at-a-glance.md</code> (modules §1, alerts §2, reminders §3, scoring §5).","Priority = f(time to due, share of course grade, overdue-but-open, course below goal). The golden fixtures give the order Lab Report (97.5) &gt; Problem Set (89.6) &gt; Discussion (66.5).","Alert severity uses icon shape plus words. Colour only reinforces it.","R10: notifications and the Lock Screen never show grade values."]}
 };
 
 /* ---------- Render ---------- */
@@ -585,7 +702,8 @@ function render(){
   document.getElementById("stage").innerHTML=html;
   var n=NOTES[st.id];
   var variant = st.id==="stale" ? '<h3>Variant</h3><div class="variant">'+[["delayed","Delayed > 10 s"],["offline","Offline"],["auth","Sign-in expired"]].map(function(v){return '<button class="pill" data-variant="'+v[0]+'" aria-pressed="'+(S.staleVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' :
-    (st.id==="brand"||st.id==="sync") ? '<div class="variant" style="margin-top:10px"><button class="pill" id="replay">Replay</button></div>' : "";
+    (st.id==="brand"||st.id==="sync") ? '<div class="variant" style="margin-top:10px"><button class="pill" id="replay">Replay</button></div>' :
+    st.id==="concept" ? '<h3>Variant</h3><div class="variant">'+[["default","Default"],["week","Week ahead"],["exam","Exam mode"],["lock","Lock Screen"]].map(function(v){return '<button class="pill" data-cvariant="'+v[0]+'" aria-pressed="'+(S.conceptVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' : "";
   document.getElementById("notes").innerHTML='<h2>'+n.t+'</h2><h3>What the student sees</h3><ul>'+n.see.map(li).join("")+'</ul><h3>Rules &amp; evidence</h3><ul>'+n.rules.map(li).join("")+'</ul>'+variant;
   document.querySelectorAll("[data-step]").forEach(function(b){b.setAttribute("aria-pressed", String(+b.getAttribute("data-step")===S.step));});
   document.querySelectorAll("[data-theme-btn]").forEach(function(b){b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-btn")===S.theme));});
@@ -627,6 +745,7 @@ document.addEventListener("click",function(e){
   if(t.hasAttribute("data-step")) return go(+t.getAttribute("data-step"));
   if(t.hasAttribute("data-theme-btn")){ S.theme=t.getAttribute("data-theme-btn"); return render(); }
   if(t.hasAttribute("data-variant")){ S.staleVariant=t.getAttribute("data-variant"); return render(); }
+  if(t.hasAttribute("data-cvariant")){ S.conceptVariant=t.getAttribute("data-cvariant"); return render(); }
   if(t.hasAttribute("data-go")){ e.preventDefault(); return goId(t.getAttribute("data-go")); }
   var a=t.getAttribute("data-act");
   if(a==="startAuth"){ S.toast=null; S.overlay="alert"; return render(); }

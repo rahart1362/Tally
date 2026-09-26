@@ -30,6 +30,12 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 | R10 | **Notifications** may show course and assignment titles and **never grade values**, plus a "Hide course names" toggle. **Widget grades** are opt-in and redacted when locked. | SEC D7 + ENC D-E3 | Lock Screen is a shoulder-surfing surface. |
 | R11 | **App Store metadata avoids "Canvas"** in name, subtitle and keywords (nominative use plus a non-affiliation disclaimer in the description only), until Instructure grants written permission. | ASC D3 | 5.2 IP risk. |
 | R12 | **Delete the fake behaviour first** (mock token, fake calendar event, fake notification, hard-coded grades, `Int.random`, dead toggles) before any build is shown to anyone. | all | Data-integrity defect plus guaranteed 2.1/2.3.1 rejection. |
+| R13 | **Insights at a glance** follows `docs/pmo/ux/insights-at-a-glance.md`: a "Next up" top-3 list with reasons, one alert pipeline feeding the Dashboard, push and the change digest, a "still accepted until" state for late work, and Week-ahead and Exam-mode views. | UX (owner O9 follow-up) | Owner asked for critical insights at a glance. |
+| R14 | **Reminders default to "Balanced"** and need zero setup: 24 h and 1 h before each deadline, an evening digest and a Sunday week-ahead. Stays under iOS's 64-pending-notification cap. **Time Sensitive** interruption level only for final-hour and exam reminders. | UX D-I1, D-I2 | Useful out of the box without being noisy. |
+| R15 | **Exam detection** = automatic suggestions plus manual tagging; exam mode is never forced. | UX D-I4 | Canvas rarely labels exams reliably. |
+| R16 | **"Mark done" is local-only.** Tally never writes to Canvas. | UX D-I5 | Keeps the read-only promise, the minimal scopes and the Instructure positioning. |
+| R17 | **Stale-data warning notification** after 24 h without a successful refresh (on by default; can be turned off). | UX D-I6 | The 2-h token window can silently stop background refresh (ADR 0001). |
+| R18 | **SMS and e-mail stay no-hosting only:** user-initiated compose sheets, plus a Shortcuts option pending a device test. Automatic sending is in backlog BL-14. | UX D-I3 + owner O2 | Owner's no-hosting preference. |
 
 ## 2. Owner decisions (business, legal, identity — only you can make these)
 
