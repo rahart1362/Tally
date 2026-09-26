@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Tally redesigned first-run and launch sequence at iPhone size, in light and dark. All data is fictional sample data.">
+<title>Tally First-Run Prototype</title>
+<style>
+/* ---------- Page chrome tokens (not the app's tokens) ---------- */
+:root{
+  --pg-bg:#EEF1F6; --pg-panel:#FFFFFF; --pg-text:#101828; --pg-muted:#475467; --pg-line:#D5DAE3;
+  --pg-accent:#1D4E9E; --pg-onaccent:#FFFFFF; --pg-warn-bg:#FFF4DC; --pg-warn-text:#6B3F00;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg-bg:#070A12; --pg-panel:#111827; --pg-text:#F3F5F9; --pg-muted:#AEB8C8; --pg-line:#2A3447;
+    --pg-accent:#8DB4FF; --pg-onaccent:#06142B; --pg-warn-bg:#2A2110; --pg-warn-text:#FBD38D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --pg-bg:#070A12; --pg-panel:#111827; --pg-text:#F3F5F9; --pg-muted:#AEB8C8; --pg-line:#2A3447;
+  --pg-accent:#8DB4FF; --pg-onaccent:#06142B; --pg-warn-bg:#2A2110; --pg-warn-text:#FBD38D;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--pg-bg);color:var(--pg-text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif}
+button{font:inherit}
+.top{position:sticky;top:0;z-index:20;background:var(--pg-panel);border-bottom:1px solid var(--pg-line);padding:10px 16px}
+.top h1{font-size:17px;margin:0 8px 0 0;display:inline}
+.sample-note{display:inline-block;background:var(--pg-warn-bg);color:var(--pg-warn-text);border-radius:6px;padding:2px 8px;font-size:12.5px;font-weight:600;margin:4px 0}
+.controls{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px}
+.group{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.group>span{font-size:12.5px;color:var(--pg-muted);margin-right:2px}
+.pill{border:1px solid var(--pg-line);background:transparent;color:var(--pg-text);border-radius:999px;padding:5px 11px;min-height:32px;cursor:pointer;font-size:13px}
+.pill[aria-pressed="true"]{background:var(--pg-accent);border-color:var(--pg-accent);color:var(--pg-onaccent)}
+.pill:focus-visible{outline:3px solid var(--pg-accent);outline-offset:2px}
+.steps{display:flex;flex-wrap:wrap;gap:4px}
+.layout{display:flex;gap:20px;padding:16px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+.stage{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.phone-cap{font-size:12.5px;color:var(--pg-muted)}
+.notes{background:var(--pg-panel);border:1px solid var(--pg-line);border-radius:14px;padding:14px 16px;max-width:420px;flex:1 1 300px}
+.notes h2{font-size:16px;margin:0 0 4px}
+.notes h3{font-size:13px;margin:12px 0 4px;color:var(--pg-muted);text-transform:uppercase;letter-spacing:.04em}
+.notes ul{margin:0;padding-left:18px}
+.notes li{margin:3px 0}
+.notes code{font-size:12.5px}
+.variant{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+@media (max-width:520px){.layout{padding:12px 8px}.notes{max-width:none}}
+
+/* ---------- App tokens (measured; see docs/pmo/reviews/ux-ui.md section 3.5) ---------- */
+.phone{
+  --fs:1;
+  --canvas:#F2F4F8; --card:#FFFFFF; --raised:#FFFFFF; --hero:#0B2447; --brand:#071A36;
+  --t1:#0F172A; --t2:#475467; --t3:#5F6B7D; --onhero:#FFFFFF; --onhero2:#C9D5EA;
+  --gold:#F1BF56; --goldText:#8A5A00; --cream:#FCF2D8; --accent:#1D4E9E; --onAccent:#FFFFFF;
+  --pos:#0A7A4B; --warn:#9A5B00; --danger:#C4271E; --sep:#D5DAE3; --track:rgba(255,255,255,.2);
+  --glass:rgba(255,255,255,.66); --glassLine:rgba(15,23,42,.10); --skel:#E2E6ED; --skel2:#EEF1F5;
+  --c1:#2563EB; --c2:#0F766E; --c3:#7C3AED; --c4:#C2410C; --c5:#BE185D;
+  --kb:#D3D7DE; --key:#FFFFFF; --keyText:#0F172A; --alertBg:rgba(246,247,250,.94); --scrim:rgba(0,0,0,.28);
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 14px rgba(15,23,42,.06);
+  color:var(--t1);
+}
+.phone[data-theme="dark"]{
+  --canvas:#05080F; --card:#111827; --raised:#1A2336; --hero:#0E2A52; --brand:#071A36;
+  --t1:#F3F5F9; --t2:#AEB8C8; --t3:#8D9AAE; --onhero:#FFFFFF; --onhero2:#C9D5EA;
+  --goldText:#F4CC74; --accent:#8DB4FF; --onAccent:#06142B;
+  --pos:#4ADE9A; --warn:#FBBF4D; --danger:#FF8A80; --sep:#2A3447;
+  --glass:rgba(26,32,46,.66); --glassLine:rgba(255,255,255,.10); --skel:#1B2333; --skel2:#232C3F;
+  --c1:#6EA0FF; --c2:#2DD4BF; --c3:#B79CFF; --c4:#FB9A5B; --c5:#F48FC0;
+  --kb:#2B2F38; --key:#474B55; --keyText:#F3F5F9; --alertBg:rgba(38,42,52,.94); --scrim:rgba(0,0,0,.5);
+  --shadow:none;
+}
+.phone.big{--fs:1.32}
+.phone.rt{--glass:var(--card)}
+.phone{width:390px;height:844px;border-radius:54px;background:#0A0A0C;padding:10px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.scaler{transform-origin:top left}
+.screen{position:relative;width:370px;height:824px;border-radius:44px;overflow:hidden;background:var(--canvas);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:calc(17px * var(--fs));line-height:1.3}
+.serif{font-family:"New York",ui-serif,"Iowan Old Style",Georgia,serif}
+.island{position:absolute;top:11px;left:50%;width:120px;height:35px;margin-left:-60px;background:#000;border-radius:20px;z-index:50}
+.status{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0 40px;font-size:16px;font-weight:600;z-index:40;color:var(--t1)}
+.status.onDark{color:#fff}
+.status svg{width:18px;height:12px}
+.status .sicons{display:flex;gap:6px;align-items:center}
+.homebar{position:absolute;bottom:8px;left:50%;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--t1);opacity:.85;z-index:60}
+.view{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.view::-webkit-scrollbar{display:none}
+.pad{padding:0 16px}
+.ico{width:1.1em;height:1.1em;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.18em}
+.ico.fill{fill:currentColor;stroke:none}
+.ribbon{position:absolute;top:49px;left:50%;transform:translateX(-50%);background:#B42318;color:#fff;font-size:9px;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;z-index:45;pointer-events:none;white-space:nowrap}
+
+/* nav */
+.nav{padding:58px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gbtn{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);border:.5px solid var(--glassLine);color:var(--t1);position:relative;font-size:18px}
+.gbtn .badge{position:absolute;top:6px;right:7px;min-width:16px;height:16px;border-radius:8px;background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.phone[data-theme="dark"] .gbtn .badge{color:#1A0402}
+.backbtn{height:44px;padding:0 14px 0 10px;border-radius:22px;display:inline-flex;align-items:center;gap:2px;background:var(--glass);border:.5px solid var(--glassLine);color:var(--t1);font-size:.94em}
+.ltitle{font-size:calc(1.765em);font-weight:700;letter-spacing:-.01em;margin:4px 0 0;line-height:1.15}
+.subtitle{font-size:.882em;color:var(--t2);margin:2px 0 10px}
+
+/* cards */
+.card{background:var(--card);border-radius:22px;box-shadow:var(--shadow)}
+.phone[data-theme="dark"] .card{border:.5px solid var(--sep)}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;margin:18px 4px 8px}
+.sechead h2{font-size:1.18em;margin:0;font-weight:700}
+.sechead a{font-size:.882em;color:var(--accent);text-decoration:none}
+
+/* hero */
+.hero{background:var(--hero);color:var(--onhero);border-radius:26px;padding:16px 16px 10px;position:relative;overflow:hidden}
+.hero .lbl{font-size:.8em;color:var(--onhero2);font-weight:600;letter-spacing:.02em;display:flex;gap:6px;align-items:center}
+.hero-row{display:flex;gap:14px;align-items:center;margin-top:8px}
+.ring{position:relative;width:calc(118px * var(--fs));height:calc(118px * var(--fs));flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .pct{font-size:1.5em;font-weight:700}
+.ring .ltr{font-size:.9em;color:var(--onhero2);font-weight:600}
+.delta{font-weight:700;font-size:.94em;display:flex;gap:4px;align-items:center}
+.delta small{font-weight:400;color:var(--onhero2);font-size:.85em}
+.spark{width:100%;height:46px;margin-top:6px}
+.axis{display:flex;justify-content:space-between;font-size:.7em;color:var(--onhero2)}
+.herofoot{display:flex;align-items:center;justify-content:space-between;border-top:.5px solid rgba(255,255,255,.18);margin-top:10px;padding-top:4px;font-size:.8em;color:var(--onhero2)}
+.herofoot .st{display:flex;gap:6px;align-items:center}
+.rbtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:var(--onhero);background:rgba(255,255,255,.10);border:0;font-size:1em}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin 0.9s linear infinite;display:inline-block}
+.spin.dk{border-color:var(--sep);border-top-color:var(--t2)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chipbtn{margin-top:8px;display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 12px;font-size:.8em;font-weight:600}
+
+/* alert rows */
+.list{overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:56px}
+.row+.row{border-top:.5px solid var(--sep)}
+.row .ttl{font-weight:600;font-size:.94em}
+.row .sub{color:var(--t2);font-size:.8em;margin-top:1px}
+.row .grow{flex:1;min-width:0}
+.row .chev{color:var(--t3)}
+.itile{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.itile.danger{background:var(--danger)} .itile.warn{background:var(--warn)} .itile.info{background:var(--accent)}
+.phone[data-theme="dark"] .itile{color:#0B1220}
+.tag{display:inline-flex;gap:4px;align-items:center;font-size:.72em;font-weight:600;padding:2px 7px;border-radius:999px}
+.tag.danger{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,var(--card))}
+.tag.pos{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,var(--card))}
+.tag.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card))}
+.cdot{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
+.code{font-size:.72em;font-weight:700;color:var(--t2);letter-spacing:.02em}
+
+/* tip */
+.tip{padding:14px;display:flex;gap:12px;position:relative}
+.tip .x{position:absolute;top:4px;right:4px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--t3)}
+.tip h3{margin:0 30px 0 0;font-size:.94em}
+.tip p{margin:3px 28px 10px 0;color:var(--t2);font-size:.8em}
+
+/* buttons */
+.cta{display:flex;width:100%;min-height:52px;border-radius:26px;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--onAccent);font-weight:600;border:0;font-size:1em;cursor:pointer}
+.cta.sm{min-height:44px;width:auto;padding:0 16px;font-size:.88em;display:inline-flex}
+.plain{display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;color:var(--accent);font-weight:600;background:transparent;border:0;font-size:.94em;cursor:pointer}
+
+/* tab bar (Liquid Glass approximation) */
+.tabbar{position:absolute;left:16px;right:16px;bottom:22px;height:64px;border-radius:32px;background:var(--glass);
+  -webkit-backdrop-filter:blur(20px) saturate(1.7);backdrop-filter:blur(20px) saturate(1.7);border:.5px solid var(--glassLine);
+  display:flex;justify-content:space-around;align-items:center;padding:0 6px;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10.5px;color:var(--t1);font-weight:500;padding:6px 0;border-radius:26px}
+.tab .ico{width:22px;height:22px}
+.tab.on{color:var(--accent);background:color-mix(in srgb,var(--t1) 7%,transparent);font-weight:600}
+.fade-top{position:absolute;top:0;left:0;right:0;height:64px;z-index:25;pointer-events:none;
+  background:linear-gradient(var(--canvas) 55%,color-mix(in srgb,var(--canvas) 0%,transparent))}
+
+/* breadcrumb (stale) */
+.crumb{position:sticky;top:52px;margin:0 16px 4px;z-index:28;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:18px;
+  background:color-mix(in srgb,var(--warn) 13%,var(--canvas));border:.5px solid color-mix(in srgb,var(--warn) 35%,transparent);font-size:.8em;color:var(--t1)}
+.crumb .ci{color:var(--warn);margin-top:1px}
+.crumb .rt{margin-left:auto;color:var(--accent);font-weight:600;white-space:nowrap;min-height:28px;display:flex;align-items:center}
+
+/* skeleton */
+.sk{background:var(--skel);border-radius:8px;position:relative;overflow:hidden}
+.anim .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,var(--skel2),transparent);animation:shim 1.4s infinite}
+.hero .sk{background:rgba(255,255,255,.12)} .anim .hero .sk::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+@keyframes shim{to{transform:translateX(100%)}}
+.progress{height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:8px}
+.progress>i{display:block;height:100%;background:var(--gold);border-radius:3px;transition:width .5s}
+.reveal{animation:rev .45s ease-out both}
+@keyframes rev{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* welcome */
+.welcome{position:relative;display:flex;flex-direction:column;min-height:100%}
+.wpanel{position:relative;flex:none;height:430px;background:var(--brand);border-radius:0 0 34px 34px;overflow:hidden}
+.wpanel::before{content:"";position:absolute;width:520px;height:520px;left:-80px;top:-240px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(241,191,86,.16),transparent)}
+.tmark{position:absolute;left:50%;top:112px;width:96px;height:96px;margin-left:-48px;z-index:5}
+.wtitle{position:absolute;left:0;right:0;top:222px;text-align:center;color:var(--cream);z-index:5}
+.wtitle .wm{font-size:3em;font-weight:700;letter-spacing:.005em;line-height:1}
+.wtitle .tag2{font-size:1.06em;color:#E4E9F2;margin:12px 36px 0;line-height:1.35}
+.wbody{flex:1;padding:22px 24px 0}
+.vp{display:flex;gap:14px;align-items:flex-start;margin:0 0 14px}
+.vp .ico{width:26px;height:26px;color:var(--accent);margin-top:2px}
+.vp b{display:block;font-size:.94em}
+.vp span{color:var(--t2);font-size:.8em}
+.wfoot{padding:8px 24px 30px}
+.hofoot{position:absolute;left:24px;right:24px;bottom:30px}
+.legal{text-align:center;font-size:.7em;color:var(--t2);margin-top:4px}
+/* brand moment animation */
+.brandanim .tmark{animation:tileUp .38s .25s cubic-bezier(.2,.8,.2,1) both}
+.brandanim .wpanel{animation:bloom .42s .42s cubic-bezier(.3,.7,.2,1) both}
+.brandanim .wtitle{animation:fadeUp .35s .62s ease-out both}
+.brandanim .wbody .vp:nth-child(1){animation:fadeUp .3s .72s ease-out both}
+.brandanim .wbody .vp:nth-child(2){animation:fadeUp .3s .78s ease-out both}
+.brandanim .wbody .vp:nth-child(3){animation:fadeUp .3s .84s ease-out both}
+.brandanim .wfoot{animation:fadeUp .3s .9s ease-out both}
+@keyframes tileUp{from{transform:translateY(254px)}to{transform:none}}
+@keyframes bloom{from{clip-path:circle(46px at 50% 160px)}to{clip-path:circle(640px at 50% 160px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.rm .brandanim .tmark,.rm .brandanim .wpanel{animation:fadeOnly .2s both}
+.rm .brandanim .wtitle,.rm .brandanim .wbody .vp,.rm .brandanim .wfoot{animation:fadeOnly .2s .1s both}
+@keyframes fadeOnly{from{opacity:0}to{opacity:1}}
+.rm .anim .sk::after,.rm .spin{animation:none}
+.rm .reveal{animation:fadeOnly .15s both}
+@media (prefers-reduced-motion: reduce){.brandanim *{animation-duration:.01s!important;animation-delay:0s!important}.sk::after{animation:none!important}}
+
+/* search */
+.search{display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--t1) 8%,var(--canvas));border-radius:14px;height:44px;padding:0 12px;color:var(--t2);margin:4px 0 12px}
+.search input{flex:1;border:0;background:transparent;color:var(--t1);font:inherit;font-size:.94em;outline:none;min-width:0}
+.caret{width:2px;height:20px;background:var(--accent);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.foot{font-size:.76em;color:var(--t2);margin:8px 6px}
+.kb{position:absolute;left:0;right:0;bottom:0;height:282px;background:var(--kb);padding:8px 3px 0;z-index:35}
+.kr{display:flex;justify-content:center;gap:6px;margin:0 0 11px}
+.kr i{font-style:normal;width:31px;height:42px;border-radius:6px;background:var(--key);color:var(--keyText);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.kr i.w{width:88px;font-size:15px} .kr i.sp{width:180px;font-size:15px}
+
+/* handoff */
+.flow{display:flex;align-items:center;justify-content:center;gap:10px;margin:18px 0 6px}
+.flow .t{width:58px;height:58px}
+.flow .school{width:58px;height:58px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--t1);box-shadow:var(--shadow)}
+.phone[data-theme="dark"] .flow .school{border:.5px solid var(--sep)}
+.flow .dots{color:var(--t3);letter-spacing:3px}
+.schoolchip{display:inline-flex;gap:6px;align-items:center;background:var(--card);border-radius:999px;padding:6px 12px;font-size:.8em;color:var(--t2);border:.5px solid var(--sep)}
+.exp{padding:4px 0}
+.exp .row{align-items:flex-start}
+.exp .ico{width:24px;height:24px;color:var(--accent);margin-top:1px}
+
+/* system alert + sheet */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:70;display:flex;align-items:center;justify-content:center}
+.sysalert{width:280px;border-radius:26px;background:var(--alertBg);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);text-align:center;overflow:hidden;color:var(--t1)}
+.sysalert .b{padding:20px 18px 14px}
+.sysalert h4{margin:0 0 6px;font-size:.94em;line-height:1.25}
+.sysalert p{margin:0;font-size:.76em;color:var(--t2)}
+.sysalert .btns{display:flex;gap:8px;padding:0 14px 14px}
+.sysalert .btns button{flex:1;min-height:44px;border-radius:22px;border:0;background:color-mix(in srgb,var(--t1) 9%,transparent);color:var(--t1);font-weight:600;cursor:pointer}
+.sysalert .btns button.pri{background:var(--accent);color:var(--onAccent)}
+.syslabel{position:absolute;top:128px;left:0;right:0;text-align:center;font-size:11px;color:#fff;opacity:.85;z-index:71}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:62px;background:var(--canvas);border-radius:28px 28px 0 0;z-index:72;padding:14px 16px;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.sheet .grab{width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 12px}
+.urlbar{display:flex;align-items:center;gap:6px;justify-content:center;font-size:.76em;color:var(--t2);background:color-mix(in srgb,var(--t1) 7%,var(--canvas));border-radius:12px;height:36px}
+.webph{margin-top:14px;border:1.5px dashed var(--sep);border-radius:18px;padding:18px;text-align:center;color:var(--t2);font-size:.82em}
+.field{height:44px;border-radius:10px;background:var(--card);border:.5px solid var(--sep);margin:10px 0}
+.toast{position:absolute;left:24px;right:24px;bottom:120px;z-index:65;background:var(--t1);color:var(--canvas);padding:10px 14px;border-radius:14px;font-size:.8em;text-align:center}
+.visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="tbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14427F"/><stop offset="1" stop-color="#071A36"/></linearGradient>
+    <symbol id="tmark" viewBox="0 0 100 100">
+      <rect width="100" height="100" rx="22.4" fill="url(#tbg)"/>
+      <path d="M15 67 C 28 88, 62 90, 80 62" fill="none" stroke="#F1BF56" stroke-width="7" stroke-linecap="round"/>
+      <path d="M86.5 51.5 L 88 67 L 73.5 61 Z" fill="#F1BF56"/>
+      <path fill="#FCF2D8" d="M22 17 H78 V33 H74 C73 27 69.5 24.5 63 24.5 H56 V70 C56 74.5 58 76.5 63.5 77.5 V81 H36.5 V77.5 C42 76.5 44 74.5 44 70 V24.5 H37 C30.5 24.5 27 27 26 33 H22 Z"/>
+    </symbol>
+    <symbol id="i-house" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.8l8.5 6.7V20a1 1 0 0 1-1 1H15v-6h-6v6H4.5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-books" viewBox="0 0 24 24"><rect x="3.5" y="4" width="4.5" height="16" rx="1"/><rect x="9.5" y="4" width="4.5" height="16" rx="1"/><path d="m15.8 5.2 4.3-1.1 3.3 14.9-4.3 1z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m3.5 6.5 1.8 1.8 3.2-3.3M3.5 12.5l1.8 1.8 3.2-3.3M3.5 18.5l1.8 1.8 3.2-3.3M12 7h8.5M12 13h8.5M12 19h8.5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.5 3.5v17h17"/><path d="m7 15 4-4.5 3 2.5 5.5-6.5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.8 1.8H4.2z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3.2"/><path d="M6.3 18.2a7 7 0 0 1 11.4 0"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v5h-5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    <symbol id="i-school" viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5zM5.5 10.5v7M9.8 10.5v7M14.2 10.5v7M18.5 10.5v7M3.5 20h17"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.2 19.5 6v5.3c0 4.7-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.8-7.5-9.5V6z"/><path d="m8.8 12 2.3 2.3 4.2-4.6"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M17.5 12v3.5M20.5 12v2.5"/></symbol>
+    <symbol id="i-bubble" viewBox="0 0 24 24"><path d="M4 5h16v11h-8.5L7 20v-4H4z"/><path d="M12 8.5v3.5M12 14.2v.1"/></symbol>
+    <symbol id="i-return" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></symbol>
+    <symbol id="i-clockx" viewBox="0 0 24 24"><circle cx="11" cy="12" r="8"/><path d="M11 7.5V12l3 2"/><path d="M20.5 4.5v4M20.5 11v.1"/></symbol>
+    <symbol id="i-wifix" viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.8 12.5a9 9 0 0 1 12.4 0M9.2 16a4 4 0 0 1 5.6 0"/><path d="M12 19.5v.1M4 3.5l16 17"/></symbol>
+    <symbol id="i-personx" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 19a6.5 6.5 0 0 1 11-4.7"/><path d="M19 13.5v3.5M19 19.5v.1"/></symbol>
+    <symbol id="i-excl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.3v.1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 16.5v-9M8.5 11 12 7.5l3.5 3.5"/></symbol>
+    <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.3 12.3 2.5 2.5 5-5.3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-tri" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19z"/><path d="M12 9.5v5M12 17.3v.1"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></symbol>
+    <symbol id="s-signal" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></symbol>
+    <symbol id="s-wifi" viewBox="0 0 18 12"><path d="M9 11.5 6.6 9a3.4 3.4 0 0 1 4.8 0zM3.8 6.3a7.4 7.4 0 0 1 10.4 0l-1.5 1.5a5.3 5.3 0 0 0-7.4 0zM1 3.5a11.3 11.3 0 0 1 16 0l-1.5 1.5a9.2 9.2 0 0 0-13 0z"/></symbol>
+    <symbol id="s-batt" viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" opacity=".45"/><rect x="2.2" y="2.2" width="18.6" height="7.6" rx="1.8"/><rect x="24" y="4" width="2" height="4" rx="1" opacity=".45"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <h1>Tally — redesigned first run &amp; launch</h1>
+  <span class="sample-note" role="note">SAMPLE DATA: every school, person, course and grade here is fictional placeholder data.</span>
+  <div class="controls" role="toolbar" aria-label="Prototype controls">
+    <div class="group" aria-label="Steps"><span>Step</span><div class="steps" id="steps"></div></div>
+    <div class="group"><button class="pill" id="prev" aria-label="Previous step">◀ Prev</button><button class="pill" id="next" aria-label="Next step">Next ▶</button></div>
+    <div class="group"><span>Play</span><button class="pill" id="playFirst">First run</button><button class="pill" id="playWarm">Warm launch</button></div>
+    <div class="group" aria-label="Appearance"><span>Appearance</span>
+      <button class="pill" data-theme-btn="both" aria-pressed="true">Both</button>
+      <button class="pill" data-theme-btn="light" aria-pressed="false">Light</button>
+      <button class="pill" data-theme-btn="dark" aria-pressed="false">Dark</button></div>
+    <div class="group" aria-label="Accessibility settings"><span>Simulate</span>
+      <button class="pill" id="tBig" aria-pressed="false">Larger Text</button>
+      <button class="pill" id="tRM" aria-pressed="false">Reduce Motion</button>
+      <button class="pill" id="tRT" aria-pressed="false">Reduce Transparency</button></div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="stage" id="stage"></div>
+  <aside class="notes" id="notes" aria-live="polite"></aside>
+</div>
+
+<script>
+(function(){
+"use strict";
+var STEPS=[
+ {id:"launch",  name:"1 Launch"},
+ {id:"brand",   name:"2 Brand moment"},
+ {id:"welcome", name:"3 Welcome"},
+ {id:"school",  name:"4 Find school"},
+ {id:"handoff", name:"5 Sign-in hand-off"},
+ {id:"sync",    name:"6 First sync"},
+ {id:"fresh",   name:"7 Dashboard (fresh)"},
+ {id:"stale",   name:"8 Dashboard (stale)"}
+];
+var S={step:0, theme:"both", big:false, rm:false, rt:false, overlay:null, toast:null, query:"north", syncStage:0,
+       staleVariant:"delayed", dashMode:null, timers:[]};
+try{ if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) S.rm=true; }catch(e){}
+
+function clearTimers(){ S.timers.forEach(clearTimeout); S.timers=[]; }
+function later(fn,ms){ S.timers.push(setTimeout(fn, S.rm? Math.min(ms,ms*0.6):ms)); }
+function ic(id,cls){ return '<svg class="ico '+(cls||"")+'" aria-hidden="true"><use href="#'+id+'"/></svg>'; }
+function tmark(size){ return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 100 100" role="img" aria-label="Tally"><use href="#tmark"/></svg>'; }
+
+/* ---------- SAMPLE DATA (fictional) ---------- */
+var SCHOOLS=[
+ {n:"Northfield State University", d:"canvas.northfield.example"},
+ {n:"Northfield Community College", d:"northfieldcc.instructure.example"},
+ {n:"North Ridge Technical Institute", d:"nrti.instructure.example"},
+ {n:"Northgate Online Academy", d:"northgate.instructure.example"},
+ {n:"Lakeshore University", d:"canvas.lakeshore.example"},
+ {n:"Harbor City College", d:"harborcity.instructure.example"}
+];
+var COURSES=[
+ {c:"MATH 122", n:"Calculus II", v:"--c1"},{c:"PSY 101", n:"Intro to Psychology", v:"--c2"},
+ {c:"BIO 101", n:"Biology 101", v:"--c3"},{c:"HIST 210", n:"World History", v:"--c4"},{c:"ENG 101", n:"English Composition", v:"--c5"}
+];
+
+function statusBar(onDark){
+  return '<div class="status'+(onDark?' onDark':'')+'" aria-hidden="true"><span>9:41</span><span class="sicons">'+
+   '<svg viewBox="0 0 18 12" fill="currentColor"><use href="#s-signal"/></svg><svg viewBox="0 0 18 12" fill="currentColor"><use href="#s-wifi"/></svg>'+
+   '<svg viewBox="0 0 27 12" style="width:27px" fill="currentColor"><use href="#s-batt"/></svg></span></div>';
+}
+function tabbar(){
+  var t=[["i-house","Dashboard"],["i-books","Courses"],["i-cal","Calendar"],["i-check","To-Do"],["i-chart","Insights"]];
+  return '<nav class="tabbar" aria-label="Tab bar">'+t.map(function(x,i){return '<div class="tab'+(i===0?' on':'')+'"'+(i===0?' aria-current="page"':'')+'>'+ic(x[0])+'<span>'+x[1]+'</span></div>';}).join("")+'</nav>';
+}
+function ribbon(){ return '<div class="ribbon" aria-hidden="true">SAMPLE DATA</div>'; }
+
+/* ---------- Screens ---------- */
+function scrLaunch(){
+  return {dark:false, html:'<div class="view" aria-label="Launch screen: solid background colour only"></div>'};
+}
+function scrWelcome(anim){
+  return {dark:true, html:
+  '<div class="view'+(anim?' brandanim':'')+'"><div class="welcome">'+
+   '<div class="wpanel"></div>'+
+   '<div class="tmark">'+tmark(96)+'</div>'+
+   '<div class="wtitle"><div class="wm serif" role="heading" aria-level="1">Tally</div>'+
+     '<div class="tag2">Every class, grade and deadline from Canvas&nbsp;— at a glance.</div></div>'+
+   '<div class="wbody">'+
+     '<div class="vp">'+ic("i-chart")+'<div><b>See where you stand</b><span>All your courses and grades, with trends.</span></div></div>'+
+     '<div class="vp">'+ic("i-bell")+'<div><b>Stay ahead of deadlines</b><span>Due dates, missing work and reminders you control.</span></div></div>'+
+     '<div class="vp">'+ic("i-shield")+'<div><b>Private by design</b><span>No Tally account. Your data stays on this iPhone.</span></div></div>'+
+   '</div>'+
+   '<div class="wfoot"><button class="cta" data-go="school">Find My School</button>'+
+     '<button class="plain" data-act="demo">Explore with Sample Data</button>'+
+     '<div class="legal">Tally is an independent app, not affiliated with Instructure. <u>Privacy</u></div></div>'+
+  '</div></div>'};
+}
+function scrSchool(){
+  var q=S.query.trim().toLowerCase();
+  var hits=SCHOOLS.filter(function(s){return q.length>=2 && (s.n.toLowerCase().indexOf(q)>=0||s.d.indexOf(q)>=0);}).slice(0,4);
+  var urlRow = q.indexOf(".")>0 ? '<div class="row">'+ '<span class="itile info">'+ic("i-link")+'</span><div class="grow"><div class="ttl">Use '+escapeHtml(q)+'</div><div class="sub">Sign in at this Canvas address</div></div>'+ic("i-chev","chev")+'</div>' : "";
+  var rows = hits.map(function(s){return '<div class="row" data-go="handoff" role="button" tabindex="0"><span style="color:var(--t2)">'+ic("i-school")+'</span><div class="grow"><div class="ttl">'+s.n+'</div><div class="sub">'+s.d+'</div></div>'+ic("i-chev","chev")+'</div>';}).join("");
+  var body = (urlRow||rows) ? '<div class="card list">'+urlRow+rows+'</div>' :
+     (q.length<2 ? '<p class="foot">Type at least 2 letters of your school’s name.</p>' :
+      '<div class="card" style="padding:18px;text-align:center"><div style="color:var(--t2)">'+ic("i-search")+'</div><b>No schools match “'+escapeHtml(q)+'”</b><p class="foot">Try your Canvas web address instead, e.g. <i>myschool.instructure.com</i>.</p></div>');
+  return {dark:false, html:
+  '<div class="view anim">'+ribbon()+
+   '<div class="nav"><span class="backbtn" data-go="welcome" role="button" tabindex="0">'+ic("i-back")+' Back</span></div>'+
+   '<div class="pad"><div class="ltitle" role="heading" aria-level="1">Find your school</div>'+
+   '<div class="search">'+ic("i-search")+'<input id="q" aria-label="School name or Canvas address" value="'+escapeHtml(S.query)+'" autocomplete="off"></div>'+
+   body+
+   '<p class="foot">Can’t find it? Type the web address you use to sign in to Canvas.</p></div>'+
+   '<div class="kb" aria-hidden="true">'+kb()+'</div>'+
+  '</div>'};
+}
+function kb(){
+  var r=["qwertyuiop","asdfghjkl","zxcvbnm"];
+  return r.map(function(x,i){return '<div class="kr">'+(i===2?'<i style="width:42px">⇧</i>':'')+x.split("").map(function(c){return '<i>'+c+'</i>';}).join("")+(i===2?'<i style="width:42px">⌫</i>':'')+'</div>';}).join("")+
+    '<div class="kr"><i class="w">123</i><i class="sp">space</i><i class="w">search</i></div>';
+}
+function scrHandoff(){
+  var o="";
+  if(S.overlay==="alert"){
+    o='<div class="scrim"><div class="syslabel">iOS draws this alert (approximation)</div><div class="sysalert" role="alertdialog" aria-label="System sign-in alert">'+
+      '<div class="b"><h4>“Tally” Wants to Use “canvas.northfield.example” to Sign In</h4><p>This allows the app and website to share information about you.</p></div>'+
+      '<div class="btns"><button data-act="cancelAuth">Cancel</button><button class="pri" data-act="continueAuth">Continue</button></div></div></div>';
+  } else if(S.overlay==="web"){
+    o='<div class="scrim" style="align-items:flex-end"><div class="sheet" role="dialog" aria-label="School sign-in web page">'+
+      '<div class="grab"></div><div class="urlbar">'+ic("i-lock")+' canvas.northfield.example</div>'+
+      '<div class="webph"><b>Your school’s own sign-in page loads here</b><br>(rendered by iOS; Tally cannot see or change it)'+
+      '<div class="field"></div><div class="field"></div>'+
+      '<button class="cta sm" data-act="authOK">Simulate successful sign-in</button></div></div></div>';
+  }
+  var toast = S.toast ? '<div class="toast" role="status">'+S.toast+'</div>' : "";
+  return {dark:false, html:
+  '<div class="view">'+ribbon()+
+   '<div class="nav"><span class="backbtn" data-go="school" role="button" tabindex="0">'+ic("i-back")+' Schools</span></div>'+
+   '<div class="pad">'+
+    '<div class="flow" aria-hidden="true"><span class="t">'+tmark(58)+'</span><span class="dots">•••</span><span class="school">'+ic("i-school")+'</span></div>'+
+    '<div style="text-align:center"><div class="ltitle" style="font-size:1.5em" role="heading" aria-level="1">Sign in to Northfield State</div>'+
+    '<div style="margin:8px 0 14px"><span class="schoolchip">'+ic("i-school")+' canvas.northfield.example</span></div></div>'+
+    '<div class="card list exp">'+
+     '<div class="row">'+ic("i-key")+'<div class="grow"><div class="ttl">Use your usual school login</div><div class="sub">You sign in on your school’s page. Tally never sees your password.</div></div></div>'+
+     '<div class="row">'+ic("i-bubble")+'<div class="grow"><div class="ttl">iOS will ask first</div><div class="sub">You’ll see “Tally Wants to Use canvas.northfield.example to Sign In”. Choose Continue.</div></div></div>'+
+     '<div class="row">'+ic("i-shield")+'<div class="grow"><div class="ttl">Approve read access</div><div class="sub">Canvas asks you to authorize Tally. Tally only reads your courses, grades and due dates.</div></div></div>'+
+     '<div class="row">'+ic("i-return")+'<div class="grow"><div class="ttl">Then you’re back here</div><div class="sub">Tally loads your courses straight away.</div></div></div>'+
+    '</div></div>'+
+   '<div class="hofoot"><button class="cta" data-act="startAuth">Continue to Northfield State</button><button class="plain" data-go="school">Choose a Different School</button></div>'+
+   toast+o+
+  '</div>'};
+}
+function heroSkeleton(stage){
+  var labels=["Connecting to Northfield State…","Found 5 courses","Loading grades","Loading due dates","Almost done"];
+  var pct=[8,30,55,80,96][stage]||8;
+  return '<div class="hero" aria-busy="true"><div class="lbl">Setting up Tally</div>'+
+   '<div class="hero-row"><div class="sk" style="width:118px;height:118px;border-radius:50%"></div>'+
+   '<div style="flex:1"><div class="sk" style="height:16px;width:70%"></div><div class="sk" style="height:12px;width:50%;margin-top:8px"></div><div class="sk" style="height:40px;margin-top:12px"></div></div></div>'+
+   '<div role="status" style="font-size:.8em;color:var(--onhero2);margin-top:12px">'+labels[stage]+(stage>=1&&stage<4?' · step '+(stage+1)+' of 4':'')+'</div>'+
+   '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><i style="width:'+pct+'%"></i></div></div>';
+}
+function heroReal(mode){
+  var foot;
+  if(mode==="fresh") foot='<span class="st">'+ic("i-ok")+' Updated just now</span><button class="rbtn" aria-label="Refresh now">'+ic("i-refresh")+'</button>';
+  else if(mode==="refreshing") foot='<span class="st"><span class="spin" aria-hidden="true"></span> Updated 2:14 PM · Refreshing…</span><button class="rbtn" aria-label="Refresh now" disabled>'+ic("i-refresh")+'</button>';
+  else foot='<span class="st">'+ic(S.staleVariant==="offline"?"i-wifix":S.staleVariant==="auth"?"i-personx":"i-clockx")+' Saved 2:14 PM</span><button class="rbtn" aria-label="Retry refresh">'+ic("i-refresh")+'</button>';
+  var changes = (mode==="fresh" && S.dashMode==="warm") ? '<div class="chipbtn reveal">'+ic("i-up")+' 3 changes since 2:14 PM</div>' : "";
+  return '<div class="hero reveal"><div class="lbl" style="justify-content:space-between"><span>OVERALL STANDING</span><span style="font-weight:500;letter-spacing:0;display:flex;gap:4px;align-items:center">Average of 5 courses '+ic("i-info")+'</span></div>'+
+   '<div class="hero-row"><div class="ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="11"/>'+
+     '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--gold)" stroke-width="11" stroke-linecap="round" stroke-dasharray="'+(314.16*0.872).toFixed(1)+' 400"/></svg>'+
+     '<div class="val"><span class="pct serif">87.2%</span><span class="ltr">B+</span></div></div>'+
+   '<div style="flex:1;min-width:0"><div class="delta">'+ic("i-up")+' +5.2 pts <small>vs last month</small></div>'+
+     '<svg class="spark" viewBox="0 0 160 46" preserveAspectRatio="none" role="img" aria-label="Trend: up from 82 to 87 percent over 30 days"><polyline fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="2,36 22,32 40,34 58,26 76,28 94,20 112,22 130,14 148,12 158,9"/><circle cx="158" cy="9" r="3.5" fill="var(--gold)"/></svg>'+
+     '<div class="axis"><span>Aug 28</span><span>Sep 28</span></div></div></div>'+
+   changes+
+   '<div class="herofoot">'+foot+'</div></div>';
+}
+function alertsBlock(){
+  return '<div class="sechead"><h2>Needs attention</h2><a href="#" tabindex="-1">See All</a></div>'+
+  '<div class="card list">'+
+   '<div class="row"><span class="itile danger">'+ic("i-excl")+'</span><div class="grow"><div class="ttl">2 missing assignments</div><div class="sub">Calculus II · World History</div></div>'+ic("i-chev","chev")+'</div>'+
+   '<div class="row"><span class="itile warn">'+ic("i-clock")+'</span><div class="grow"><div class="ttl">Quiz tomorrow</div><div class="sub">Biology 101 · 8:00 AM</div></div>'+ic("i-chev","chev")+'</div>'+
+   '<div class="row"><span class="itile info">'+ic("i-up")+'</span><div class="grow"><div class="ttl">New grade posted</div><div class="sub">Calculus II · Problem Set 6 · 92/100</div></div>'+ic("i-chev","chev")+'</div>'+
+  '</div>';
+}
+function tipBlock(){
+  return '<div class="card tip reveal" style="margin-top:12px"><span class="itile info">'+ic("i-bell")+'</span><div style="flex:1">'+
+   '<h3>Get reminded before work is due</h3><p>Tally can remind you a day and an hour before each deadline. You choose the rules.</p>'+
+   '<button class="cta sm">Turn On Reminders</button></div><span class="x" aria-label="Dismiss tip" role="button">'+ic("i-x")+'</span></div>';
+}
+function dueBlock(){
+  var items=[[0,"Problem Set 7","Thu 11:59 PM","warn","Not submitted"],[1,"Chapter 6 Quiz","Fri 8:00 AM","",""],[2,"Lab Report 4","Sun 11:59 PM","pos","Submitted"],[3,"Essay 2","Oct 5 · 11:59 PM","",""]];
+  return '<div class="sechead"><h2>Due soon</h2><a href="#" tabindex="-1">To-Do</a></div><div class="card list">'+
+   items.map(function(x){var c=COURSES[x[0]];return '<div class="row"><span class="cdot" style="background:var('+c.v+')" aria-hidden="true"></span><div class="grow"><div class="ttl">'+x[1]+'</div><div class="sub"><span class="code">'+c.c+'</span> · Due '+x[2]+'</div></div>'+
+     (x[3]?'<span class="tag '+x[3]+'">'+(x[3]==="pos"?ic("i-ok"):ic("i-clock"))+x[4]+'</span>':'')+'</div>';}).join("")+'</div>';
+}
+function skeletonList(n){
+  var r=""; for(var i=0;i<n;i++) r+='<div class="row"><div class="sk" style="width:34px;height:34px;border-radius:10px"></div><div class="grow"><div class="sk" style="height:13px;width:'+(60+i*9)+'%"></div><div class="sk" style="height:10px;width:40%;margin-top:7px"></div></div></div>';
+  return '<div class="card list">'+r+'</div>';
+}
+function coursesProgress(stage){
+  if(stage<1) return '<div class="sechead"><h2>Your courses</h2></div>'+skeletonList(3);
+  return '<div class="sechead"><h2>Your courses</h2></div><div class="card list">'+COURSES.map(function(c,i){
+    var g=["90.1% · A-","87.2% · B+","93.4% · A","82.0% · B","89.0% · A-"][i];
+    return '<div class="row reveal"><span class="cdot" style="background:var('+c.v+')" aria-hidden="true"></span><div class="grow"><div class="ttl">'+c.n+'</div><div class="sub"><span class="code">'+c.c+'</span></div></div>'+
+      (stage>=2?'<span style="font-weight:600;font-size:.88em">'+g+'</span>':'<div class="sk" style="width:70px;height:13px"></div>')+'</div>';}).join("")+'</div>';
+}
+function scrDash(mode){
+  var nav='<div class="nav" style="align-items:flex-start"><div><div class="ltitle serif" role="heading" aria-level="1">Dashboard</div><div class="subtitle">Good morning, Alex · Mon, Sep 28</div></div>'+
+    '<div style="display:flex;gap:8px;margin-top:2px"><span class="gbtn" aria-label="Notifications, 3 new">'+ic("i-bell")+'<span class="badge">3</span></span><span class="gbtn" aria-label="Settings and account">'+ic("i-person")+'</span></div></div>';
+  var crumb="";
+  if(mode==="stale"){
+    var v=S.staleVariant, txt, icon, act="Retry";
+    if(v==="offline"){ icon="i-wifix"; txt="You’re offline — showing your latest saved data."; act=""; }
+    else if(v==="auth"){ icon="i-personx"; txt="Your Northfield State sign-in expired — showing saved data from 2:14 PM."; act="Sign In"; }
+    else { icon="i-clockx"; txt="Live refresh is taking longer than expected — showing saved data from 2:14 PM."; }
+    crumb='<div class="crumb" role="status"><span class="ci">'+ic(icon)+'</span><span>'+txt+'</span>'+(act?'<span class="rt" role="button">'+act+'</span>':'')+'</div>';
+  }
+  var body;
+  if(mode==="sync"){
+    body=heroSkeleton(S.syncStage)+(S.syncStage>=3?alertsBlock():'<div class="sechead"><h2>Needs attention</h2></div>'+skeletonList(2))+coursesProgress(S.syncStage);
+  } else {
+    body=heroReal(mode==="stale"?"stale":mode)+alertsBlock()+((mode==="fresh"&&S.dashMode!=="warm")?tipBlock():"")+dueBlock();
+  }
+  return {dark:false, html:'<div class="view anim">'+ribbon()+'<div class="fade-top"></div>'+nav+
+    crumb+'<div class="pad" style="padding-bottom:110px">'+body+'</div></div>'+tabbar()};
+}
+
+function screenFor(id){
+  switch(id){
+    case "launch": return scrLaunch();
+    case "brand": return scrWelcome(true);
+    case "welcome": return scrWelcome(false);
+    case "school": return scrSchool();
+    case "handoff": return scrHandoff();
+    case "sync": return scrDash("sync");
+    case "fresh": return scrDash(S.dashMode==="refreshing"?"refreshing":"fresh");
+    case "stale": return scrDash("stale");
+  }
+}
+
+/* ---------- Notes ---------- */
+var NOTES={
+ launch:{t:"1 · Static launch screen",
+  see:["A solid background colour, nothing else, drawn by iOS before Tally runs any code.","Light: #F2F4F8 (bg.canvas). Dark: #05080F. Same colour as the first frame, so there is no flash."],
+  rules:["Info.plist <code>UILaunchScreen</code> → <code>UIColorName: LaunchBackground</code> only. No image, no text, no logo (HIG Launching).","Today: <code>UILaunchScreen</code> is an empty dict and the first frame is a navy LoginView → a white-to-navy flash in Light mode.","Budget: first frame ≤ 300 ms on a warm start (kit 01 §8)."]},
+ brand:{t:"2 · Brand moment (first run only)",
+  see:["The icon tile you tapped appears, rises, and the navy welcome panel blooms out of it. Total ≈ 0.9 s. You can tap at any time.","Reduce Motion: a 0.2 s cross-fade, no movement."],
+  rules:["The HIG allows a splash at the start of onboarding, not on the launch screen.","Brand art is vector (SVG→PDF), not the 1 MB PNGs (each decodes to ~6.3 MB).","Returning users never see this. They go straight to the Dashboard from cache."]},
+ welcome:{t:"3 · Value proposition (one screen)",
+  see:["One screen, not a carousel: 3 benefits, 1 primary action, 1 secondary action.","“Explore with Sample Data” opens demo mode. This also covers App Review access (owner decision)."],
+  rules:["HIG Onboarding: brief, and the app should teach itself.","The CTA is the accent fill: white on #1D4E9E is 7.97:1 (light); #06142B on #8DB4FF is 8.84:1 (dark).","No permission requests here. Nothing is asked until it is needed."]},
+ school:{t:"4 · Find your school",
+  see:["Search as you type (≥ 2 letters, 300 ms debounce), 4 results visible above the keyboard.","Typing a web address shows “Use canvas.myschool.edu”. Try typing a dot in the field."],
+  rules:["Directory: <code>GET canvas.instructure.com/api/v1/accounts/search?name=</code>. Observed returning 200 without auth on 2026-09-26. Legal lane must clear its use.","States: idle, searching, results, no match, offline, “Tally isn’t available at this school yet”.","Every result row is a 44 pt+ target and shows the school name plus its domain."]},
+ handoff:{t:"5 · Sign-in hand-off",
+  see:["Sets expectations before any system UI: your school’s page, the iOS alert, the Canvas approval, the return.","Tap Continue to see the iOS alert (an approximation), then the web sheet. Cancel returns here with a calm note, not an error."],
+  rules:["<code>ASWebAuthenticationSession</code> shows the “wants to use … to sign in” alert unless the session is ephemeral (see the owner decision).","Cancel (<code>canceledLogin</code>) is not an error. <code>access_denied</code>, network failure and “not enabled” each get their own message.","Never say “Tally never sees your password” unless the auth design guarantees it (it does for web auth)."]},
+ sync:{t:"6 · First sync: skeleton + progressive",
+  see:["The Dashboard and tab bar appear at once, with skeleton placeholders.","Courses appear first, then grades, then alerts and due dates. A determinate bar shows the step (e.g. 2 of 4)."],
+  rules:["Skeleton uses <code>.redacted(reason: .placeholder)</code>. Shimmer is off under Reduce Motion.","VoiceOver announces each step, and the hero is <code>accessibilityElement(children: .combine)</code> while it is busy.","If this takes more than 10 s there is no cache yet, so the app shows “Large course loads can take a minute” and keeps going, with no stale breadcrumb."]},
+ fresh:{t:"7 · Dashboard — fresh",
+  see:["Hero: overall standing (labelled as an average of 5 courses), the change as an arrow plus signed text, a trend line, and “Updated just now” with a 44 pt refresh button.","First run only: an in-context tip to turn on reminders. The system alert appears only after the student taps Turn On Reminders.","Warm launch (Play ▸ Warm launch): renders from cache with “Updated 2:14 PM · Refreshing…”, then shows “3 changes since 2:14 PM”."],
+  rules:["Severity uses icon shape and words, not only colour (red disc = missing, clock = upcoming, arrow = grade).","The system tab bar with Liquid Glass. The UITabBarAppearance override is removed and “More” is now “Insights”.","Pull to refresh and the visible refresh button do the same thing."]},
+ stale:{t:"8 · Dashboard — stale breadcrumb",
+  see:["The kit’s own copy, in a compact bar pinned under the title (<code>safeAreaBar(edge: .top)</code>, iOS 26), with a Retry action.","Switch the variant below: delayed, offline, sign-in expired."],
+  rules:["Shown only after 10 s without a response (delayed), when the network path is down (offline), or after a 401 (sign-in expired).","The icon and text carry the meaning. Amber is secondary: primary text on the tint is 13.85:1 (light).","It clears automatically when fresh data arrives, and VoiceOver announces “Updated just now”."]}
+};
+
+/* ---------- Render ---------- */
+function render(){
+  var st=STEPS[S.step], scr=screenFor(st.id);
+  var themes = S.theme==="both" ? ["light","dark"] : [S.theme];
+  var avail = Math.max(420, window.innerHeight - (document.querySelector(".top").offsetHeight + 60));
+  var scale = Math.min(1, avail/864, (window.innerWidth-32)/ (themes.length>1 && window.innerWidth>900 ? 820 : 410));
+  var html = themes.map(function(th){
+    var cls="phone"+(S.big?" big":"")+(S.rt?" rt":"")+(S.rm?" rm":"");
+    return '<div class="phone-wrap"><div style="width:'+(390*scale)+'px;height:'+(844*scale)+'px"><div class="scaler" style="transform:scale('+scale+')">'+
+      '<section class="'+cls+'" data-theme="'+th+'" aria-label="'+(th==="light"?"Light":"Dark")+' mode iPhone, '+st.name+'"><div class="screen">'+
+      '<div class="island" aria-hidden="true"></div>'+statusBar(scr.dark)+scr.html+'<div class="homebar" aria-hidden="true"></div></div></section></div></div>'+
+      '<div class="phone-cap">'+(th==="light"?"Light":"Dark")+'</div></div>';
+  }).join("");
+  document.getElementById("stage").innerHTML=html;
+  var n=NOTES[st.id];
+  var variant = st.id==="stale" ? '<h3>Variant</h3><div class="variant">'+[["delayed","Delayed > 10 s"],["offline","Offline"],["auth","Sign-in expired"]].map(function(v){return '<button class="pill" data-variant="'+v[0]+'" aria-pressed="'+(S.staleVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' :
+    (st.id==="brand"||st.id==="sync") ? '<div class="variant" style="margin-top:10px"><button class="pill" id="replay">Replay</button></div>' : "";
+  document.getElementById("notes").innerHTML='<h2>'+n.t+'</h2><h3>What the student sees</h3><ul>'+n.see.map(li).join("")+'</ul><h3>Rules &amp; evidence</h3><ul>'+n.rules.map(li).join("")+'</ul>'+variant;
+  document.querySelectorAll("[data-step]").forEach(function(b){b.setAttribute("aria-pressed", String(+b.getAttribute("data-step")===S.step));});
+  document.querySelectorAll("[data-theme-btn]").forEach(function(b){b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-btn")===S.theme));});
+  document.getElementById("tBig").setAttribute("aria-pressed",String(S.big));
+  document.getElementById("tRM").setAttribute("aria-pressed",String(S.rm));
+  document.getElementById("tRT").setAttribute("aria-pressed",String(S.rt));
+  var q=document.getElementById("q");
+  if(q){ q.addEventListener("input",function(e){ S.query=e.target.value; var pos=e.target.selectionStart; render(); var nq=document.getElementById("q"); if(nq){nq.focus(); try{nq.setSelectionRange(pos,pos);}catch(x){}} }); }
+}
+function li(x){return "<li>"+x+"</li>";}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+
+function go(i){ clearTimers(); S.step=Math.max(0,Math.min(STEPS.length-1,i)); S.overlay=null; S.toast=null; if(STEPS[S.step].id!=="fresh") S.dashMode=null; onEnter(); render(); }
+function goId(id){ for(var i=0;i<STEPS.length;i++) if(STEPS[i].id===id) return go(i); }
+function onEnter(){
+  var id=STEPS[S.step].id;
+  if(id==="sync"){ S.syncStage=0; [1,2,3,4].forEach(function(k){ later(function(){ S.syncStage=k; render(); }, 900*k); }); }
+}
+function playFirst(){
+  go(0);
+  later(function(){ go(1); },450);
+  later(function(){ goId("welcome"); },1650);
+  later(function(){ goId("school"); },3400);
+  later(function(){ goId("handoff"); },5200);
+  later(function(){ S.overlay="alert"; render(); },6800);
+  later(function(){ S.overlay="web"; render(); },8200);
+  later(function(){ goId("sync"); later(function(){ goId("fresh"); },4300); },9600);
+}
+function playWarm(){
+  go(0); S.dashMode="warm";
+  later(function(){ S.step=6; S.dashMode="refreshing"; render(); },350);
+  later(function(){ S.dashMode="warm"; render(); },2200);
+}
+
+/* ---------- Wire up ---------- */
+document.getElementById("steps").innerHTML=STEPS.map(function(s,i){return '<button class="pill" data-step="'+i+'" aria-pressed="false">'+s.name+'</button>';}).join("");
+document.addEventListener("click",function(e){
+  var t=e.target.closest("button,[data-go],[data-act],[role=button]"); if(!t) return;
+  if(t.hasAttribute("data-step")) return go(+t.getAttribute("data-step"));
+  if(t.hasAttribute("data-theme-btn")){ S.theme=t.getAttribute("data-theme-btn"); return render(); }
+  if(t.hasAttribute("data-variant")){ S.staleVariant=t.getAttribute("data-variant"); return render(); }
+  if(t.hasAttribute("data-go")){ e.preventDefault(); return goId(t.getAttribute("data-go")); }
+  var a=t.getAttribute("data-act");
+  if(a==="startAuth"){ S.toast=null; S.overlay="alert"; return render(); }
+  if(a==="cancelAuth"){ S.overlay=null; S.toast="Sign-in cancelled. Nothing was shared."; render(); return later(function(){S.toast=null;render();},2600); }
+  if(a==="continueAuth"){ S.overlay="web"; return render(); }
+  if(a==="authOK"){ return goId("sync"); }
+  if(a==="demo"){ return goId("fresh"); }
+  switch(t.id){
+    case "prev": return go(S.step-1);
+    case "next": return go(S.step+1);
+    case "playFirst": return playFirst();
+    case "playWarm": return playWarm();
+    case "tBig": S.big=!S.big; return render();
+    case "tRM": S.rm=!S.rm; return render();
+    case "tRT": S.rt=!S.rt; return render();
+    case "replay": clearTimers(); onEnter(); return render();
+  }
+});
+document.addEventListener("keydown",function(e){
+  if(e.target && e.target.tagName==="INPUT") return;
+  if(e.key==="ArrowRight") go(S.step+1);
+  if(e.key==="ArrowLeft") go(S.step-1);
+});
+var rz; window.addEventListener("resize",function(){ clearTimeout(rz); rz=setTimeout(render,120); });
+render();
+})();
+</script>
+</body>
+</html>
