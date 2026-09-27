@@ -57,4 +57,20 @@ final class SampleDataUITests: XCTestCase {
         app.buttons["Exit"].tap()
         XCTAssertTrue(app.buttons["Explore with Sample Data"].waitForExistence(timeout: 10))
     }
+
+    /// TEMPORARY diagnostic (to be removed): does tapping the *other* Welcome button
+    /// ("Find My School", a different PrimitiveButtonStyle/.tallyPrimary) navigate correctly?
+    /// If this also fails to reach FindSchoolStub's content, the bug is environment- or
+    /// framework-wide (any Welcome button tap), not specific to SampleDataRootView or
+    /// TallySecondaryButtonStyle.
+    func testDiagnosticFindMySchoolNavigates() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let findButton = app.buttons["Find My School"]
+        XCTAssertTrue(findButton.waitForExistence(timeout: 10))
+        findButton.tap()
+        let stubText = app.staticTexts["School search lands in a later milestone."]
+        XCTAssertTrue(stubText.waitForExistence(timeout: 10),
+                     "Find My School never led to FindSchoolStub either. Hierarchy: \(app.debugDescription)")
+    }
 }
