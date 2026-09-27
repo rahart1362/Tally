@@ -123,9 +123,16 @@ public nonisolated enum DashboardBuilder {
         let coursesByID = Dictionary(uniqueKeysWithValues: snapshot.courses.map { ($0.id, $0) })
         // PERF-03: computed once and shared by `nextUp`/`needsAttention` below, which used to
         // each rebuild this (a `flatMap` over every course's every assignment group) from
-        // scratch. Same set, same order (both only ever iterated it, never relied on rebuilding
-        // it twice for any reason) -- a pure hoist, not a behavior change.
-        let items = openAssignments(in: snapshot, coursesByID: coursesByID)
+        // scratch, AND each independently recompute `PriorityScore.weight` per item --
+        // `needsAttention` alone could call it up to twice for the same item (its dueSoonAlert
+        // branch and its loadItems branch), on top of `nextUp`'s own call. `weight` is the
+        // expensive part of that trio (it walks the item's assignment group and, for a
+        // grading-period course, searches the course's periods -- `priorityModifiers`/`score`
+        // are cheap arithmetic by comparison), so it is the one computed once here and threaded
+        // through both, rather than three names for the same lookup. Same set, same order, same
+        // weight values (still `PriorityScore.weight`, called exactly once per item now instead
+        // of up to three times) -- a pure hoist, not a rule change.
+        let items = scoredAssignments(in: snapshot, coursesByID: coursesByID)
 
         return DashboardProjection(
             hero: hero(courses: snapshot.courses),
@@ -150,29 +157,32 @@ public nonisolated enum DashboardBuilder {
 
     // MARK: - Next up (§5.1)
 
-    /// Every assignment across every course's groups, keyed by id, with the course and its
-    /// groups alongside (both needed for `PriorityScore.weight`).
-    private static func openAssignments(
+    /// Every assignment across every course's groups, each with its `PriorityScore.weight`
+    /// computed exactly once (see `build(from:...)`'s comment on why weight specifically).
+    private static func scoredAssignments(
         in snapshot: CanvasSnapshot, coursesByID: [CanvasID<Course>: Course]
-    ) -> [(course: Course, groups: [AssignmentGroup], assignment: Assignment)] {
-        snapshot.groups.flatMap { courseID, groups -> [(Course, [AssignmentGroup], Assignment)] in
+    ) -> [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)] {
+        snapshot.groups.flatMap { courseID, groups -> [(Course, [AssignmentGroup], Assignment, Double)] in
             guard let course = coursesByID[courseID] else { return [] }
-            return groups.flatMap(\.assignments).map { (course, groups, $0) }
+            return groups.flatMap(\.assignments).map { assignment in
+                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
+                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+                return (course, groups, assignment, weight)
+            }
         }
     }
 
     private static func nextUp(
-        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment)], snapshot: CanvasSnapshot, now: Date
+        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
+        snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: String] = [:]
         let courseOrder = Dictionary(uniqueKeysWithValues: snapshot.courses.enumerated().map { ($1.id, $0) })
 
-        for (course, groups, assignment) in items {
+        for (course, _, assignment, weight) in items {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
-            let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                              gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
             let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
             let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
             ranked.append((
@@ -205,18 +215,17 @@ public nonisolated enum DashboardBuilder {
     // MARK: - Needs attention (§2)
 
     private static func needsAttention(
-        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment)], snapshot: CanvasSnapshot, now: Date
+        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
+        snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.AttentionItem] {
         var alerts: [(Alert, String, String?)] = []
         var loadItems: [AlertEngine.LoadItem] = []
 
-        for (course, groups, assignment) in items {
+        for (course, _, assignment, weight) in items {
             if let missing = AlertEngine.missingAlert(assignment: assignment, now: now) {
                 alerts.append(rendered(missing, assignment: assignment, course: course))
             } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,
                       let due = assignment.dueAt, due >= now {
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
                 let hours = due.timeIntervalSince(now) / 3600
                 let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
                 let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
@@ -226,8 +235,6 @@ public nonisolated enum DashboardBuilder {
             }
             if let due = assignment.dueAt, due >= now, let submission = assignment.submission,
                !submission.isSubmitted, !submission.excused {
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
                 loadItems.append(AlertEngine.LoadItem(dueAt: due, weight: weight, courseID: course.id))
             }
         }

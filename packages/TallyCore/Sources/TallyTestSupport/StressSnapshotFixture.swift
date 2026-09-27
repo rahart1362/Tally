@@ -180,12 +180,24 @@ public enum StressSnapshotFixture {
         let missing = isPast && !excused && index.isMultiple(of: 7)
         let late = isPast && !missing && !excused && index.isMultiple(of: 5)
         let graded = isPast && !missing && !excused && !index.isMultiple(of: 3)
-        let submittedAt: Date? = missing ? nil : now.addingTimeInterval(-Double(Int.random(in: 0...5, using: &rng)) * 86400)
+        // Whether the student has turned this in yet. Past-due work that isn't `missing` has
+        // been (the common case once a deadline has passed); future-due work is mostly *not*
+        // submitted yet (~20% turned it in early, `index.isMultiple(of: 5)`) — this is what
+        // benchmarks exercising AlertEngine's "due soon"/"overload cluster" paths need, since
+        // both only ever look at *unsubmitted* future work. An earlier version of this
+        // generator set `submittedAt` unconditionally (anchored to `now` regardless of the
+        // assignment's own due date), so every future-due, non-missing item read as already
+        // submitted and those paths silently saw zero items at every scale — found via a
+        // temporary diagnostic print while investigating why a mutation check on
+        // `AlertEngine.overloadClusters` showed no measurable difference (see PERF-03 in
+        // docs/pmo/reviews/perf-core.md for the full story).
+        let hasTurnedIn = missing ? false : (isPast || index.isMultiple(of: 5))
+        let submittedAt: Date? = hasTurnedIn ? now.addingTimeInterval(-Double(Int.random(in: 0...5, using: &rng)) * 86400) : nil
         let score = graded ? (possible ?? 10) * Double.random(in: 0.55...1.0, using: &rng) : nil
         return Submission(
             score: score, grade: nil, submittedAt: submittedAt, gradedAt: graded ? submittedAt : nil,
             postedAt: graded ? submittedAt : nil, excused: excused, missing: missing, late: late,
-            workflowState: missing ? "unsubmitted" : (graded ? "graded" : "submitted"),
+            workflowState: missing ? "unsubmitted" : (graded ? "graded" : (hasTurnedIn ? "submitted" : "unsubmitted")),
             id: CanvasID("stress-sub-\(index)"), gradingPeriodID: periodID)
     }
 

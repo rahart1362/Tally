@@ -146,16 +146,28 @@ public enum AlertEngine {
     /// busy stretch doesn't produce a run of near-duplicate alerts.
     ///
     /// PERF-03: `windowItems` used to be `inHorizon.filter { ... }` recomputed from scratch for
-    /// every candidate start — O(n) work repeated up to n times, so O(n^2) overall. Measured via
-    /// `TallyPerfTests.ScalingGateTests`: 10x the courses cost ~19.4x the time in
-    /// `DashboardBuilder.build` (budget 12x) before this fix, tracing back to this function (it
-    /// is `needsAttention`'s only per-window, rather than per-item, cost). Both `start` and
-    /// `end = start + overloadWindow` only move forward as `start` advances through the sorted
-    /// candidate list, so a two-pointer scan over `items` sorted once by `dueAt` gives the exact
-    /// same `windowItems` set in amortized O(1) per candidate instead of O(n): each item enters
-    /// and leaves the window at most once across the whole scan. Total cost drops from O(n^2) to
-    /// O(n log n) (the two sorts). Same alerts, same order, same severities — this is an
-    /// algorithmic change only, not a rule change.
+    /// every candidate start — O(n) work repeated up to n times, so O(n^2) overall: a genuine
+    /// algorithmic bug, found by reading this function, not by a benchmark. (An initial version
+    /// of this comment claimed a specific `TallyPerfTests.ScalingGateTests` measurement --
+    /// 10x the courses costing ~19.4x the time in `DashboardBuilder.build` -- as this fix's
+    /// motivating evidence. That measurement was real but its cause was not: it was taken before
+    /// `ScalingGateTests` had the `.serialized` trait, and cross-test scheduling noise alone
+    /// reproduced numbers in that range. A later fixture bug (`StressSnapshotFixture`'s
+    /// `makeSubmission` marked every non-missing submission as already turned in, regardless of
+    /// the assignment's own due date) meant this function's `items` was empty in every benchmark
+    /// run either way, before or after this fix -- confirmed directly, and by a reverted-mutation
+    /// re-check afterward showing no measurable difference at the scale tested. See PERF-03 in
+    /// docs/pmo/reviews/perf-core.md for the full account. The fix below is still correct and
+    /// still worth keeping: it removes a real O(n^2) risk for whatever real accounts eventually
+    /// cluster many due dates within one `overloadHorizon` window (e.g. finals week), it is
+    /// self-evidently no worse than the O(n) original, and the full `AlertEngineTests` suite
+    /// confirms identical output -- it is just not the explanation for the 19.4x reading.)
+    /// Both `start` and `end = start + overloadWindow` only move forward as `start` advances
+    /// through the sorted candidate list, so a two-pointer scan over `items` sorted once by
+    /// `dueAt` gives the exact same `windowItems` set in amortized O(1) per candidate instead of
+    /// O(n): each item enters and leaves the window at most once across the whole scan. Total
+    /// cost drops from O(n^2) to O(n log n) (the two sorts). Same alerts, same order, same
+    /// severities — this is an algorithmic change only, not a rule change.
     public static func overloadClusters(_ items: [LoadItem], now: Date) -> [Alert] {
         let horizonEnd = now.addingTimeInterval(InsightsConfig.overloadHorizon.timeInterval)
         let inHorizon = items.filter { $0.dueAt >= now && $0.dueAt <= horizonEnd }
