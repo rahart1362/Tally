@@ -35,7 +35,15 @@ public protocol NotificationScheduling: Sendable {
 }
 
 /// `UNUserNotificationCenter`-backed `NotificationScheduling` adapter.
-public struct UNNotificationScheduler: NotificationScheduling {
+/// `@unchecked Sendable`: `UNUserNotificationCenter` itself predates Swift
+/// concurrency's `Sendable` annotations, but Apple documents it as safe to
+/// use from any thread (it is normally accessed via the `.current()`
+/// singleton), so the struct's automatic per-member Sendable check is
+/// overridden rather than the type being made non-Sendable (which would
+/// conflict with `NotificationScheduling: Sendable`). Confirmed by CI
+/// (run 36334644286): without this, the build fails with "stored property
+/// 'center' ... has non-Sendable type 'UNUserNotificationCenter'".
+public struct UNNotificationScheduler: NotificationScheduling, @unchecked Sendable {
     /// The one category every Tally-originated notification uses.
     /// `hiddenPreviewsBodyPlaceholder` (WP5): when the user has "Show
     /// Previews" off, or the notification arrives on a locked device, the
