@@ -15,11 +15,19 @@ let package = Package(
         .library(name: "TallySync", targets: ["TallySync"]),
         .library(name: "TallyTestSupport", targets: ["TallyTestSupport"]),
     ],
+    dependencies: [
+        // Linux test lane only: Apple's swift-crypto mirrors CryptoKit's API.
+        // iOS/macOS builds use the system CryptoKit (encryption.md, WP-ENC-07).
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "4.5.2"),
+    ],
     targets: [
         // Dependency direction (architecture.md §3.1):
         // TallyDomain <- TallyCanvasAPI, TallyStore <- TallySync
         .target(name: "TallyDomain"),
-        .target(name: "TallyCanvasAPI", dependencies: ["TallyDomain"]),
+        .target(name: "TallyCanvasAPI", dependencies: [
+            "TallyDomain",
+            .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+        ]),
         .target(name: "TallyStore", dependencies: ["TallyDomain"]),
         .target(name: "TallySync", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore"]),
         .target(name: "TallyTestSupport", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore"]),
