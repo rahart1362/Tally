@@ -13,9 +13,17 @@ struct TallyApp: App {
     @State private var environment = AppEnvironment.live()
 
     var body: some Scene {
-        WindowGroup {
+        // `.backgroundTask(_:action:)`'s closure does not inherit this
+        // (MainActor) context — its whole point is to be able to run
+        // without the UI active — so it cannot read the MainActor-isolated
+        // `environment` property directly. Reading `environment.logger`
+        // here, while still on MainActor, and capturing the result (a
+        // `Sendable` existential per `TallyPlatformLogger: Sendable`) as a
+        // plain local lets both closures use it safely.
+        let logger = environment.logger
+        return WindowGroup {
             RootView()
-                .task { environment.logger.log(.appLaunch) }
+                .task { logger.log(.appLaunch) }
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             // TallySync.RefreshCoordinator (architecture.md §3.4) is not
@@ -25,7 +33,7 @@ struct TallyApp: App {
             // fabricating data in shipping code paths. Registering the
             // handler here (instead of inside a view) is itself the fix for
             // ARC-02.
-            environment.logger.log(.backgroundRefreshInvoked)
+            logger.log(.backgroundRefreshInvoked)
         }
     }
 }
