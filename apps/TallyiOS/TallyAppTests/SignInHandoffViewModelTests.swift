@@ -1,7 +1,6 @@
 import Foundation
 import Testing
 import TallyCanvasAPI
-import TallyTestSupport
 @testable import TallyFeatures
 
 /// UX-WP-09 / F02 / SEC-05. Every case here is driven by a stubbed
@@ -30,7 +29,7 @@ struct SignInHandoffViewModelTests {
             host: "canvas.northfield.example", clientID: "170000000000001",
             schoolDisplayName: "Northfield State University",
             presenter: presenter, tokenExchange: tokenExchange, redirectURI: redirect,
-            rng: SeededRandom(seed: 7), onSuccess: onSuccess
+            onSuccess: onSuccess
         )
     }
 

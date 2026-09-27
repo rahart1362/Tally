@@ -57,7 +57,6 @@ public final class SignInHandoffViewModel {
     private let presenter: any WebAuthPresenting
     private let tokenExchange: any TokenExchanging
     private let clock: any DateProviding
-    private var rng: any RandomNumberGenerator
     /// Called once, after a real credential is obtained. The composition
     /// root/`RootView` decides what happens next (there is no Dashboard to
     /// route to yet — that is the app-core team's work); this view model
@@ -72,7 +71,6 @@ public final class SignInHandoffViewModel {
         tokenExchange: any TokenExchanging,
         redirectURI: URL,
         clock: any DateProviding = SystemDateProvider(),
-        rng: any RandomNumberGenerator = SystemRandomNumberGenerator(),
         privateSignIn: Bool = false,
         onSuccess: @escaping (CanvasCredential) -> Void
     ) {
@@ -83,7 +81,6 @@ public final class SignInHandoffViewModel {
         self.tokenExchange = tokenExchange
         self.redirectURI = redirectURI
         self.clock = clock
-        self.rng = rng
         self.privateSignIn = privateSignIn
         self.onSuccess = onSuccess
     }
@@ -98,6 +95,17 @@ public final class SignInHandoffViewModel {
     /// "Continue to <School>" (ux-ui.md §3.2 stage 4) / "Try Again" from any failed state.
     public func continueSigningIn() async {
         phase = .presenting
+        // A fresh, local, concretely-typed generator each call (matching how
+        // `TallyCanvasAPI`'s own tests build one: `var rng = ...; using: &rng`)
+        // rather than a stored `any RandomNumberGenerator` property boxed across
+        // calls — the latter, combined with `AuthorizationRequest.begin`'s
+        // `inout some RandomNumberGenerator` parameter inside this async
+        // main-actor method, crashed Xcode 26.6's swift-frontend during IRGen
+        // (confirmed via CI: "While emitting IR SIL function
+        // ...SignInHandoffViewModelC015continueSigningD0..."). Determinism
+        // isn't needed here: `state`/PKCE values are never asserted against a
+        // fixed expectation, only round-tripped.
+        var rng = SystemRandomNumberGenerator()
         let request = AuthorizationRequest.begin(host: host, clientID: clientID, redirectURI: redirectURI,
                                                  now: clock.now(), using: &rng)
         do {
