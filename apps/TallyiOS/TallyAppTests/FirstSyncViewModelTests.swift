@@ -69,13 +69,17 @@ struct FirstSyncViewModelTests {
 }
 
 private struct FakeFirstSyncPublisher: FirstSyncPublishing {
-    let events: [FirstSyncEvent]
+    let queuedEvents: [FirstSyncEvent]
+
+    init(events: [FirstSyncEvent]) {
+        queuedEvents = events
+    }
 
     func events() -> AsyncStream<FirstSyncEvent> {
-        let events = self.events
+        let queuedEvents = self.queuedEvents
         return AsyncStream { continuation in
             Task {
-                for event in events {
+                for event in queuedEvents {
                     continuation.yield(event)
                 }
                 continuation.finish()
