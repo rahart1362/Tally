@@ -1,5 +1,6 @@
 import Foundation
 import TallyCanvasAPI
+import TallyDomain
 
 /// Turns an authorization code into a `CanvasCredential` (security.md §3.2
 /// item 6: `POST /login/oauth2/token`, no client secret, no

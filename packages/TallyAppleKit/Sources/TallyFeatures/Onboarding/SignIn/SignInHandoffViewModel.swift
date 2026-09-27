@@ -1,5 +1,6 @@
 import Foundation
 import TallyCanvasAPI
+import TallyDomain
 
 /// Outcome mapping (ux-ui.md §3.2.2): cancel is never an error; the other
 /// failures each get their own message.
