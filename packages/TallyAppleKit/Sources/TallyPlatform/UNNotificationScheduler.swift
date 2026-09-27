@@ -74,16 +74,32 @@ public struct UNNotificationScheduler: NotificationScheduling, @unchecked Sendab
     public func schedule(
         id: String, title: String, body: String, interruptionLevel: InterruptionLevel, fireDate: Date
     ) async throws {
+        try await center.add(Self.request(id: id, title: title, body: body, interruptionLevel: interruptionLevel, fireDate: fireDate))
+    }
+
+    /// Pure content/trigger construction, split out of `schedule` so it is
+    /// directly testable without depending on notification authorization.
+    /// architecture.md's own verification legend (WP-E07) scopes the real
+    /// `add`/`pendingNotificationRequests()` round trip as "macOS CI
+    /// simulator; real prompts device-only" — confirmed on CI run
+    /// 36335209586: a hosted hosted-test process where authorization has
+    /// never been requested/determined never surfaces an added request via
+    /// `pendingNotificationRequests()`, even though `add` itself does not
+    /// throw. This builder is what schedule() actually hands to
+    /// `UNUserNotificationCenter`, so it is the meaningful thing to assert
+    /// on hosted.
+    static func request(
+        id: String, title: String, body: String, interruptionLevel: InterruptionLevel, fireDate: Date
+    ) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.categoryIdentifier = Self.reminderCategoryIdentifier
-        content.interruptionLevel = Self.unInterruptionLevel(interruptionLevel)
+        content.categoryIdentifier = reminderCategoryIdentifier
+        content.interruptionLevel = unInterruptionLevel(interruptionLevel)
 
         let interval = max(1, fireDate.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
-        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        try await center.add(request)
+        return UNNotificationRequest(identifier: id, content: content, trigger: trigger)
     }
 
     public func cancel(ids: Set<String>) async {

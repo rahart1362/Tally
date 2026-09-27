@@ -55,23 +55,30 @@ struct KeychainVaultKeyStoreTests {
 
     @Test("an .app-audience key is invisible to a store configured with only the App Group group")
     func appAudienceKeyIsInvisibleToWidgetOnlyGroup() throws {
-        // CI run 36333352378 proved arbitrary group strings do NOT work here:
-        // SecItemAdd failed with errSecMissingEntitlement (-34018) — the
-        // Simulator DOES enforce kSecAttrAccessGroup against the test host's
-        // real signed entitlements (Tally.entitlements' keychain-access-groups),
-        // even for a local "Sign to Run Locally" build. So this test must use
-        // groups the running Tally.app is actually entitled to: its own
-        // bundle id, and the App Group id it publishes at
-        // Info.plist["TallyAppGroupID"] (project.yml), both prefixed with
-        // this process's real Team ID prefix (`KeychainAccessGroupResolver`).
-        guard let prefix = KeychainAccessGroupResolver.resolveTeamIDPrefix() else {
-            Issue.record("could not resolve this process's Keychain access-group prefix on this runner")
+        // CI runs 36333352378 and 36335209586 both proved a *guessed* group
+        // string does not work here: SecItemAdd failed with
+        // errSecMissingEntitlement (-34018) both times (once for a made-up
+        // string, once for "TEAMID.<bundle id>" reconstructed by taking the
+        // resolved default group's text before its first "." -- broken
+        // because a reverse-DNS bundle id contains dots of its own, and this
+        // repo's ad-hoc CI signing identity has no real Team ID prefix at
+        // all, so the resolved default group is exactly the bundle id and
+        // "before the first dot" reads a fake prefix out of the bundle id
+        // itself). Fixed by deriving the shared group from the *known*
+        // trailing bundle id instead of guessing where a prefix ends.
+        guard let defaultGroup = KeychainAccessGroupResolver.resolveDefaultAccessGroup() else {
+            Issue.record("could not resolve this process's default Keychain access group on this runner")
             return
         }
         let hostBundleID = Bundle.main.bundleIdentifier ?? "dev.tally-app.tally"
         let hostAppGroupID = (Bundle.main.object(forInfoDictionaryKey: "TallyAppGroupID") as? String) ?? "group.dev.tally-app.tally"
-        let appOnlyGroup = "\(prefix).\(hostBundleID)"
-        let sharedGroup = "\(prefix).\(hostAppGroupID)"
+        guard let sharedGroup = KeychainAccessGroupResolver.accessGroup(
+            defaultGroup, replacingKnownSuffix: hostBundleID, with: hostAppGroupID)
+        else {
+            Issue.record("default access group '\(defaultGroup)' did not end with the host bundle id '\(hostBundleID)'")
+            return
+        }
+        let appOnlyGroup = defaultGroup
 
         let bundleID = "dev.tally-app.tally.tests.\(UUID().uuidString)"
         let appStore = KeychainVaultKeyStore(bundleID: bundleID, appAccessGroup: appOnlyGroup, widgetAccessGroup: sharedGroup)
@@ -89,11 +96,19 @@ struct KeychainVaultKeyStoreTests {
         try appStore.deleteAll(for: scope)
     }
 
-    @Test("KeychainAccessGroupResolver resolves a non-empty Team ID prefix on this runner")
-    func resolverReturnsAPrefix() {
-        let prefix = KeychainAccessGroupResolver.resolveTeamIDPrefix()
-        #expect(prefix != nil)
-        #expect((prefix?.isEmpty ?? true) == false)
+    @Test("KeychainAccessGroupResolver resolves this app's real default access group")
+    func resolverReturnsTheHostsDefaultGroup() {
+        let group = KeychainAccessGroupResolver.resolveDefaultAccessGroup()
+        #expect(group != nil)
+        let hostBundleID = Bundle.main.bundleIdentifier ?? "dev.tally-app.tally"
+        #expect(group?.hasSuffix(hostBundleID) == true)
+    }
+
+    @Test("accessGroup(_:replacingKnownSuffix:with:) swaps only the known trailing suffix")
+    func accessGroupSwapsSuffix() {
+        #expect(KeychainAccessGroupResolver.accessGroup("dev.tally-app.tally", replacingKnownSuffix: "dev.tally-app.tally", with: "group.dev.tally-app.tally") == "group.dev.tally-app.tally")
+        #expect(KeychainAccessGroupResolver.accessGroup("ABCDE12345.dev.tally-app.tally", replacingKnownSuffix: "dev.tally-app.tally", with: "group.dev.tally-app.tally") == "ABCDE12345.group.dev.tally-app.tally")
+        #expect(KeychainAccessGroupResolver.accessGroup("unrelated.value", replacingKnownSuffix: "dev.tally-app.tally", with: "group.dev.tally-app.tally") == nil)
     }
 
     @Test("a stored key reads back with AfterFirstUnlockThisDeviceOnly, non-synchronizable, and the requested access group")
