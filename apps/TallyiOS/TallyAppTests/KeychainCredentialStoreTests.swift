@@ -114,7 +114,21 @@ struct KeychainCredentialStoreTests {
 
         let loaded = await store.load()
         expectEqual(loaded, original)
-        await expectEventually(store.readStatus() == .found(original), "readStatus() == .found(original)")
+
+        // A *separate*, direct store.readStatus() re-check consistently
+        // disagreed with the .found(original) that load() (internally
+        // calling the identical readStatus()) just returned correctly, even
+        // across 5 retries 50ms apart (CI run 36342366034) -- ruling out a
+        // simple transient timing blip. Diagnose exactly what the second
+        // call actually returns, instead of guessing again.
+        switch store.readStatus() {
+        case .found(let second):
+            expectEqual(second, original, "direct readStatus() recheck")
+        case .notFound:
+            Issue.record("direct readStatus() recheck returned .notFound; load() had just returned .found(original)")
+        case .unavailable:
+            Issue.record("direct readStatus() recheck returned .unavailable; load() had just returned .found(original)")
+        }
 
         await store.delete()
     }
