@@ -96,8 +96,11 @@ public nonisolated enum FreshnessPresenter {
         }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
         if days >= 0, days < 7 {
+            // `.time(_:)` is not a chainable instance modifier on `Date.FormatStyle` (only a
+            // static factory unrelated to this use); build the time-of-day from the same
+            // per-component modifiers `.weekday`/`.month`/`.day` already use.
             return date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeZone)
-                .weekday(.abbreviated).time(.shortened))
+                .weekday(.abbreviated).hour().minute())
         }
         return date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeZone)
             .month(.abbreviated).day())
