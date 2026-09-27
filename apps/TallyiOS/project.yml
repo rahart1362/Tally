@@ -133,9 +133,20 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TallyAppTests
+    configFiles:
+      Debug: Config/Identity.xcconfig
+      Release: Config/Identity.xcconfig
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # This target now links TallyIntents (RefreshIntentBridge, E04) plus
+        # several TallyCore products directly, and Xcode's App Intents
+        # metadata/SSU-training build phase runs for any bundle that
+        # transitively links AppIntents-containing code. Without its own
+        # PRODUCT_BUNDLE_IDENTIFIER, AppIntentsSSUTraining invokes with a
+        # blank --bundle-id and fails ("Unable to parse Info.plist"). Fixed
+        # the same way TallyWidgets already handles its own identifier.
+        PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.tests
     dependencies:
       - target: Tally
       - package: TallyAppleKit
