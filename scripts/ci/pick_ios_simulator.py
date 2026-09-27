@@ -12,7 +12,12 @@ the macOS 26 / Xcode 26.6 job (iOS 26.x simulators) and the Xcode 27
 forward-compat job (iOS 27.x simulators), so the minimum is a parameter,
 not a hard-coded "26".
 
-Usage: pick_ios_simulator.py [--min-major N] [path/to/simctl_output.json]
+`--oldest` picks the oldest qualifying runtime instead. The deployment-floor
+step uses it to run the hosted tests on the lowest iOS 26.x the runner has,
+because some runtime bugs affect only early 26.x releases (swiftlang/swift#88036,
+isolated deinit, fixed in iOS 26.4; docs/pmo/reviews/perf-app-runtime.md §4.6).
+
+Usage: pick_ios_simulator.py [--min-major N] [--oldest] [path/to/simctl_output.json]
 Reads `xcrun simctl list devices available -j` itself if no path is given.
 """
 from __future__ import annotations
@@ -37,7 +42,7 @@ def runtime_sort_key(runtime_id: str) -> tuple[int, ...]:
     return tuple(int(part) for part in tail.split("-") if part.isdigit())
 
 
-def pick(data: dict, min_major: int) -> tuple[str, str, str]:
+def pick(data: dict, min_major: int, oldest: bool = False) -> tuple[str, str, str]:
     candidates = []
     for runtime_id, devices in data.get("devices", {}).items():
         major = runtime_major(runtime_id)
@@ -50,7 +55,8 @@ def pick(data: dict, min_major: int) -> tuple[str, str, str]:
     if not candidates:
         raise SystemExit(f"No available iOS {min_major}+ iPhone simulator found on this runner image.")
 
-    candidates.sort(key=lambda c: c[0], reverse=True)
+    # Stable sort on the runtime version only, so each runtime keeps simctl's device order.
+    candidates.sort(key=lambda c: c[0], reverse=not oldest)
     _, runtime_id, udid, name = candidates[0]
     return runtime_id, udid, name
 
@@ -62,6 +68,9 @@ def main() -> None:
         i = args.index("--min-major")
         min_major = int(args[i + 1])
         del args[i : i + 2]
+    oldest = "--oldest" in args
+    if oldest:
+        args.remove("--oldest")
 
     if args:
         with open(args[0]) as f:
@@ -75,7 +84,7 @@ def main() -> None:
         ).stdout
         data = json.loads(out)
 
-    runtime_id, udid, name = pick(data, min_major)
+    runtime_id, udid, name = pick(data, min_major, oldest)
     print(f"Selected {name} on {runtime_id} ({udid})", file=sys.stderr)
     print(f"udid={udid}")
     print(f"name={name}")
