@@ -61,4 +61,46 @@ public enum InsightsConfig {
     public static let courseHealthNeedsAttentionWindow: Double = 1.5
     /// "Needs attention": a drop of at least this many points over 14 days.
     public static let courseHealthDropWindowPoints: Double = 3.0
+
+    // MARK: - Alert rules (§2.4 "Rule inputs")
+
+    /// A1/A2: an open missing item within this long of `lock_at` is Critical
+    /// instead of High.
+    public static let alertCriticalLockWindow: Duration = .seconds(24 * 60 * 60)
+
+    /// A3 "due soon" windows, in hours: Critical < 3h (and priority >= 60),
+    /// High < 24h, Medium < 72h (and weight >= `dueSoonMediumMinWeight`).
+    public static let dueSoonCriticalWindowHours: Double = 3
+    public static let dueSoonHighWindowHours: Double = 24
+    public static let dueSoonMediumWindowHours: Double = 72
+    public static let dueSoonCriticalMinPriority: Double = 60
+    public static let dueSoonMediumMinWeight: Double = 0.05
+
+    /// A5: once below the goal, the alert only resolves after rising this
+    /// many points *above* the goal (hysteresis against flicker at the line).
+    public static let belowGoalHysteresis: Double = 0.5
+
+    /// A6: a course score drop of at least this many points in one refresh…
+    public static let oneRefreshDropThreshold: Double = 3.0
+    /// …or at least this many points over a rolling 14 days.
+    public static let fourteenDayDropThreshold: Double = 5.0
+
+    /// A7 overload cluster: a rolling window this wide, scanned across this
+    /// many days ahead; fires at >= `overloadMinItems` open items or a single
+    /// course's combined weight share >= `overloadMinCourseWeight` in the
+    /// window. A window starting within `overloadHighWindow` is High instead
+    /// of Medium.
+    public static let overloadWindow: Duration = .seconds(48 * 60 * 60)
+    public static let overloadHorizon: Duration = .seconds(10 * 24 * 60 * 60)
+    public static let overloadMinItems: Int = 4
+    public static let overloadMinCourseWeight: Double = 0.15
+    public static let overloadHighWindow: Duration = .seconds(48 * 60 * 60)
+
+    /// A8: two due instants (no class/exam interval involved) within this
+    /// close together are flagged Info.
+    public static let closeDueGap: Duration = .seconds(30 * 60)
+
+    /// §2.3: a dismissed alert is worsened (and so re-shown) when its
+    /// tracked numeric gap (e.g. points below goal) grows by at least this much.
+    public static let dismissWorsenGap: Double = 2.0
 }
