@@ -38,20 +38,49 @@ let package = Package(
         // Deliberately does NOT depend on TallyPlatform: "Features never
         // import TallyPlatform; the app's composition root injects adapters
         // through protocols" (architecture.md §3.1).
+        //
+        // Dependency graph (architecture.md §3.1): "TallyStore <- TallySync <-
+        // TallyPlatform/TallyFeatures/TallyIntents" — TallyCanvasAPI, TallyStore
+        // and TallySync are therefore expected edges, not a deviation.
+        //
+        // TallyTestSupport is the one addition beyond that graph (disclosed,
+        // WP ASC-14): "Explore with Sample Data" needs a replay-backed
+        // CanvasGateway over the bundled flagship persona, and
+        // `TallyTestSupport.ReplayTransport`/`RouteFixture` are the already-
+        // merged, already-tested pieces that do exactly that (architecture.md
+        // §3.1 lists `ReplayTransport` under `TallyTestSupport` precisely for
+        // Linux/demo replay). The app never ships `TallyTestSupport`'s fixture
+        // *loader* (`Fixtures.root()`, which resolves a source-tree path that
+        // does not exist on a device) — only `ReplayTransport` itself, driven
+        // by routes and a root URL the sample-data code resolves via
+        // `Bundle.module` from this target's own `CanvasFixtures` resource
+        // (below), not the app's `project.yml`.
         .target(
             name: "TallyFeatures",
             dependencies: [
                 "TallyDesignSystem",
                 .product(name: "TallyDomain", package: "TallyCore"),
+                .product(name: "TallyCanvasAPI", package: "TallyCore"),
+                .product(name: "TallyStore", package: "TallyCore"),
+                .product(name: "TallySync", package: "TallyCore"),
+                .product(name: "TallyTestSupport", package: "TallyCore"),
             ],
+            // A single top-level directory under this target's source root, deliberately —
+            // `.copy(_:)` places a resource "as-is... at the top level of the resulting bundle"
+            // (Apple's package-resources documentation), so naming it one level deep here avoids
+            // any ambiguity about whether an intermediate path prefix survives into the bundle.
+            resources: [.copy("CanvasFixtures")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
 
         // AppIntents + AppEntity types, shared by the app and the widget.
+        // Depends on TallySync (architecture.md §3.1 graph) so "Refresh Tally"
+        // can reach the same `RefreshCoordinator` the app uses (WP E04/E06).
         .target(
             name: "TallyIntents",
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
+                .product(name: "TallySync", package: "TallyCore"),
             ]
         ),
     ]

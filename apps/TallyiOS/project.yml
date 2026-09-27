@@ -82,6 +82,15 @@ targets:
         product: TallyFeatures
       - package: TallyAppleKit
         product: TallyIntents
+      # E04: the composition root wires `.backgroundTask`/`RefreshTallyIntent`
+      # to `AppModel.refreshCoordinator` directly (`TallyApp.swift`), which
+      # means this target needs `RefreshTrigger` (TallyDomain) and
+      # `RefreshCoordinator` (TallySync) in scope, not just transitively
+      # through `TallyFeatures`.
+      - package: TallyCore
+        product: TallyDomain
+      - package: TallyCore
+        product: TallySync
       - target: TallyWidgets
         embed: true
 
@@ -131,6 +140,18 @@ targets:
       - target: Tally
       - package: TallyAppleKit
         product: TallyPlatform
+      - package: TallyAppleKit
+        product: TallyFeatures
+      - package: TallyCore
+        product: TallyDomain
+      - package: TallyCore
+        product: TallyCanvasAPI
+      - package: TallyCore
+        product: TallyStore
+      - package: TallyCore
+        product: TallySync
+      - package: TallyCore
+        product: TallyTestSupport
 
   TallyUITests:
     type: bundle.ui-testing

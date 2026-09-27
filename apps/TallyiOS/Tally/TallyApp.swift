@@ -1,6 +1,9 @@
 import SwiftUI
+import TallyDomain
 import TallyFeatures
+import TallyIntents
 import TallyPlatform
+import TallySync
 
 /// Composition root (architecture.md §3.1). This target holds nothing but
 /// this file and `AppEnvironment`: no views, no business logic. The scene's
@@ -17,23 +20,30 @@ struct TallyApp: App {
         // (MainActor) context — its whole point is to be able to run
         // without the UI active — so it cannot read the MainActor-isolated
         // `environment` property directly. Reading `environment.logger`
-        // here, while still on MainActor, and capturing the result (a
-        // `Sendable` existential per `TallyPlatformLogger: Sendable`) as a
-        // plain local lets both closures use it safely.
+        // (and, as of E04, its `appModel.refreshCoordinator`) here, while
+        // still on MainActor, and capturing the results as plain locals lets
+        // both closures use them safely across the isolation boundary
+        // (`RefreshCoordinator` is an actor, so the reference itself is
+        // `Sendable`).
         let logger = environment.logger
+        let coordinator = environment.appModel.refreshCoordinator
+        // E04 / RefreshIntentBridge: keeps "Refresh Tally" pointed at whatever
+        // coordinator the app currently has (today, always `nil` — see
+        // `AppEnvironment`'s doc comment). Real wiring around a currently-
+        // empty value, not a fabricated result.
+        RefreshIntentBridge.coordinator = coordinator
         return WindowGroup {
             RootView()
                 .task { logger.log(.appLaunch) }
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
-            // TallySync.RefreshCoordinator (architecture.md §3.4) is not
-            // implemented yet — that lands in a later, separate work
-            // package. This handler intentionally does nothing rather than
-            // simulate a refresh result: the implementation brief forbids
-            // fabricating data in shipping code paths. Registering the
-            // handler here (instead of inside a view) is itself the fix for
-            // ARC-02.
             logger.log(.backgroundRefreshInvoked)
+            // Real call-through to whatever `RefreshCoordinator` the app has
+            // today (`nil` until Onboarding/sign-in merges an account — see
+            // `AppEnvironment`'s doc comment): an honest no-op, not a
+            // hardcoded stub, and it starts doing real work the moment a
+            // coordinator exists with no further change at this call site.
+            await coordinator?.run(trigger: .background)
         }
     }
 }
