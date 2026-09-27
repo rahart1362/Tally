@@ -1,22 +1,163 @@
-name: TallyApp
+name: Tally
 options:
-  xcodeVersion: "15.4"
+  xcodeVersion: "26.6"
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    # iPhone only (fixes ASC-F07: the old project.yml left XcodeGen's iOS
+    # preset default of "1,2", making the app accidentally iPad-capable).
+    TARGETED_DEVICE_FAMILY: "1"
+    # A single shared value both the app and the widget entitlements read.
+    # Deliberately NOT derived from $(PRODUCT_BUNDLE_IDENTIFIER): the widget
+    # target below overrides that setting to its own sub-identifier, and
+    # Xcode resolves a macro against each target's own effective build
+    # settings, so an App-Group value built from
+    # "group.$(PRODUCT_BUNDLE_IDENTIFIER)" (Identity.xcconfig's
+    # TALLY_APP_GROUP_ID) would silently diverge between the two targets.
+    # Building it from TALLY_BUNDLE_ID_PREFIX instead keeps one literal
+    # group string for both, without editing Identity.xcconfig.
+    TALLY_SHARED_APP_GROUP_ID: group.$(TALLY_BUNDLE_ID_PREFIX).tally
+
+packages:
+  TallyCore:
+    path: ../../packages/TallyCore
+  TallyAppleKit:
+    path: ../../packages/TallyAppleKit
+
 targets:
-  TallyApp:
+  Tally:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "26.0"
     sources:
-      - path: TallyApp
-    infoPlist: TallyApp/Info.plist
-    # App identity (bundle ID, team, domain) lives ONLY in this file. GO-LIVE blocker GL-02.
+      - path: Tally
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
+    entitlements:
+      path: Tally/Tally.entitlements
+    settings:
+      base:
+        # Required for `@main` to resolve outside a file literally named
+        # main.swift. Xcode's own App/Widget-extension *templates* set this
+        # silently; a target authored directly in project.yml (as every
+        # target here is, since there is no Xcode on this host) does not
+        # get it for free. Confirmed by CI run 36328840843: without this,
+        # TallyWidgetsBundle.swift failed with "cannot find type 'Widget'/
+        # 'WidgetBundle' in scope" even though the sibling file in the same
+        # target, with the same `import WidgetKit`, compiled cleanly.
+        OTHER_SWIFT_FLAGS: -parse-as-library
+    info:
+      path: Generated/Tally-Info.plist
+      properties:
+        CFBundleDisplayName: Tally
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - $(PRODUCT_BUNDLE_IDENTIFIER).refresh
+        ITSAppUsesNonExemptEncryption: NO
+        TallyOrgDomain: $(TALLY_ORG_DOMAIN)
+        TallyAppGroupID: $(TALLY_SHARED_APP_GROUP_ID)
     dependencies:
-      - package: TallyPackages
-        product: TallyAppFeature
-packages:
-  TallyPackages:
-    path: ../../
+      - package: TallyAppleKit
+        product: TallyDesignSystem
+      - package: TallyAppleKit
+        product: TallyPlatform
+      - package: TallyAppleKit
+        product: TallyFeatures
+      - package: TallyAppleKit
+        product: TallyIntents
+      - target: TallyWidgets
+        embed: true
 
+  TallyWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TallyWidgets
+    configFiles:
+      Debug: Config/Identity.xcconfig
+      Release: Config/Identity.xcconfig
+    entitlements:
+      path: TallyWidgets/TallyWidgets.entitlements
+    settings:
+      base:
+        # A distinct sub-identifier of the app's bundle ID, as extensions
+        # require. Built directly from TALLY_BUNDLE_ID_PREFIX (not from
+        # $(PRODUCT_BUNDLE_IDENTIFIER)) — see TALLY_SHARED_APP_GROUP_ID above.
+        PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.widgets
+        # See the identical setting (and its comment) on the Tally target.
+        OTHER_SWIFT_FLAGS: -parse-as-library
+    info:
+      path: Generated/TallyWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: Tally Widgets
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    dependencies:
+      - package: TallyAppleKit
+        product: TallyDesignSystem
+      - package: TallyAppleKit
+        product: TallyIntents
+
+  TallyAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TallyAppTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Tally
+      - package: TallyAppleKit
+        product: TallyPlatform
+
+  TallyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TallyUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Tally
+
+schemes:
+  Tally:
+    build:
+      targets:
+        Tally: [run, test, analyze, archive]
+        TallyWidgets: [run, analyze, archive]
+        TallyAppTests: [test]
+        TallyUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TallyAppTests
+        - TallyUITests
+    archive:
+      config: Release

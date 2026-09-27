@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: App icon is 1024x1024 with no alpha
         run: |
-          info="$(file apps/TallyiOS/TallyApp/Assets.xcassets/AppIcon.appiconset/Icon-1024.png)"
+          info="$(file apps/TallyiOS/Tally/Assets.xcassets/AppIcon.appiconset/Icon-1024.png)"
           echo "$info"
           echo "$info" | grep -q "1024 x 1024, 8-bit/color RGB,"
       - name: No fabricated calendar or notification writes (PMO R12)
@@ -51,9 +51,9 @@ jobs:
         run: swift test
 
   ios-build:
-    name: iOS build (Xcode 26.6)
+    name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -77,15 +77,50 @@ jobs:
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
-          xcodebuild build -project TallyApp.xcodeproj -scheme TallyApp \
+          xcodebuild build -project Tally.xcodeproj -scheme Tally \
             -destination 'generic/platform=iOS Simulator' -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/dd" | tee "$RUNNER_TEMP/build-sim.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-sim.log"
+      - name: Pick an iOS 26 simulator (never a hard-coded device name)
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: Build TallyAppTests + TallyUITests for testing
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project Tally.xcodeproj -scheme Tally \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            | tee "$RUNNER_TEMP/build-for-testing.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-for-testing.log"
+      - name: Run TallyAppTests and the TallyUITests launch smoke test
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Tally.xcodeproj -scheme Tally \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RUNNER_TEMP/Tally.xcresult" \
+            | tee "$RUNNER_TEMP/test.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
+          # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **",
+          # not plain "TEST SUCCEEDED" (that's what `xcodebuild test` uses,
+          # confirmed by the xcode-27 job's `xcodebuild test` step passing
+          # with the plain string on the same CI run this comment was added
+          # in: run 36330806691). Accept both.
+          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test.log"
+      - name: Summarize test counts (PMO evidence requirement)
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/Tally.xcresult" ]; then
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally.xcresult" \
+              --compact --format json > "$RUNNER_TEMP/test-summary.json" || true
+            cat "$RUNNER_TEMP/test-summary.json" || true
+          fi
       - name: Build for iOS device (Release, unsigned)
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
-          xcodebuild build -project TallyApp.xcodeproj -scheme TallyApp \
+          xcodebuild build -project Tally.xcodeproj -scheme Tally \
             -destination 'generic/platform=iOS' -configuration Release \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO \
             | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
@@ -96,10 +131,65 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :TallyOrgDomain" "$app/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :TallyAppGroupID" "$app/Info.plist"
-      - name: Upload build logs on failure
+      - name: Upload build logs and .xcresult on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build-logs
-          path: ${{ runner.temp }}/build-*.log
+          path: |
+            ${{ runner.temp }}/build-*.log
+            ${{ runner.temp }}/test.log
+            ${{ runner.temp }}/Tally.xcresult
+          retention-days: 7
+
+  ios-xcode27-forward-compat:
+    name: iOS forward-compat (Xcode 27 preview, non-blocking)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    continue-on-error: true # preview image; must never gate the required checks above
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Xcode version on this runner
+        run: xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Build for iOS Simulator (Debug) on the iOS 27 SDK
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild build -project Tally.xcodeproj -scheme Tally \
+            -destination 'generic/platform=iOS Simulator' -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/dd" | tee "$RUNNER_TEMP/build-sim-xcode27.log" \
+            | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-sim-xcode27.log"
+      - name: Pick an iOS 27 simulator
+        id: sim27
+        run: python3 scripts/ci/pick_ios_simulator.py --min-major 27 >> "$GITHUB_OUTPUT"
+      - name: TallyAppTests + TallyUITests on the iOS 27 SDK
+        working-directory: apps/TallyiOS
+        run: |
+          set -o pipefail
+          xcodebuild test -project Tally.xcodeproj -scheme Tally \
+            -destination "platform=iOS Simulator,id=${{ steps.sim27.outputs.udid }}" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RUNNER_TEMP/Tally-xcode27.xcresult" \
+            | tee "$RUNNER_TEMP/test-xcode27.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
+          grep -q "TEST SUCCEEDED" "$RUNNER_TEMP/test-xcode27.log"
+      - name: Upload build/test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-logs-xcode27
+          path: |
+            ${{ runner.temp }}/build-sim-xcode27.log
+            ${{ runner.temp }}/test-xcode27.log
+            ${{ runner.temp }}/Tally-xcode27.xcresult
           retention-days: 7
