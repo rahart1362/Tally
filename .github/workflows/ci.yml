@@ -101,6 +101,7 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -resultBundlePath "$RUNNER_TEMP/Tally.xcresult" \
+            -collect-test-diagnostics never \
             | tee "$RUNNER_TEMP/test.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
           # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **",
           # not plain "TEST SUCCEEDED" (that's what `xcodebuild test` uses,
@@ -114,7 +115,7 @@ jobs:
           if [ -d "$RUNNER_TEMP/Tally.xcresult" ]; then
             xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally.xcresult" \
               --compact --format json > "$RUNNER_TEMP/test-summary.json" || true
-            cat "$RUNNER_TEMP/test-summary.json" || true
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary.json"
           fi
       - name: Build for iOS device (Release, unsigned)
         working-directory: apps/TallyiOS
@@ -181,8 +182,17 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sim27.outputs.udid }}" \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -resultBundlePath "$RUNNER_TEMP/Tally-xcode27.xcresult" \
+            -collect-test-diagnostics never \
             | tee "$RUNNER_TEMP/test-xcode27.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
           grep -q "TEST SUCCEEDED" "$RUNNER_TEMP/test-xcode27.log"
+      - name: Summarize test results
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/Tally-xcode27.xcresult" ]; then
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally-xcode27.xcresult" \
+              --compact --format json > "$RUNNER_TEMP/test-summary-xcode27.json" || true
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary-xcode27.json"
+          fi
       - name: Upload build/test logs on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -8,8 +8,9 @@ DerivedData/
 apps/TallyiOS/*.xcodeproj/
 apps/TallyiOS/build/
 apps/TallyiOS/*/Generated/
-# SwiftPM
+# SwiftPM (.build-*/ holds the sanitizer and perf scratch paths the Makefile uses)
 .build/
+.build-*/
 .swiftpm/
 Package.resolved.bak
 # Python tooling
