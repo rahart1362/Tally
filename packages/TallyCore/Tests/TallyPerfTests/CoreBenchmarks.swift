@@ -370,5 +370,28 @@ struct CoreBenchmarks {
             }
         }
     }
+
+    // MARK: - PERF-02: DashboardBuilder.build (the ported DashboardProjection pipeline)
+    //
+    // In the same suite (not a separate one) so `.serialized` above covers it too: comparing
+    // this number against priorityScoreAllItems/alertEngineAllItems above only means something
+    // if none of them were running on a shared core with something else at the same time.
+
+    @Test("DashboardBuilder.build over a full snapshot", arguments: BenchScale.allCases)
+    func dashboardBuild(_ scale: BenchScale) async throws {
+        let context = try await PerfFixtures.context(for: scale)
+        Bench.time("dashboardBuild/\(scale)") {
+            _ = DashboardBuilder.build(from: context.snapshot, digest: nil, digestAsOf: nil, now: PerfFixtures.anchor)
+        }
+    }
+
+    @Test("DashboardBuilder.build with a non-empty digest", arguments: BenchScale.allCases)
+    func dashboardBuildWithDigest(_ scale: BenchScale) async throws {
+        let context = try await PerfFixtures.context(for: scale)
+        let digest = ChangeDigest.diff(old: context.digestOld, new: context.snapshot)
+        Bench.time("dashboardBuildWithDigest/\(scale)") {
+            _ = DashboardBuilder.build(from: context.snapshot, digest: digest, digestAsOf: context.snapshot.fetchedAt, now: PerfFixtures.anchor)
+        }
+    }
 }
 #endif
