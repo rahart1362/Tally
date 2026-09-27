@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Pick an available iOS 26+ iPhone simulator for CI (WP-E02).
+
+architecture.md §3.6 requires the destination to be "picked by script from
+`simctl list -j`, never a hard-coded name" — hard-coded device names break
+whenever a runner image drops or renames a simulator. This reads
+`simctl list devices available -j`, keeps only iOS runtimes at or above
+`min_major` (default 26, Tally's deployment target) with at least one
+available iPhone, and prints the newest such runtime's first iPhone as
+`key=value` lines on stdout, ready for `>> "$GITHUB_OUTPUT"`. Used on both
+the macOS 26 / Xcode 26.6 job (iOS 26.x simulators) and the Xcode 27
+forward-compat job (iOS 27.x simulators), so the minimum is a parameter,
+not a hard-coded "26".
+
+Usage: pick_ios_simulator.py [--min-major N] [path/to/simctl_output.json]
+Reads `xcrun simctl list devices available -j` itself if no path is given.
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+
+
+def runtime_major(runtime_id: str) -> int | None:
+    # "com.apple.CoreSimulator.SimRuntime.iOS-26-2" -> 26
+    if "iOS-" not in runtime_id:
+        return None
+    tail = runtime_id.rsplit("iOS-", 1)[-1]
+    head = tail.split("-", 1)[0]
+    return int(head) if head.isdigit() else None
+
+
+def runtime_sort_key(runtime_id: str) -> tuple[int, ...]:
+    # "com.apple.CoreSimulator.SimRuntime.iOS-26-2" -> (26, 2)
+    tail = runtime_id.rsplit("iOS-", 1)[-1]
+    return tuple(int(part) for part in tail.split("-") if part.isdigit())
+
+
+def pick(data: dict, min_major: int) -> tuple[str, str, str]:
+    candidates = []
+    for runtime_id, devices in data.get("devices", {}).items():
+        major = runtime_major(runtime_id)
+        if major is None or major < min_major:
+            continue
+        for device in devices:
+            if device.get("isAvailable") and "iPhone" in device.get("name", ""):
+                candidates.append((runtime_sort_key(runtime_id), runtime_id, device["udid"], device["name"]))
+
+    if not candidates:
+        raise SystemExit(f"No available iOS {min_major}+ iPhone simulator found on this runner image.")
+
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    _, runtime_id, udid, name = candidates[0]
+    return runtime_id, udid, name
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    min_major = 26
+    if "--min-major" in args:
+        i = args.index("--min-major")
+        min_major = int(args[i + 1])
+        del args[i : i + 2]
+
+    if args:
+        with open(args[0]) as f:
+            data = json.load(f)
+    else:
+        out = subprocess.run(
+            ["xcrun", "simctl", "list", "devices", "available", "-j"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        data = json.loads(out)
+
+    runtime_id, udid, name = pick(data, min_major)
+    print(f"Selected {name} on {runtime_id} ({udid})", file=sys.stderr)
+    print(f"udid={udid}")
+    print(f"name={name}")
+    print(f"runtime={runtime_id}")
+
+
+if __name__ == "__main__":
+    main()
