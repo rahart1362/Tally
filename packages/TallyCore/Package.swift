@@ -49,5 +49,12 @@ let package = Package(
             .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
         ]),
         .testTarget(name: "TallySyncTests", dependencies: ["TallySync", "TallyTestSupport"]),
+        // PERF-01 (docs/pmo/05-perf-crash-charter.md): every `@Test` in here is wrapped in
+        // `#if !DEBUG`, so `swift test` (plain, debug) compiles this target but registers zero
+        // cases from it — only `make core-perf` (`swift test -c release --filter
+        // TallyPerfTests`) runs anything. Depends on the same public surface app code would use
+        // (no `@testable`), so release-mode inlining/optimization is not disturbed by
+        // `-enable-testing`.
+        .testTarget(name: "TallyPerfTests", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore", "TallyTestSupport"]),
     ]
 )
