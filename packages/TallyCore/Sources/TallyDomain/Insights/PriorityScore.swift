@@ -245,14 +245,24 @@ public enum PriorityScore {
             .joined(separator: " · ")
     }
 
+    /// `Int(Double)` traps on NaN/±infinity or a magnitude past `Int`'s range. `h`/`w` here
+    /// ultimately trace back to a Canvas-provided due date or point value (CS-01/CS-03): this
+    /// keeps the conversion safe without relying on every upstream caller to have already
+    /// bounded them. Real values are always tiny by comparison, so the clamp never engages
+    /// outside corrupt/adversarial input.
+    private static func safeInt(_ value: Double) -> Int {
+        guard value.isFinite else { return 0 }
+        return Int(min(1e9, max(-1e9, value)).rounded())
+    }
+
     private static func describe(_ factor: Factor, courseCode: String) -> String {
         switch factor {
         case .dueIn(let h):
-            if h < 1 { return "Due in \(max(1, Int((h * 60).rounded())))m" }
-            return "Due in \(Int(h.rounded()))h"
+            if h < 1 { return "Due in \(max(1, safeInt(h * 60)))m" }
+            return "Due in \(safeInt(h))h"
         case .overdue: return "Overdue"
         case .stillAccepted: return "Still accepted"
-        case .courseWeight(let w): return "~\(Int((w * 100).rounded()))% of \(courseCode)"
+        case .courseWeight(let w): return "~\(safeInt(w * 100))% of \(courseCode)"
         case .courseBelowGoal: return "course below your goal"
         case .nearBoundary: return "near a grade boundary"
         case .noDueDate: return "No due date"

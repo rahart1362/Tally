@@ -53,6 +53,16 @@ public enum AlertKind: Sendable, Equatable, Hashable {
     /// A12: sync/sign-in state.
     case sync(SyncCondition)
 
+    /// `Int(Double)` traps on NaN/±infinity or a magnitude past `Int`'s range. Every `Date`
+    /// folded into a dedupe key here should already be small and finite (`CanvasDate.parse`
+    /// bounds a Canvas timestamp to a 4-digit year), but the key is just a cache-dedup string —
+    /// there is no reason to let a future date-arithmetic bug turn into a crash here rather
+    /// than a slightly wrong key (CS-01).
+    private static func safeInt(_ value: Double) -> Int {
+        guard value.isFinite else { return 0 }
+        return Int(min(1e15, max(-1e15, value)))
+    }
+
     /// §2.3 "Identity: every alert has a stable key built from Canvas IDs."
     public var dedupeKey: String {
         switch self {
@@ -60,11 +70,11 @@ public enum AlertKind: Sendable, Equatable, Hashable {
         case .missingClosed(let course): "missingClosed:\(course.rawValue)"
         case .dueSoon(let id): "due:\(id.rawValue)"
         case .gradePosted(let submission, let postedAt):
-            "graded:\(submission.rawValue):\(Int(postedAt.timeIntervalSince1970))"
+            "graded:\(submission.rawValue):\(Self.safeInt(postedAt.timeIntervalSince1970))"
         case .belowGoal(let course): "belowGoal:\(course.rawValue)"
         case .significantDrop(let course, let weekOf):
-            "drop:\(course.rawValue):\(Int(weekOf.timeIntervalSince1970 / 604_800))"
-        case .overloadCluster(let start): "overload:\(Int(start.timeIntervalSince1970))"
+            "drop:\(course.rawValue):\(Self.safeInt(weekOf.timeIntervalSince1970 / 604_800))"
+        case .overloadCluster(let start): "overload:\(Self.safeInt(start.timeIntervalSince1970))"
         case .scheduleConflict(let a, let b): "conflict:\(min(a, b)):\(max(a, b))"
         case .sync(let condition): "sys:\(condition.rawValue)"
         }
