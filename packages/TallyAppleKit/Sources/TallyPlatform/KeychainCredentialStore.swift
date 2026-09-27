@@ -65,7 +65,7 @@ public final class KeychainCredentialStore: CredentialStore, Sendable {
     }
 
     public func save(_ credential: CanvasCredential) async throws {
-        let data = try KeychainSupport.isoEncoder.encode(credential)
+        let data = try KeychainSupport.credentialEncoder.encode(credential)
         let account = Self.account(for: credential)
 
         var updateAttributes: [String: Any] = [
@@ -105,7 +105,7 @@ public final class KeychainCredentialStore: CredentialStore, Sendable {
         switch status {
         case errSecSuccess:
             guard let data = result as? Data,
-                  let credential = try? KeychainSupport.isoDecoder.decode(CanvasCredential.self, from: data)
+                  let credential = try? KeychainSupport.credentialDecoder.decode(CanvasCredential.self, from: data)
             else { return .notFound } // malformed payload: treat like absent, never crash the caller
             return .found(credential)
         case errSecItemNotFound:

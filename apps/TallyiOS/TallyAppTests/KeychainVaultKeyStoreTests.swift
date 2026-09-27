@@ -55,22 +55,32 @@ struct KeychainVaultKeyStoreTests {
 
     @Test("an .app-audience key is invisible to a store configured with only the App Group group")
     func appAudienceKeyIsInvisibleToWidgetOnlyGroup() throws {
-        // Arbitrary distinct strings are enough to prove the isolation this
-        // adapter is responsible for (every query carries an explicit
-        // `kSecAttrAccessGroup`); the Simulator does not enforce these
-        // against real entitlements, which is exactly why WP-ENC-03 lists
-        // "macOS CI simulator" as sufficient verification for this check.
-        let bundleID = "dev.tally-app.tally.tests.\(UUID().uuidString)"
-        let appOnlyGroup = "TEAMID.\(bundleID).apponly"
-        let sharedGroupID = "TEAMID.group.\(bundleID).tally"
+        // CI run 36333352378 proved arbitrary group strings do NOT work here:
+        // SecItemAdd failed with errSecMissingEntitlement (-34018) — the
+        // Simulator DOES enforce kSecAttrAccessGroup against the test host's
+        // real signed entitlements (Tally.entitlements' keychain-access-groups),
+        // even for a local "Sign to Run Locally" build. So this test must use
+        // groups the running Tally.app is actually entitled to: its own
+        // bundle id, and the App Group id it publishes at
+        // Info.plist["TallyAppGroupID"] (project.yml), both prefixed with
+        // this process's real Team ID prefix (`KeychainAccessGroupResolver`).
+        guard let prefix = KeychainAccessGroupResolver.resolveTeamIDPrefix() else {
+            Issue.record("could not resolve this process's Keychain access-group prefix on this runner")
+            return
+        }
+        let hostBundleID = Bundle.main.bundleIdentifier ?? "dev.tally-app.tally"
+        let hostAppGroupID = (Bundle.main.object(forInfoDictionaryKey: "TallyAppGroupID") as? String) ?? "group.dev.tally-app.tally"
+        let appOnlyGroup = "\(prefix).\(hostBundleID)"
+        let sharedGroup = "\(prefix).\(hostAppGroupID)"
 
-        let appStore = KeychainVaultKeyStore(bundleID: bundleID, appAccessGroup: appOnlyGroup, widgetAccessGroup: sharedGroupID)
+        let bundleID = "dev.tally-app.tally.tests.\(UUID().uuidString)"
+        let appStore = KeychainVaultKeyStore(bundleID: bundleID, appAccessGroup: appOnlyGroup, widgetAccessGroup: sharedGroup)
         let scope = KeyScope(account: "acct1", audience: .app)
         try appStore.add(SymmetricKey(size: .bits256), id: 1, for: scope)
         #expect(try appStore.keyIDs(for: scope) == [1])
 
-        let widgetOnlyStore = KeychainVaultKeyStore(bundleID: bundleID, appAccessGroup: sharedGroupID, widgetAccessGroup: sharedGroupID)
-        // `widgetOnlyStore` queries the `.app` service with `sharedGroupID`,
+        let widgetOnlyStore = KeychainVaultKeyStore(bundleID: bundleID, appAccessGroup: sharedGroup, widgetAccessGroup: sharedGroup)
+        // `widgetOnlyStore` queries the `.app` service with `sharedGroup`,
         // not `appOnlyGroup` — a different access group than what the key
         // was written under, so it must not find it.
         #expect(try widgetOnlyStore.keyIDs(for: scope) == [])

@@ -10,15 +10,22 @@ enum KeychainSupport {
     /// encryption.md ENC-02: exactly the bug being fixed here).
     static let interactionNotAllowed: OSStatus = errSecInteractionNotAllowed
 
-    static var isoEncoder: JSONEncoder {
+    /// `.secondsSince1970`, not `.iso8601`: this JSON is an internal Keychain
+    /// blob format, never a Canvas wire format, so there is no reason to
+    /// prefer a human-readable string over an exact round trip. The default
+    /// `.iso8601` strategy's `ISO8601DateFormatter()` has no fractional-second
+    /// option, so it silently truncates `accessTokenExpiresAt` to the whole
+    /// second — confirmed on CI (run 36333352378): `save` then `load`
+    /// produced a credential that compared unequal to the one saved.
+    static var credentialEncoder: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .secondsSince1970
         return encoder
     }
 
-    static var isoDecoder: JSONDecoder {
+    static var credentialDecoder: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .secondsSince1970
         return decoder
     }
 }
