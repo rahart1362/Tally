@@ -106,7 +106,7 @@ final class RedirectAuthorizationStrippingDelegate: NSObject, URLSessionTaskDele
         var redirected = newRequest
         let originalHost = task.originalRequest?.url?.host?.lowercased()
         let newHost = newRequest.url?.host?.lowercased()
-        if originalHost == newHost {
+        if originalHost != newHost {
             redirected.setValue(nil, forHTTPHeaderField: "Authorization")
         }
         completionHandler(redirected)
