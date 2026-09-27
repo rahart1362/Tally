@@ -21,8 +21,9 @@ struct TallyApp: App {
         // `Sendable` existential per `TallyPlatformLogger: Sendable`) as a
         // plain local lets both closures use it safely.
         let logger = environment.logger
+        let webAuthPresenter = environment.webAuthPresenter
         return WindowGroup {
-            RootView()
+            RootView(webAuthPresenter: webAuthPresenter)
                 .task { logger.log(.appLaunch) }
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {

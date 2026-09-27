@@ -15,6 +15,9 @@ enum WelcomeRoute: Hashable {
     case schoolNotEnabled(school: String)
     /// A chosen school is enabled: on to the sign-in hand-off (UX-WP-09).
     case signIn(host: String, clientID: String, schoolDisplayName: String)
+    /// A real `CanvasCredential` was obtained. There is no Dashboard to route
+    /// to yet (app-core team's work), so this is as far as onboarding goes.
+    case signedIn(schoolDisplayName: String)
 }
 
 /// The app's single root view (architecture.md §3.1: the `Tally` target is
@@ -24,8 +27,25 @@ enum WelcomeRoute: Hashable {
 /// ux-ui.md §3.4.
 public struct RootView: View {
     @State private var path: [WelcomeRoute] = []
+    private let webAuthPresenter: any WebAuthPresenting
+    private let tokenExchange: any TokenExchanging
 
-    public init() {}
+    /// - Parameters:
+    ///   - webAuthPresenter: injected by the composition root (architecture.md
+    ///     §3.1: "the app's composition root injects adapters through
+    ///     protocols") — `TallyFeatures` cannot construct `TallyPlatform`'s
+    ///     `WebAuthPresenter` itself. Defaults to `UnavailableWebAuthPresenter`
+    ///     so `RootView()` (existing call sites, previews) keeps compiling.
+    ///   - tokenExchange: defaults to `UnavailableTokenExchange` until the
+    ///     composition root can supply a real `HTTPTransport` (see
+    ///     `CanvasAccountSearch`'s identical seam, UX-WP-08).
+    public init(
+        webAuthPresenter: (any WebAuthPresenting)? = nil,
+        tokenExchange: any TokenExchanging = UnavailableTokenExchange()
+    ) {
+        self.webAuthPresenter = webAuthPresenter ?? UnavailableWebAuthPresenter()
+        self.tokenExchange = tokenExchange
+    }
 
     public var body: some View {
         NavigationStack(path: $path) {
@@ -55,31 +75,41 @@ public struct RootView: View {
                 case .schoolNotEnabled(let school):
                     SchoolNotEnabledView(school: school, onExploreSampleData: { path = [.sampleData] })
                 case .signIn(let host, let clientID, let schoolDisplayName):
-                    // UX-WP-09 replaces this with the real sign-in hand-off screen.
-                    SignInHandoffStub(host: host, clientID: clientID, schoolDisplayName: schoolDisplayName)
+                    SignInHandoffView(
+                        viewModel: SignInHandoffViewModel(
+                            host: host, clientID: clientID, schoolDisplayName: schoolDisplayName,
+                            presenter: webAuthPresenter, tokenExchange: tokenExchange,
+                            redirectURI: SignInHandoffViewModel.defaultRedirectURI,
+                            onSuccess: { _ in
+                                // No CredentialStore is wired in yet (SEC WP-SEC-04, a platform-
+                                // adapters work package): a real, unpersisted CanvasCredential is
+                                // handed here and intentionally goes no further than this navigation.
+                                path.append(.signedIn(schoolDisplayName: schoolDisplayName))
+                            }
+                        ),
+                        onChooseDifferentSchool: { path.removeLast() }
+                    )
+                case .signedIn(let schoolDisplayName):
+                    SignedInPlaceholder(schoolDisplayName: schoolDisplayName)
                 }
             }
         }
     }
 }
 
-/// Placeholder destination for an enabled school, ahead of UX-WP-09's real
-/// hand-off screen — the same "obvious no-op, not fake data" pattern
-/// `FindSchoolStub`/`SampleDataStub` used before their own work packages
-/// landed.
-private struct SignInHandoffStub: View {
-    let host: String
-    let clientID: String
+/// As far as onboarding goes today: a real sign-in completed, but the
+/// Dashboard it hands off to is the app-core team's work package.
+private struct SignedInPlaceholder: View {
     let schoolDisplayName: String
 
     var body: some View {
         ContentUnavailableView(
-            "Sign in to \(schoolDisplayName)",
-            systemImage: "person.crop.circle.badge.checkmark",
-            description: Text("The sign-in hand-off lands in a later milestone. (\(host))")
+            "Signed in to \(schoolDisplayName)",
+            systemImage: "checkmark.circle.fill",
+            description: Text("The dashboard and first sync land in a later milestone.")
         )
         .background(TallyColor.bgCanvas)
-        .navigationTitle("Sign in")
+        .navigationTitle("Welcome")
         .navigationBarTitleDisplayMode(.large)
     }
 }

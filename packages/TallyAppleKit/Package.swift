@@ -26,10 +26,15 @@ let package = Package(
 
         // Platform adapters (architecture.md §3.1). Depends on TallyDomain
         // for TallyConfig, so every tunable still has exactly one source.
+        // Also depends on TallyFeatures (UX-WP-09): `WebAuthPresenter` conforms
+        // to `WebAuthPresenting`, a port TallyFeatures declares. This is the
+        // direction architecture.md §3.1 permits — "Features never import
+        // TallyPlatform" says nothing against the reverse.
         .target(
             name: "TallyPlatform",
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
+                "TallyFeatures",
             ]
         ),
 
