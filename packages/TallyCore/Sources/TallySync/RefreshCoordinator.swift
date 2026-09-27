@@ -45,6 +45,8 @@ public actor RefreshCoordinator {
     private var record: RefreshRecord
     private var previousSnapshot: CanvasSnapshot?
     private var committedGeneration: UInt64
+    /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
+    private var digestThresholds: DigestThresholds = .default
     private var epoch: UInt64 = 0
     /// The task running this run's `perform`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
@@ -61,6 +63,11 @@ public actor RefreshCoordinator {
 
     public nonisolated let events: AsyncStream<Event>
     private let continuation: AsyncStream<Event>.Continuation
+
+    /// Called when the user changes the "What changed" threshold in Settings; the next commit uses it.
+    public func updateDigestThresholds(_ thresholds: DigestThresholds) {
+        digestThresholds = thresholds
+    }
 
     public init(
         gateway: any CanvasGateway,
@@ -200,7 +207,7 @@ public actor RefreshCoordinator {
                 return
             }
             let stamped = restamped(fetched, generation: attemptGeneration)
-            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped)
+            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped, thresholds: digestThresholds)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades)
                 committedGeneration = stamped.generation
