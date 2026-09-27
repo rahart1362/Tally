@@ -43,6 +43,12 @@ let package = Package(
             dependencies: [
                 "TallyDesignSystem",
                 .product(name: "TallyDomain", package: "TallyCore"),
+                // UX-WP-08/09: InstitutionDirectory, ClientRegistry, AuthorizationRequest,
+                // OAuthCallback, TokenEndpoint, TokenCoordinator, CanvasClient. This is the
+                // shared, Linux-testable Canvas layer (part of "TallyCore" per architecture.md
+                // §3.1), not a platform adapter, so features depending on it directly is the
+                // same shape as the existing TallyDomain dependency above.
+                .product(name: "TallyCanvasAPI", package: "TallyCore"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
