@@ -82,6 +82,13 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 
 Domain: **tally-app.dev** registered by the owner on 2026-09-26. Bundle ID `dev.tally-app.tally` (GL-02).
 
+### 2d. Further owner decisions (2026-09-27)
+
+| # | Decision | Status |
+|---|---|---|
+| D-E4 | User-authored settings (reminder rules, goals, class times, digest thresholds) are **not** included in backups. A new install or data wipe starts from defaults, and Canvas data is fetched fresh. This matches the implementation: device-only key, excluded from backup. | **Decided** (owner changed an earlier "include" answer the same day) |
+| DG-1 | The "What changed" course-grade threshold defaults to **0.5 points**. Users can set it to **All** (any change) or to a point value, globally or **per course**. | **Decided, implemented** (`DigestThresholds`, UserState v3) |
+
 ### 2c. Family linking decisions (from `reviews/family-linking.md`, 2026-09-26)
 
 Canvas natively supports parent access through **observer** accounts and student-generated **pairing codes** (endpoints verified in Instructure's docs by the PMO, 2026-09-26). The owner's "parent uses the student's credential" idea is **not recommended**: the parent could act as the student, it breaks R3/ADR 0001 and Instructure's API Policy, and rotating refresh tokens would sign the two phones out of each other.
