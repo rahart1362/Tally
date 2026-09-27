@@ -1,5 +1,6 @@
 import Foundation
 import TallyCanvasAPI
+import TallyDomain
 
 /// `HTTPTransport` over `URLSession` (security.md §3.2 item 4 / SEC-08).
 /// Ephemeral configuration — no on-disk `URLCache`, no cookie jar — so a
@@ -48,6 +49,11 @@ public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
             throw Self.classify(error)
         }
         guard let http = response as? HTTPURLResponse else { throw .other }
+        // CS-05 (crash-safety.md): mirrors `CanvasClient`'s `maxResponseBodyBytes` cap so a
+        // huge body is rejected here too, before it is ever handed to a mapper. UNVERIFIED by
+        // an iOS build on this host (no Xcode/iOS SDK available) — app-core should confirm this
+        // compiles and its behavior under Xcode/hosted tests.
+        guard data.count <= TallyConfig.maxResponseBodyBytes else { throw .other }
         return HTTPResponse(status: http.statusCode, headers: Self.responseHeaders(from: http), body: data)
     }
 

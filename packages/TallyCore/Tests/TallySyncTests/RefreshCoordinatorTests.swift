@@ -211,4 +211,45 @@ struct RefreshCoordinatorTests {
         }
         #expect(stillFirst == firstSnapshot, "the cache must never be touched when reauth is required")
     }
+
+    // MARK: - CS-05: sign-out finishes `events`, so a consumer's `for await` loop always ends
+
+    /// Before the fix, `bumpEpochAndCancel()` never called `continuation.finish()`: a consumer
+    /// iterating `coordinator.events` with `for await` (e.g. `RefreshStatusModel`, if it ever
+    /// forgot to separately call its own `detach()`) would suspend forever waiting for a next
+    /// event that was never coming — leaking the task and everything its closure captured
+    /// (the coordinator itself, its gateway, its store). This proves the stream now finishes.
+    @Test func bumpEpochAndCancelFinishesTheEventStream() async throws {
+        let harness = try makeHarness()
+
+        let drain = Task<Int, Never> {
+            var count = 0
+            for await _ in harness.coordinator.events { count += 1 }
+            return count // only reached once the stream finishes
+        }
+
+        await harness.coordinator.bumpEpochAndCancel()
+
+        let result = await withTaskGroup(of: Int?.self) { group in
+            group.addTask { await drain.value }
+            group.addTask { try? await Task.sleep(for: .seconds(2)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        #expect(result != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
+    }
+
+    /// CS-05 leak check: nothing outside the coordinator keeps it alive once the caller's own
+    /// reference is dropped (weak-reference test, per the crash-safety charter).
+    @Test func coordinatorDeallocatesAfterUse() async throws {
+        weak var weakCoordinator: RefreshCoordinator?
+        do {
+            let harness = try makeHarness()
+            weakCoordinator = harness.coordinator
+            _ = await harness.coordinator.run(trigger: .manual)
+            await harness.coordinator.bumpEpochAndCancel()
+        }
+        #expect(weakCoordinator == nil, "RefreshCoordinator must not leak once its own owner releases it")
+    }
 }

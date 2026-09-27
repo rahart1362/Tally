@@ -113,6 +113,11 @@ public actor CanvasClient {
 
             switch ResponseClassifier.classify(response) {
             case .success:
+                // CS-05: a response body past this size never reaches a mapper — this bounds
+                // memory from a misbehaving server or a hostile man-in-the-middle before JSON
+                // decoding (and whatever a mapper does with the result) even starts. A real
+                // Canvas page is nowhere close (see `TallyConfig.maxResponseBodyBytes`'s doc).
+                guard response.body.count <= TallyConfig.maxResponseBodyBytes else { throw .contract }
                 return response
             case .tokenRejected:
                 guard !alreadyRefreshed else { throw .authExpired } // already retried once this call

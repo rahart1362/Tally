@@ -110,6 +110,14 @@ public actor RefreshCoordinator {
         inFlight?.cancel()
         record = RefreshRecord()
         emit(.stateChanged(currentState))
+        // CS-05: this coordinator is retired on sign-out (one instance per signed-in account),
+        // so finish `events` here too. Without this, a consumer that iterates `events` with
+        // `for await` but never separately learns to stop (e.g. a UI model that forgot to call
+        // its own `detach()`) awaits a value that will never come, leaking the task and every
+        // strong reference its closure holds — including this actor, its gateway and its
+        // store. `Continuation.finish()` is documented idempotent, so a later call (or a
+        // caller that invokes `bumpEpochAndCancel()` more than once) is harmless.
+        continuation.finish()
     }
 
     /// Starts a refresh for `trigger`, or joins one already running (single-flight). Returns once
@@ -206,7 +214,10 @@ public actor RefreshCoordinator {
                 emit(.stateChanged(currentState))
                 return
             }
-            let stamped = restamped(fetched, generation: attemptGeneration)
+            let restampedSnapshot = restamped(fetched, generation: attemptGeneration)
+            // CS-05: degrade before persisting, not after — a snapshot that blew past the item
+            // budget must never even reach `SnapshotStore`'s encode/seal path at full size.
+            let stamped = SnapshotBudget.enforce(restampedSnapshot).snapshot
             let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped, thresholds: digestThresholds)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades)
