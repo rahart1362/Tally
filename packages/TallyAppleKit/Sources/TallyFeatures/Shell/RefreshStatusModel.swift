@@ -14,9 +14,27 @@ public final class RefreshStatusModel {
     public private(set) var lastDigestAt: Date?
 
     private weak var coordinator: RefreshCoordinator?
-    /// `nonisolated(unsafe)`: `deinit` on a `@MainActor` class runs in a nonisolated context (it
-    /// can be torn down from any thread), so it cannot touch a MainActor-isolated stored property
-    /// — but cancelling a `Task` is itself thread-safe, so this narrow escape hatch is safe here.
+    /// `nonisolated(unsafe)`, deliberately kept rather than dropping `deinit`'s cancellation
+    /// entirely: `deinit` on a `@MainActor` class always runs in a nonisolated context (teardown
+    /// isn't guaranteed to happen on the main actor), so it cannot touch a MainActor-isolated
+    /// stored property through the type system's normal isolation checking.
+    ///
+    /// This is provably race-free, not merely "probably fine": every *write* to `eventTask` goes
+    /// through `attach`/`detach`, both `@MainActor`-isolated, so they're already serialized with
+    /// each other. `deinit`'s read-then-cancel is the one nonisolated access, and it can only ever
+    /// run after the very last strong reference to `self` is gone — by definition, at that point
+    /// no `attach`/`detach` call can still be in flight or start later, since both need a live
+    /// `self` to be reached at all. There is no window where `deinit` and a MainActor mutation
+    /// observe or race the same value.
+    ///
+    /// Skipping this and just letting the task dangle is not the safer option here: `attach`'s
+    /// `Task` closure captures `coordinator` *strongly* (only `self` is weak), which is required
+    /// so the loop can keep draining `coordinator.events` after this object might briefly go
+    /// unretained elsewhere. `RefreshCoordinator.events` never completes on its own, so an
+    /// uncancelled task would keep that actor (and whatever it owns — the gateway, the snapshot
+    /// store) alive indefinitely past this object's own deallocation whenever a caller forgets to
+    /// call `detach()` first — a real leak, not a cosmetic one. Cancelling here is what makes
+    /// `detach()` optional-but-not-load-bearing for correctness, rather than mandatory.
     private nonisolated(unsafe) var eventTask: Task<Void, Never>?
 
     public init() {}
