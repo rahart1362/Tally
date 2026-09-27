@@ -73,3 +73,7 @@
 ## 2026-09-26 | M1 WP-B01: HTTP core
 **Changes**: `HTTPTransport` port (typed-throws `TransportError`), case-insensitive `HTTPHeaders`, RFC 8288 `LinkHeader.nextURL` (comma-safe, opaque URLs, rel variants), `PageURLPolicy` (https-only, exact account hosts, no userinfo, no non-443 ports), `ResponseClassifier` (401 with vs without `WWW-Authenticate`, 429 and 403 "Rate Limit Exceeded", 404, 5xx) mapped to `RefreshFailure`, and `RateLimitInfo`.
 **Evidence**: build with warnings as errors → complete. TallyCanvasAPITests: 12 tests in 3 suites passed. Mutation check: a naive comma split fails `findsNextAmongOtherRelsAndKeepsURLOpaque`; restored → 0 failures.
+
+## 2026-09-26 | M1 WP-B02: RequestScheduler + backoff
+**Changes**: `RequestScheduler` actor (FIFO slots, max 3 in flight; 1 when `X-Rate-Limit-Remaining` < threshold; cancellation-safe), `BackoffPolicy` (exponential backoff with full jitter, capped, returns nil when it would overrun the remaining refresh budget), and `SeededRandom` (SplitMix64, tests only).
+**Evidence**: TallyCanvasAPITests: 16 tests in 4 suites passed. Scheduler suite passed 5 of 5 repeated runs (timing-stability check). Mutation: disabling the low-quota drop fails `lowQuotaDropsToOneThenRecovers` (2 issues); restored → 0 failures.
