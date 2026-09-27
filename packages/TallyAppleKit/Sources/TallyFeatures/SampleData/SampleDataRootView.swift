@@ -62,6 +62,7 @@ struct SampleDataBanner: View {
     var body: some View {
         HStack {
             Image(systemName: "sparkles")
+                .accessibilityHidden(true)
             Text("SAMPLE DATA")
                 .font(TallyTypography.caption.weight(.semibold))
             Spacer()
@@ -73,7 +74,9 @@ struct SampleDataBanner: View {
         .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity)
         .background(TallyColor.accent)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Sample data mode. Exit to leave.")
+        // Deliberately NOT `.accessibilityElement(children: .combine)`: that would fold the
+        // "Exit" button into one non-interactive combined element, making it untappable for
+        // VoiceOver (and unfindable by UI tests) — an interactive control must stay its own
+        // element (HIG: never combine children that include a control).
     }
 }
