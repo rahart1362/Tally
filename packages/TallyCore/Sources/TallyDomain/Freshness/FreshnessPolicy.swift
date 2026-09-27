@@ -6,7 +6,10 @@ public enum RefreshTrigger: String, Codable, Sendable, CaseIterable {
 }
 
 /// Why a refresh failed: a category only, never a payload (kit 08).
-public enum RefreshFailure: String, Codable, Sendable, CaseIterable {
+/// `Error` conformance (WP-B06b addition) lets `CanvasClient`/`CanvasGateway` throw this
+/// category directly, so the transport layer and the freshness UI share one vocabulary
+/// instead of a parallel error enum that must be kept in sync with it.
+public enum RefreshFailure: String, Codable, Sendable, CaseIterable, Error {
     case offline, authExpired, rateLimited, server, contract, unknown
 }
 
