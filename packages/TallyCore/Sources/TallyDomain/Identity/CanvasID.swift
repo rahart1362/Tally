@@ -29,3 +29,17 @@ public struct CanvasID<Entity>: Hashable, Comparable, Sendable, Codable, CustomS
 extension CanvasID: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) { self.init(value) }
 }
+
+/// Dictionaries keyed by `CanvasID` encode as JSON objects (`{"51845": ...}`).
+extension CanvasID: CodingKeyRepresentable {
+    public var codingKey: any CodingKey { AnyKey(rawValue) }
+    public init?<T: CodingKey>(codingKey: T) { self.init(codingKey.stringValue) }
+}
+
+private struct AnyKey: CodingKey {
+    let stringValue: String
+    init(_ string: String) { stringValue = string }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { nil }
+}
