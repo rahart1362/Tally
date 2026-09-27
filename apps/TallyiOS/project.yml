@@ -45,6 +45,17 @@ targets:
       Release: Config/Identity.xcconfig
     entitlements:
       path: Tally/Tally.entitlements
+    settings:
+      base:
+        # Required for `@main` to resolve outside a file literally named
+        # main.swift. Xcode's own App/Widget-extension *templates* set this
+        # silently; a target authored directly in project.yml (as every
+        # target here is, since there is no Xcode on this host) does not
+        # get it for free. Confirmed by CI run 36328840843: without this,
+        # TallyWidgetsBundle.swift failed with "cannot find type 'Widget'/
+        # 'WidgetBundle' in scope" even though the sibling file in the same
+        # target, with the same `import WidgetKit`, compiled cleanly.
+        OTHER_SWIFT_FLAGS: -parse-as-library
     info:
       path: Generated/Tally-Info.plist
       properties:
@@ -91,6 +102,8 @@ targets:
         # require. Built directly from TALLY_BUNDLE_ID_PREFIX (not from
         # $(PRODUCT_BUNDLE_IDENTIFIER)) — see TALLY_SHARED_APP_GROUP_ID above.
         PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.widgets
+        # See the identical setting (and its comment) on the Tally target.
+        OTHER_SWIFT_FLAGS: -parse-as-library
     info:
       path: Generated/TallyWidgets-Info.plist
       properties:
