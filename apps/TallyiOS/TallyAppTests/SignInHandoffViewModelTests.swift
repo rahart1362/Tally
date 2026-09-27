@@ -138,8 +138,11 @@ private final class FakeTokenExchange: TokenExchanging, @unchecked Sendable {
         exchangeCallCount += 1
         switch mode {
         case .success(let credential): return credential
-        case .networkFailure: throw TransportError.offline
-        case .other: throw TokenEndpointError.malformed
+        // `TokenExchanging.exchange` throws only `TokenExchangeError` (its doc
+        // comment explains why); a real `CanvasTokenExchange` is what turns
+        // `TransportError`/`TokenEndpointError` into these two cases.
+        case .networkFailure: throw TokenExchangeError.networkFailure
+        case .other: throw TokenExchangeError.rejected
         }
     }
 }

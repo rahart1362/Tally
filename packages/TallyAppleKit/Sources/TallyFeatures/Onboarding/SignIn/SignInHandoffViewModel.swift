@@ -7,8 +7,8 @@ import TallyDomain
 public enum SignInFailure: Sendable, Equatable {
     /// `error=access_denied` on the Canvas approval page.
     case accessDenied
-    /// A `TransportError` reaching the school's host, at either the
-    /// authorization or the token-exchange step.
+    /// A `TokenExchangeError.networkFailure` reaching the school's host
+    /// during the token-exchange step.
     case networkFailure
     /// Anything else: a malformed callback, a rejected token exchange, or
     /// `WebAuthError.failedToStart`/`.other`. Real-Canvas validation of the
@@ -120,20 +120,23 @@ public final class SignInHandoffViewModel {
             phase = .idle
             onSuccess(credential)
         } catch {
-            // A single catch-all with an internal switch, rather than a sequence of
-            // typed `catch` clauses: CI (run 36335202947) showed a `TransportError`
-            // thrown from `tokenExchange.exchange` landing in the generic
-            // `SignInFailure.other` bucket instead of `.networkFailure`, which a
-            // preceding `catch let error as OAuthCallbackError` clause should never
-            // have intercepted. Matching everything in one place, over the same
-            // `any Error` value, removes any doubt about clause-ordering semantics.
+            // A single catch-all with an internal switch over the same `any Error`
+            // value. `TokenExchanging.exchange` throws only `TokenExchangeError`
+            // (see its doc comment: CI run 36336610429 showed a raw `TransportError`
+            // failing to match `case is TransportError` here on the Xcode 26.6/27
+            // toolchains — not reproducible in an equivalent multi-module Linux
+            // Swift 6.4 harness — so that classification now happens inside
+            // `CanvasTokenExchange` instead, in the same module as this switch).
             switch error {
             case let webAuthError as WebAuthError:
+                // "Cancel is not an error" (ux-ui.md §3.2.2) is specifically about the
+                // student dismissing the sign-in sheet, never about a transport-level
+                // cancellation — TokenExchangeError.networkFailure covers that case below.
                 phase = (webAuthError == .cancelled) ? .cancelledNotice : .failed(.other)
             case let callbackError as OAuthCallbackError:
                 phase = (callbackError == .accessDenied) ? .failed(.accessDenied) : .failed(.other)
-            case is TransportError:
-                phase = .failed(.networkFailure)
+            case let exchangeError as TokenExchangeError:
+                phase = (exchangeError == .networkFailure) ? .failed(.networkFailure) : .failed(.other)
             default:
                 phase = .failed(.other)
             }
