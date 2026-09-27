@@ -18,5 +18,12 @@
         <string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
         <string>$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)</string>
     </array>
+    <!-- UNNotificationScheduler (reminder port adapter): required to
+         actually deliver a `.timeSensitive` request so it can break through
+         a Focus filter (security.md §3.3 D7 / architecture.md's "Time
+         Sensitive interruption level"); without it iOS silently downgrades
+         the interruption level. -->
+    <key>com.apple.developer.usernotifications.time-sensitive</key>
+    <true/>
 </dict>
 </plist>
