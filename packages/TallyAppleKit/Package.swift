@@ -26,10 +26,17 @@ let package = Package(
 
         // Platform adapters (architecture.md §3.1). Depends on TallyDomain
         // for TallyConfig, so every tunable still has exactly one source.
+        // Also depends on TallyCanvasAPI (HTTPTransport/CredentialStore ports,
+        // for URLSessionTransport/KeychainCredentialStore) and TallyStore
+        // (VaultKeyStore/SnapshotSealer, for KeychainVaultKeyStore) — both
+        // Foundation-only ports that this package's Apple-only adapters
+        // conform to (M2 platform-adapters batch).
         .target(
             name: "TallyPlatform",
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
+                .product(name: "TallyCanvasAPI", package: "TallyCore"),
+                .product(name: "TallyStore", package: "TallyCore"),
             ]
         ),
 
