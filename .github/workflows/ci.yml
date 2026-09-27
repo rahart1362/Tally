@@ -43,9 +43,9 @@ jobs:
       image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; same digest as `make core-test`
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Build (warnings are errors)
+      - name: Build sources and tests (warnings are errors)
         working-directory: packages/TallyCore
-        run: swift build -Xswiftc -warnings-as-errors
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
       - name: Test
         working-directory: packages/TallyCore
         run: swift test

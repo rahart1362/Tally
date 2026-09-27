@@ -15,8 +15,8 @@ core-deps: ## Fetch pinned SwiftPM dependencies (needs network; tests then run o
 core-test: core-deps ## Build and run every TallyCore test on Linux (no network)
 	$(RUN_CORE) bash -c 'swift --version && swift test'
 
-core-build: core-deps ## Compile TallyCore with warnings treated as errors
-	$(RUN_CORE) swift build -Xswiftc -warnings-as-errors
+core-build: core-deps ## Compile TallyCore and its tests with warnings treated as errors
+	$(RUN_CORE) swift build --build-tests -Xswiftc -warnings-as-errors
 
 placeholders: ## List go-live placeholders still in code (GO-LIVE GL-02)
 	scripts/go-live/find-placeholders.sh
