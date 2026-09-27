@@ -124,9 +124,22 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TallyAppTests
+    configFiles:
+      Debug: Config/Identity.xcconfig
+      Release: Config/Identity.xcconfig
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # Needed once TallyPlatform gained a WidgetKit import (WidgetReloader,
+        # M2 platform-adapters batch): WidgetKit auto-links AppIntents, so
+        # Xcode's App Intents metadata/SSU-training build phases now actually
+        # run for this bundle instead of skipping ("No AppIntents.framework
+        # dependency found"). Without an explicit bundle id, AppIntentsSSUTraining
+        # invokes with a blank `--bundle-id` and fails with "Unable to parse
+        # Info.plist" (confirmed on CI run 36334863817). TallyUITests doesn't
+        # need this: it never links TallyPlatform, so its own extraction step
+        # still skips.
+        PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.tests
     dependencies:
       - target: Tally
       - package: TallyAppleKit
