@@ -124,6 +124,9 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TallyAppTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Tally
       - package: TallyAppleKit
@@ -135,6 +138,9 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TallyUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Tally
 
