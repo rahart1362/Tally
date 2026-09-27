@@ -6,5 +6,17 @@
     <array>
         <string>$(TALLY_SHARED_APP_GROUP_ID)</string>
     </array>
+    <!-- ENC-03/ENC-05 (encryption.md §3.2/§3.4): the app-private group for
+         every vault key except `glance`'s, and the App Group group so the
+         app can write the one `glance` key the widget must also read.
+         "$(AppIdentifierPrefix)" is an Xcode entitlements-file macro (the
+         Team ID); it only expands here, never in compiled Swift, which is
+         why KeychainVaultKeyStore takes the resolved group strings as
+         plain init parameters instead of hard-coding this prefix. -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+        <string>$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)</string>
+    </array>
 </dict>
 </plist>
