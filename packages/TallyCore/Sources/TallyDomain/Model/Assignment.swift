@@ -17,12 +17,17 @@ public struct Submission: Codable, Sendable, Equatable {
     public let missing: Bool
     public let late: Bool
     public let workflowState: String
+    /// Reported in the grade engine's dropped-submission lists.
+    public let id: CanvasID<Submission>?
+    /// The period Canvas files this submission under; grading-period scores filter on it.
+    public let gradingPeriodID: CanvasID<GradingPeriod>?
 
     public init(score: Double?, grade: String?, submittedAt: Date?, gradedAt: Date?, postedAt: Date?,
-                excused: Bool, missing: Bool, late: Bool, workflowState: String) {
+                excused: Bool, missing: Bool, late: Bool, workflowState: String,
+                id: CanvasID<Submission>? = nil, gradingPeriodID: CanvasID<GradingPeriod>? = nil) {
         self.score = score; self.grade = grade; self.submittedAt = submittedAt; self.gradedAt = gradedAt
         self.postedAt = postedAt; self.excused = excused; self.missing = missing; self.late = late
-        self.workflowState = workflowState
+        self.workflowState = workflowState; self.id = id; self.gradingPeriodID = gradingPeriodID
     }
 
     public var isSubmitted: Bool { submittedAt != nil }
@@ -40,14 +45,23 @@ public struct Assignment: Codable, Sendable, Equatable, Identifiable {
     public let omitFromFinalGrade: Bool
     public let htmlURL: URL?
     public let submission: Submission?
+    /// Unpublished assignments never count (Canvas omits them for students; defaults to true).
+    public let published: Bool
+    /// Canvas `submission_types`, e.g. `online_upload`, `not_graded`, `wiki_page`.
+    public let submissionTypes: [String]
 
     public init(id: CanvasID<Assignment>, courseID: CanvasID<Course>, groupID: CanvasID<AssignmentGroup>, name: String,
                 dueAt: Date?, lockAt: Date?, pointsPossible: Double?, gradingType: GradingType,
-                omitFromFinalGrade: Bool, htmlURL: URL?, submission: Submission?) {
+                omitFromFinalGrade: Bool, htmlURL: URL?, submission: Submission?,
+                published: Bool = true, submissionTypes: [String] = []) {
         self.id = id; self.courseID = courseID; self.groupID = groupID; self.name = name; self.dueAt = dueAt
         self.lockAt = lockAt; self.pointsPossible = pointsPossible; self.gradingType = gradingType
         self.omitFromFinalGrade = omitFromFinalGrade; self.htmlURL = htmlURL; self.submission = submission
+        self.published = published; self.submissionTypes = submissionTypes
     }
+
+    /// Canvas's `gradeable` scope: `not_graded` and `wiki_page` items never enter a grade.
+    public var isGradeable: Bool { !submissionTypes.contains("not_graded") && !submissionTypes.contains("wiki_page") }
 }
 
 public struct DropRules: Codable, Sendable, Equatable {

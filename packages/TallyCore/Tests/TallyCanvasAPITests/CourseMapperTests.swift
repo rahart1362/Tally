@@ -48,4 +48,33 @@ struct CourseMapperTests {
         let restricted = try load("access-restricted-by-date")
         #expect(restricted.dropped >= 1)
     }
+
+    @Test func gradeEngineCourseFlags() throws {
+        func course(_ name: String) throws -> Course { try #require(CourseMapper.map(Fixtures.data("scenarios/courses/\(name).json"), host: host).items.first) }
+        let concluded = try course("concluded-course")
+        #expect(concluded.studentEnrollmentCompleted && !concluded.hasWeightedGradingPeriods)
+        let weighted = try course("weighted-grading-periods")
+        #expect(weighted.hasWeightedGradingPeriods && !weighted.studentEnrollmentCompleted)
+        #expect(try !course("unweighted-grading-periods").hasWeightedGradingPeriods)
+        #expect(try !course("multiple-enrollments").studentEnrollmentCompleted)   // two active rows
+        let flagship = try CourseMapper.map(Fixtures.data("personas/flagship/courses.json"), host: host).items
+        #expect(flagship.allSatisfy { !$0.studentEnrollmentCompleted && !$0.hasWeightedGradingPeriods })
+        let gradingPeriods = try CourseMapper.map(Fixtures.data("personas/grading-periods/courses.json"), host: host).items
+        #expect(gradingPeriods.count == 4 && gradingPeriods.allSatisfy(\.hasWeightedGradingPeriods))
+    }
+
+    @Test func gradingPeriodsMapWeightsAndDates() throws {
+        let periods = try GradingPeriodMapper.map(Fixtures.data("personas/grading-periods/grading_periods/90411.json"))
+        #expect(periods.dropped == 0)
+        #expect(periods.items.map(\.id) == ["2201", "2202", "2203"])
+        #expect(periods.items.map(\.weight) == [40.0, 40.0, 20.0])
+        #expect(periods.items.map(\.title) == ["Quarter 1", "Quarter 2", "Semester Exam"])
+        let q1 = try #require(periods.items.first)
+        #expect(q1.startDate == CanvasDate.parse("2026-08-17T04:00:00Z") && q1.endDate == CanvasDate.parse("2026-10-17T03:59:59Z"))
+        #expect(q1.closeDate == CanvasDate.parse("2026-10-24T03:59:59Z") && !q1.isClosed)
+        #expect(try GradingPeriodMapper.map(Fixtures.data("scenarios/grading_periods/none.json")).items.isEmpty)
+        let undated = #"{"grading_periods":[{"id":"1","title":"No dates","weight":null},{"id":"2","start_date":"2026-01-01T00:00:00Z","end_date":"2026-02-01T00:00:00Z"}]}"#
+        let mapped = try GradingPeriodMapper.map(Data(undated.utf8))
+        #expect(mapped.dropped == 1 && mapped.items.map(\.id) == ["2"] && mapped.items[0].weight == nil)
+    }
 }

@@ -5,10 +5,12 @@ import TallyDomain
 struct AssignmentGroupDTO: Decodable {
     struct RulesDTO: Decodable { let dropLowest: Int?; let dropHighest: Int?; let neverDrop: [String]? }
     struct SubmissionDTO: Decodable {
+        let id: String?
         let score: Double?, grade: String?
         let submittedAt: Date?, gradedAt: Date?, postedAt: Date?
         let excused: Bool?, missing: Bool?, late: Bool?
         let workflowState: String?
+        let gradingPeriodId: String?
     }
     struct AssignmentDTO: Decodable {
         let id: String
@@ -20,6 +22,8 @@ struct AssignmentGroupDTO: Decodable {
         let omitFromFinalGrade: Bool?
         let htmlUrl: URL?
         let submission: SubmissionDTO?
+        let published: Bool?
+        let submissionTypes: [String]?
     }
     let id: String
     let name: String?
@@ -47,8 +51,10 @@ public enum AssignmentGroupMapper {
                     submission: a.submission.map { s in
                         Submission(score: s.score, grade: s.grade, submittedAt: s.submittedAt, gradedAt: s.gradedAt,
                                    postedAt: s.postedAt, excused: s.excused ?? false, missing: s.missing ?? false,
-                                   late: s.late ?? false, workflowState: s.workflowState ?? "unsubmitted")
-                    })
+                                   late: s.late ?? false, workflowState: s.workflowState ?? "unsubmitted",
+                                   id: s.id.map { CanvasID($0) }, gradingPeriodID: s.gradingPeriodId.map { CanvasID($0) })
+                    },
+                    published: a.published ?? true, submissionTypes: a.submissionTypes ?? [])
             }
             return AssignmentGroup(
                 id: groupID, name: dto.name ?? "", position: dto.position ?? 0, weight: dto.groupWeight,

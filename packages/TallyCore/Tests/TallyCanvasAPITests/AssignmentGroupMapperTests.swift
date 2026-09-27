@@ -40,6 +40,28 @@ struct AssignmentGroupMapperTests {
         #expect(assignments.first { $0.id == "1290005" }?.submission?.workflowState == "pending_review")
     }
 
+    @Test func gradeEngineInputs() throws {
+        let assignments = try AssignmentGroupMapper.map(Fixtures.data("scenarios/assignment_groups/unposted-and-omitted.json"), courseID: "58000")
+            .items.flatMap(\.assignments)
+        let reading = try #require(assignments.first { $0.id == "1290003" })
+        #expect(reading.submissionTypes == ["not_graded"] && !reading.isGradeable && reading.published)
+        let essay = try #require(assignments.first { $0.id == "1290000" })
+        #expect(essay.submissionTypes == ["online_text_entry"] && essay.isGradeable)
+        #expect(essay.submission?.id == "990000000" && essay.submission?.gradingPeriodID == nil)
+        let periods = try AssignmentGroupMapper.map(Fixtures.data("personas/grading-periods/assignment_groups/90411.json"), courseID: "90411")
+            .items.flatMap(\.assignments)
+        let first = try #require(periods.first { $0.id == "3400100" })
+        #expect(first.submission?.id == "720330000" && first.submission?.gradingPeriodID == "2201")
+        #expect(Set(periods.compactMap { $0.submission?.gradingPeriodID }) == ["2201", "2202", "2203"])
+    }
+
+    @Test func publishedDefaultsToTrueAndSubmissionTypesToEmpty() throws {
+        let json = #"[{"id":"1","assignments":[{"id":"2","name":"Quiz","published":false},{"id":"3","name":"Essay"}]}]"#
+        let assignments = try AssignmentGroupMapper.map(Data(json.utf8), courseID: "9").items.flatMap(\.assignments)
+        #expect(assignments.map(\.published) == [false, true])
+        #expect(assignments.allSatisfy { $0.submissionTypes.isEmpty && $0.isGradeable })
+    }
+
     @Test func gradingTypesAndFlags() throws {
         let passFail = try AssignmentGroupMapper.map(Fixtures.data("scenarios/assignment_groups/pass-fail.json"), courseID: "58000").items
         #expect(passFail.flatMap(\.assignments).contains { $0.gradingType == .passFail })

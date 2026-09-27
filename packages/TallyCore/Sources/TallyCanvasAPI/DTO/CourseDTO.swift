@@ -8,6 +8,7 @@ struct CourseDTO: Decodable {
     struct TeacherDTO: Decodable { let id: String; let displayName: String? }
     struct EnrollmentDTO: Decodable {
         let type: String?
+        let enrollmentState: String?
         let computedCurrentScore: Double?, computedFinalScore: Double?
         let computedCurrentGrade: String?, computedFinalGrade: String?
         let currentGradingPeriodId: String?
@@ -22,6 +23,7 @@ struct CourseDTO: Decodable {
     let timeZone: String?
     let applyAssignmentGroupWeights: Bool?
     let hasGradingPeriods: Bool?
+    let hasWeightedGradingPeriods: Bool?
     let hideFinalGrades: Bool?
     let restrictQuantitativeData: Bool?
     let accessRestrictedByDate: Bool?
@@ -47,6 +49,7 @@ public enum CourseMapper {
         guard dto.accessRestrictedByDate != true, let name = dto.name else { return nil }
         let student = dto.enrollments?.first { $0.type == "student" && $0.computedCurrentScore != nil }
             ?? dto.enrollments?.first { $0.type == "student" }
+        let studentRows = dto.enrollments?.filter { $0.type == "student" } ?? []
         let visibility: GradeVisibility = dto.hideFinalGrades == true ? .hiddenTotals
             : dto.restrictQuantitativeData == true ? .lettersOnly : .visible
         return Course(
@@ -65,6 +68,8 @@ public enum CourseMapper {
                     : ComputedScores(currentScore: e.currentPeriodComputedCurrentScore, finalScore: e.currentPeriodComputedFinalScore,
                                      currentGrade: e.currentPeriodComputedCurrentGrade, finalGrade: e.currentPeriodComputedFinalGrade)
             },
-            htmlURL: URL(string: "https://\(host)/courses/\(dto.id)"))
+            htmlURL: URL(string: "https://\(host)/courses/\(dto.id)"),
+            hasWeightedGradingPeriods: dto.hasWeightedGradingPeriods ?? false,
+            studentEnrollmentCompleted: !studentRows.isEmpty && studentRows.allSatisfy { $0.enrollmentState == "completed" })
     }
 }

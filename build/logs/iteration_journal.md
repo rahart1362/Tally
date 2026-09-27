@@ -103,3 +103,14 @@
 **Changes**: `AssignmentGroupDTO` → `AssignmentGroupMapper` (group weight, drop lowest/highest, never_drop IDs, assignments with course/group IDs, grading type with an unknown→points fallback, omit_from_final_grade, and the submission with posted/unposted, excused/missing/late and workflow state). An assignment without a name is dropped and counted.
 **Evidence**: 45 Canvas API tests in 9 suites passed. Every persona's per-course assignment_groups files decode with 0 drops, with course IDs consistent. Scenarios: never_drop + drop_lowest, drop_highest, an unposted submission with its score withheld (Canvas behaviour), omitted-from-final, pending_review, pass_fail, excused, late + missing.
 **Next**: WP-A04/A05 GradeEngine — port `tools/canvas-synth/canvas_synth/gradecalc.py` (itself a port of canvas-lms `lib/grade_calculator.rb` @1c9f0bb), with a parity test against `fixtures/canvas/expected/grades/*.json` (±0.01).
+
+## 2026-09-27 | M1 WP-A04/A05: GradeEngine (Canvas grade math) with fixture parity
+**Changes** (grade-engine specialist; PMO verified): `TallyDomain/Grades/`:
+- `GradeEngine`: group sums; current vs final; excused/omit/unposted/pending_review; completed enrollments; points vs percent weighting with normalisation below 100%; per-grading-period scores; weighted grading periods from rounded period scores.
+- `DropRuleSelection`: Canvas's bisection with never_drop, using exact fractions over a small BigInt.
+- `GradeNumerics`: ports of Ruby `Float#round(2)` and BigDecimal half-up.
+- `GradeInput`.
+Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submission ID, grading-period ID, completed enrollment and weighted periods.
+**Evidence (PMO re-run)**: 89 tests pass (TallyDomainTests 39 in 9 suites; TallyCanvasAPITests 49 in 9). Parity: 0 deviation across flagship, flagship-previous, finals, grading-periods (+12 period scores), large (12 courses), empty and 17 scenarios. The specialist's 4 mutations were caught (unposted-as-posted, drop rules off, never_drop ignored, Ruby half-up removed). PMO's independent mutation (weighted normalisation removed) → 43 real failures; restored (sha256 29a7bc46…) → 0 failures.
+**Known issues (4, tracked with `withKnownIssue`)**: `unposted_current/final` for flagship 51847 and the `unposted-and-omitted` scenario. These are server-only values: they need a graded-but-unposted score (e.g. assignment 1204487) that Canvas withholds from students (`score: null`), so no client can reproduce them. Posted scores match exactly.
+**Follow-ups**: FX-01, label `unposted_*` in `expected/grades` as server-only (generator change plus revalidation). FAM-03, map observer responses where `submission` is an array.

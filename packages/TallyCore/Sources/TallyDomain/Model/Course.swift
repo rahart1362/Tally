@@ -54,15 +54,23 @@ public struct Course: Codable, Sendable, Equatable, Identifiable {
     public let scores: ComputedScores?
     public let currentPeriodScores: ComputedScores?
     public let htmlURL: URL?
+    /// The course total is the weighted mean of the grading-period scores.
+    public let hasWeightedGradingPeriods: Bool
+    /// Every student enrollment row is `completed` (concluded course): Canvas then
+    /// grades only assignments that have a visible submission.
+    public let studentEnrollmentCompleted: Bool
 
     public init(id: CanvasID<Course>, name: String, courseCode: String, term: Term?, teachers: [Teacher],
                 timeZone: String?, appliesGroupWeights: Bool, hasGradingPeriods: Bool,
                 currentGradingPeriodID: CanvasID<GradingPeriod>?, gradeVisibility: GradeVisibility,
-                scores: ComputedScores?, currentPeriodScores: ComputedScores?, htmlURL: URL?) {
+                scores: ComputedScores?, currentPeriodScores: ComputedScores?, htmlURL: URL?,
+                hasWeightedGradingPeriods: Bool = false, studentEnrollmentCompleted: Bool = false) {
         self.id = id; self.name = name; self.courseCode = courseCode; self.term = term; self.teachers = teachers
         self.timeZone = timeZone; self.appliesGroupWeights = appliesGroupWeights
         self.hasGradingPeriods = hasGradingPeriods; self.currentGradingPeriodID = currentGradingPeriodID
         self.gradeVisibility = gradeVisibility; self.scores = scores
         self.currentPeriodScores = currentPeriodScores; self.htmlURL = htmlURL
+        self.hasWeightedGradingPeriods = hasWeightedGradingPeriods
+        self.studentEnrollmentCompleted = studentEnrollmentCompleted
     }
 }
