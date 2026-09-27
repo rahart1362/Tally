@@ -13,7 +13,7 @@ The shell provides `TallyAppleKit` (DesignSystem, Platform, Features, Intents), 
 | **Onboarding + sign-in** | UX-WP-07 Welcome / brand moment. UX-WP-08 school search over `InstitutionDirectory` + the signed registry (all states: not enabled → "Ask My School"). UX-WP-09 sign-in hand-off. F02 / SEC-05 `ASWebAuthenticationSession` with the `.https(host: tally-app.dev, path: /oauth/callback)` callback and a `webcredentials` associated-domain entitlement; PKCE/state via TallyCanvasAPI; `TokenEndpoint` exchange → `TokenCoordinator`. UX-WP-10 first-sync skeleton. Lock screen and privacy cover (UX-WP-21 visuals). | The callback needs the AASA published on tally-app.dev and a Team ID (GL-02). Until then, test with the stubbed token endpoint. |
 
 ## Batch M3: features
-- **Screens:** E05a–e and UX-WP-14…20 (Courses, Course Detail + what-if sheet, To-Do, Calendar with ICS subscribe + Add to Calendar per R6, Insights, and Settings as a `Form` with Sign Out & Erase).
+- **Screens:** E05a–e and UX-WP-14…20 (Courses, Course Detail + what-if sheet, To-Do, Calendar with ICS subscribe + Add to Calendar per R6, Insights, and Settings as a `Form` with Sign Out & Erase and the **"What changed" threshold** (All / points, global + per course → `UserState.digestThresholds` → `RefreshCoordinator.updateDigestThresholds`)).
 - **Widgets and intents:** E06 + integrations R19 (Home, Lock and StandBy widgets; Control Center; App Shortcuts; Focus filter).
 - **Notifications:** E07 wiring of `ReminderPlanner` → `NotificationReconciler` → the UN adapter; permission priming in context (UX-WP-12).
 - **Family UI:** FAM-08…11, FAM-14 (sample family mode).

@@ -28,6 +28,25 @@ public enum TallyConfig {
 
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)
+
+    // Change digest (WP-A07, architecture §3.4: "course-score deltas at or above a threshold")
+    /// Percentage points. A course-level score move smaller than this (e.g. a 0.01 pt
+    /// rounding change) never appears in the "What changed" digest; engineering choice,
+    /// not from a PMO ruling — the AlertEngine A6 thresholds are for a different signal
+    /// (a health alert on a *drop*, one-directional) and are not reused here, since the
+    /// digest reports any clearing move, a rise or a fall.
+    public static let courseScoreChangeThreshold: Double = 0.5
+
+    // App lock (ADR 0001, security.md WP-SEC-07): re-lock grace period after backgrounding.
+    public static let appLockGraceImmediately: Duration = .zero
+    public static let appLockGraceOneMinute: Duration = .seconds(60) // ADR 0001 default
+    public static let appLockGraceFiveMinutes: Duration = .seconds(5 * 60)
+    public static let appLockGraceFifteenMinutes: Duration = .seconds(15 * 60)
+
+    // Family linking (family-linking.md §6.7): client-side write-amplification throttle —
+    // "at most 5 invite codes per student per day" — enforced locally before W1 is ever called.
+    public static let maxInvitesPerDay = 5
+    public static let invitesPerDayWindow: Duration = .seconds(24 * 60 * 60)
 }
 
 extension Duration {

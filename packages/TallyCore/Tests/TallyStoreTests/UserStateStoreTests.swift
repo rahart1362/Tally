@@ -54,6 +54,35 @@ struct UserStateStoreTests {
         #expect(migrated.manualClassTimes == [manual])
     }
 
+    /// v2 → v3 (owner decision 2026-09-27): every v2 field survives and the new "What changed"
+    /// threshold starts at the 0.5 pt default everywhere.
+    @Test func migratesV2PayloadAddingDefaultDigestThresholds() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        let v2JSON: [String: Any] = [
+            "schemaVersion": 2, "showGradesInGlance": false,
+            "hideCourseNamesInNotifications": true, "manualClassTimes": [],
+        ]
+        let v2Data = try JSONSerialization.data(withJSONObject: v2JSON)
+        try ProtectedFile.atomicWrite(try sealer.seal(v2Data, file: .userState), to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
+        #expect(migrated.schemaVersion == 3)
+        #expect(migrated.hideCourseNamesInNotifications == true)
+        #expect(migrated.digestThresholds == .default)
+        #expect(migrated.digestThresholds.threshold(for: "51845") == .points(0.5))
+    }
+
+    @Test func customDigestThresholdsRoundTrip() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let state = UserState(digestThresholds: DigestThresholds(global: .all, perCourse: ["51845": .points(2)]))
+        try await store.save(state)
+        #expect(await store.load() == .loaded(state))
+    }
+
     /// Undecodable and not rederivable from Canvas: reset to empty and tell the user once, per
     /// encryption.md's disposition table — but the on-disk file must actually be removed so a
     /// fresh empty state can be saved afterwards.

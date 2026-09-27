@@ -68,11 +68,33 @@ public actor CanvasClient {
         return bodies
     }
 
+    /// One request whose non-2xx statuses are meaningful application responses the caller
+    /// must inspect directly — e.g. the family-linking writes (family-linking.md §6.1
+    /// W1-W3): a 422 invalid pairing code, or a 401 that only the caller's own institution
+    /// registry can tell apart as "self-registration is off" vs "this key lacks the scope"
+    /// (security.md §3.2's 401 table doesn't distinguish those; Canvas sends the same
+    /// shape for both). Auth attach, the single 401-refresh-retry, and 5xx/429 backoff are
+    /// exactly `fetchOne`'s; only a genuine transport/auth/server failure throws.
+    public func perform(method: HTTPMethod, path: String, query: [(String, String)] = [],
+                        body: Data? = nil, contentType: String? = nil,
+                        budget: Duration = TallyConfig.liveRefreshBudget) async throws(RefreshFailure) -> HTTPResponse {
+        var headers = Self.baseHeaders
+        if let contentType { headers["Content-Type"] = contentType }
+        let request = HTTPRequest(method: method, url: url(path: path, query: query), headers: headers, body: body)
+        return try await fetchPage(request, budget: budget, throwOnClientError: false)
+    }
+
     /// One request, end to end: attaches the current token; on a 401 carrying
     /// `WWW-Authenticate` refreshes once and retries; on a 401 without it (insufficient
     /// scope) fails without refreshing; on 429 or a rate-limited 403 backs off within
     /// `budget`; on 5xx retries at most twice with `BackoffPolicy`.
-    private func fetchPage(_ initialRequest: HTTPRequest, budget: Duration) async throws(RefreshFailure) -> HTTPResponse {
+    ///
+    /// `throwOnClientError` (added for `perform`, defaults `true` so `fetchOne`/
+    /// `fetchAllPages` are unchanged): when `false`, `.insufficientScope`, `.forbidden`,
+    /// `.notFound` and `.unexpected` return the raw response instead of throwing `.unknown`
+    /// — the caller inspects the status/body itself rather than losing that distinction.
+    private func fetchPage(_ initialRequest: HTTPRequest, budget: Duration,
+                           throwOnClientError: Bool = true) async throws(RefreshFailure) -> HTTPResponse {
         var request = initialRequest
         var alreadyRefreshed = false
         var serverErrorAttempts = 0
@@ -97,6 +119,7 @@ public actor CanvasClient {
                 alreadyRefreshed = true
                 do { _ = try await tokens.tokenAfterRejection(of: token) } catch { throw Self.authFailure(error) }
             case .insufficientScope:
+                if !throwOnClientError { return response }
                 throw .unknown // the key lacks the scope: the section is unavailable, never refresh
             case .serverError:
                 serverErrorAttempts += 1
@@ -112,6 +135,7 @@ public actor CanvasClient {
                 rateLimitAttempts += 1
                 try? await Task.sleep(for: delay)
             case .forbidden, .notFound, .unexpected:
+                if !throwOnClientError { return response }
                 throw .unknown
             }
         }

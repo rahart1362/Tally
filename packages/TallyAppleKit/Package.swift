@@ -30,13 +30,18 @@ let package = Package(
         // for URLSessionTransport/KeychainCredentialStore) and TallyStore
         // (VaultKeyStore/SnapshotSealer, for KeychainVaultKeyStore) — both
         // Foundation-only ports that this package's Apple-only adapters
-        // conform to (M2 platform-adapters batch).
+        // conform to (M2 platform-adapters batch). Also depends on
+        // TallyFeatures (UX-WP-09): `WebAuthPresenter` conforms to
+        // `WebAuthPresenting`, a port TallyFeatures declares. This is the
+        // direction architecture.md §3.1 permits — "Features never import
+        // TallyPlatform" says nothing against the reverse.
         .target(
             name: "TallyPlatform",
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
                 .product(name: "TallyCanvasAPI", package: "TallyCore"),
                 .product(name: "TallyStore", package: "TallyCore"),
+                "TallyFeatures",
             ]
         ),
 
@@ -50,6 +55,12 @@ let package = Package(
             dependencies: [
                 "TallyDesignSystem",
                 .product(name: "TallyDomain", package: "TallyCore"),
+                // UX-WP-08/09: InstitutionDirectory, ClientRegistry, AuthorizationRequest,
+                // OAuthCallback, TokenEndpoint, TokenCoordinator, CanvasClient. This is the
+                // shared, Linux-testable Canvas layer (part of "TallyCore" per architecture.md
+                // §3.1), not a platform adapter, so features depending on it directly is the
+                // same shape as the existing TallyDomain dependency above.
+                .product(name: "TallyCanvasAPI", package: "TallyCore"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),

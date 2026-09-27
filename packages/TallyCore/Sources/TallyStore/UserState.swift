@@ -27,20 +27,26 @@ public struct ManualClassTime: Codable, Sendable, Equatable, Identifiable {
 /// (encryption.md D-E3, PMO R10): grade values are never shown by default.
 public struct UserState: Codable, Sendable, Equatable {
     /// Schema history: v1 shipped `showGradesInGlance` + `manualClassTimes` only; v2 adds
-    /// `hideCourseNamesInNotifications`, defaulted `false` on migration (`UserStateMigration`).
-    public static let currentSchemaVersion = 2
+    /// `hideCourseNamesInNotifications`, defaulted `false` on migration (`UserStateMigration`);
+    /// v3 adds `digestThresholds` (owner decision 2026-09-27), defaulted to 0.5 pt everywhere.
+    /// Owner decision D-E4 (2026-09-27): user state is NOT backed up; a new install or data wipe
+    /// starts from these defaults while Canvas data is fetched fresh.
+    public static let currentSchemaVersion = 3
 
     public let schemaVersion: Int
     public var showGradesInGlance: Bool
     public var hideCourseNamesInNotifications: Bool
     public var manualClassTimes: [ManualClassTime]
+    /// "What changed" course-grade threshold: "All" or points, globally or per course.
+    public var digestThresholds: DigestThresholds
 
     public init(showGradesInGlance: Bool = false, hideCourseNamesInNotifications: Bool = false,
-                manualClassTimes: [ManualClassTime] = []) {
+                manualClassTimes: [ManualClassTime] = [], digestThresholds: DigestThresholds = .default) {
         schemaVersion = Self.currentSchemaVersion
         self.showGradesInGlance = showGradesInGlance
         self.hideCourseNamesInNotifications = hideCourseNamesInNotifications
         self.manualClassTimes = manualClassTimes
+        self.digestThresholds = digestThresholds
     }
 }
 
@@ -52,10 +58,23 @@ enum UserStateMigration {
         let manualClassTimes: [ManualClassTime]
     }
 
+    /// The v2 shape: everything except `digestThresholds`.
+    private struct V2: Decodable {
+        let schemaVersion: Int
+        let showGradesInGlance: Bool
+        let hideCourseNamesInNotifications: Bool
+        let manualClassTimes: [ManualClassTime]
+    }
+
     static func decode(_ data: Data) throws -> UserState {
         switch try peekSchemaVersion(data) {
         case UserState.currentSchemaVersion:
             return try JSONDecoder().decode(UserState.self, from: data)
+        case 2:
+            let v2 = try JSONDecoder().decode(V2.self, from: data)
+            return UserState(showGradesInGlance: v2.showGradesInGlance,
+                              hideCourseNamesInNotifications: v2.hideCourseNamesInNotifications,
+                              manualClassTimes: v2.manualClassTimes)
         case 1:
             let v1 = try JSONDecoder().decode(V1.self, from: data)
             return UserState(showGradesInGlance: v1.showGradesInGlance,
