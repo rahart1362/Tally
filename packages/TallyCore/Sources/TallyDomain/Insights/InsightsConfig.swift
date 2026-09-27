@@ -103,4 +103,43 @@ public enum InsightsConfig {
     /// §2.3: a dismissed alert is worsened (and so re-shown) when its
     /// tracked numeric gap (e.g. points below goal) grows by at least this much.
     public static let dismissWorsenGap: Double = 2.0
+
+    // MARK: - ReminderPlanner (WP-D02; PMO R14 "Balanced", §3 of insights-at-a-glance)
+
+    /// R14 Balanced: due-item reminders fire this long before `due_at`,
+    /// largest offset first. The **last** (soonest-before-due) offset is the
+    /// "final hour" reminder (§3.5: Time Sensitive for a High/Critical item).
+    public static let balancedDueOffsets: [Duration] = [.seconds(24 * 60 * 60), .seconds(60 * 60)]
+
+    /// §3.3 #2: the missing-and-still-open follow-up fires once, this long after `due_at`.
+    public static let missingFollowupOffset: Duration = .seconds(12 * 60 * 60)
+
+    /// §1.3/§3.3 #3: exam reminders fire at 18:00 local on each of these
+    /// days before the exam, plus a time-sensitive morning-of reminder.
+    public static let examReminderDaysBefore: [Int] = [3, 1]
+    public static let examReminderHour = 18
+    public static let examReminderMinute = 0
+    public static let examMorningOfHour = 7
+    public static let examMorningOfMinute = 30
+
+    /// §3.3 #4/#5: the evening digest and Sunday week-ahead default times.
+    public static let eveningDigestHour = 19
+    public static let eveningDigestMinute = 0
+    public static let weekAheadHour = 18
+    public static let weekAheadMinute = 0
+
+    /// §3.5 default quiet hours.
+    public static let defaultQuietHoursStart = (hour: 23, minute: 0)
+    public static let defaultQuietHoursEnd = (hour: 7, minute: 0)
+    /// Quiet-hour shifts land this long before quiet hours begin (§3.5 example: 23:30 -> 22:45).
+    public static let quietHoursLeadIn: Duration = .seconds(15 * 60)
+
+    /// §2.3 snooze options' fixed local times.
+    public static let snoozeTonightHour = 19
+    public static let snoozeTonightMinute = 0
+    public static let snoozeTomorrowMorningHour = 8
+    public static let snoozeTomorrowMorningMinute = 0
+
+    /// §3.8: nothing is scheduled more than this far ahead.
+    public static let reminderHorizon: Duration = .seconds(14 * 24 * 60 * 60)
 }
