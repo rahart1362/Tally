@@ -64,3 +64,8 @@
 ## 2026-09-26 | M1 WP-A01/A02: TallyCore skeleton + Linux CI
 **Changes**: `packages/TallyCore` (swift-tools 6.2, Swift 6 mode, iOS/macOS 26; 5 library + 4 test targets, Swift Testing smoke tests). Lowercase `packages/` is used instead of the architecture's `Packages/` because the two collide on case-insensitive macOS. `Makefile` `core-test`/`core-build` run in the pinned swift image digest. CI adds a `core-linux` job (same digest) and a TallyCore test step on the Xcode 26.6 toolchain.
 **Local evidence**: `make core-test` → Swift 6.4 (swift-6.4-RELEASE); 4 suites passed (TallyDomain, TallyCanvasAPI, TallyStore, TallySync smoke); exit 0. `make core-build` with `-warnings-as-errors` → Build complete, exit 0. CI evidence: pending.
+
+## 2026-09-26 | M1 WP-A08 (+ part of A03): FreshnessRules, TallyConfig, CanvasID
+**Changes**: `TallyConfig` (every named constant from architecture §3.1 plus R17's 24 h warning), `CanvasID<Entity>` (string IDs typed by a phantom entity; numeric ordering), the `DateProviding` port (renamed from "Clock" to avoid clashing with the stdlib), `RefreshRecord` (persisted refresh facts, no student content), `FreshnessState`, and `FreshnessRules` (derived state, single-timer `nextTransition`, trigger throttling, stale-warning date). `TestClock` is anchored at 2026-09-28T13:00:00Z (the fixtures' anchor).
+**Evidence**: `make core-build` (warnings as errors) → Build complete. `make core-test` → TallyDomainTests 12 tests in 3 suites passed; all others pass. Mutation check: changing `>=` to `>` at the 10 s boundary fails `delayedAtExactlyTheBudgetNotBefore` (2 issues); restored → 0 failures.
+**Deferred**: A03 domain entities wait for the synthetic dataset, so the fields follow verified Canvas schemas.
