@@ -1,0 +1,665 @@
+{
+  "persona": "flagship-previous",
+  "synthetic": true,
+  "captured_at": "2026-09-27T13:00:00Z",
+  "tolerance": 0.01,
+  "calculator": "tools/canvas-synth/canvas_synth/gradecalc.py -- port of canvas-lms lib/grade_calculator.rb @ 1c9f0bb8013ed69c4f2efe11fd483025469b7e6c",
+  "parity_rule": "GradeEngine.currentScore(course) == current_score +/- tolerance, computed only from the persona's fixture responses (courses, assignment_groups, grading_periods).",
+  "caveat": "Synthetic parity proves consistency with this port of Canvas's algorithm only; it does not replace an owner-run recording against real Canvas (WP-B07).",
+  "courses": [
+    {
+      "course_id": "51845",
+      "course_code": "BIO 101",
+      "name": "Biology 101",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "4412",
+      "grading_scheme": [
+        [
+          "A",
+          0.93
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.83
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.73
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.63
+        ],
+        [
+          "D-",
+          0.6
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 93.4,
+      "final_score": 35.31,
+      "current_grade": "A",
+      "final_grade": "F",
+      "unposted_current_score": 93.4,
+      "unposted_final_score": 35.31,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "188207",
+          "name": "Lab Reports",
+          "group_weight": 30.0,
+          "current": {
+            "score": 136.1,
+            "possible": 150.0,
+            "grade": 90.73,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 136.1,
+            "possible": 400.0,
+            "grade": 34.03,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188208",
+          "name": "Quizzes",
+          "group_weight": 20.0,
+          "current": {
+            "score": 94.5,
+            "possible": 100.0,
+            "grade": 94.5,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 94.5,
+            "possible": 200.0,
+            "grade": 47.25,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188209",
+          "name": "Exams",
+          "group_weight": 40.0,
+          "current": {
+            "score": 93.2,
+            "possible": 100.0,
+            "grade": 93.2,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 93.2,
+            "possible": 350.0,
+            "grade": 26.63,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188210",
+          "name": "Participation",
+          "group_weight": 10.0,
+          "current": {
+            "score": 20.0,
+            "possible": 20.0,
+            "grade": 100.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 20.0,
+            "possible": 40.0,
+            "grade": 50.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 93.4,
+      "notes": null
+    },
+    {
+      "course_id": "51842",
+      "course_code": "MATH 122",
+      "name": "Calculus II",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 90.09,
+      "final_score": 33.22,
+      "current_grade": "A-",
+      "final_grade": "F",
+      "unposted_current_score": 90.09,
+      "unposted_final_score": 33.22,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "188200",
+          "name": "Problem Sets",
+          "group_weight": 30.0,
+          "current": {
+            "score": 367.5,
+            "possible": 400.0,
+            "grade": 91.88,
+            "dropped_submission_ids": [
+              "903114045"
+            ]
+          },
+          "final": {
+            "score": 453.5,
+            "possible": 1050.0,
+            "grade": 43.19,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188201",
+          "name": "Quizzes",
+          "group_weight": 20.0,
+          "current": {
+            "score": 370.5,
+            "possible": 400.0,
+            "grade": 92.63,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 370.5,
+            "possible": 800.0,
+            "grade": 46.31,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188202",
+          "name": "Exams",
+          "group_weight": 50.0,
+          "current": {
+            "score": 88.0,
+            "possible": 100.0,
+            "grade": 88.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 88.0,
+            "possible": 400.0,
+            "grade": 22.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 90.1,
+      "notes": "Mockup: 90.1% A-; Problem Set 6 92/100 posted Sep 27; Quiz 4 85/100; Midterm 88/100."
+    },
+    {
+      "course_id": "51847",
+      "course_code": "ENG 101",
+      "name": "English Composition",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "4414",
+      "grading_scheme": [
+        [
+          "A",
+          0.93
+        ],
+        [
+          "A-",
+          0.88
+        ],
+        [
+          "B+",
+          0.85
+        ],
+        [
+          "B",
+          0.82
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.73
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D",
+          0.6
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 89.0,
+      "final_score": 28.8,
+      "current_grade": "A-",
+      "final_grade": "F",
+      "unposted_current_score": 89.0,
+      "unposted_final_score": 28.8,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "188215",
+          "name": "Essays",
+          "group_weight": 50.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 300.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188216",
+          "name": "Drafts & Peer Review",
+          "group_weight": 20.0,
+          "current": {
+            "score": 27.0,
+            "possible": 30.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 27.0,
+            "possible": 50.0,
+            "grade": 54.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188217",
+          "name": "Journals",
+          "group_weight": 20.0,
+          "current": {
+            "score": 17.0,
+            "possible": 20.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 17.0,
+            "possible": 40.0,
+            "grade": 42.5,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188218",
+          "name": "Participation",
+          "group_weight": 10.0,
+          "current": {
+            "score": 9.5,
+            "possible": 10.0,
+            "grade": 95.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 9.5,
+            "possible": 10.0,
+            "grade": 95.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 89.0,
+      "notes": null
+    },
+    {
+      "course_id": "51843",
+      "course_code": "PSY 101",
+      "name": "Introduction to Psychology",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 87.2,
+      "final_score": 34.6,
+      "current_grade": "B+",
+      "final_grade": "F",
+      "unposted_current_score": 87.2,
+      "unposted_final_score": 34.6,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "188203",
+          "name": "Chapter Quizzes",
+          "group_weight": 0.0,
+          "current": {
+            "score": 88.5,
+            "possible": 100.0,
+            "grade": 88.5,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 88.5,
+            "possible": 200.0,
+            "grade": 44.25,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188204",
+          "name": "Reading Responses",
+          "group_weight": 0.0,
+          "current": {
+            "score": 45.5,
+            "possible": 50.0,
+            "grade": 91.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 45.5,
+            "possible": 70.0,
+            "grade": 65.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188205",
+          "name": "Exams",
+          "group_weight": 0.0,
+          "current": {
+            "score": 84.0,
+            "possible": 100.0,
+            "grade": 84.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 84.0,
+            "possible": 350.0,
+            "grade": 24.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188206",
+          "name": "Research Participation",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 10.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 87.2,
+      "notes": null
+    },
+    {
+      "course_id": "51846",
+      "course_code": "HIST 210",
+      "name": "World History",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "4413",
+      "grading_scheme": [
+        [
+          "A",
+          0.9
+        ],
+        [
+          "B",
+          0.8
+        ],
+        [
+          "C",
+          0.7
+        ],
+        [
+          "D",
+          0.6
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 82.0,
+      "final_score": 30.37,
+      "current_grade": "B",
+      "final_grade": "F",
+      "unposted_current_score": 82.0,
+      "unposted_final_score": 30.37,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "188211",
+          "name": "Primary Source Analyses",
+          "group_weight": 0.0,
+          "current": {
+            "score": 41.75,
+            "possible": 50.0,
+            "grade": 83.5,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 41.75,
+            "possible": 150.0,
+            "grade": 27.83,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188212",
+          "name": "Essays",
+          "group_weight": 0.0,
+          "current": {
+            "score": 75.25,
+            "possible": 100.0,
+            "grade": 75.25,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 75.25,
+            "possible": 300.0,
+            "grade": 25.08,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188213",
+          "name": "Map Quizzes",
+          "group_weight": 0.0,
+          "current": {
+            "score": 17.0,
+            "possible": 20.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 17.0,
+            "possible": 40.0,
+            "grade": 42.5,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "188214",
+          "name": "Participation",
+          "group_weight": 0.0,
+          "current": {
+            "score": 30.0,
+            "possible": 30.0,
+            "grade": 100.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 30.0,
+            "possible": 50.0,
+            "grade": 60.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 82.0,
+      "notes": null
+    }
+  ],
+  "tally_overall": {
+    "definition": "mean of visible current scores (Tally 'Average of N courses'; not a Canvas value)",
+    "courses_counted": 5,
+    "mean_current_score": 88.34
+  }
+}

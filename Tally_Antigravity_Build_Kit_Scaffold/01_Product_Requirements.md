@@ -198,7 +198,7 @@ Optional, user-consented, device-side only:
 - The test design and thresholds are in the review, §5.6.
 
 ### 11.8 Out of scope for v1 (proposed backlog)
-- School-paid licences. Apple subscriptions cannot be bought in volume, and offer codes may not be sold.
+- School-paid licences. *Corrected 2026-09-26 (PMO): Apple now supports buying subscriptions in bulk. Volume Purchasing via Apple School Manager launches 2026-10-22, with seats assigned by device management; Group Purchases follow "this winter" (Apple Developer News, 2026-09-16). Multiseat is on by default for new subscriptions (decision P6). Offer codes still may not be sold.* School-paid seats remain post-v1 (BL-15), now feasible for schools that manage devices.
 - Monthly plan.
 - Family Sharing.
 - Promotional offers that need a server.

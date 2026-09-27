@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/calendar_events?context_codes%5B%5D=course_51845&context_codes%5B%5D=course_51842&context_codes%5B%5D=course_51847&context_codes%5B%5D=course_51843&context_codes%5B%5D=course_51846&end_date=2026-11-26&start_date=2026-09-13&type=event&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100>; rel=\"current\",<https://canvas.northfield.example/api/v1/calendar_events?context_codes%5B%5D=course_51845&context_codes%5B%5D=course_51842&context_codes%5B%5D=course_51847&context_codes%5B%5D=course_51843&context_codes%5B%5D=course_51846&end_date=2026-11-26&start_date=2026-09-13&type=event&page=first&per_page=100>; rel=\"first\"",
+    "X-Request-Cost": "0.9618796730719308",
+    "X-Rate-Limit-Remaining": "681.6274635776566"
+  }
+}

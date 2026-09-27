@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/courses?enrollment_state=active&include%5B%5D=total_scores&include%5B%5D=current_grading_period_scores&include%5B%5D=term&include%5B%5D=teachers&page=2&per_page=2>; rel=\"current\",<https://canvas.northfield.example/api/v1/courses?enrollment_state=active&include%5B%5D=total_scores&include%5B%5D=current_grading_period_scores&include%5B%5D=term&include%5B%5D=teachers&page=1&per_page=2>; rel=\"prev\",<https://canvas.northfield.example/api/v1/courses?enrollment_state=active&include%5B%5D=total_scores&include%5B%5D=current_grading_period_scores&include%5B%5D=term&include%5B%5D=teachers&page=1&per_page=2>; rel=\"first\",<https://canvas.northfield.example/api/v1/courses?enrollment_state=active&include%5B%5D=total_scores&include%5B%5D=current_grading_period_scores&include%5B%5D=term&include%5B%5D=teachers&page=2&per_page=2>; rel=\"last\"",
+    "X-Request-Cost": "1.4238595691894016",
+    "X-Rate-Limit-Remaining": "641.6749347714735"
+  }
+}

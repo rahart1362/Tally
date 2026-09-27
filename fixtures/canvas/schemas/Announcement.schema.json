@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/Announcement.schema.json",
+  "title": "Announcement",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/discussion_topics#discussiontopic and https://developerdocs.instructure.com/services/canvas/resources/announcements#method.announcements_api.index ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/discussion_topics.rb#discussion_topic_api_json (ALLOWED_TOPIC_FIELDS + methods + permissions, serialize_additional_topic_fields with include_context_code) and app/controllers/announcements_api_controller.rb#index (default window start_date + 28 days). The ungraded_discussion_overrides value shape and permission values are UNVERIFIED. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "last_reply_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "delayed_post_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "posted_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "assignment_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "root_topic_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "position": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "podcast_has_student_posts": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discussion_type": {
+      "type": "string"
+    },
+    "lock_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "allow_rating": {
+      "type": "boolean"
+    },
+    "only_graders_can_rate": {
+      "type": "boolean"
+    },
+    "sort_by_rating": {
+      "type": "boolean"
+    },
+    "is_section_specific": {
+      "type": "boolean"
+    },
+    "anonymous_state": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "summary_enabled": {
+      "type": "boolean"
+    },
+    "user_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discussion_subentry_count": {
+      "type": "integer"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "attach": {
+          "type": "boolean"
+        },
+        "update": {
+          "type": "boolean"
+        },
+        "reply": {
+          "type": "boolean"
+        },
+        "delete": {
+          "type": "boolean"
+        },
+        "manage_assign_to": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "attach",
+        "update",
+        "reply",
+        "delete",
+        "manage_assign_to"
+      ],
+      "additionalProperties": false
+    },
+    "require_initial_post": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "user_can_see_posts": {
+      "type": "boolean"
+    },
+    "podcast_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "read_state": {
+      "enum": [
+        "read",
+        "unread"
+      ]
+    },
+    "unread_count": {
+      "type": "integer"
+    },
+    "subscribed": {
+      "type": "boolean"
+    },
+    "attachments": {
+      "type": "array"
+    },
+    "published": {
+      "type": "boolean"
+    },
+    "can_unpublish": {
+      "type": "boolean"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "can_lock": {
+      "type": "boolean"
+    },
+    "comments_disabled": {
+      "type": "boolean"
+    },
+    "author": {
+      "anyOf": [
+        {
+          "$ref": "UserDisplay.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "html_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "pinned": {
+      "type": "boolean"
+    },
+    "group_category_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "can_group": {
+      "type": "boolean"
+    },
+    "topic_children": {
+      "type": "array"
+    },
+    "group_topic_children": {
+      "type": "array"
+    },
+    "context_code": {
+      "type": "string"
+    },
+    "ungraded_discussion_overrides": {
+      "type": "array"
+    },
+    "locked_for_user": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string"
+    },
+    "subscription_hold": {
+      "type": "string"
+    },
+    "todo_date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_announcement": {
+      "const": true
+    },
+    "sort_order": {
+      "type": "string"
+    },
+    "sort_order_locked": {
+      "type": "boolean"
+    },
+    "expanded": {
+      "type": "boolean"
+    },
+    "expanded_locked": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "last_reply_at",
+    "created_at",
+    "delayed_post_at",
+    "posted_at",
+    "assignment_id",
+    "root_topic_id",
+    "position",
+    "podcast_has_student_posts",
+    "discussion_type",
+    "lock_at",
+    "allow_rating",
+    "only_graders_can_rate",
+    "sort_by_rating",
+    "is_section_specific",
+    "anonymous_state",
+    "summary_enabled",
+    "user_name",
+    "discussion_subentry_count",
+    "permissions",
+    "require_initial_post",
+    "user_can_see_posts",
+    "podcast_url",
+    "read_state",
+    "unread_count",
+    "subscribed",
+    "attachments",
+    "published",
+    "can_unpublish",
+    "locked",
+    "can_lock",
+    "comments_disabled",
+    "author",
+    "html_url",
+    "url",
+    "pinned",
+    "group_category_id",
+    "can_group",
+    "topic_children",
+    "group_topic_children",
+    "context_code",
+    "ungraded_discussion_overrides",
+    "locked_for_user",
+    "message",
+    "subscription_hold",
+    "todo_date",
+    "is_announcement",
+    "sort_order",
+    "sort_order_locked",
+    "expanded",
+    "expanded_locked"
+  ],
+  "additionalProperties": false
+}

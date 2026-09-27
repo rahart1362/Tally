@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/users/4820117/planner/items?context_codes%5B%5D=course_51845&context_codes%5B%5D=course_51842&context_codes%5B%5D=course_51847&context_codes%5B%5D=course_51843&context_codes%5B%5D=course_51846&end_date=2026-11-27&start_date=2026-09-14&page=first&per_page=100>; rel=\"current\",<https://canvas.northfield.example/api/v1/users/4820117/planner/items?context_codes%5B%5D=course_51845&context_codes%5B%5D=course_51842&context_codes%5B%5D=course_51847&context_codes%5B%5D=course_51843&context_codes%5B%5D=course_51846&end_date=2026-11-27&start_date=2026-09-14&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100>; rel=\"next\",<https://canvas.northfield.example/api/v1/users/4820117/planner/items?context_codes%5B%5D=course_51845&context_codes%5B%5D=course_51842&context_codes%5B%5D=course_51847&context_codes%5B%5D=course_51843&context_codes%5B%5D=course_51846&end_date=2026-11-27&start_date=2026-09-14&page=first&per_page=100>; rel=\"first\"",
+    "X-Request-Cost": "2.51653629192288",
+    "X-Rate-Limit-Remaining": "681.7675985369224"
+  }
+}

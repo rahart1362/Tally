@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://harborcity.instructure.example/api/v1/announcements?context_codes%5B%5D=course_70313&context_codes%5B%5D=course_70312&context_codes%5B%5D=course_70311&context_codes%5B%5D=course_70314&start_date=2026-09-14&page=1&per_page=50>; rel=\"current\",<https://harborcity.instructure.example/api/v1/announcements?context_codes%5B%5D=course_70313&context_codes%5B%5D=course_70312&context_codes%5B%5D=course_70311&context_codes%5B%5D=course_70314&start_date=2026-09-14&page=1&per_page=50>; rel=\"first\",<https://harborcity.instructure.example/api/v1/announcements?context_codes%5B%5D=course_70313&context_codes%5B%5D=course_70312&context_codes%5B%5D=course_70311&context_codes%5B%5D=course_70314&start_date=2026-09-14&page=1&per_page=50>; rel=\"last\"",
+    "X-Request-Cost": "0.7503486428349013",
+    "X-Rate-Limit-Remaining": "687.1105407475438"
+  }
+}

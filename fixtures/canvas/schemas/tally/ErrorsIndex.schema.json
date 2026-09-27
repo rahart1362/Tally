@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/tally/ErrorsIndex.schema.json",
+  "title": "ErrorsIndex",
+  "$comment": "Tally fixture metadata (tools/canvas-synth); not a Canvas object.",
+  "type": "object",
+  "required": [
+    "synthetic",
+    "errors"
+  ],
+  "properties": {
+    "synthetic": {
+      "const": true
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "status",
+          "description",
+          "source"
+        ],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

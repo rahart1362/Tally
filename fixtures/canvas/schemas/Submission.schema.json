@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/Submission.schema.json",
+  "title": "Submission",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/submissions#submission ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/submission.rb (SUBMISSION_JSON_FIELDS + SUBMISSION_JSON_METHODS, preview_url, attachments) and app/models/submission.rb (#filter_attributes_for_user deletes grade/score/entered_grade/entered_score when hide_grade_from_student? -- unposted -- so those keys are optional; #late?, #missing?, #seconds_late). excused null on never-graded rows and negative grader_id for auto-graded classic quizzes are UNVERIFIED (recalled from real responses, not proven from source). Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "body": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "submitted_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "assignment_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "user_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "submission_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workflow_state": {
+      "enum": [
+        "unsubmitted",
+        "submitted",
+        "graded",
+        "pending_review"
+      ]
+    },
+    "grade_matches_current_submission": {
+      "type": "boolean"
+    },
+    "graded_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grader_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempt": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cached_due_date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "excused": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "late_policy_status": {
+      "anyOf": [
+        {
+          "enum": [
+            "late",
+            "missing",
+            "extended",
+            "none"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "points_deducted": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grading_period_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "extra_attempts": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "posted_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "redo_request": {
+      "type": "boolean"
+    },
+    "custom_grade_status_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sticker": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "late": {
+      "type": "boolean"
+    },
+    "missing": {
+      "type": "boolean"
+    },
+    "seconds_late": {
+      "type": "integer"
+    },
+    "entered_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "entered_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "preview_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "Attachment.schema.json"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "body",
+    "url",
+    "submitted_at",
+    "assignment_id",
+    "user_id",
+    "submission_type",
+    "workflow_state",
+    "grade_matches_current_submission",
+    "graded_at",
+    "grader_id",
+    "attempt",
+    "cached_due_date",
+    "excused",
+    "late_policy_status",
+    "points_deducted",
+    "grading_period_id",
+    "extra_attempts",
+    "posted_at",
+    "redo_request",
+    "custom_grade_status_id",
+    "sticker",
+    "late",
+    "missing",
+    "seconds_late",
+    "preview_url"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/RateLimitText.schema.json",
+  "title": "RateLimitText",
+  "$comment": "canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c app/middleware/request_throttle.rb#rate_limit_exceeded (validated as the raw body string). Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "string",
+  "pattern": "^(403 Forbidden|429 Too Many Requests) \\(Rate Limit Exceeded\\)\\n$"
+}

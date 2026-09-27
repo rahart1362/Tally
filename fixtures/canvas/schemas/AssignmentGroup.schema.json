@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/AssignmentGroup.schema.json",
+  "title": "AssignmentGroup",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/assignment_groups#assignmentgroup and #gradingrules ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/assignment_group.rb#assignment_group_json and app/models/assignment_group.rb#rules_hash (never_drop ids are strings under canvas-string-ids). Request: GET /api/v1/courses/:id/assignment_groups?include[]=assignments&include[]=submission&per_page=100. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer"
+    },
+    "group_weight": {
+      "type": "number"
+    },
+    "sis_source_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "integration_data": {
+      "type": "object"
+    },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "drop_lowest": {
+          "type": "integer"
+        },
+        "drop_highest": {
+          "type": "integer"
+        },
+        "never_drop": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "assignments": {
+      "type": "array",
+      "items": {
+        "$ref": "Assignment.schema.json"
+      }
+    },
+    "any_assignment_in_closed_grading_period": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "position",
+    "group_weight",
+    "sis_source_id",
+    "integration_data",
+    "rules",
+    "assignments",
+    "any_assignment_in_closed_grading_period"
+  ],
+  "additionalProperties": false
+}

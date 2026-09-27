@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/Assignment.schema.json",
+  "title": "Assignment",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/assignments#assignment ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/assignment.rb#assignment_json (API_ALLOWED_ASSIGNMENT_OUTPUT_FIELDS, then computed keys; student caller so no needs_grading_count, sis ids, has_overrides or unpublishable) and lib/api/v1/assignment_group.rb (in_closed_grading_period appended last). 'submission' is an object for a student and an array with include[]=observed_users (lib/api/v1/assignment.rb#submissions_hash). Key order of the only-filtered prefix UNVERIFIED. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "due_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unlock_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lock_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "points_possible": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grading_type": {
+      "enum": [
+        "points",
+        "percent",
+        "letter_grade",
+        "gpa_scale",
+        "pass_fail",
+        "not_graded"
+      ]
+    },
+    "assignment_group_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "grading_standard_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "peer_reviews": {
+      "type": "boolean"
+    },
+    "automatic_peer_reviews": {
+      "type": "boolean"
+    },
+    "position": {
+      "type": "integer"
+    },
+    "grade_group_students_individually": {
+      "type": "boolean"
+    },
+    "anonymous_peer_reviews": {
+      "type": "boolean"
+    },
+    "group_category_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "post_to_sis": {
+      "type": "boolean"
+    },
+    "moderated_grading": {
+      "type": "boolean"
+    },
+    "omit_from_final_grade": {
+      "type": "boolean"
+    },
+    "intra_group_peer_reviews": {
+      "type": "boolean"
+    },
+    "anonymous_instructor_annotations": {
+      "type": "boolean"
+    },
+    "anonymous_grading": {
+      "type": "boolean"
+    },
+    "graders_anonymous_to_graders": {
+      "type": "boolean"
+    },
+    "grader_count": {
+      "type": "integer"
+    },
+    "grader_comments_visible_to_graders": {
+      "type": "boolean"
+    },
+    "final_grader_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grader_names_visible_to_final_grader": {
+      "type": "boolean"
+    },
+    "allowed_attempts": {
+      "type": "integer"
+    },
+    "annotatable_attachment_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hide_in_gradebook": {
+      "type": "boolean"
+    },
+    "suppress_assignment": {
+      "type": "boolean"
+    },
+    "secure_params": {
+      "type": "string"
+    },
+    "lti_context_id": {
+      "type": "string"
+    },
+    "course_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "submission_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "has_submitted_submissions": {
+      "type": "boolean"
+    },
+    "due_date_required": {
+      "type": "boolean"
+    },
+    "max_name_length": {
+      "type": "integer"
+    },
+    "availability_status": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "open",
+            "closed"
+          ]
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "date"
+      ],
+      "additionalProperties": false
+    },
+    "graded_submissions_exist": {
+      "type": "boolean"
+    },
+    "is_quiz_assignment": {
+      "type": "boolean"
+    },
+    "can_duplicate": {
+      "type": "boolean"
+    },
+    "original_course_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_assignment_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_lti_resource_link_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_assignment_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_quiz_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workflow_state": {
+      "type": "string"
+    },
+    "important_dates": {
+      "type": "boolean"
+    },
+    "muted": {
+      "type": "boolean"
+    },
+    "html_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "quiz_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "anonymous_submissions": {
+      "type": "boolean"
+    },
+    "allowed_extensions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "published": {
+      "type": "boolean"
+    },
+    "only_visible_to_overrides": {
+      "type": "boolean"
+    },
+    "visible_to_everyone": {
+      "type": "boolean"
+    },
+    "submission": {
+      "anyOf": [
+        {
+          "$ref": "Submission.schema.json"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "Submission.schema.json"
+          }
+        }
+      ]
+    },
+    "locked_for_user": {
+      "type": "boolean"
+    },
+    "lock_info": {
+      "type": "object",
+      "properties": {
+        "asset_string": {
+          "type": "string"
+        },
+        "unlock_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "lock_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "can_view": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "asset_string"
+      ],
+      "additionalProperties": false
+    },
+    "lock_explanation": {
+      "type": "string"
+    },
+    "submissions_download_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "post_manually": {
+      "type": "boolean"
+    },
+    "anonymize_students": {
+      "type": "boolean"
+    },
+    "new_quizzes_anonymous_participants": {
+      "type": "boolean"
+    },
+    "require_lockdown_browser": {
+      "type": "boolean"
+    },
+    "restrict_quantitative_data": {
+      "type": "boolean"
+    },
+    "in_closed_grading_period": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "description",
+    "due_at",
+    "unlock_at",
+    "lock_at",
+    "points_possible",
+    "grading_type",
+    "assignment_group_id",
+    "grading_standard_id",
+    "created_at",
+    "updated_at",
+    "peer_reviews",
+    "automatic_peer_reviews",
+    "position",
+    "grade_group_students_individually",
+    "anonymous_peer_reviews",
+    "group_category_id",
+    "post_to_sis",
+    "moderated_grading",
+    "omit_from_final_grade",
+    "intra_group_peer_reviews",
+    "anonymous_instructor_annotations",
+    "anonymous_grading",
+    "graders_anonymous_to_graders",
+    "grader_count",
+    "grader_comments_visible_to_graders",
+    "final_grader_id",
+    "grader_names_visible_to_final_grader",
+    "allowed_attempts",
+    "annotatable_attachment_id",
+    "hide_in_gradebook",
+    "suppress_assignment",
+    "secure_params",
+    "lti_context_id",
+    "course_id",
+    "name",
+    "submission_types",
+    "has_submitted_submissions",
+    "due_date_required",
+    "max_name_length",
+    "graded_submissions_exist",
+    "is_quiz_assignment",
+    "can_duplicate",
+    "original_course_id",
+    "original_assignment_id",
+    "original_lti_resource_link_id",
+    "original_assignment_name",
+    "original_quiz_id",
+    "workflow_state",
+    "important_dates",
+    "muted",
+    "html_url",
+    "published",
+    "only_visible_to_overrides",
+    "visible_to_everyone",
+    "locked_for_user",
+    "submissions_download_url",
+    "post_manually",
+    "anonymize_students",
+    "new_quizzes_anonymous_participants",
+    "require_lockdown_browser",
+    "restrict_quantitative_data",
+    "in_closed_grading_period"
+  ],
+  "additionalProperties": false
+}

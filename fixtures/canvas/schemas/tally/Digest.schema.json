@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/tally/Digest.schema.json",
+  "title": "Digest",
+  "$comment": "Tally fixture metadata (tools/canvas-synth); not a Canvas object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "synthetic",
+    "previous",
+    "current",
+    "note",
+    "changes"
+  ],
+  "properties": {
+    "synthetic": {
+      "const": true
+    },
+    "note": {
+      "type": "string"
+    },
+    "previous": {
+      "type": "object",
+      "required": [
+        "persona",
+        "captured_at"
+      ]
+    },
+    "current": {
+      "type": "object",
+      "required": [
+        "persona",
+        "captured_at"
+      ]
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "course_id"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "course_score_changed",
+              "new_assignment",
+              "due_date_changed",
+              "newly_graded",
+              "score_changed",
+              "submitted",
+              "new_announcement"
+            ]
+          },
+          "course_id": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          }
+        }
+      }
+    }
+  }
+}

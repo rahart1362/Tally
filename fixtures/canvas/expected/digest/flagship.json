@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "previous": {
+    "persona": "flagship-previous",
+    "captured_at": "2026-09-27T13:00:00Z"
+  },
+  "current": {
+    "persona": "flagship",
+    "captured_at": "2026-09-28T13:00:00Z"
+  },
+  "note": "Ground truth from the generator's world model; ChangeDigest tests apply Tally's own course-score threshold to course_score_changed.",
+  "changes": [
+    {
+      "kind": "submitted",
+      "course_id": "51845",
+      "assignment_id": "1204449",
+      "name": "Lab Report 4",
+      "submitted_at": "2026-09-27T21:20:05Z"
+    },
+    {
+      "kind": "new_announcement",
+      "course_id": "51845",
+      "announcement_id": "2551006",
+      "title": "Quiz 5 tomorrow: Chapters 4-5",
+      "posted_at": "2026-09-28T01:05:00Z"
+    },
+    {
+      "kind": "course_score_changed",
+      "course_id": "51842",
+      "course_code": "MATH 122",
+      "from": 90.09,
+      "to": 90.1,
+      "delta": 0.01
+    },
+    {
+      "kind": "newly_graded",
+      "course_id": "51842",
+      "assignment_id": "1204405",
+      "submission_id": "903114141",
+      "name": "Problem Set 6",
+      "from": null,
+      "to": 92.0,
+      "points_possible": 100.0
+    },
+    {
+      "kind": "new_announcement",
+      "course_id": "51842",
+      "announcement_id": "2551005",
+      "title": "Problem Set 6 graded & solutions posted",
+      "posted_at": "2026-09-28T00:45:00Z"
+    },
+    {
+      "kind": "submitted",
+      "course_id": "51843",
+      "assignment_id": "1204437",
+      "name": "Reading Response 5",
+      "submitted_at": "2026-09-28T02:12:40Z"
+    },
+    {
+      "kind": "new_assignment",
+      "course_id": "51843",
+      "assignment_id": "1204439",
+      "name": "Chapter 7 Reading Response",
+      "due_at": "2026-10-12T13:00:00Z"
+    },
+    {
+      "kind": "due_date_changed",
+      "course_id": "51846",
+      "assignment_id": "1204474",
+      "name": "Essay 2",
+      "from": "2026-10-04T04:59:59Z",
+      "to": "2026-10-06T04:59:59Z"
+    },
+    {
+      "kind": "new_announcement",
+      "course_id": "51846",
+      "announcement_id": "2551004",
+      "title": "Essay 2 now due Monday, Oct 5",
+      "posted_at": "2026-09-27T16:30:00Z"
+    }
+  ]
+}

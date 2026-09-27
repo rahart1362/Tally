@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/CustomColors.schema.json",
+  "title": "CustomColors",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/users#method.users.get_custom_colors ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c app/controllers/users_controller.rb#get_custom_colors. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "custom_colors": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(course|user|group)_[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^#[0-9A-Fa-f]{6}$"
+      }
+    }
+  },
+  "required": [
+    "custom_colors"
+  ],
+  "additionalProperties": false
+}

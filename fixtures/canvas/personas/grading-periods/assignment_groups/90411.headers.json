@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://northgate.instructure.example/api/v1/courses/90411/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"current\",<https://northgate.instructure.example/api/v1/courses/90411/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"first\",<https://northgate.instructure.example/api/v1/courses/90411/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"last\"",
+    "X-Request-Cost": "2.5209971797480755",
+    "X-Rate-Limit-Remaining": "696.6297523805474"
+  }
+}

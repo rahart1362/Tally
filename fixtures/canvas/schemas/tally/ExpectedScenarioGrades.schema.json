@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/tally/ExpectedScenarioGrades.schema.json",
+  "title": "ExpectedScenarioGrades",
+  "$comment": "Tally fixture metadata (tools/canvas-synth); not a Canvas object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "synthetic",
+    "tolerance",
+    "captured_at",
+    "calculator",
+    "scenarios"
+  ],
+  "properties": {
+    "synthetic": {
+      "const": true
+    },
+    "tolerance": {
+      "type": "number"
+    },
+    "captured_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "calculator": {
+      "type": "string"
+    },
+    "scenarios": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "course_id",
+          "course_code",
+          "name",
+          "apply_assignment_group_weights",
+          "weighted_grading_periods",
+          "hide_final_grades",
+          "visible_in_api",
+          "grading_standard_id",
+          "grading_scheme",
+          "current_score",
+          "final_score",
+          "current_grade",
+          "final_grade",
+          "unposted_current_score",
+          "unposted_final_score",
+          "current_grading_period_id",
+          "grading_periods",
+          "assignment_groups",
+          "design_target_current_score",
+          "notes"
+        ],
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "course_code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "apply_assignment_group_weights": {
+            "type": "boolean"
+          },
+          "weighted_grading_periods": {
+            "type": "boolean"
+          },
+          "hide_final_grades": {
+            "type": "boolean"
+          },
+          "visible_in_api": {
+            "type": "boolean"
+          },
+          "grading_standard_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grading_scheme": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unposted_current_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unposted_final_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_grading_period_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grading_periods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "title",
+                "weight",
+                "current_score",
+                "final_score",
+                "current_grade",
+                "final_grade"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^-?[0-9]+$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "weight": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "current_score": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "final_score": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "current_grade": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "final_grade": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "assignment_groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "group_weight",
+                "current",
+                "final"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^-?[0-9]+$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "group_weight": {
+                  "type": "number"
+                },
+                "current": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "possible",
+                    "grade",
+                    "dropped_submission_ids"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number"
+                    },
+                    "possible": {
+                      "type": "number"
+                    },
+                    "grade": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dropped_submission_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^-?[0-9]+$"
+                      }
+                    }
+                  }
+                },
+                "final": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "possible",
+                    "grade",
+                    "dropped_submission_ids"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number"
+                    },
+                    "possible": {
+                      "type": "number"
+                    },
+                    "grade": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dropped_submission_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^-?[0-9]+$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "design_target_current_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

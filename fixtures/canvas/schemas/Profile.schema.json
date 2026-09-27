@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/Profile.schema.json",
+  "title": "Profile",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/users#profile ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/user_profile.rb#user_profile_json (slice! order, then title/bio/pronunciation/primary_email/login_id/integration_id/time_zone/locale/effective_locale, self-only calendar/lti_user_id/k5_user/use_classic_font_in_k5). calendar.ics is the ICS feed URL. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "short_name": {
+      "type": "string"
+    },
+    "sortable_name": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "bio": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pronunciation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "primary_email": {
+      "type": "string"
+    },
+    "login_id": {
+      "type": "string"
+    },
+    "integration_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "time_zone": {
+      "type": "string"
+    },
+    "locale": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective_locale": {
+      "type": "string"
+    },
+    "calendar": {
+      "type": "object",
+      "properties": {
+        "ics": {
+          "type": "string",
+          "pattern": "^https://"
+        }
+      },
+      "required": [
+        "ics"
+      ],
+      "additionalProperties": false
+    },
+    "lti_user_id": {
+      "type": "string"
+    },
+    "k5_user": {
+      "type": "boolean"
+    },
+    "use_classic_font_in_k5": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "short_name",
+    "sortable_name",
+    "avatar_url",
+    "title",
+    "bio",
+    "pronunciation",
+    "primary_email",
+    "login_id",
+    "integration_id",
+    "time_zone",
+    "locale",
+    "effective_locale",
+    "calendar",
+    "lti_user_id",
+    "k5_user",
+    "use_classic_font_in_k5"
+  ],
+  "additionalProperties": false
+}

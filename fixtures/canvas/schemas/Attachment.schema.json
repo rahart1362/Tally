@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/Attachment.schema.json",
+  "title": "Attachment",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/files#file ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/attachment.rb#attachment_json (submission attachments, skip_permission_checks). preview_url null assumes no Canvadocs preview (UNVERIFIED per institution). Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "folder_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "uuid": {
+      "type": "string"
+    },
+    "upload_status": {
+      "type": "string"
+    },
+    "content-type": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "size": {
+      "type": "integer"
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "unlock_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "hidden": {
+      "type": "boolean"
+    },
+    "lock_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hidden_for_user": {
+      "type": "boolean"
+    },
+    "thumbnail_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "modified_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "mime_class": {
+      "type": "string"
+    },
+    "media_entry_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "category": {
+      "type": "string"
+    },
+    "locked_for_user": {
+      "type": "boolean"
+    },
+    "preview_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "folder_id",
+    "display_name",
+    "filename",
+    "uuid",
+    "upload_status",
+    "content-type",
+    "url",
+    "size",
+    "created_at",
+    "updated_at",
+    "unlock_at",
+    "locked",
+    "hidden",
+    "lock_at",
+    "hidden_for_user",
+    "thumbnail_url",
+    "modified_at",
+    "mime_class",
+    "media_entry_id",
+    "category",
+    "locked_for_user",
+    "preview_url"
+  ],
+  "additionalProperties": false
+}

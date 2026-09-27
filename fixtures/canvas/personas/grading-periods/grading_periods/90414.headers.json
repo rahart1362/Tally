@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://northgate.instructure.example/api/v1/courses/90414/grading_periods?page=1&per_page=10>; rel=\"current\",<https://northgate.instructure.example/api/v1/courses/90414/grading_periods?page=1&per_page=10>; rel=\"first\",<https://northgate.instructure.example/api/v1/courses/90414/grading_periods?page=1&per_page=10>; rel=\"last\"",
+    "X-Request-Cost": "0.13062467234408384",
+    "X-Rate-Limit-Remaining": "689.3287572781966"
+  }
+}

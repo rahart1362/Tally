@@ -1,0 +1,559 @@
+{
+  "persona": "finals",
+  "synthetic": true,
+  "captured_at": "2026-09-28T13:00:00Z",
+  "tolerance": 0.01,
+  "calculator": "tools/canvas-synth/canvas_synth/gradecalc.py -- port of canvas-lms lib/grade_calculator.rb @ 1c9f0bb8013ed69c4f2efe11fd483025469b7e6c",
+  "parity_rule": "GradeEngine.currentScore(course) == current_score +/- tolerance, computed only from the persona's fixture responses (courses, assignment_groups, grading_periods).",
+  "caveat": "Synthetic parity proves consistency with this port of Canvas's algorithm only; it does not replace an owner-run recording against real Canvas (WP-B07).",
+  "courses": [
+    {
+      "course_id": "70313",
+      "course_code": "STAT 150",
+      "name": "Elementary Statistics",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 89.95,
+      "final_score": 49.97,
+      "current_grade": "B+",
+      "final_grade": "F",
+      "unposted_current_score": 89.95,
+      "unposted_final_score": 49.97,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "240108",
+          "name": "Homework",
+          "group_weight": 0.0,
+          "current": {
+            "score": 55.9,
+            "possible": 60.0,
+            "grade": 93.17,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 55.9,
+            "possible": 70.0,
+            "grade": 79.86,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240109",
+          "name": "Quizzes",
+          "group_weight": 0.0,
+          "current": {
+            "score": 36.0,
+            "possible": 40.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 36.0,
+            "possible": 40.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240110",
+          "name": "Exams",
+          "group_weight": 0.0,
+          "current": {
+            "score": 88.0,
+            "possible": 100.0,
+            "grade": 88.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 88.0,
+            "possible": 200.0,
+            "grade": 44.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240111",
+          "name": "Final Project",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 50.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 89.95,
+      "notes": null
+    },
+    {
+      "course_id": "70312",
+      "course_code": "CHEM 110",
+      "name": "Introductory Chemistry",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 70.04,
+      "final_score": 45.24,
+      "current_grade": "C-",
+      "final_grade": "F",
+      "unposted_current_score": 70.04,
+      "unposted_final_score": 45.24,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "240104",
+          "name": "Labs",
+          "group_weight": 25.0,
+          "current": {
+            "score": 124.5,
+            "possible": 175.0,
+            "grade": 71.14,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 124.5,
+            "possible": 200.0,
+            "grade": 62.25,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240105",
+          "name": "Homework",
+          "group_weight": 15.0,
+          "current": {
+            "score": 65.5,
+            "possible": 90.0,
+            "grade": 72.78,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 65.5,
+            "possible": 105.0,
+            "grade": 62.38,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240106",
+          "name": "Exams",
+          "group_weight": 30.0,
+          "current": {
+            "score": 135.5,
+            "possible": 200.0,
+            "grade": 67.75,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 135.5,
+            "possible": 200.0,
+            "grade": 67.75,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240107",
+          "name": "Final Exam",
+          "group_weight": 30.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 100.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 70.04,
+      "notes": null
+    },
+    {
+      "course_id": "70311",
+      "course_code": "ACCT 201",
+      "name": "Principles of Accounting I",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 85.3,
+      "final_score": 52.3,
+      "current_grade": "B",
+      "final_grade": "F",
+      "unposted_current_score": 85.3,
+      "unposted_final_score": 52.3,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "240100",
+          "name": "Homework",
+          "group_weight": 25.0,
+          "current": {
+            "score": 105.75,
+            "possible": 120.0,
+            "grade": 88.13,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 105.75,
+            "possible": 140.0,
+            "grade": 75.54,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240101",
+          "name": "Quizzes",
+          "group_weight": 15.0,
+          "current": {
+            "score": 42.0,
+            "possible": 50.0,
+            "grade": 84.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 42.0,
+            "possible": 50.0,
+            "grade": 84.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240102",
+          "name": "Midterm",
+          "group_weight": 25.0,
+          "current": {
+            "score": 83.25,
+            "possible": 100.0,
+            "grade": 83.25,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 83.25,
+            "possible": 100.0,
+            "grade": 83.25,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240103",
+          "name": "Final Exam",
+          "group_weight": 35.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 100.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 85.3,
+      "notes": null
+    },
+    {
+      "course_id": "70314",
+      "course_code": "COMM 105",
+      "name": "Public Speaking",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 88.4,
+      "final_score": 59.79,
+      "current_grade": "B+",
+      "final_grade": "F",
+      "unposted_current_score": 88.4,
+      "unposted_final_score": 59.79,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "240112",
+          "name": "Speeches",
+          "group_weight": 60.0,
+          "current": {
+            "score": 175.5,
+            "possible": 200.0,
+            "grade": 87.75,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 175.5,
+            "possible": 300.0,
+            "grade": 58.5,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240113",
+          "name": "Outlines",
+          "group_weight": 20.0,
+          "current": {
+            "score": 35.5,
+            "possible": 40.0,
+            "grade": 88.75,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 35.5,
+            "possible": 60.0,
+            "grade": 59.17,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "240114",
+          "name": "Participation",
+          "group_weight": 20.0,
+          "current": {
+            "score": 45.0,
+            "possible": 50.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 45.0,
+            "possible": 70.0,
+            "grade": 64.29,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": 88.4,
+      "notes": null
+    }
+  ],
+  "tally_overall": {
+    "definition": "mean of visible current scores (Tally 'Average of N courses'; not a Canvas value)",
+    "courses_counted": 4,
+    "mean_current_score": 83.42
+  }
+}

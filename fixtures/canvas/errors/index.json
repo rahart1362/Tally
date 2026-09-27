@@ -1,0 +1,65 @@
+{
+  "synthetic": true,
+  "errors": [
+    {
+      "file": "errors/401-invalid-access-token.json",
+      "status": 401,
+      "description": "OAuth access token past expires_at (AccessToken#usable? false -> AccessTokenError). This is what an expired 1-hour token returns: refresh once, then authExpired.",
+      "source": "app/controllers/application_controller.rb#api_error_json; lib/authentication_methods.rb; app/models/access_token.rb"
+    },
+    {
+      "file": "errors/401-expired-access-token.json",
+      "status": 401,
+      "description": "Token past permanent_expires_at (ExpiredAccessTokenError).",
+      "source": "same"
+    },
+    {
+      "file": "errors/401-revoked-access-token.json",
+      "status": 401,
+      "description": "Token deleted/revoked (RevokedAccessTokenError).",
+      "source": "same"
+    },
+    {
+      "file": "errors/401-insufficient-scopes.json",
+      "status": 401,
+      "description": "Scoped developer key missing the endpoint's scope (AccessTokenScopeError, mapped to 401 in config/application.rb).",
+      "source": "same; config/application.rb rescue_responses"
+    },
+    {
+      "file": "errors/401-unauthenticated.json",
+      "status": 401,
+      "description": "No credentials at all.",
+      "source": "lib/authentication_methods.rb#render_json_unauthorized"
+    },
+    {
+      "file": "errors/403-unauthorized.json",
+      "status": 403,
+      "description": "Authenticated but not permitted. A 403 that is NOT a rate limit (no 'Rate Limit Exceeded').",
+      "source": "lib/authentication_methods.rb#render_json_unauthorized"
+    },
+    {
+      "file": "errors/403-rate-limit-exceeded.txt",
+      "status": 403,
+      "description": "Throttled (default hosted behaviour). Plain text, not JSON; no X-Request-Cost.",
+      "source": "app/middleware/request_throttle.rb#rate_limit_exceeded"
+    },
+    {
+      "file": "errors/429-rate-limit-exceeded.txt",
+      "status": 429,
+      "description": "Throttled when Setting request_throttle.send_429_response is true.",
+      "source": "app/middleware/request_throttle.rb#rate_limit_exceeded"
+    },
+    {
+      "file": "errors/404-not-found.json",
+      "status": 404,
+      "description": "Course (or other record) not found / deleted.",
+      "source": "application_controller.rb#api_error_json"
+    },
+    {
+      "file": "errors/500-internal-server-error.json",
+      "status": 500,
+      "description": "Unhandled server error; error_report_id is stringified with string ids.",
+      "source": "application_controller.rb#rescue_action_in_api"
+    }
+  ]
+}

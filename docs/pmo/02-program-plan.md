@@ -78,8 +78,24 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 | P3 | Family Sharing | Off for v1. **PMO: hold until the parent-linking review lands**, because parents may be the payers. | Pending owner |
 | P4 | Free tier shape | Free trial then paywall; sample-data mode and a first real-dashboard preview are always free | Pending owner |
 | P5 | Canvas-access gating | Don't offer a purchase until the school's Canvas connects successfully (no refund reliance) | Pending owner |
+| P6 | **Multiseat purchasing** (Apple, 2026-09-16: on by default for new subscriptions; Volume Purchasing via Apple School Manager from 2026-10-22; Group Purchases "this winter") | Decide deliberately before creating the subscription. Leaving it on lets schools buy seats (supports GL-01 route b). It interacts with Family Sharing (F5). | Pending owner |
 
 Domain: **tally-app.dev** registered by the owner on 2026-09-26. Bundle ID `dev.tally-app.tally` (GL-02).
+
+### 2c. Family linking decisions (from `reviews/family-linking.md`, 2026-09-26)
+
+Canvas natively supports parent access through **observer** accounts and student-generated **pairing codes** (endpoints verified in Instructure's docs by the PMO, 2026-09-26). The owner's "parent uses the student's credential" idea is **not recommended**: the parent could act as the student, it breaks R3/ADR 0001 and Instructure's API Policy, and rotating refresh tokens would sign the two phones out of each other.
+
+| # | Decision | Recommendation | Status |
+|---|---|---|---|
+| F1 | How a parent gets access | Parent's own Canvas observer account + the student's pairing code | Pending owner |
+| F2 | Amend R16 (read-only) | R16a: allow 3 tap-initiated link writes (create code, add by code, unlink), with a Canvas-web fallback when the scope is missing | Pending owner |
+| F3 | Amend R8 (single account) | R8a: one account, many students (header switcher) | Pending owner |
+| F4 | Schools without observer accounts | "Send an update…" share sheet only; CloudKit live share to backlog | Pending owner |
+| F5 | Who pays | A new "Tally Family" subscription bought by the parent, with Family Sharing on for that product only (irreversible for it); Tally Annual stays sharing-off (P3) | Pending owner |
+| F6 | Sequencing | Add family use to the Instructure request now; build in **v1.1** after a real-Canvas spike | Pending owner |
+| F7 | Parent notification defaults | Week-ahead + missing-still-open on; names shown with a "Hide student names" toggle | Pending owner |
+| F8 | Student transparency (ethical) | "Who can see my Canvas" screen + new-observer alert + school path; ask Instructure for student-side unlink | Pending owner |
 
 ## 3. Roadmap (milestones and exit gates)
 

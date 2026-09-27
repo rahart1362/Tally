@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/UserDisplay.schema.json",
+  "title": "UserDisplay",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/users#userdisplay ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/user.rb#user_display_json. Used for course teachers and announcement authors. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "anonymous_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "avatar_image_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "html_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "pronouns": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "anonymous_id",
+    "display_name",
+    "avatar_image_url",
+    "html_url",
+    "pronouns"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/PlannerItem.schema.json",
+  "title": "PlannerItem",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/planner#method.planner.index (no object definition is published; example response only) ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/planner_item.rb#planner_item_json, #plannable_json (API_PLANNABLE_FIELDS/CALENDAR_PLANNABLE_FIELDS/GRADABLE_FIELDS slices), #submission_statuses. html_url is a relative path except for calendar events. The plannable sub-object field sets are derived from the slice lists (UNVERIFIED against a live response). Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "context_type": {
+      "enum": [
+        "Course",
+        "Group",
+        "User"
+      ]
+    },
+    "course_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "plannable_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "planner_override": {
+      "anyOf": [
+        {
+          "$ref": "PlannerOverride.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plannable_type": {
+      "enum": [
+        "assignment",
+        "quiz",
+        "discussion_topic",
+        "announcement",
+        "wiki_page",
+        "planner_note",
+        "calendar_event",
+        "assessment_request",
+        "sub_assignment"
+      ]
+    },
+    "new_activity": {
+      "type": "boolean"
+    },
+    "submissions": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "submitted": {
+              "type": "boolean"
+            },
+            "excused": {
+              "type": "boolean"
+            },
+            "graded": {
+              "type": "boolean"
+            },
+            "posted_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "late": {
+              "type": "boolean"
+            },
+            "missing": {
+              "type": "boolean"
+            },
+            "needs_grading": {
+              "type": "boolean"
+            },
+            "has_feedback": {
+              "type": "boolean"
+            },
+            "redo_request": {
+              "type": "boolean"
+            },
+            "feedback": {
+              "type": "object",
+              "properties": {
+                "comment": {
+                  "type": "string"
+                },
+                "is_media": {
+                  "type": "boolean"
+                },
+                "author_name": {
+                  "type": "string"
+                },
+                "author_avatar_url": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^https://"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "comment",
+                "is_media",
+                "author_name",
+                "author_avatar_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "submitted",
+            "excused",
+            "graded",
+            "posted_at",
+            "late",
+            "missing",
+            "needs_grading",
+            "has_feedback",
+            "redo_request"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "plannable_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "plannable": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "course_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?[0-9]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "todo_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "details": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unread_count": {
+          "type": "integer"
+        },
+        "read_state": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "updated_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "all_day": {
+          "type": "boolean"
+        },
+        "location_address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "end_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "assignment_id": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        "points_possible": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "due_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user_id": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "html_url": {
+      "type": "string",
+      "pattern": "^(/|https://)"
+    },
+    "context_name": {
+      "type": "string"
+    },
+    "context_image": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "plannable_id",
+    "planner_override",
+    "plannable_type",
+    "new_activity",
+    "submissions",
+    "plannable_date",
+    "plannable",
+    "html_url"
+  ],
+  "additionalProperties": false
+}

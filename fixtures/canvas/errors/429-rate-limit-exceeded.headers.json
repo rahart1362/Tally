@@ -1,0 +1,7 @@
+{
+  "status": 429,
+  "headers": {
+    "Content-Type": "text/plain; charset=utf-8",
+    "X-Rate-Limit-Remaining": "0.0"
+  }
+}

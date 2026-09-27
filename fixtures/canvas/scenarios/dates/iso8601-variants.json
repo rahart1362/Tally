@@ -1,0 +1,45 @@
+{
+  "synthetic": true,
+  "instant_utc": "2026-09-28T13:00:00.123456Z",
+  "note": "Parser-robustness input for WP-B05, not a Canvas response. canvas-lms serializes Time values in the endpoints Tally calls as UTC 'Z' with zero fractional digits; offsets and fractions appear in GraphQL, in some other REST fields (e.g. user last_login via Time#iso8601), and in developer-doc examples. Every 'offset'/'fraction' value denotes the same instant as instant_utc truncated as shown.",
+  "values": [
+    {
+      "form": "canvas_rest",
+      "value": "2026-09-28T13:00:00Z",
+      "canvas_emits": true,
+      "source": "config/initializers/json.rb time_precision = 0; config/initializers/time.rb JsonTimeInUTC"
+    },
+    {
+      "form": "offset",
+      "value": "2026-09-28T08:00:00-05:00",
+      "canvas_emits": false
+    },
+    {
+      "form": "offset_no_colon",
+      "value": "2026-09-28T09:00:00-0400",
+      "canvas_emits": false
+    },
+    {
+      "form": "fraction_3",
+      "value": "2026-09-28T13:00:00.123Z",
+      "canvas_emits": false
+    },
+    {
+      "form": "fraction_6_offset",
+      "value": "2026-09-28T06:00:00.123456-07:00",
+      "canvas_emits": false
+    },
+    {
+      "form": "date_only",
+      "value": "2026-09-28",
+      "canvas_emits": true,
+      "source": "calendar event all_day_date (Date)"
+    },
+    {
+      "form": "quiz_submission_body_time",
+      "value": "2026-09-17 15:38:12 +0000",
+      "canvas_emits": true,
+      "source": "classic quiz submission body text, not a timestamp field"
+    }
+  ]
+}

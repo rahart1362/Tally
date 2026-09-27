@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/GradingPeriod.schema.json",
+  "title": "GradingPeriod",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/grading_periods#gradingperiod ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c app/serializers/grading_period_serializer.rb (ids always stringified by Canvas::APISerialization). Student permission values UNVERIFIED. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "grading_period_group_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "start_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "end_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "close_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "weight": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "read": {
+          "type": "boolean"
+        },
+        "create": {
+          "type": "boolean"
+        },
+        "update": {
+          "type": "boolean"
+        },
+        "delete": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "additionalProperties": false
+    },
+    "is_closed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "grading_period_group_id",
+    "start_date",
+    "end_date",
+    "close_date",
+    "weight",
+    "title",
+    "permissions",
+    "is_closed"
+  ],
+  "additionalProperties": false
+}

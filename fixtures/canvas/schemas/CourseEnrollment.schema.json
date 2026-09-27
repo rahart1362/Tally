@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/CourseEnrollment.schema.json",
+  "title": "CourseEnrollment",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/enrollments#enrollment (the course-embedded form is documented only in the Course object's 'enrollments' note) ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/course_json.rb#enrollment_hash, #grading_period_info, #total_scores (student caller => effective_* scores and computed_current_letter_grade), #current_grading_period_scores. computed_* keys are ABSENT when the course hides final grades (include_total_scores? is false) -- never 0. Observer rows (include[]=observed_users) carry associated_user_id and no scores; the observed student's rows follow them. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "type": {
+      "enum": [
+        "student",
+        "observer"
+      ]
+    },
+    "role": {
+      "enum": [
+        "StudentEnrollment",
+        "ObserverEnrollment"
+      ]
+    },
+    "role_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "user_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "enrollment_state": {
+      "enum": [
+        "active",
+        "invited",
+        "completed",
+        "inactive"
+      ]
+    },
+    "limit_privileges_to_course_section": {
+      "type": "boolean"
+    },
+    "associated_user_id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "current_grading_period_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_grading_period_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "has_grading_periods": {
+      "type": "boolean"
+    },
+    "multiple_grading_periods_enabled": {
+      "type": "boolean"
+    },
+    "computed_current_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "computed_current_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "computed_current_letter_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "computed_final_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "computed_final_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "totals_for_all_grading_periods_option": {
+      "type": "boolean"
+    },
+    "current_period_computed_current_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_period_computed_final_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_period_computed_current_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_period_computed_final_grade": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "type",
+    "role",
+    "role_id",
+    "user_id",
+    "enrollment_state",
+    "limit_privileges_to_course_section"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "observer"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "associated_user_id"
+        ],
+        "not": {
+          "required": [
+            "computed_current_score"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "student"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "current_grading_period_id",
+          "has_grading_periods"
+        ]
+      }
+    }
+  ]
+}
