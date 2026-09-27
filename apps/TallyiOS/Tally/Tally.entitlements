@@ -6,5 +6,13 @@
     <array>
         <string>$(TALLY_SHARED_APP_GROUP_ID)</string>
     </array>
+    <!-- UX-WP-09 / SEC-05: required for ASWebAuthenticationSession's
+         .https(host:path:) callback (iOS 17.4+, security.md §3.2 item 4).
+         Only the OAuth callback path is claimed, per the security review:
+         "Register only this https redirect in every institution key." -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>webcredentials:$(TALLY_ORG_DOMAIN)</string>
+    </array>
 </dict>
 </plist>

@@ -131,6 +131,14 @@ targets:
       - target: Tally
       - package: TallyAppleKit
         product: TallyPlatform
+      - package: TallyAppleKit
+        product: TallyFeatures
+      - package: TallyCore
+        product: TallyCanvasAPI
+      - package: TallyCore
+        product: TallyDomain
+      - package: TallyCore
+        product: TallyTestSupport
 
   TallyUITests:
     type: bundle.ui-testing

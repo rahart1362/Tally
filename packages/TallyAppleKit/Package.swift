@@ -26,10 +26,15 @@ let package = Package(
 
         // Platform adapters (architecture.md §3.1). Depends on TallyDomain
         // for TallyConfig, so every tunable still has exactly one source.
+        // Also depends on TallyFeatures (UX-WP-09): `WebAuthPresenter` conforms
+        // to `WebAuthPresenting`, a port TallyFeatures declares. This is the
+        // direction architecture.md §3.1 permits — "Features never import
+        // TallyPlatform" says nothing against the reverse.
         .target(
             name: "TallyPlatform",
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
+                "TallyFeatures",
             ]
         ),
 
@@ -43,6 +48,12 @@ let package = Package(
             dependencies: [
                 "TallyDesignSystem",
                 .product(name: "TallyDomain", package: "TallyCore"),
+                // UX-WP-08/09: InstitutionDirectory, ClientRegistry, AuthorizationRequest,
+                // OAuthCallback, TokenEndpoint, TokenCoordinator, CanvasClient. This is the
+                // shared, Linux-testable Canvas layer (part of "TallyCore" per architecture.md
+                // §3.1), not a platform adapter, so features depending on it directly is the
+                // same shape as the existing TallyDomain dependency above.
+                .product(name: "TallyCanvasAPI", package: "TallyCore"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
