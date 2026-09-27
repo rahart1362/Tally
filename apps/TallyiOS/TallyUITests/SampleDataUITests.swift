@@ -23,9 +23,9 @@ final class SampleDataUITests: XCTestCase {
         // shell) already has direct unit coverage (SampleDataGatewayTests,
         // SampleDataNoNetworkTests, DashboardBuilderTests); this test's job is only to prove the
         // screens are wired together.
-        // TEMPORARY: prefix match while SampleDataRootView's body is simplified for diagnosis
-        // (its real content is "SAMPLE DATA — loaded N courses" instead of the banner).
-        let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'SAMPLE DATA'")).firstMatch
+        // TEMPORARY: SampleDataRootView's body is simplified for diagnosis (renders DashboardView
+        // directly, no banner) — use its hero text as the success marker for this round.
+        let banner = app.staticTexts["Average of 5 courses"]
         for attempt in 1...3 {
             if exploreButton.exists {
                 if attempt.isMultiple(of: 2) {

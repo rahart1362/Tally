@@ -21,18 +21,24 @@ public struct SampleDataRootView: View {
                       "\(model != nil)", "\(loadError != nil)")
         return Group {
             if let model {
-                // TEMPORARY diagnostic: isolate the data layer (SampleDataModel.live() +
-                // .refresh(), already proven safe when called directly from a hosted test) from
-                // the view layer (TabShellView/DashboardView, never exercised by any hosted test
-                // since none of them actually render a SwiftUI view). Bypasses TabShellView
-                // entirely to see whether this much alone reaches the screen and stays there.
-                Text("SAMPLE DATA — loaded \(model.snapshot?.courses.count ?? -1) courses")
-                    .task {
-                        NSLog("DEBUG-NAV: model branch .task starting refresh")
-                        if model.snapshot == nil { await model.refresh() }
-                        NSLog("DEBUG-NAV: model branch .task finished refresh; courses=%d",
-                              model.snapshot?.courses.count ?? -1)
-                    }
+                // TEMPORARY diagnostic: the previous step (a bare Text after model loads, no
+                // TabShellView at all) reached the screen and stayed there — so the data layer is
+                // fully cleared. This step renders DashboardView directly (no TabView/Tab
+                // wrapping, no 5-tab NavigationStack construction) to isolate DashboardView's own
+                // rendering from TabShellView's TabView/Tab composition.
+                NavigationStack {
+                    DashboardView(
+                        snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
+                        freshness: model.freshness, studentDisplayName: model.studentDisplayName,
+                        onRefresh: { await model.refresh() }
+                    )
+                }
+                .task {
+                    NSLog("DEBUG-NAV: model branch .task starting refresh")
+                    if model.snapshot == nil { await model.refresh() }
+                    NSLog("DEBUG-NAV: model branch .task finished refresh; courses=%d",
+                          model.snapshot?.courses.count ?? -1)
+                }
             } else if loadError != nil {
                 // The bundled fixture resources failed to load — a packaging bug, not a runtime
                 // condition a student can hit in a correctly-built app. Honest, not fabricated:
