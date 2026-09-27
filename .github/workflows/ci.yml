@@ -35,6 +35,21 @@ jobs:
       - name: Go-live placeholders (report only; the release gate enforces)
         run: scripts/go-live/find-placeholders.sh || echo "::notice::Go-live placeholders remain (expected before go-live, see docs/GO-LIVE.md GL-02)"
 
+  core-linux:
+    name: TallyCore tests (Linux, Swift 6.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; same digest as `make core-test`
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build (warnings are errors)
+        working-directory: packages/TallyCore
+        run: swift build -Xswiftc -warnings-as-errors
+      - name: Test
+        working-directory: packages/TallyCore
+        run: swift test
+
   ios-build:
     name: iOS build (Xcode 26.6)
     runs-on: macos-26
@@ -45,6 +60,9 @@ jobs:
         run: |
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
+      - name: TallyCore tests (Xcode 26.6 Swift toolchain)
+        working-directory: packages/TallyCore
+        run: swift test
       - name: Install XcodeGen (checksum-verified)
         run: |
           curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
