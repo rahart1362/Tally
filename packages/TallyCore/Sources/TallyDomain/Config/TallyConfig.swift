@@ -10,6 +10,16 @@ public enum TallyConfig {
     public static let minAutoRefreshInterval: Duration = .seconds(5 * 60)
     public static let bgEarliestBegin: Duration = .seconds(60 * 60)
     public static let staleWarningAfter: Duration = .seconds(24 * 60 * 60) // PMO R17
+    /// Events one `RefreshCoordinator.events()` subscriber may have waiting before the oldest is
+    /// dropped (`.bufferingNewest`, SH-1). One run emits at most 4 events back to back
+    /// (`.refreshing`, `.delayed`, `.committed`, then the resulting state), and a run that
+    /// commits nothing emits at most 3. So 8 keeps a `.committed` event (the only one that
+    /// carries data a later event does not supersede: its digest) together with its `.fresh`
+    /// and two further non-committing runs: a consumer stalled through two more refreshes still
+    /// gets the last digest. A subscriber that never reads holds 8 small events, not an
+    /// unbounded backlog. Not 1: `.fresh` follows `.committed` immediately, so a one-slot buffer
+    /// would drop every digest a slow consumer had not yet read.
+    public static let refreshEventBufferLimit = 8
 
     // Canvas API
     public static let perPage = 100 // UNVERIFIED maximum

@@ -25,8 +25,15 @@ import TallyStore
 /// in memory first, so "a slow, older refresh can never overwrite a newer one" holds even if some
 /// other writer committed a newer generation to the same store while this run's fetch was still
 /// in flight.
+///
+/// **Subscribers and retirement (SH-1).** Every `events()` call gets its own stream, so any
+/// number of consumers each see every event. `shutdown()` (which `bumpEpochAndCancel()` calls on
+/// sign-out) retires the coordinator: it discards any run in flight, refuses new runs, finishes
+/// every subscriber's stream and releases the decoded snapshot. A coordinator serves one
+/// signed-in account once; the composition root makes a new one for the next sign-in.
 public actor RefreshCoordinator {
-    /// Emitted on `events` for the UI (one `RefreshStatusModel`, architecture §3.1, consumes this).
+    /// Emitted to every `events()` subscriber for the UI (one `RefreshStatusModel`, architecture
+    /// §3.1, consumes this).
     public enum Event: Sendable, Equatable {
         case stateChanged(FreshnessState)
         /// A new generation landed in the store, with the digest against whatever was committed
@@ -55,14 +62,18 @@ public actor RefreshCoordinator {
     private var inFlight: Task<Void, Never>?
     private var currentFetchTask: Task<CanvasSnapshot, any Error>?
 
+    /// One continuation per live `events()` subscriber, keyed by an ID that is never reused, so a
+    /// subscriber's `onTermination` removes exactly its own entry and nobody else's.
+    private var subscribers: [UInt64: AsyncStream<Event>.Continuation] = [:]
+    private var nextSubscriberID: UInt64 = 0
+    /// Set by `shutdown()` and never cleared.
+    private var isShutDown = false
+
     /// Whether the glance projection built at commit time may include grade values
     /// (`UserState.showGradesInGlance`, encryption.md D-E3, PMO R10 — never defaulted to `true`).
     /// The composition root keeps this current from `UserStateStore`; that wiring lives outside
     /// this file, which only ever reads whatever value it was last given.
     public var includeGrades: Bool
-
-    public nonisolated let events: AsyncStream<Event>
-    private let continuation: AsyncStream<Event>.Continuation
 
     /// Called when the user changes the "What changed" threshold in Settings; the next commit uses it.
     public func updateDigestThresholds(_ thresholds: DigestThresholds) {
@@ -92,38 +103,99 @@ public actor RefreshCoordinator {
         previousSnapshot = initialSnapshot
         committedGeneration = initialSnapshot?.generation ?? 0
         record = initialRecord.restoredAfterLaunch() // no in-flight mark survives a relaunch
-        (events, continuation) = AsyncStream<Event>.makeStream()
     }
 
-    /// The same derivation `FreshnessRules.state` would give a caller who read `events` from the
+    /// A coordinator released without `shutdown()` still ends every subscriber's `for await`
+    /// loop, so a consumer that holds only its stream never waits forever on a dead actor.
+    deinit {
+        for continuation in subscribers.values { continuation.finish() }
+    }
+
+    /// The same derivation `FreshnessRules.state` would give a caller who read `events()` from the
     /// start; useful for a caller that only wants "what does the UI show right now".
     public var currentState: FreshnessState { FreshnessRules.state(of: record, now: clock.now()) }
 
+    // MARK: - Subscribers (SH-1)
+
+    /// A new, independent event stream for one subscriber. Its first element is
+    /// `.stateChanged(currentState)`, so a subscriber never needs a separate `currentState` read
+    /// and never replays a backlog from before it subscribed. After that it receives every event
+    /// this coordinator emits; concurrent subscribers never split events between them. It buffers
+    /// `.bufferingNewest(TallyConfig.refreshEventBufferLimit)`, so a subscriber that stops reading
+    /// holds a bounded backlog. Cancelling the consuming task, or dropping the stream, removes
+    /// only this subscriber. After `shutdown()`, the returned stream is already finished.
+    public func events() -> AsyncStream<Event> {
+        let (stream, continuation) = AsyncStream<Event>.makeStream(
+            bufferingPolicy: .bufferingNewest(TallyConfig.refreshEventBufferLimit))
+        guard !isShutDown else {
+            continuation.finish()
+            return stream
+        }
+        let id = nextSubscriberID
+        nextSubscriberID &+= 1
+        // Weak on both hops: a stream (held by whoever consumes it) must never keep this actor alive.
+        continuation.onTermination = { [weak self] _ in
+            Task { [weak self] in await self?.removeSubscriber(id) }
+        }
+        subscribers[id] = continuation
+        continuation.yield(.stateChanged(currentState))
+        return stream
+    }
+
+    /// Retires this coordinator (SH-1). It discards any run in flight: the fetch is cancelled and
+    /// a late result is never committed or held. Later `run` calls return without fetching, so a
+    /// retired coordinator can never re-create a store that sign-out has purged. Every
+    /// subscriber's stream finishes, later `events()` calls return an already-finished stream,
+    /// and the decoded snapshot is released. Idempotent.
+    public func shutdown() {
+        isShutDown = true
+        discardInFlightRun()
+        let finishing = Array(subscribers.values)
+        subscribers.removeAll()
+        for continuation in finishing { continuation.finish() }
+        previousSnapshot = nil
+    }
+
     /// Sign-out or account removal (`SignOutUseCase`, WP-SEC-06, security.md §3.2 step 9): bumps
     /// the epoch so any in-flight (or already-landed-but-not-yet-finished) run's result is
-    /// discarded, best-effort cancels the underlying fetch, and resets the visible freshness state
-    /// to `.noCache` — honest, since the account's cache is about to be purged by the rest of that
-    /// use case anyway. Does not itself touch the store, notifications or credentials.
+    /// discarded, best-effort cancels the underlying fetch, resets the visible freshness state to
+    /// `.noCache` — honest, since the account's cache is about to be purged by the rest of that
+    /// use case anyway — and then `shutdown()`s, so every subscriber sees `.noCache` as its last
+    /// event before its stream finishes. Does not itself touch the store, notifications or
+    /// credentials. Idempotent.
     public func bumpEpochAndCancel() {
+        discardInFlightRun()
+        record = RefreshRecord()
+        emit(.stateChanged(currentState))
+        shutdown()
+    }
+
+    /// Makes the run in flight, if any, unable to land: its captured epoch no longer matches, so
+    /// `finish` discards whatever it returns. Best-effort cancels its fetch as well, and drops the
+    /// in-flight mark the same way a relaunch does, since that run will now never record an outcome.
+    private func discardInFlightRun() {
         epoch += 1
         currentFetchTask?.cancel()
         inFlight?.cancel()
-        record = RefreshRecord()
-        emit(.stateChanged(currentState))
-        // CS-05: this coordinator is retired on sign-out (one instance per signed-in account),
-        // so finish `events` here too. Without this, a consumer that iterates `events` with
-        // `for await` but never separately learns to stop (e.g. a UI model that forgot to call
-        // its own `detach()`) awaits a value that will never come, leaking the task and every
-        // strong reference its closure holds — including this actor, its gateway and its
-        // store. `Continuation.finish()` is documented idempotent, so a later call (or a
-        // caller that invokes `bumpEpochAndCancel()` more than once) is harmless.
-        continuation.finish()
+        record = record.restoredAfterLaunch()
     }
 
+    private func removeSubscriber(_ id: UInt64) {
+        subscribers[id] = nil
+    }
+
+    /// Live subscribers. Internal, for tests.
+    var subscriberCount: Int { subscribers.count }
+
+    /// Whether a decoded snapshot is still held. Internal, for tests.
+    var holdsDecodedSnapshot: Bool { previousSnapshot != nil }
+
     /// Starts a refresh for `trigger`, or joins one already running (single-flight). Returns once
-    /// this call's own outcome is known: either the run it started, or the run it joined.
+    /// this call's own outcome is known: either the run it started, or the run it joined. After
+    /// `shutdown()`, returns `currentState` without fetching.
     @discardableResult
     public func run(trigger: RefreshTrigger) async -> FreshnessState {
+        guard !isShutDown else { return currentState }
         if let inFlight {
             await inFlight.value
             return currentState
@@ -254,5 +326,9 @@ public actor RefreshCoordinator {
             announcements: snapshot.announcements, courseColors: snapshot.courseColors, sections: snapshot.sections)
     }
 
-    private func emit(_ event: Event) { continuation.yield(event) }
+    /// Yields `event` to every live subscriber. Internal (not private) only so tests can drive the
+    /// per-subscriber buffering bound directly.
+    func emit(_ event: Event) {
+        for continuation in subscribers.values { continuation.yield(event) }
+    }
 }

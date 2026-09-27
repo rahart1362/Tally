@@ -100,7 +100,8 @@ struct RefreshCoordinatorTests {
         await harness.transport.inject(latency: .milliseconds(90), times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
 
         let log = EventLog()
-        let consumer = Task { for await event in harness.coordinator.events { log.append(event) } }
+        let stream = await harness.coordinator.events()
+        let consumer = Task { for await event in stream { log.append(event) } }
 
         let final = await harness.coordinator.run(trigger: .manual)
         try await Task.sleep(for: .milliseconds(50)) // let the consumer drain what was already yielded
@@ -212,32 +213,25 @@ struct RefreshCoordinatorTests {
         #expect(stillFirst == firstSnapshot, "the cache must never be touched when reauth is required")
     }
 
-    // MARK: - CS-05: sign-out finishes `events`, so a consumer's `for await` loop always ends
+    // MARK: - CS-05: sign-out finishes `events()`, so a consumer's `for await` loop always ends
 
-    /// Before the fix, `bumpEpochAndCancel()` never called `continuation.finish()`: a consumer
-    /// iterating `coordinator.events` with `for await` (e.g. `RefreshStatusModel`, if it ever
-    /// forgot to separately call its own `detach()`) would suspend forever waiting for a next
-    /// event that was never coming — leaking the task and everything its closure captured
-    /// (the coordinator itself, its gateway, its store). This proves the stream now finishes.
+    /// Before the fix, `bumpEpochAndCancel()` never finished the event stream: a consumer
+    /// iterating it with `for await` (e.g. `RefreshStatusModel`, if it ever forgot to separately
+    /// call its own `detach()`) would suspend forever waiting for a next event that was never
+    /// coming — leaking the task and everything its closure captured (the coordinator itself, its
+    /// gateway, its store). This proves the stream now finishes (via `shutdown()`, SH-1), with
+    /// `.noCache` as the last thing the subscriber sees.
     @Test func bumpEpochAndCancelFinishesTheEventStream() async throws {
         let harness = try makeHarness()
-
-        let drain = Task<Int, Never> {
-            var count = 0
-            for await _ in harness.coordinator.events { count += 1 }
-            return count // only reached once the stream finishes
-        }
+        let stream = await harness.coordinator.events()
+        let consumer = Task { await drain(stream) } // only returns once the stream finishes
 
         await harness.coordinator.bumpEpochAndCancel()
 
-        let result = await withTaskGroup(of: Int?.self) { group in
-            group.addTask { await drain.value }
-            group.addTask { try? await Task.sleep(for: .seconds(2)); return nil }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
-        }
-        #expect(result != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
+        // `finished` cancels the consumer after 2 s, so a regression fails here instead of hanging.
+        let seen = await finished(consumer, within: .seconds(2))
+        #expect(seen != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
+        #expect(seen?.last == .stateChanged(.noCache))
     }
 
     /// CS-05 leak check: nothing outside the coordinator keeps it alive once the caller's own
