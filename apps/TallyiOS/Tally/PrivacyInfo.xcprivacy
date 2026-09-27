@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <!--
+      No required-reason API is used by the Tally target yet (checked
+      against Apple's required-reason list: UserDefaults, FileTimestamp,
+      SystemBootTime, DiskSpace, ActiveKeyboards). This array is empty
+      because that is honestly the current state (app-store-compliance.md
+      R2), not an oversight: add an entry only when a matching API call is
+      added, with its own cited reason code.
+    -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array/>
+</dict>
+</plist>
