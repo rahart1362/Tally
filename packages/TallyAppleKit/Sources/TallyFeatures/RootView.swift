@@ -37,10 +37,11 @@ public struct RootView: View {
                 case .findSchool:
                     FindSchoolStub()
                 case .sampleData:
-                    // TEMPORARY diagnostic: bypass SampleDataRootView entirely to isolate
-                    // whether the route/push mechanism itself works for .sampleData when the
-                    // destination content is trivial (no @State, no .task, no SampleDataModel).
-                    Text("SAMPLE DATA").font(.largeTitle)
+                    // ASC-14 "Explore with Sample Data": the real demo mode, replacing the
+                    // earlier navigation-only `SampleDataStub`. `onExit` pops back to Welcome.
+                    // (SampleDataRootView's own body is temporarily simplified for diagnosis —
+                    // see that file's own TEMPORARY comment.)
+                    SampleDataRootView(onExit: { path.removeAll() })
                 }
             }
         }
