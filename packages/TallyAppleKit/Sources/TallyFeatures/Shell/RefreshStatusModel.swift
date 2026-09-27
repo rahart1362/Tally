@@ -14,7 +14,10 @@ public final class RefreshStatusModel {
     public private(set) var lastDigestAt: Date?
 
     private weak var coordinator: RefreshCoordinator?
-    private var eventTask: Task<Void, Never>?
+    /// `nonisolated(unsafe)`: `deinit` on a `@MainActor` class runs in a nonisolated context (it
+    /// can be torn down from any thread), so it cannot touch a MainActor-isolated stored property
+    /// — but cancelling a `Task` is itself thread-safe, so this narrow escape hatch is safe here.
+    private nonisolated(unsafe) var eventTask: Task<Void, Never>?
 
     public init() {}
 
