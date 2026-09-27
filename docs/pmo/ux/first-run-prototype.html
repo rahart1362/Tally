@@ -92,7 +92,7 @@ button{font:inherit}
 .pad{padding:0 16px}
 .ico{width:1.1em;height:1.1em;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.18em}
 .ico.fill{fill:currentColor;stroke:none}
-.ribbon{position:absolute;top:49px;left:50%;transform:translateX(-50%);background:#B42318;color:#fff;font-size:9px;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;z-index:45;pointer-events:none;white-space:nowrap}
+.ribbon{position:absolute;top:49px;left:50%;transform:translateX(-50%);background:#B42318;color:#fff;font-size:9px;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:6px;z-index:90;pointer-events:none;white-space:nowrap}
 
 /* nav */
 .nav{padding:58px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -259,7 +259,7 @@ button{font:inherit}
 .urlbar{display:flex;align-items:center;gap:6px;justify-content:center;font-size:.76em;color:var(--t2);background:color-mix(in srgb,var(--t1) 7%,var(--canvas));border-radius:12px;height:36px}
 .webph{margin-top:14px;border:1.5px dashed var(--sep);border-radius:18px;padding:18px;text-align:center;color:var(--t2);font-size:.82em}
 .field{height:44px;border-radius:10px;background:var(--card);border:.5px solid var(--sep);margin:10px 0}
-.toast{position:absolute;left:24px;right:24px;bottom:120px;z-index:65;background:var(--t1);color:var(--canvas);padding:10px 14px;border-radius:14px;font-size:.8em;text-align:center}
+.toast{position:absolute;left:24px;right:24px;bottom:120px;z-index:80;background:var(--t1);color:var(--canvas);padding:10px 14px;border-radius:14px;font-size:.8em;text-align:center}
 /* ---------- step 9: at-a-glance concept ---------- */
 .hero.compact{padding:12px 14px 4px}
 .hc{display:flex;gap:12px;align-items:center}
@@ -298,6 +298,38 @@ button{font:inherit}
 .ln b{display:block}
 .ln .tm{margin-left:auto;opacity:.7;font-size:.9em;white-space:nowrap}
 .lnote{position:absolute;left:24px;right:24px;bottom:30px;font-size:.66em;opacity:.9;text-align:center}
+/* ---------- step 10: family linking concept ---------- */
+.av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:700;flex:none;letter-spacing:.02em}
+.fsec{margin:18px 14px 6px;font-size:.72em;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.03em}
+.ffoot{font-size:.72em;color:var(--t2);margin:6px 14px 0;line-height:1.35}
+.sw{width:51px;height:31px;border-radius:16px;border:0;background:color-mix(in srgb,var(--t1) 18%,var(--card));position:relative;flex:none;cursor:pointer;padding:0}
+.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--pos)}.sw.on i{left:22px}.rm .sw i{transition:none}
+.linkish{color:var(--accent);font-weight:600;font-size:.88em;white-space:nowrap;cursor:pointer}
+.dangerTxt{color:var(--danger);font-weight:600}
+.fsheet{position:absolute;left:0;right:0;bottom:0;background:var(--canvas);border-radius:28px 28px 0 0;z-index:72;padding:12px 16px 34px;box-shadow:0 -8px 30px rgba(0,0,0,.25);overflow-y:auto}
+.fsheet h2{font-size:1.2em;margin:4px 0 8px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:.82em;margin:4px 0}
+.chk .ico{color:var(--pos);margin-top:1px}.chk.no .ico{color:var(--danger)}
+.pcode{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:1.9em;font-weight:700;letter-spacing:.28em;margin-left:.28em}
+.qr{width:112px;height:112px;color:var(--t1);display:block;margin:10px auto 4px}
+.field2{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border-radius:12px;padding:10px 12px;border:.5px solid var(--sep);font-size:.85em;margin:4px 0 10px}
+.quote{background:var(--card);border:.5px solid var(--sep);border-radius:12px;padding:10px 12px;font-size:.76em;color:var(--t2);white-space:pre-line;margin:8px 0}
+.principal{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px 0 8px;border-radius:22px;background:var(--glass);border:.5px solid var(--glassLine);color:var(--t1);font-weight:600;font-size:.94em;cursor:pointer;font-family:inherit}
+.pmenu{position:absolute;top:108px;left:50%;transform:translateX(-50%);width:258px;z-index:60;border-radius:20px;background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);border:.5px solid var(--glassLine);box-shadow:0 12px 40px rgba(0,0,0,.22);padding:6px 0;font-size:.88em}
+.phone.rt .pmenu{background:var(--raised)}
+.mi{display:flex;align-items:center;gap:10px;padding:8px 14px;min-height:44px;cursor:pointer}
+.mi .ck{width:16px;color:var(--accent);display:inline-flex}
+.msep{height:.5px;background:var(--sep);margin:4px 0}
+.seg{display:flex;background:color-mix(in srgb,var(--t1) 8%,var(--canvas));border-radius:10px;padding:2px;margin:6px 0 10px}
+.seg button{flex:1;border:0;background:transparent;color:var(--t1);font:inherit;font-size:.82em;min-height:32px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.price{font-size:2.1em;font-weight:800;letter-spacing:-.01em;margin:6px 0 0;line-height:1.1}
+.asheet{margin:0 8px 30px;width:100%}
+.asheet .grp{background:var(--alertBg);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-radius:14px;overflow:hidden;margin-bottom:8px;text-align:center}
+.asheet .msg{padding:14px 16px;font-size:.76em;color:var(--t2)}.asheet .msg b{display:block;color:var(--t1);font-size:1.1em;margin-bottom:4px}
+.asheet button{display:block;width:100%;min-height:52px;border:0;border-top:.5px solid var(--sep);background:transparent;color:var(--accent);font:inherit;font-size:1em;cursor:pointer}
+.asheet button.destr{color:var(--danger);font-weight:600}.asheet .cancel button{border-top:0;font-weight:700}
 .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 </head>
@@ -336,6 +368,10 @@ button{font:inherit}
     <symbol id="i-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 16.5v-9M8.5 11 12 7.5l3.5 3.5"/></symbol>
     <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.3 12.3 2.5 2.5 5-5.3"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
     <symbol id="i-tri" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19z"/><path d="M12 9.5v5M12 17.3v.1"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></symbol>
@@ -380,10 +416,11 @@ var STEPS=[
  {id:"sync",    name:"6 First sync"},
  {id:"fresh",   name:"7 Dashboard (fresh)"},
  {id:"stale",   name:"8 Dashboard (stale)"},
- {id:"concept", name:"9 Concept: at a glance"}
+ {id:"concept", name:"9 Concept: at a glance"},
+ {id:"family",  name:"10 Family linking (concept)"}
 ];
 var S={step:0, theme:"both", big:false, rm:false, rt:false, overlay:null, toast:null, query:"north", syncStage:0,
-       staleVariant:"delayed", conceptVariant:"default", dashMode:null, timers:[]};
+       staleVariant:"delayed", conceptVariant:"default", famVariant:"invite", famMenu:false, famStudent:"maya", famHow:null, famDialog:null, famHide:false, famNotify:true, famPeriod:"week", famFormat:"text", famGrades:false, dashMode:null, timers:[]};
 try{ if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) S.rm=true; }catch(e){}
 
 function clearTimers(){ S.timers.forEach(clearTimeout); S.timers=[]; }
@@ -641,6 +678,184 @@ function scrConcept(){
   return {dark:false, html:'<div class="view anim">'+ribbon()+'<div class="fade-top"></div>'+nav+'<div class="pad" style="padding-bottom:110px">'+body+'</div></div>'+tabbar()};
 }
 
+/* ---------- Step 10: Family linking concept (fictional sample data; owner decisions F1–F8 made 2026-09-27) ---------- */
+var FAM={maya:{n:"Maya Sample",f:"Maya",i:"MS",c:"#2563EB",pct:"87.2%",ltr:"B+",cnt:5,
+   up:[["hi","High","Lab Report 4","BIO 101","Due today 6:00 PM","Due in 6 h · ~5% of BIO 101","--c3"],["hi","High","Problem Set 6","MATH 122","Overdue · accepted until Fri","Late beats zero · ~2% of MATH 122","--c1"]],
+   att:["danger","i-excl","1 missing assignment","MATH 122 · still accepted until Fri"]},
+ leo:{n:"Leo Sample",f:"Leo",i:"LS",c:"#7C3AED",pct:"91.0%",ltr:"A-",cnt:4,
+   up:[["md","Medium","Essay Outline","ENG 101","Due Thu 11:59 PM","~6% of ENG 101","--c5"],["md","Medium","Chapter 3 Quiz","CHEM 110","Due Fri 9:00 AM","~2% of CHEM 110","--c2"]],
+   att:["info","i-up","New grade posted","HIST 105 · Map Quiz"]}};
+var OBS={jordan:{n:"Jordan Sample",i:"JS",c:"#0F766E"},casey:{n:"Casey Sample",i:"CS",c:"#BE185D"}};
+function famRibbon(){ return '<div class="ribbon" aria-hidden="true">SAMPLE DATA · CONCEPT</div>'; }
+function av(o,size){ return '<span class="av" style="background:'+o.c+';width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.4)+'px" aria-hidden="true">'+o.i+'</span>'; }
+function sw(on,act,label){ return '<button class="sw'+(on?' on':'')+'" role="switch" aria-checked="'+on+'" aria-label="'+label+'" data-fact="'+act+'"><i></i></button>'; }
+function fsec(t){ return '<div class="fsec">'+t+'</div>'; }
+function ffoot(t){ return '<div class="ffoot">'+t+'</div>'; }
+function qr(){
+  var n=25, cells="", seed=20260927;
+  function rnd(){ seed=(seed*1103515245+12345)%2147483648; return seed/2147483648; }
+  function finder(x,y){ return '<rect x="'+x+'" y="'+y+'" width="7" height="7" fill="currentColor"/><rect x="'+(x+1)+'" y="'+(y+1)+'" width="5" height="5" fill="var(--card)"/><rect x="'+(x+2)+'" y="'+(y+2)+'" width="3" height="3" fill="currentColor"/>'; }
+  for(var y=0;y<n;y++) for(var x=0;x<n;x++){
+    if((x<8&&y<8)||(x>n-9&&y<8)||(x<8&&y>n-9)) continue;
+    if(rnd()<0.46) cells+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';
+  }
+  return '<svg class="qr" viewBox="-2 -2 29 29" role="img" aria-label="Sample QR code, illustration only, not scannable"><rect x="-2" y="-2" width="29" height="29" fill="var(--card)"/><g fill="currentColor">'+cells+'</g>'+finder(0,0)+finder(n-7,0)+finder(0,n-7)+'</svg>';
+}
+function famSettingsNav(back,title){
+  return '<div class="nav"><span class="backbtn" role="button" tabindex="0">'+ic("i-back")+' '+back+'</span></div><div class="pad"><div class="ltitle" role="heading" aria-level="1">'+title+'</div></div>';
+}
+function famStudentPage(noObservers){
+  var intro='<p class="foot" style="margin:6px 16px 10px">People linked to your Canvas account as observers (such as parents) can see your courses, assignments and grades in Canvas and in apps like Tally. They can’t submit work or act as you.</p>';
+  if(noObservers){
+    return famSettingsNav("Settings","Family &amp; Sharing")+intro+
+      '<div class="pad"><div class="card tip"><span class="itile info">'+ic("i-school")+'</span><div style="flex:1"><h3>Parent accounts aren’t on at Northfield State</h3><p style="margin-right:0">Your school hasn’t turned on parent (observer) accounts in Canvas, so parents can’t link here. You can still send a summary.</p>'+
+      '<button class="cta sm" data-fact="noop">Send an Update…</button></div></div></div>';
+  }
+  var alert = '<div class="pad"><div class="card tip"><span class="itile danger">'+ic("i-personx")+'</span><div style="flex:1"><h3>A new observer was linked</h3><p style="margin-right:0">Casey Sample was linked to your Canvas account today. If you don’t know them, ask your school to remove the link.</p>'+
+    '<button class="cta sm" data-fact="how:casey">Review</button></div></div>'+
+    '<div style="margin-top:12px"><button class="cta" data-fvariant="invite">'+ic("i-plus")+' Invite a Parent</button></div></div>';
+  var rows=['jordan','casey'].map(function(k){var o=OBS[k];return '<div class="row" role="button" tabindex="0" data-fact="how:'+k+'">'+av(o,34)+'<div class="grow"><div class="ttl">'+o.n+'</div><div class="sub">'+(k==="casey"?'<span class="tag warn">New</span> linked today':'Linked to your Canvas account')+'</div></div>'+ic("i-chev","chev")+'</div>';}).join("");
+  return famSettingsNav("Settings","Family &amp; Sharing")+intro+alert+
+    fsec("Linked in Canvas")+'<div class="pad"><div class="card list">'+rows+'</div></div>'+ffoot("Only account-wide links are shown. Links your school made for a single course may not appear.")+
+    fsec("Invites from this iPhone")+'<div class="pad"><div class="card list"><div class="row"><div class="grow"><div class="ttl">Parent</div><div class="sub">Expires Fri, Oct 2</div></div><span class="linkish" role="button" data-fact="noop">Share Again</span></div></div></div>'+
+    ffoot("Codes can’t be cancelled. They stop working after 7 days or once used.")+
+    '<div class="pad" style="margin-top:14px"><div class="card list"><div class="row"><div class="grow"><div class="ttl" style="font-weight:500">Tell me when a new observer is linked</div></div>'+sw(S.famNotify,"famNotify","Tell me when a new observer is linked")+'</div>'+
+    '<div class="row" role="button" data-fvariant="report"><div class="grow"><div class="ttl" style="font-weight:500">Send an Update…</div></div>'+ic("i-chev","chev")+'</div></div></div><div style="height:40px"></div>';
+}
+function famHowSheet(){
+  if(!S.famHow) return "";
+  var o=OBS[S.famHow];
+  return '<div class="scrim" style="align-items:flex-end"><div class="fsheet" style="top:330px" role="dialog" aria-label="How to remove an observer">'+
+    '<div class="grab" style="width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 12px"></div>'+
+    '<h2>Only your school can remove an observer</h2>'+
+    '<p class="foot" style="margin:0 0 8px">Canvas doesn’t let students unlink observers. Contact your school’s Canvas support and ask them to remove '+o.n+' as an observer on your account.</p>'+
+    '<div class="quote">Please remove '+o.n+' as an observer on my Canvas account (alex.sample).</div>'+
+    '<button class="cta" data-fact="copyReq">Copy Request</button><button class="plain" data-fact="howClose">Done</button></div></div>';
+}
+function famInviteSheet(){
+  var share="I’d like you to see my Northfield State Canvas in Tally.\n1. Get Tally from the App Store.\n2. Choose Northfield State, then “I’m a parent”.\n3. Sign in or create your parent account.\n4. Enter code X7Q2KP (case-sensitive, expires Fri, Oct 2).";
+  return '<div class="scrim" style="align-items:flex-end"><div class="fsheet" style="top:64px" role="dialog" aria-label="Invite a parent">'+
+    '<div style="width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 10px"></div>'+
+    '<h2>Let a parent see your Canvas</h2>'+
+    '<div class="chk">'+ic("i-ok")+'<span>They’ll see your courses, assignments and due dates, grades and comments, announcements and calendar.</span></div>'+
+    '<div class="chk no">'+ic("i-x")+'<span>They can’t submit work, message as you, or change anything.</span></div>'+
+    '<p class="foot" style="margin:6px 0 10px">Your parent signs in with <b>their own</b> account. You never share your password.</p>'+
+    '<div class="sub" style="font-size:.72em;color:var(--t2);margin-left:4px">Who’s this for? (only on this iPhone)</div><div class="field2"><span>Parent</span><span style="color:var(--t3)">'+ic("i-x")+'</span></div>'+
+    '<div class="card codebox" style="text-align:center;padding:14px"><div class="pcode" aria-label="Code: X, 7, Q, 2, K, P">X7Q2KP</div>'+
+    '<div class="sub" style="font-size:.8em;color:var(--t2)">Works once · expires Fri, Oct 2</div>'+qr()+'<div class="sub" style="font-size:.66em;color:var(--t3)">Scan in person (sample QR, not scannable)</div>'+
+    '<div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button class="cta sm" data-fact="shareCode">'+ic("i-share")+' Share…</button><button class="cta sm" style="background:color-mix(in srgb,var(--t1) 9%,var(--card));color:var(--t1)" data-fact="copyCode">Copy</button></div></div>'+
+    '<div class="chk" style="margin-top:10px"><span style="color:var(--warn)">'+ic("i-tri")+'</span><span>Anyone who enters this code first will be linked to you. Share it only with your parent.</span></div>'+
+    '<div class="sub" style="font-size:.72em;color:var(--t2);margin:10px 0 0 4px">Message your parent will get</div><div class="quote">'+share+'</div></div></div>';
+}
+function famUp(st){
+  return '<div class="sechead"><h2>'+st.f+'’s next up</h2></div><div class="card list">'+st.up.map(function(x){return '<div class="row"><div class="grow"><div class="ttl">'+x[2]+'</div>'+
+    '<div class="sub"><span class="cdot" style="background:var('+x[6]+');width:8px;height:8px;margin-right:4px" aria-hidden="true"></span><span class="code">'+x[3]+'</span> · '+x[4]+'</div><div class="why">'+x[5]+'</div></div><span class="band '+x[0]+'">'+x[1]+'</span></div>';}).join("")+'</div>'+
+    '<div class="sechead"><h2>Needs attention</h2></div><div class="card list"><div class="row"><span class="itile '+st.att[0]+'">'+ic(st.att[1])+'</span><div class="grow"><div class="ttl">'+st.att[2]+'</div><div class="sub">'+st.att[3]+'</div></div>'+ic("i-chev","chev")+'</div></div>';
+}
+function famHero(st){
+  return '<div class="hero compact reveal"><div class="hc"><div class="ring sm"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="12"/>'+
+   '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--gold)" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(314.16*parseFloat(st.pct)/100).toFixed(1)+' 400"/></svg>'+
+   '<div class="val"><span class="pct serif">'+Math.round(parseFloat(st.pct))+'%</span><span class="ltr">'+st.ltr+'</span></div></div>'+
+   '<div class="meta"><b>'+st.f+'’s overall standing</b><br>'+st.pct+' · '+st.ltr+' · Average of '+st.cnt+' courses</div></div>'+
+   '<div class="herofoot"><span class="st">'+ic("i-ok")+' Updated just now</span><button class="rbtn" aria-label="Refresh now">'+ic("i-refresh")+'</button></div></div>';
+}
+function famParentDash(){
+  var st=FAM[S.famStudent];
+  var menu = S.famMenu ? '<div class="pmenu" role="menu" aria-label="Switch student">'+['maya','leo'].map(function(k){var o=FAM[k];return '<div class="mi" role="menuitemradio" aria-checked="'+(S.famStudent===k)+'" data-fact="pick:'+k+'"><span class="ck">'+(S.famStudent===k?ic("i-ok"):'')+'</span>'+av(o,26)+'<span>'+o.n+'</span></div>';}).join("")+
+    '<div class="msep"></div><div class="mi" role="menuitem" data-fvariant="linked"><span class="ck"></span>Manage Linked Students…</div><div class="mi" role="menuitem" data-fact="addStudent"><span class="ck">'+ic("i-plus")+'</span>Add a Student…</div></div>' : '';
+  var nav='<div class="nav" style="justify-content:space-between"><span style="width:96px"></span>'+
+    '<button class="principal" data-fact="famMenu" aria-label="Viewing '+st.f+'" aria-haspopup="menu" aria-expanded="'+S.famMenu+'">'+av(st,28)+'<span>'+st.f+'</span>'+ic("i-down")+'</button>'+
+    '<div style="display:flex;gap:8px"><span class="gbtn" aria-label="Inbox">'+ic("i-bell")+'</span><span class="gbtn" aria-label="Settings and account">'+ic("i-person")+'</span></div></div>';
+  var toast = S.toast ? '<div class="toast" role="status">'+S.toast+'</div>' : "";
+  return '<div class="view anim">'+famRibbon()+nav+'<div class="pad" style="padding-bottom:110px"><div class="subtitle" style="margin:0 2px 10px">Parent view · Northfield State · read-only</div>'+famHero(st)+famUp(st)+'</div></div>'+menu+tabbar()+toast;
+}
+function famPaywall(){
+  return '<div class="scrim" style="align-items:flex-end"><div class="fsheet" style="top:58px;text-align:center" role="dialog" aria-label="Tally Parent subscription">'+
+    '<div style="display:flex;justify-content:flex-end"><span class="gbtn" role="button" aria-label="Not now" data-fact="pwClose">'+ic("i-x")+'</span></div>'+
+    '<svg width="56" height="56" viewBox="0 0 100 100" aria-hidden="true"><use href="#tmark"/></svg>'+
+    '<h2 class="serif" style="font-size:1.45em;margin:6px 0 2px">Tally Parent</h2><div class="sub" style="font-size:.85em;color:var(--t2)">Follow Maya and Leo in one place</div>'+
+    '<div style="text-align:left;margin:12px 4px">'+
+      [["i-chart","Live, read-only view of courses, grades and due dates"],["i-bell","Alerts for missing work and new grades"],["i-person","Switch between your linked students"],["i-shield","Private: their data stays on this iPhone"]]
+      .map(function(x){return '<div class="chk" style="font-size:.84em">'+ic(x[0])+'<span>'+x[1]+'</span></div>';}).join("")+'</div>'+
+    '<div class="price">$4.99/year</div><div class="sub" style="font-size:.8em;color:var(--t2)">per parent · covers all your linked students*</div>'+
+    '<p class="foot" style="margin:10px 0 12px;font-size:.8em;color:var(--t1)">1 month free, then $4.99/year. Renews automatically; cancel anytime in Settings.</p>'+
+    '<button class="cta" data-fact="trial">Start Free Month</button>'+
+    '<div style="display:flex;justify-content:center;gap:18px;margin-top:8px"><span class="linkish" role="button" data-fact="restore">Restore Purchases</span><span class="linkish" role="button" data-fact="redeem">Redeem Code</span></div>'+
+    '<div class="legal" style="margin-top:10px"><u>Terms of Use</u> · <u>Privacy Policy</u></div>'+
+    '<div class="legal" style="margin-top:6px">Shown once, after Maya’s first sync. *Coverage of all linked students is a PMO assumption, pending owner confirmation.</div></div></div>';
+}
+function famLinked(){
+  var dlg="";
+  if(S.famDialog){
+    var u=S.famDialog==="unlink";
+    dlg='<div class="scrim" style="align-items:flex-end"><div class="asheet" role="alertdialog" aria-label="'+(u?"Unlink Maya":"Remove Maya from Tally")+'"><div class="grp"><div class="msg"><b>'+(u?"Unlink Maya?":"Remove Maya from Tally?")+'</b>'+
+      (u?"You’ll stop seeing Maya’s courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Maya will need to send you a new code. Tally will delete Maya’s saved data from this iPhone."
+        :"Maya stays linked to your Canvas account. Tally will delete Maya’s saved data from this iPhone. You can add her back from Linked students.")+'</div>'+
+      '<button class="'+(u?'destr':'')+'" data-fact="dlgDo">'+(u?"Unlink":"Remove from Tally")+'</button></div><div class="grp cancel"><button data-fact="dlgClose">Cancel</button></div></div></div>';
+  }
+  var toast = S.toast ? '<div class="toast" role="status">'+S.toast+'</div>' : "";
+  var rows=['maya','leo'].map(function(k){var o=FAM[k];return '<div class="row">'+av(o,34)+'<div class="grow"><div class="ttl">'+o.n+'</div><div class="sub">Northfield State University</div></div>'+(S.famStudent===k?'<span style="color:var(--accent)" aria-label="Currently viewing">'+ic("i-ok")+'</span>':'')+'</div>';}).join("")+
+    '<div class="row" role="button" data-fact="addStudent"><span style="color:var(--accent)">'+ic("i-plus")+'</span><div class="grow"><div class="ttl" style="color:var(--accent)">Add a Student</div></div></div>';
+  var who = S.famHide ? "Your student" : "Maya";
+  return '<div class="view">'+famRibbon()+famSettingsNav("Settings","Linked Students")+
+    fsec("Students")+'<div class="pad"><div class="card list">'+rows+'</div></div>'+
+    fsec("Maya Sample")+'<div class="pad"><div class="card list"><div class="row"><div class="grow"><div class="ttl" style="font-weight:500">Notifications for Maya</div></div>'+ic("i-chev","chev")+'</div>'+
+    '<div class="row" role="button" data-fact="dlg:remove"><div class="grow"><div class="ttl" style="color:var(--accent)">Remove from Tally</div></div></div>'+
+    '<div class="row" role="button" data-fact="dlg:unlink"><div class="grow"><div class="ttl dangerTxt">Unlink in Canvas</div></div></div></div></div>'+
+    ffoot("Remove from Tally keeps the Canvas link. Unlink in Canvas also ends it in the Canvas Parent app and on the web.")+
+    fsec("Notifications")+'<div class="pad"><div class="card list"><div class="row"><div class="grow"><div class="ttl" style="font-weight:500">Hide student names</div></div>'+sw(S.famHide,"famHide","Hide student names in notifications")+'</div>'+
+    '<div class="row"><svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true"><use href="#tmark"/></svg><div class="grow"><div class="ttl" style="font-size:.85em">Lab Report 4 · BIO 101</div><div class="sub">'+who+': due today at 6:00 PM</div></div><span class="sub" style="font-size:.7em">preview</span></div></div></div>'+
+    ffoot((S.famHide?"Notifications say “Your student” instead of a name. ":"Notifications show your student’s first name. ")+"Grades are never shown on the Lock Screen.")+
+    fsec("Account")+'<div class="pad"><div class="card list"><div class="row"><div class="grow"><div class="ttl" style="font-weight:500">School</div></div><span class="sub">Northfield State</span></div>'+
+    '<div class="row"><div class="grow"><div class="ttl" style="font-weight:500">Signed in as</div></div><span class="sub">Sam Sample (parent)</span></div>'+
+    '<div class="row"><div class="grow"><div class="ttl dangerTxt">Sign Out &amp; Erase</div></div></div></div></div><div style="height:40px"></div></div>'+dlg+toast;
+}
+function famReport(){
+  var wk=S.famPeriod==="week";
+  var txt = wk ? "Alex’s week at Northfield State (Sep 28 – Oct 4)\n• 4 due this week, 1 missing (still accepted until Fri)\n• Next: Lab Report 4 (BIO 101) today 6:00 PM · Problem Set 7 (MATH 122) Thu · Quiz 4 (PSY 101) Thu"
+               : "Alex’s month at Northfield State (September)\n• 14 items done on time, 1 late\n• Coming up: Essay 2 (Oct 5) · HIST 210 Midterm (Oct 7)";
+  if(S.famGrades) txt += wk ? "\n• Average of 5 courses: 87.2% (B+), up 5.2 pts" : "\n• Average of 5 courses: 87.2% (B+), up 5.2 pts since Sep 1";
+  txt += "\nSent from Tally (sample data)";
+  var file = S.famFormat==="pdf" ? '<div class="field2"><span style="display:flex;gap:8px;align-items:center">'+ic("i-doc")+(wk?"Weekly":"Monthly")+' summary.pdf · 1 page</span><span class="sub" style="font-size:.8em">Preview</span></div>' : "";
+  var toast = S.toast ? '<div class="toast" role="status">'+S.toast+'</div>' : "";
+  return '<div class="view">'+famRibbon()+famStudentPage(true)+'</div>'+
+    '<div class="scrim" style="align-items:flex-end"><div class="fsheet" style="top:150px" role="dialog" aria-label="Send an update">'+
+    '<div style="width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 10px"></div>'+
+    '<h2>Send an update</h2><p class="foot" style="margin:0 0 6px">Free. Your parent doesn’t need an account. Nothing is stored or sent until you choose Share or Mail.</p>'+
+    '<div class="seg" role="group" aria-label="Period"><button data-fact="period:week" aria-pressed="'+wk+'">Weekly</button><button data-fact="period:month" aria-pressed="'+(!wk)+'">Monthly</button></div>'+
+    '<div class="seg" role="group" aria-label="Format"><button data-fact="format:text" aria-pressed="'+(S.famFormat==="text")+'">Text</button><button data-fact="format:pdf" aria-pressed="'+(S.famFormat==="pdf")+'">PDF</button></div>'+
+    '<div class="card list"><div class="row"><div class="grow"><div class="ttl" style="font-weight:500">Include grades</div><div class="sub">Off by default</div></div>'+sw(S.famGrades,"grades","Include grades")+'</div></div>'+
+    '<div class="sub" style="font-size:.72em;color:var(--t2);margin:10px 0 0 4px">Preview</div>'+file+'<div class="quote" style="color:var(--t1)">'+txt+'</div>'+
+    '<div style="display:flex;gap:8px"><button class="cta" data-fact="share">'+ic("i-share")+' Share…</button><button class="cta" style="background:color-mix(in srgb,var(--t1) 9%,var(--card));color:var(--t1)" data-fact="mail">Mail…</button></div></div></div>'+toast;
+}
+function scrFamily(){
+  var v=S.famVariant;
+  if(v==="invite") return {dark:false, html:'<div class="view">'+famRibbon()+famStudentPage(false)+'</div>'+famInviteSheet()+(S.toast?'<div class="toast" role="status">'+S.toast+'</div>':"")};
+  if(v==="observers"){ var t=S.toast?'<div class="toast" role="status">'+S.toast+'</div>':""; return {dark:false, html:'<div class="view">'+famRibbon()+famStudentPage(false)+'</div>'+famHowSheet()+t}; }
+  if(v==="parent") return {dark:false, html:famParentDash()};
+  if(v==="linked") return {dark:false, html:famLinked()};
+  if(v==="report") return {dark:false, html:famReport()};
+  if(v==="paywall"){ S.famMenu=false; return {dark:false, html:famParentDash()+famPaywall()}; }
+}
+function famNotes(){
+  var common=["Concept views. <b>Owner decisions F1–F8 made 2026-09-27</b>: parent linking ships in v1, with a $4.99/yr Tally Parent plan.","Spec: <code>docs/pmo/reviews/family-linking.md</code> §4 and §7; PRD §11.9 (Tally Parent) and §12."];
+  var m={
+    invite:{t:"Student · Invite a parent",see:["Sheet: what the parent will and won’t see, then “their own account” and “never share your password”.","Pairing code X7Q2KP, <b>works once · expires in 7 days</b>, plus a QR code for in-person pairing, then Share… or Copy.","Warning line and the exact share text. The code is never put inside a URL."],
+      rules:["W1 <code>POST /users/self/observer_pairing_codes</code>, a tap-initiated write (R16a).","The code is read character by character by VoiceOver. It can’t be cancelled, and the screen says so."]},
+    observers:{t:"Student · Who can see my Canvas",see:["A new-observer alert (F8) sits at the top. <b>Review</b> opens “How to remove”.","Tap an observer to see the honest path: only the school can remove an observer, then <b>Copy Request</b>.","Local invite list with “Share Again”; codes can’t be cancelled."],
+      rules:["<code>GET /users/self/observers</code> shows account-level links only, and the footer says so.","There’s no destructive button, because Canvas has no student-side unlink."]},
+    parent:{t:"Parent · Dashboard with the student switcher",see:["The toolbar’s principal menu shows the initials avatar, the first name and a chevron.","The menu lists the students with a checkmark, then Manage Linked Students… and Add a Student…. Tap <b>Leo</b> to switch; content and the hero label change.","The hero names the student: “Leo’s overall standing · Average of 4 courses”."],
+      rules:["With one student there’s a label and no menu; with zero students, an empty state. There are no dead controls.","Inline titles in parent mode (large-title behaviour with a principal item is UNVERIFIED)."]},
+    linked:{t:"Parent · Linked students",see:["One row per student, with a checkmark on the one being viewed, plus Add a Student.","<b>Remove from Tally</b> (local) versus <b>Unlink in Canvas</b> (destructive). Tap either to see its confirmation copy.","<b>Hide student names</b> toggle, with a live notification preview."],
+      rules:["Unlink calls <code>DELETE /users/self/observees/:id</code>, then crypto-shreds that student’s vault.","R10a: never grade values on the Lock Screen."]},
+    report:{t:"School without observer accounts · free summary report",see:["The school message replaces Invite. <b>Send an update</b> offers Weekly/Monthly and Text/PDF, with <b>Include grades off by default</b>.","A live preview of the exact text, then Share… (share sheet) or Mail… (compose)."],
+      rules:["It’s free and needs no hosting or parent account (PRD §11.9). Same pattern as R18.","The student sees exactly what will be sent before sending."]},
+    paywall:{t:"Parent · Tally Parent paywall",see:["Shown <b>once, after the first successful observer sync</b> (Canvas-access gating, §11.4 and §11.9).","<b>$4.99/year is the most prominent price.</b> 1-month free trial, then $4.99/year. Restore Purchases, Redeem Code, Terms and Privacy."],
+      rules:["StoreKit 2 on the device; its own subscription group; Family Sharing off.","“Covers all linked students” is a PMO assumption, marked as such."]}
+  }[S.famVariant];
+  return {t:"10 · Family linking (concept): "+m.t.split(" · ")[1], see:m.see, rules:m.rules.concat(common)};
+}
+
 function screenFor(id){
   switch(id){
     case "launch": return scrLaunch();
@@ -652,6 +867,7 @@ function screenFor(id){
     case "fresh": return scrDash(S.dashMode==="refreshing"?"refreshing":"fresh");
     case "stale": return scrDash("stale");
     case "concept": return scrConcept();
+    case "family": return scrFamily();
   }
 }
 
@@ -700,9 +916,10 @@ function render(){
       '<div class="phone-cap">'+(th==="light"?"Light":"Dark")+'</div></div>';
   }).join("");
   document.getElementById("stage").innerHTML=html;
-  var n=NOTES[st.id];
+  var n= st.id==="family" ? famNotes() : NOTES[st.id];
   var variant = st.id==="stale" ? '<h3>Variant</h3><div class="variant">'+[["delayed","Delayed > 10 s"],["offline","Offline"],["auth","Sign-in expired"]].map(function(v){return '<button class="pill" data-variant="'+v[0]+'" aria-pressed="'+(S.staleVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' :
     (st.id==="brand"||st.id==="sync") ? '<div class="variant" style="margin-top:10px"><button class="pill" id="replay">Replay</button></div>' :
+    st.id==="family" ? '<h3>Variant</h3><div class="variant">'+[["invite","Student: Invite a parent"],["observers","Student: Who can see my Canvas"],["parent","Parent: Dashboard + switcher"],["linked","Parent: Linked students"],["report","No observer accounts: summary report"],["paywall","Parent paywall"]].map(function(v){return '<button class="pill" data-fvariant="'+v[0]+'" aria-pressed="'+(S.famVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' :
     st.id==="concept" ? '<h3>Variant</h3><div class="variant">'+[["default","Default"],["week","Week ahead"],["exam","Exam mode"],["lock","Lock Screen"]].map(function(v){return '<button class="pill" data-cvariant="'+v[0]+'" aria-pressed="'+(S.conceptVariant===v[0])+'">'+v[1]+'</button>';}).join("")+'</div>' : "";
   document.getElementById("notes").innerHTML='<h2>'+n.t+'</h2><h3>What the student sees</h3><ul>'+n.see.map(li).join("")+'</ul><h3>Rules &amp; evidence</h3><ul>'+n.rules.map(li).join("")+'</ul>'+variant;
   document.querySelectorAll("[data-step]").forEach(function(b){b.setAttribute("aria-pressed", String(+b.getAttribute("data-step")===S.step));});
@@ -738,14 +955,42 @@ function playWarm(){
   later(function(){ S.dashMode="warm"; render(); },2200);
 }
 
+function famToast(msg){ S.toast=msg; later(function(){ S.toast=null; render(); }, 2400); }
+function famAct(f){
+  var a=f.split(":"), k=a[0], v=a[1];
+  if(k==="famMenu") S.famMenu=!S.famMenu;
+  else if(k==="pick"){ S.famStudent=v; S.famMenu=false; famToast("Now viewing "+FAM[v].f); }
+  else if(k==="addStudent"){ S.famMenu=false; famToast("Add a student: enter or scan a 6-character code (concept)"); }
+  else if(k==="how") S.famHow=v;
+  else if(k==="howClose") S.famHow=null;
+  else if(k==="copyReq"){ S.famHow=null; famToast("Request copied. Paste it to your school’s Canvas support."); }
+  else if(k==="dlg") S.famDialog=v;
+  else if(k==="dlgClose") S.famDialog=null;
+  else if(k==="dlgDo"){ var u=S.famDialog==="unlink"; S.famDialog=null; famToast(u?"Maya unlinked in Canvas. Her saved data was deleted from this iPhone (concept).":"Maya removed from Tally. The Canvas link is kept (concept)."); }
+  else if(k==="famHide") S.famHide=!S.famHide;
+  else if(k==="famNotify") S.famNotify=!S.famNotify;
+  else if(k==="grades") S.famGrades=!S.famGrades;
+  else if(k==="period") S.famPeriod=v;
+  else if(k==="format") S.famFormat=v;
+  else if(k==="share"||k==="shareCode") famToast("The iOS share sheet opens with exactly this content (concept).");
+  else if(k==="mail") famToast("Mail compose opens pre-filled; you choose the recipient (concept).");
+  else if(k==="copyCode") famToast("Code copied.");
+  else if(k==="pwClose"){ S.famVariant="parent"; S.famMenu=false; }
+  else if(k==="trial") famToast("The App Store purchase sheet appears here (StoreKit; sandbox for review).");
+  else if(k==="restore") famToast("Restore Purchases syncs with the App Store (concept).");
+  else if(k==="redeem") famToast("The App Store offer-code sheet opens (concept).");
+}
+
 /* ---------- Wire up ---------- */
 document.getElementById("steps").innerHTML=STEPS.map(function(s,i){return '<button class="pill" data-step="'+i+'" aria-pressed="false">'+s.name+'</button>';}).join("");
 document.addEventListener("click",function(e){
-  var t=e.target.closest("button,[data-go],[data-act],[role=button]"); if(!t) return;
+  var t=e.target.closest("button,[data-go],[data-act],[data-fact],[data-fvariant],[role=button]"); if(!t) return;
   if(t.hasAttribute("data-step")) return go(+t.getAttribute("data-step"));
   if(t.hasAttribute("data-theme-btn")){ S.theme=t.getAttribute("data-theme-btn"); return render(); }
   if(t.hasAttribute("data-variant")){ S.staleVariant=t.getAttribute("data-variant"); return render(); }
   if(t.hasAttribute("data-cvariant")){ S.conceptVariant=t.getAttribute("data-cvariant"); return render(); }
+  if(t.hasAttribute("data-fvariant")){ S.famVariant=t.getAttribute("data-fvariant"); S.famMenu=(S.famVariant==="parent"); S.famHow=null; S.famDialog=null; S.toast=null; if(STEPS[S.step].id!=="family"){ goId("family"); return; } return render(); }
+  if(t.hasAttribute("data-fact")){ famAct(t.getAttribute("data-fact")); return render(); }
   if(t.hasAttribute("data-go")){ e.preventDefault(); return goId(t.getAttribute("data-go")); }
   var a=t.getAttribute("data-act");
   if(a==="startAuth"){ S.toast=null; S.overlay="alert"; return render(); }
