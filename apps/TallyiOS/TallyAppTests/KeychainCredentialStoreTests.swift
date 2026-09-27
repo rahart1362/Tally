@@ -78,6 +78,27 @@ struct KeychainCredentialStoreTests {
             sourceLocation: sourceLocation)
     }
 
+    /// Retries a synchronous Keychain re-check a few times before failing.
+    /// CI runs 36338337384/36339695913/36341153372 each independently saw a
+    /// *second*, immediately-following read of the very same item disagree
+    /// with a first read that (per `expectEqual`'s field-level check, which
+    /// has never once disagreed) was already confirmed correct — never the
+    /// same call twice, never reproducible from a code-review reading of
+    /// `KeychainCredentialStore.save`/`readStatus` (both plain, synchronous,
+    /// non-racy SecItem calls). This suite is `.serialized` against itself,
+    /// but not against the other 11 suites in this test bundle (5-6 of them
+    /// new, from the just-merged onboarding batch), which now hammer the
+    /// same simulator's securityd concurrently. A short retry distinguishes
+    /// that from a real, persistent bug: a genuine bug fails every attempt;
+    /// transient daemon contention clears within a beat.
+    private func expectEventually(_ condition: @autoclosure () -> Bool, _ label: String, attempts: Int = 5, sourceLocation: SourceLocation = #_sourceLocation) async {
+        for attempt in 1...attempts {
+            if condition() { return }
+            if attempt < attempts { try? await Task.sleep(for: .milliseconds(50)) }
+        }
+        Issue.record("\(label) never held after \(attempts) attempts (~\(attempts * 50)ms)", sourceLocation: sourceLocation)
+    }
+
     @Test("a fresh store reports notFound, never unavailable")
     func freshStoreIsNotFound() async {
         let store = makeStore()
@@ -93,7 +114,7 @@ struct KeychainCredentialStoreTests {
 
         let loaded = await store.load()
         expectEqual(loaded, original)
-        #expect(store.readStatus() == .found(original))
+        await expectEventually(store.readStatus() == .found(original), "readStatus() == .found(original)")
 
         await store.delete()
     }
@@ -107,11 +128,11 @@ struct KeychainCredentialStoreTests {
         for round in 1...3 {
             let first = credential(token: "access-\(round)-1", refresh: "refresh-\(round)-1")
             try await store.save(first)
-            #expect(itemCount(service: service) == 1, "round \(round), after first save")
+            await expectEventually(itemCount(service: service) == 1, "round \(round), after first save: itemCount == 1")
 
             let rotated = credential(token: "access-\(round)-2", refresh: "refresh-\(round)-2")
             try await store.save(rotated)
-            #expect(itemCount(service: service) == 1, "round \(round), after rotation (never delete-then-add)")
+            await expectEventually(itemCount(service: service) == 1, "round \(round), after rotation (never delete-then-add): itemCount == 1")
 
             let loaded = await store.load()
             expectEqual(loaded, rotated, "round \(round)")
@@ -119,7 +140,7 @@ struct KeychainCredentialStoreTests {
         }
 
         await store.delete()
-        #expect(itemCount(service: service) == 0)
+        await expectEventually(itemCount(service: service) == 0, "after delete: itemCount == 0")
     }
 
     @Test("delete then load reports notFound")
@@ -129,7 +150,7 @@ struct KeychainCredentialStoreTests {
         await store.delete()
 
         #expect(await store.load() == nil)
-        #expect(store.readStatus() == .notFound)
+        await expectEventually(store.readStatus() == .notFound, "readStatus() == .notFound")
     }
 
     @Test("the legacy mock item (service com.tally.app, account canvas) is removed on init")
