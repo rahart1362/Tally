@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import TallyDesignSystem
 
@@ -25,13 +26,13 @@ public struct RootView: View {
             WelcomeView(
                 onFindSchool: { path.append(.findSchool) },
                 onExploreSampleData: {
-                    print("DEBUG-NAV: onExploreSampleData tapped; path before=\(path)")
+                    NSLog("DEBUG-NAV: onExploreSampleData tapped; path before=%@", "\(path)")
                     path.append(.sampleData)
-                    print("DEBUG-NAV: path after=\(path)")
+                    NSLog("DEBUG-NAV: path after=%@", "\(path)")
                 }
             )
             .navigationDestination(for: WelcomeRoute.self) { route in
-                let _ = print("DEBUG-NAV: navigationDestination building for route=\(route)")
+                let _ = NSLog("DEBUG-NAV: navigationDestination building for route=%@", "\(route)")
                 switch route {
                 case .findSchool:
                     FindSchoolStub()

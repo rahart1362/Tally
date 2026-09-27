@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import TallyDesignSystem
 
@@ -16,7 +17,8 @@ public struct SampleDataRootView: View {
     }
 
     public var body: some View {
-        let _ = print("DEBUG-NAV: SampleDataRootView.body evaluated; model=\(model != nil), loadError=\(loadError != nil)")
+        let _ = NSLog("DEBUG-NAV: SampleDataRootView.body evaluated; model=%@, loadError=%@",
+                      "\(model != nil)", "\(loadError != nil)")
         return Group {
             if let model {
                 TabShellView(
@@ -42,9 +44,10 @@ public struct SampleDataRootView: View {
             } else {
                 ProgressView()
                     .task {
-                        print("DEBUG-NAV: ProgressView.task firing load()")
+                        NSLog("DEBUG-NAV: ProgressView.task firing load()")
                         load()
-                        print("DEBUG-NAV: load() returned; model=\(model != nil), loadError=\(String(describing: loadError))")
+                        NSLog("DEBUG-NAV: load() returned; model=%@, loadError=%@",
+                              "\(model != nil)", "\(String(describing: loadError))")
                     }
             }
         }
@@ -53,10 +56,10 @@ public struct SampleDataRootView: View {
     private func load() {
         do {
             model = try SampleDataModel.live()
-            print("DEBUG-NAV: SampleDataModel.live() succeeded")
+            NSLog("DEBUG-NAV: SampleDataModel.live() succeeded")
         } catch {
             loadError = error
-            print("DEBUG-NAV: SampleDataModel.live() threw: \(error)")
+            NSLog("DEBUG-NAV: SampleDataModel.live() threw: %@", "\(error)")
         }
     }
 }
