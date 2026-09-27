@@ -28,6 +28,12 @@ public enum TallyConfig {
 
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)
+
+    // App lock (ADR 0001, security.md WP-SEC-07): re-lock grace period after backgrounding.
+    public static let appLockGraceImmediately: Duration = .zero
+    public static let appLockGraceOneMinute: Duration = .seconds(60) // ADR 0001 default
+    public static let appLockGraceFiveMinutes: Duration = .seconds(5 * 60)
+    public static let appLockGraceFifteenMinutes: Duration = .seconds(15 * 60)
 }
 
 extension Duration {
