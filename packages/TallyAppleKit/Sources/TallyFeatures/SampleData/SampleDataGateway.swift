@@ -35,11 +35,24 @@ nonisolated enum SampleDataFixtureBundle {
         let routes: [RouteFixture]
     }
 
+    /// CI (run 36336754587) proved via the actual `CpResource` build log line that `.copy(_:)`
+    /// places the whole folder, by name, at the bundle's top level:
+    /// `.../TallyAppleKit_TallyFeatures.bundle/CanvasFixtures`. The right way to ask Foundation
+    /// for a *folder's own* URL is to treat the folder's name as the resource itself
+    /// (`forResource: "CanvasFixtures", withExtension: nil`) — `url(forResource: nil,
+    /// withExtension: nil, subdirectory:)`, tried first, asks a different question ("what's
+    /// *inside* this subdirectory") and returned nil here. Falls back to manually joining
+    /// `Bundle.module.resourceURL`, in case a future SwiftPM/Xcode version lays this out
+    /// differently again — checked against the actual filesystem rather than assumed.
     static func resourceRoot() throws -> URL {
-        guard let url = Bundle.module.url(forResource: nil, withExtension: nil, subdirectory: root) else {
-            throw SampleDataError.bundleResourceMissing(root)
+        if let url = Bundle.module.url(forResource: root, withExtension: nil) {
+            return url
         }
-        return url
+        if let base = Bundle.module.resourceURL {
+            let candidate = base.appendingPathComponent(root)
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        throw SampleDataError.bundleResourceMissing(root)
     }
 
     nonisolated struct Manifest {
