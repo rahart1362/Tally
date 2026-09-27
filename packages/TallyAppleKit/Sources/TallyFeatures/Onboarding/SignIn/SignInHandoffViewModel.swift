@@ -119,14 +119,24 @@ public final class SignInHandoffViewModel {
             )
             phase = .idle
             onSuccess(credential)
-        } catch let error as WebAuthError {
-            phase = (error == .cancelled) ? .cancelledNotice : .failed(.other)
-        } catch let error as OAuthCallbackError {
-            phase = (error == .accessDenied) ? .failed(.accessDenied) : .failed(.other)
-        } catch is TransportError {
-            phase = .failed(.networkFailure)
         } catch {
-            phase = .failed(.other)
+            // A single catch-all with an internal switch, rather than a sequence of
+            // typed `catch` clauses: CI (run 36335202947) showed a `TransportError`
+            // thrown from `tokenExchange.exchange` landing in the generic
+            // `SignInFailure.other` bucket instead of `.networkFailure`, which a
+            // preceding `catch let error as OAuthCallbackError` clause should never
+            // have intercepted. Matching everything in one place, over the same
+            // `any Error` value, removes any doubt about clause-ordering semantics.
+            switch error {
+            case let webAuthError as WebAuthError:
+                phase = (webAuthError == .cancelled) ? .cancelledNotice : .failed(.other)
+            case let callbackError as OAuthCallbackError:
+                phase = (callbackError == .accessDenied) ? .failed(.accessDenied) : .failed(.other)
+            case is TransportError:
+                phase = .failed(.networkFailure)
+            default:
+                phase = .failed(.other)
+            }
         }
     }
 }
