@@ -1,3 +1,4 @@
+import Observation
 import TallyDomain
 
 /// Drives the first-sync skeleton (UX-WP-10, ux-ui.md §3.2 stage 5). Consumes
