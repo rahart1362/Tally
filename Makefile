@@ -52,3 +52,14 @@ core-asan: core-asan-deps ## Run every TallyCore test under AddressSanitizer + L
 
 placeholders: ## List go-live placeholders still in code (GO-LIVE GL-02)
 	scripts/go-live/find-placeholders.sh
+
+# CS-06 (crash-safety.md): digest-pinned SwiftLint, scoped to packages/TallyCore/Sources and
+# packages/TallyAppleKit/Sources (.swiftlint-crash-safety.yml). --strict makes a lint warning
+# fail the build too, not just an error.
+SWIFTLINT_IMAGE ?= ghcr.io/realm/swiftlint@sha256:1253e237c30010090484c50ae3ffe6f3be92ff17cebd71039420388f4199f03e # 0.59.1
+
+.PHONY: lint
+
+lint: ## Lint TallyCore + TallyAppleKit shipping code (force_unwrapping/force_try/force_cast/IUO)
+	$(CONTAINER) run --rm --network none -v $(CURDIR):/repo:Z -w /repo $(SWIFTLINT_IMAGE) \
+		swiftlint lint --strict --config .swiftlint-crash-safety.yml

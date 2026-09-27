@@ -20,8 +20,10 @@ public enum InstitutionHost {
         let labels = text.split(separator: ".", omittingEmptySubsequences: false)
         guard labels.count >= 2,
               labels.allSatisfy({ !$0.isEmpty && $0.count <= 63 && $0.first != "-" && $0.last != "-" }),
-              text.count <= 253 else { throw .invalid }
-        guard !(labels.last!.allSatisfy(\.isNumber)), text != "localhost" else { throw .notAllowed }
+              text.count <= 253,
+              let lastLabel = labels.last // always present: `labels.count >= 2` above
+        else { throw .invalid }
+        guard !lastLabel.allSatisfy(\.isNumber), text != "localhost" else { throw .notAllowed }
         return text
     }
 }

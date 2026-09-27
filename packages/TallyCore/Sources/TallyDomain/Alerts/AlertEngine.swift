@@ -30,7 +30,7 @@ public enum AlertEngine {
                 && (assignment.dueAt.map { $0 < now } ?? false))
         guard isMissing else { return nil }
 
-        let isOpen = assignment.lockAt == nil || assignment.lockAt! > now
+        let isOpen = assignment.lockAt.map { $0 > now } ?? true
         guard isOpen else {
             return Alert(kind: .missingClosed(courseID: assignment.courseID), severity: .medium, courseID: assignment.courseID)
         }
