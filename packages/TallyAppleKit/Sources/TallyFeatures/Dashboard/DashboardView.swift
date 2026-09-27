@@ -32,22 +32,33 @@ public struct DashboardView: View {
     }
 
     public var body: some View {
-        ScrollView {
+        // Computed ONCE per body evaluation: `state` re-runs the full DashboardBuilder pipeline
+        // (PriorityScore/AlertEngine over every assignment) every time it's read, and the
+        // previous version of this file read it six separate times in one body. Same for the
+        // freshness presentation, read fresh below instead of re-deriving it in every section.
+        let currentState = state
+        let presentation = FreshnessPresenter.present(freshness, now: Date())
+        return ScrollView {
             VStack(alignment: .leading, spacing: TallySpacing.xxl) {
+                // The stale breadcrumb (ux-ui.md §3.3), as a plain leading element rather than
+                // `.safeAreaBar` — this screen's own top-of-scroll content, not a floating bar.
+                if let breadcrumb = presentation.longText {
+                    FreshnessBreadcrumb(text: breadcrumb)
+                }
                 header
                 if snapshot == nil {
                     ContentUnavailableView("No dashboard yet", systemImage: "house",
                                            description: Text("Sign in, or explore with sample data, to see your dashboard."))
                         .padding(.top, TallySpacing.xxxl)
                 } else {
-                    HeroSection(hero: state.hero, freshness: freshness, onRefresh: onRefresh)
-                    if let summary = state.changeDigestSummary {
+                    HeroSection(hero: currentState.hero, presentation: presentation, onRefresh: onRefresh)
+                    if let summary = currentState.changeDigestSummary {
                         ChangeDigestChip(summary: summary)
                     }
-                    NextUpSection(items: state.nextUp)
-                    NeedsAttentionSection(items: state.needsAttention)
-                    WeekAheadSection(days: state.weekAhead)
-                    DueSoonSection(items: state.dueSoon)
+                    NextUpSection(items: currentState.nextUp)
+                    NeedsAttentionSection(items: currentState.needsAttention)
+                    WeekAheadSection(days: currentState.weekAhead)
+                    DueSoonSection(items: currentState.dueSoon)
                 }
             }
             .padding(.horizontal, TallySpacing.screenMargin)
@@ -55,16 +66,7 @@ public struct DashboardView: View {
         }
         .background(TallyColor.bgCanvas)
         .refreshable { await onRefresh() }
-        .safeAreaBar(edge: .top) {
-            if let breadcrumb = breadcrumbText {
-                FreshnessBreadcrumb(text: breadcrumb)
-            }
-        }
         .navigationTitle("Dashboard")
-    }
-
-    private var breadcrumbText: String? {
-        FreshnessPresenter.present(freshness, now: Date()).longText
     }
 
     private var header: some View {
@@ -90,7 +92,7 @@ public struct DashboardView: View {
 
 private struct HeroSection: View {
     let hero: DashboardViewState.Hero
-    let freshness: FreshnessState
+    let presentation: FreshnessPresenter.Presentation
     let onRefresh: () async -> Void
 
     var body: some View {
@@ -118,7 +120,7 @@ private struct HeroSection: View {
             }
 
             HStack {
-                Text(FreshnessPresenter.present(freshness, now: Date()).shortText)
+                Text(presentation.shortText)
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
                 Spacer()
@@ -128,7 +130,7 @@ private struct HeroSection: View {
                     Image(systemName: "arrow.clockwise")
                         .frame(width: 44, height: 44)
                 }
-                .disabled(FreshnessPresenter.present(freshness, now: Date()).action == .none)
+                .disabled(presentation.action == .none)
                 .accessibilityLabel("Refresh")
             }
         }
