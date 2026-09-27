@@ -102,7 +102,12 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -resultBundlePath "$RUNNER_TEMP/Tally.xcresult" \
             | tee "$RUNNER_TEMP/test.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          grep -q "TEST SUCCEEDED" "$RUNNER_TEMP/test.log"
+          # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **",
+          # not plain "TEST SUCCEEDED" (that's what `xcodebuild test` uses,
+          # confirmed by the xcode-27 job's `xcodebuild test` step passing
+          # with the plain string on the same CI run this comment was added
+          # in: run 36330806691). Accept both.
+          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test.log"
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
         run: |
