@@ -33,8 +33,12 @@ let package = Package(
             .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
         ]),
         .target(name: "TallySync", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore"]),
+        // TallyTestSupport -> TallySync: WP-D02's FakeNotificationCenter (architecture.md §3.1
+        // already lists it under this target) conforms to TallySync's own NotificationScheduling
+        // port, so it needs that one module. TallySync does not depend back on TallyTestSupport,
+        // so this stays a one-way edge, not a cycle.
         .target(name: "TallyTestSupport", dependencies: [
-            "TallyDomain", "TallyCanvasAPI", "TallyStore",
+            "TallyDomain", "TallyCanvasAPI", "TallyStore", "TallySync",
             .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
         ]),
 

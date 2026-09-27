@@ -1,0 +1,240 @@
+import Foundation
+import TallyCanvasAPI
+import TallyDomain
+import TallyStore
+
+/// WP-D01 (architecture.md §3.4): the per-account refresh orchestrator. One instance owns one
+/// account's `CanvasGateway` and `SnapshotStore` and is the single place that decides whether a
+/// trigger starts a network fetch, tracks the account's monotonic generation and sign-out epoch,
+/// and commits (or discards) whatever the fetch returns. Multi-account fan-out (D3b) wraps one
+/// instance of this per account; that composition lives outside this file.
+///
+/// **Single-flight.** Every trigger that arrives while a fetch is already running joins that run:
+/// `FreshnessRules.shouldStart` returns `false` for *any* trigger, manual included, whenever
+/// `RefreshRecord.inFlightSince` is set, so at most one `CanvasGateway.fetchSnapshot` call is ever
+/// in flight per account.
+///
+/// **Generations and epochs.** Each run that actually starts is stamped with
+/// `committedGeneration + 1` at the moment it starts (a monotonically increasing counter this
+/// coordinator alone owns) and captures the current `epoch`. `bumpEpochAndCancel()` (called by
+/// `SignOutUseCase`, WP-SEC-06) bumps the epoch and best-effort cancels the fetch; when that run's
+/// result later lands, `finish` discards it outright because its captured epoch no longer matches.
+/// Separately, even within one epoch, a commit is only ever applied if its generation is still
+/// greater than whatever is already committed — `SnapshotStore.commit` enforces this on disk as a
+/// defensive backstop (`SnapshotStoreError.staleGeneration`), and this type honours the same rule
+/// in memory first, so "a slow, older refresh can never overwrite a newer one" holds even if some
+/// other writer committed a newer generation to the same store while this run's fetch was still
+/// in flight.
+public actor RefreshCoordinator {
+    /// Emitted on `events` for the UI (one `RefreshStatusModel`, architecture §3.1, consumes this).
+    public enum Event: Sendable, Equatable {
+        case stateChanged(FreshnessState)
+        /// A new generation landed in the store, with the digest against whatever was committed
+        /// immediately before it (`.empty` for the account's very first snapshot).
+        case committed(generation: UInt64, digest: ChangeDigest)
+    }
+
+    private let gateway: any CanvasGateway
+    private let store: SnapshotStore
+    private let clock: any DateProviding
+    private let liveRefreshBudget: Duration
+    private let foregroundHardCeiling: Duration
+    private let backgroundBudget: Duration
+    private let minAutoRefreshInterval: Duration
+
+    private var record: RefreshRecord
+    private var previousSnapshot: CanvasSnapshot?
+    private var committedGeneration: UInt64
+    private var epoch: UInt64 = 0
+    /// The task running this run's `perform`/`finish` sequence end to end (what single-flight
+    /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
+    /// also reaches for, since a plain `Task { }` is not a structured child of its creator and so
+    /// is not automatically cancelled by cancelling the outer one.
+    private var inFlight: Task<Void, Never>?
+    private var currentFetchTask: Task<CanvasSnapshot, any Error>?
+
+    /// Whether the glance projection built at commit time may include grade values
+    /// (`UserState.showGradesInGlance`, encryption.md D-E3, PMO R10 — never defaulted to `true`).
+    /// The composition root keeps this current from `UserStateStore`; that wiring lives outside
+    /// this file, which only ever reads whatever value it was last given.
+    public var includeGrades: Bool
+
+    public nonisolated let events: AsyncStream<Event>
+    private let continuation: AsyncStream<Event>.Continuation
+
+    public init(
+        gateway: any CanvasGateway,
+        store: SnapshotStore,
+        clock: any DateProviding,
+        initialSnapshot: CanvasSnapshot?,
+        initialRecord: RefreshRecord = RefreshRecord(),
+        includeGrades: Bool = false,
+        liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
+        foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
+        backgroundBudget: Duration = TallyConfig.backgroundBudget,
+        minAutoRefreshInterval: Duration = TallyConfig.minAutoRefreshInterval
+    ) {
+        self.gateway = gateway
+        self.store = store
+        self.clock = clock
+        self.liveRefreshBudget = liveRefreshBudget
+        self.foregroundHardCeiling = foregroundHardCeiling
+        self.backgroundBudget = backgroundBudget
+        self.minAutoRefreshInterval = minAutoRefreshInterval
+        self.includeGrades = includeGrades
+        previousSnapshot = initialSnapshot
+        committedGeneration = initialSnapshot?.generation ?? 0
+        record = initialRecord.restoredAfterLaunch() // no in-flight mark survives a relaunch
+        (events, continuation) = AsyncStream<Event>.makeStream()
+    }
+
+    /// The same derivation `FreshnessRules.state` would give a caller who read `events` from the
+    /// start; useful for a caller that only wants "what does the UI show right now".
+    public var currentState: FreshnessState { FreshnessRules.state(of: record, now: clock.now()) }
+
+    /// Sign-out or account removal (`SignOutUseCase`, WP-SEC-06, security.md §3.2 step 9): bumps
+    /// the epoch so any in-flight (or already-landed-but-not-yet-finished) run's result is
+    /// discarded, best-effort cancels the underlying fetch, and resets the visible freshness state
+    /// to `.noCache` — honest, since the account's cache is about to be purged by the rest of that
+    /// use case anyway. Does not itself touch the store, notifications or credentials.
+    public func bumpEpochAndCancel() {
+        epoch += 1
+        currentFetchTask?.cancel()
+        inFlight?.cancel()
+        record = RefreshRecord()
+        emit(.stateChanged(currentState))
+    }
+
+    /// Starts a refresh for `trigger`, or joins one already running (single-flight). Returns once
+    /// this call's own outcome is known: either the run it started, or the run it joined.
+    @discardableResult
+    public func run(trigger: RefreshTrigger) async -> FreshnessState {
+        if let inFlight {
+            await inFlight.value
+            return currentState
+        }
+        let now = clock.now()
+        guard FreshnessRules.shouldStart(trigger, record: record, now: now, minInterval: minAutoRefreshInterval) else {
+            return currentState
+        }
+
+        let myEpoch = epoch
+        let attemptGeneration = committedGeneration + 1
+        record.began(trigger, at: now)
+        emit(.stateChanged(currentState))
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performAndFinish(trigger: trigger, myEpoch: myEpoch, attemptGeneration: attemptGeneration)
+        }
+        inFlight = task
+        await task.value
+        return currentState
+    }
+
+    // MARK: - One run
+
+    private func performAndFinish(trigger: RefreshTrigger, myEpoch: UInt64, attemptGeneration: UInt64) async {
+        let outcome = await fetch(trigger: trigger)
+        await finish(myEpoch: myEpoch, attemptGeneration: attemptGeneration, outcome: outcome)
+        inFlight = nil
+        currentFetchTask = nil
+    }
+
+    /// Runs the gateway fetch, signalling `.delayed` at `liveRefreshBudget` **without** cancelling
+    /// it, and giving up (cancelling) only once the trigger's own ceiling elapses — background
+    /// triggers get `backgroundBudget` (≈25 s, inside the OS's ~30 s), everything else gets
+    /// `foregroundHardCeiling` (architecture §3.4).
+    private func fetch(trigger: RefreshTrigger) async -> Result<CanvasSnapshot, any Error> {
+        let previous = previousSnapshot
+        let fetchTask = Task<CanvasSnapshot, any Error> { [gateway, clock] in
+            try await gateway.fetchSnapshot(previous: previous, now: clock.now())
+        }
+        currentFetchTask = fetchTask
+
+        if await timedOut(waitingFor: fetchTask, timeout: liveRefreshBudget) {
+            emit(.stateChanged(.delayed(showing: record.lastSuccessAt)))
+            let ceiling = trigger == .background ? backgroundBudget : foregroundHardCeiling
+            let remaining = ceiling - liveRefreshBudget
+            if remaining > .zero {
+                if await timedOut(waitingFor: fetchTask, timeout: remaining) { fetchTask.cancel() }
+            } else {
+                fetchTask.cancel()
+            }
+        }
+
+        do { return .success(try await fetchTask.value) }
+        catch { return .failure(error) }
+    }
+
+    /// True if `timeout` elapsed before `task` finished. Never cancels `task` itself: only the
+    /// losing side of the race — the timer, or the "wait for task" competitor — is cancelled, per
+    /// `withTaskGroup`'s structured cancellation, which does not reach outside the group.
+    private func timedOut<T: Sendable>(waitingFor task: Task<T, any Error>, timeout: Duration) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask { _ = try? await task.value; return false }
+            group.addTask { try? await Task.sleep(for: timeout); return true }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
+    }
+
+    private func finish(myEpoch: UInt64, attemptGeneration: UInt64, outcome: Result<CanvasSnapshot, any Error>) async {
+        // A sign-out landed while this run was in flight: `bumpEpochAndCancel` already reset
+        // `record` and published `.noCache`, so there is nothing left to do with this result.
+        guard myEpoch == epoch else { return }
+
+        switch outcome {
+        case .failure(let error):
+            // The cache is never touched on failure (architecture §3.4).
+            record.failed((error as? RefreshFailure) ?? .unknown)
+            emit(.stateChanged(currentState))
+
+        case .success(let fetched):
+            guard attemptGeneration > committedGeneration else {
+                // Another commit already landed a newer generation while this fetch was running.
+                // Nothing to write, but valid fresher data exists, so the state still clears to fresh.
+                record.succeeded(dataFetchedAt: clock.now())
+                emit(.stateChanged(currentState))
+                return
+            }
+            let stamped = restamped(fetched, generation: attemptGeneration)
+            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped)
+            do {
+                try await store.commit(stamped, includeGrades: includeGrades)
+                committedGeneration = stamped.generation
+                previousSnapshot = stamped
+                record.succeeded(dataFetchedAt: stamped.fetchedAt)
+                emit(.committed(generation: stamped.generation, digest: digest))
+                emit(.stateChanged(currentState))
+            } catch let error as SnapshotStoreError {
+                switch error {
+                case .staleGeneration(_, let current):
+                    // The store's own backstop caught what our in-memory guard above did not: some
+                    // other writer committed `current` (> our attempt) to this same account while
+                    // we were fetching. Adopt it rather than treat this as a failure.
+                    committedGeneration = current
+                    if case .loaded(let onDisk) = await store.loadSnapshot() { previousSnapshot = onDisk }
+                    record.succeeded(dataFetchedAt: clock.now())
+                    emit(.stateChanged(currentState))
+                }
+            } catch {
+                record.failed(.unknown)
+                emit(.stateChanged(currentState))
+            }
+        }
+    }
+
+    /// The gateway stamps a placeholder generation (`(previous?.generation ?? 0) + 1`); this
+    /// coordinator owns the real, monotonic counter, so every commit is re-stamped with it.
+    private func restamped(_ snapshot: CanvasSnapshot, generation: UInt64) -> CanvasSnapshot {
+        CanvasSnapshot(
+            generation: generation, accountKey: snapshot.accountKey, host: snapshot.host, fetchedAt: snapshot.fetchedAt,
+            profile: snapshot.profile, courses: snapshot.courses, groups: snapshot.groups,
+            gradingPeriods: snapshot.gradingPeriods, planner: snapshot.planner, events: snapshot.events,
+            announcements: snapshot.announcements, courseColors: snapshot.courseColors, sections: snapshot.sections)
+    }
+
+    private func emit(_ event: Event) { continuation.yield(event) }
+}
