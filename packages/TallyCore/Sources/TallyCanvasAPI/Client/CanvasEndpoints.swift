@@ -61,7 +61,7 @@ public enum ContextCodeChunker {
 public enum CanvasDateWindow {
     private static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .gmt
         return calendar
     }()
 

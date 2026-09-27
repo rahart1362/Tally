@@ -86,10 +86,9 @@ public struct SemanticVersion: Sendable, Equatable, Comparable, Codable, CustomS
         let core = text.split(separator: "-", maxSplits: 1).first.map(String.init) ?? text
         let parts = core.split(separator: ".", omittingEmptySubsequences: false)
         guard !parts.isEmpty, parts.count <= 3 else { return nil }
-        let numbers = parts.map { Int($0) }
-        guard numbers.allSatisfy({ $0 != nil }) else { return nil }
-        let values = numbers.map { $0! }
-        major = values[0]
+        let values = parts.compactMap { Int($0) }
+        guard values.count == parts.count, let major = values.first else { return nil }
+        self.major = major
         minor = values.count > 1 ? values[1] : 0
         patch = values.count > 2 ? values[2] : 0
     }

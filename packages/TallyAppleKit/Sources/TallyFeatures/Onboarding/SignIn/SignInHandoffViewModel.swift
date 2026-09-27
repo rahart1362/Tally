@@ -89,7 +89,7 @@ public final class SignInHandoffViewModel {
     /// registered with every institution key (security.md §3.2 item 4: "Register
     /// only this https redirect in every institution key").
     public static var defaultRedirectURI: URL {
-        URL(string: "https://\(TallyOrgDomainInfo.current)/oauth/callback")!
+        URL(string: "https://\(TallyOrgDomainInfo.current)/oauth/callback")! // swiftlint:disable:this force_unwrapping — https scheme + a fixed, valid domain is always a well-formed URL
     }
 
     /// "Continue to <School>" (ux-ui.md §3.2 stage 4) / "Try Again" from any failed state.

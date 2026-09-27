@@ -39,7 +39,7 @@ public struct AuthorizationRequest: Sendable, Equatable, Codable {
             .init(name: "code_challenge_method", value: "S256"),
         ] + (forceLogin ? [.init(name: "force_login", value: "1")] : [])
           + (canvasLogin ? [.init(name: "canvas_login", value: "1")] : [])
-        return c.url!
+        return c.url! // swiftlint:disable:this force_unwrapping — scheme/host/path are always well-formed here
     }
 }
 

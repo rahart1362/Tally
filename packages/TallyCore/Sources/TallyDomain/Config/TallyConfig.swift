@@ -20,11 +20,20 @@ public enum TallyConfig {
     public static let contextCodesPerRequest = 10
     public static let plannerWindowDays = -14...60
     public static let announcementWindowDays = 14
+    /// Hard cap on one HTTP response body (CS-05, crash-safety.md): a real Canvas page is a
+    /// few hundred KB at most (`perPage` items); this is generous headroom, not a realistic
+    /// size, so it only ever rejects a runaway or hostile response before it reaches a mapper.
+    public static let maxResponseBodyBytes = 10 * 1024 * 1024
 
     // Storage and performance
     public static let snapshotSizeBudgetBytes = 5 * 1024 * 1024
     public static let snapshotDecodeBudget: Duration = .milliseconds(100)
     public static let warmStartBudget: Duration = .milliseconds(300)
+    /// Total items (courses + assignments + planner + events + announcements) a snapshot may
+    /// carry before `SnapshotBudget` degrades it (CS-05). The charter's synthetic stress
+    /// persona is ~20 courses x 250 assignments (~5,000 items); this leaves wide headroom
+    /// while still bounding worst-case memory from a corrupt or adversarial account.
+    public static let maxSnapshotItems = 20_000
 
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)

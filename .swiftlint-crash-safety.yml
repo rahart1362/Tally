@@ -1,0 +1,26 @@
+# CS-06 (crash-safety.md): the crash-safety lint gate, run via `make lint`. Deliberately
+# separate from the repo-root .swiftlint.yml (which still covers the legacy, slated-for-deletion
+# packages/Tally{AppFeature,Cache,...} tree and the old root Package.swift): this file's job is
+# only the merged TallyCore/TallyAppleKit code the crash-safety charter owns.
+#
+# `only_rules` replaces SwiftLint's entire default rule set with exactly these four — this
+# gate's whole job (CS-06) is those four crash-safety rules, not this project's general style
+# (`.swiftformat`/the root .swiftlint.yml already own that, and enabling SwiftLint's full
+# default set here would fail on ~300 pre-existing style-only findings unrelated to crash
+# safety, e.g. line length and short identifier names this codebase uses idiomatically).
+only_rules:
+  - force_unwrapping
+  - force_try
+  - force_cast
+  - implicitly_unwrapped_optional
+
+included:
+  - packages/TallyCore/Sources
+  - packages/TallyAppleKit/Sources
+
+excluded:
+  # Test support code (fixture/fake infrastructure only test targets link against), not
+  # shipping code, even though SwiftPM requires it live under Sources/ like any other target.
+  # Its one `try!` (loading a bundled test fixture) is documented and intentional: see
+  # docs/pmo/reviews/crash-safety.md's CS-01 findings table.
+  - packages/TallyCore/Sources/TallyTestSupport

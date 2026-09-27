@@ -21,7 +21,9 @@ public struct TokenEndpoint: Sendable {
     public let clientID: String
     public init(host: String, clientID: String) { self.host = host; self.clientID = clientID }
 
-    private var url: URL { URL(string: "https://\(host)/login/oauth2/token")! }
+    private var url: URL {
+        URL(string: "https://\(host)/login/oauth2/token")! // swiftlint:disable:this force_unwrapping — https scheme + a validated host is always a well-formed URL
+    }
 
     public func request(for grant: TokenGrant) -> HTTPRequest {
         var fields = [("client_id", clientID)]

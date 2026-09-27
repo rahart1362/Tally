@@ -1,0 +1,23 @@
+# LeakSanitizer suppressions for TallyCore's `make core-asan` lane (CS-04, docs/pmo/reviews/crash-safety.md).
+# Format: `leak:<substring>`, matched against any frame's resolved symbol/source path in the
+# leak's stack trace. Every entry below was independently reproduced and its stack trace read
+# in full before being added here — see crash-safety.md's ASan section for the exact commands
+# and byte/allocation counts observed.
+
+# XCTest's own runner bootstrap (XCTMainMisc, XCTestSuiteRun.init/addTestCase) allocates a
+# handful of small objects that are never freed before process exit. This is inside the Swift
+# toolchain's libXCTest.so (Tally's tests are written in Swift Testing; XCTest is only present
+# as swift-corelibs-foundation's/swiftpm's shared test-runner entry point), not Tally code, and
+# the size is fixed (a few hundred bytes total) regardless of how many tests run — it does not
+# grow, so it is not a real leak in the sense this charter cares about.
+leak:libXCTest.so
+
+# CanvasJSON.CanvasDate.pattern (packages/TallyCore/Sources/TallyCanvasAPI/DTO/CanvasJSON.swift):
+# a `nonisolated(unsafe) static let` Regex literal, compiled exactly once (Swift's
+# threading_impl::once) on first use and deliberately kept for the process's entire lifetime —
+# the standard "compile once, reuse forever" pattern for a static Regex, not a growing leak.
+# LeakSanitizer flags any static's backing allocation that is still reachable-but-unfreed at
+# process exit; this one is fixed-size (one compiled pattern object, never recompiled). If this
+# Regex is ever replaced by a hand-written parser, this entry becomes unnecessary and should be
+# removed along with it.
+leak:CanvasJSON.swift

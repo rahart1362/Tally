@@ -131,8 +131,7 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
         var newAssignmentEntries: [NewAssignment] = []
         var dueDateChanges: [DueDateChange] = []
 
-        for assignmentID in newAssignmentsMap.keys.sorted() {
-            let (courseID, assignment) = newAssignmentsMap[assignmentID]!
+        for (assignmentID, (courseID, assignment)) in newAssignmentsMap.sorted(by: { $0.key < $1.key }) {
             guard let (_, previousAssignment) = oldAssignments[assignmentID] else {
                 newAssignmentEntries.append(NewAssignment(courseID: courseID, assignmentID: assignmentID, dueAt: assignment.dueAt))
                 continue
