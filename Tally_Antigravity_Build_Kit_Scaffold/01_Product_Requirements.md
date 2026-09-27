@@ -129,7 +129,7 @@ Optional, user-consented, device-side only:
 
 ## 11. Licensing and Pricing (appended 2026-09-26)
 
-*Source: `docs/pmo/reviews/pricing-licensing.md`. Figures and Apple rules are verified there. Owner decisions P1–P5 are pending, and the defaults below are the analyst's recommendation.*
+*Source: `docs/pmo/reviews/pricing-licensing.md`. Figures and Apple rules are verified there. **Accepted by the owner on 2026-09-27** (P1, P2, P4, P5; multiseat P6 stays on).*
 
 ### 11.1 Model and price
 - Tally is sold as **one auto-renewable annual subscription** ("Tally Annual") through **Apple In-App Purchase only**. The App Store handles payment, tax, renewal, receipts and refunds. There is no Tally account, server, licence key or web checkout.
@@ -137,7 +137,7 @@ Optional, user-consented, device-side only:
 - New subscribers get a **1-month free trial** (Apple introductory offer).
 - **US$4.99** is used only as (a) **offer codes**, handed out free to pilot schools and campus ambassadors (never sold), and (b) a **win-back offer** for lapsed subscribers.
 - The developer account is enrolled in the **App Store Small Business Program** before the first sale.
-- **Family Sharing is off** for v1. *Revisit before launch together with the parent-linking design (`docs/pmo/reviews/family-linking.md`): if parents are the payers, Family Sharing lets one purchase cover a family. Turning Family Sharing on is irreversible.*
+- **Family Sharing is off** for every Tally plan (owner, 2026-09-27). Parents buy their own plan (§11.9).
 
 ### 11.2 Free vs paid
 - **Always free:**
@@ -202,3 +202,26 @@ Optional, user-consented, device-side only:
 - Monthly plan.
 - Family Sharing.
 - Promotional offers that need a server.
+
+### 11.9 Parent plan (owner decision, 2026-09-27)
+- **"Tally Parent": US$4.99 per parent per year**, an auto-renewable annual subscription through Apple In-App Purchase. It is its own subscription group, so a person can hold both a student plan and a parent plan, and Family Sharing is off.
+- One parent plan covers all of that parent's linked students. *(PMO assumption; the owner may veto.)*
+- It unlocks the parent (observer) role: a live, read-only view of linked students' courses, grades, due dates and alerts, with the header student switcher.
+- The same Canvas-access gating as §11.4 applies: purchase is offered only after the parent's observer account has synced successfully.
+- **Free parent option:** the student can share a weekly or monthly summary report (PDF or text) through the share sheet or Mail compose, with no hosting and no parent account. Automatic SMS/e-mail updates to parents come later (backlog BL-14).
+
+## 12. Parent (observer) linking (appended 2026-09-27; in v1 per owner decision F6)
+
+*Source: `docs/pmo/reviews/family-linking.md`. Canvas endpoints verified in Instructure's docs by the PMO on 2026-09-26.*
+
+- **Native Canvas model only.** A parent uses their **own** Canvas observer account. Tally **never** shares, stores or transmits a student's Canvas password or token to anyone else.
+- **Student invites.** "Invite a parent" creates a Canvas pairing code (`POST /api/v1/users/self/observer_pairing_codes`), shared via the share sheet or a QR code. The screen explains in plain language what the parent will and will not see.
+- **Parent links.** "I'm a parent" → sign in with the school's Canvas → enter the pairing code (`POST /api/v1/users/self/observees`). This works only where the school allows observer self-registration, which is off by default. Where it isn't allowed, Tally explains the school's process and offers the free summary report (§11.9).
+- **Header student switcher** for parents, when more than one student is linked. The switch persists across all tabs.
+- **Linked-accounts management.**
+  - Students see "Who can see my Canvas", including a new-observer alert. Canvas does not let students remove observers, so Tally shows the school path honestly.
+  - Parents see "Linked students", can unlink (`DELETE /api/v1/users/self/observees/:id`), and have a "Hide student names" toggle for notifications.
+- **Privacy and encryption.** Each linked student's data is stored in its own sealed store on the parent's device and crypto-shredded on unlink or sign-out. Parent notifications never show grade values on the Lock Screen (R10).
+- **Read-only exception (R16a).** Only these three tap-initiated calls ever write to Canvas: create a pairing code, add a student by code, and unlink.
+- **Launch gate.** The real-Canvas observer spike (FAM-01) must pass (GL-05), and family use must be included in the Instructure request (GL-01).
+

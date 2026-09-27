@@ -73,12 +73,12 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 
 | # | Decision | Analyst recommendation | Status |
 |---|---|---|---|
-| P1 | Price and structure | $9.99/yr auto-renewable annual subscription, 1-month free trial; $4.99 only as offer codes and win-back | Pending owner |
-| P2 | App Store Small Business Program | Enrol before the first sale (15% commission) | Pending owner (GTM-06) |
-| P3 | Family Sharing | Off for v1. **PMO: hold until the parent-linking review lands**, because parents may be the payers. | Pending owner |
-| P4 | Free tier shape | Free trial then paywall; sample-data mode and a first real-dashboard preview are always free | Pending owner |
-| P5 | Canvas-access gating | Don't offer a purchase until the school's Canvas connects successfully (no refund reliance) | Pending owner |
-| P6 | **Multiseat purchasing** (Apple, 2026-09-16: on by default for new subscriptions; Volume Purchasing via Apple School Manager from 2026-10-22; Group Purchases "this winter") | Decide deliberately before creating the subscription. Leaving it on lets schools buy seats (supports GL-01 route b). It interacts with Family Sharing (F5). | Pending owner |
+| P1 | Price and structure | $9.99/yr auto-renewable annual subscription, 1-month free trial; $4.99 only as offer codes and win-back | **Accepted (owner, 2026-09-27)** |
+| P2 | App Store Small Business Program | Enrol before the first sale (15% commission) | **Accepted (owner, 2026-09-27)** (GTM-06) |
+| P3 | Family Sharing | Off for v1. **PMO: hold until the parent-linking review lands**, because parents may be the payers. | **Off for both plans (owner 2026-09-27: parents buy their own plan, F5)** |
+| P4 | Free tier shape | Free trial then paywall; sample-data mode and a first real-dashboard preview are always free | **Accepted (owner, 2026-09-27)** |
+| P5 | Canvas-access gating | Don't offer a purchase until the school's Canvas connects successfully (no refund reliance) | **Accepted (owner, 2026-09-27)** |
+| P6 | **Multiseat purchasing** (Apple, 2026-09-16: on by default for new subscriptions; Volume Purchasing via Apple School Manager from 2026-10-22; Group Purchases "this winter") | Decide deliberately before creating the subscription. Leaving it on lets schools buy seats (supports GL-01 route b). It interacts with Family Sharing (F5). | **Keep on (owner, 2026-09-27)** |
 
 Domain: **tally-app.dev** registered by the owner on 2026-09-26. Bundle ID `dev.tally-app.tally` (GL-02).
 
@@ -88,14 +88,14 @@ Canvas natively supports parent access through **observer** accounts and student
 
 | # | Decision | Recommendation | Status |
 |---|---|---|---|
-| F1 | How a parent gets access | Parent's own Canvas observer account + the student's pairing code | Pending owner |
-| F2 | Amend R16 (read-only) | R16a: allow 3 tap-initiated link writes (create code, add by code, unlink), with a Canvas-web fallback when the scope is missing | Pending owner |
-| F3 | Amend R8 (single account) | R8a: one account, many students (header switcher) | Pending owner |
-| F4 | Schools without observer accounts | "Send an update…" share sheet only; CloudKit live share to backlog | Pending owner |
-| F5 | Who pays | A new "Tally Family" subscription bought by the parent, with Family Sharing on for that product only (irreversible for it); Tally Annual stays sharing-off (P3) | Pending owner |
-| F6 | Sequencing | Add family use to the Instructure request now; build in **v1.1** after a real-Canvas spike | Pending owner |
-| F7 | Parent notification defaults | Week-ahead + missing-still-open on; names shown with a "Hide student names" toggle | Pending owner |
-| F8 | Student transparency (ethical) | "Who can see my Canvas" screen + new-observer alert + school path; ask Instructure for student-side unlink | Pending owner |
+| F1 | How a parent gets access | Parent's own Canvas observer account + the student's pairing code | **Accepted (owner, 2026-09-27)** |
+| F2 | Amend R16 (read-only) | R16a: allow 3 tap-initiated link writes (create code, add by code, unlink), with a Canvas-web fallback when the scope is missing | **Accepted (owner, 2026-09-27)** |
+| F3 | Amend R8 (single account) | R8a: one account, many students (header switcher) | **Accepted (owner, 2026-09-27)** |
+| F4 | Schools without observer accounts | "Send an update…" share sheet only; CloudKit live share to backlog | **Accepted (owner, 2026-09-27)** |
+| F5 | Who pays | **Owner decision 2026-09-27:** the parent buys a separate **\"Tally Parent\" plan at $4.99/yr** (auto-renewable annual IAP, its own subscription group, Family Sharing off). *PMO assumption, owner may veto: one parent plan covers all of that parent's linked students.* **Free parent option:** the student shares a weekly or monthly summary report (share sheet / Mail compose, no hosting); automatic SMS/e-mail to parents comes later (BL-14). | **Decided** |
+| F6 | Sequencing | **Owner decision 2026-09-27: build in v1.** Still add family use to the Instructure request now (GTM-02). The real-Canvas observer spike (FAM-01) gates launch via GL-05. | **Decided** |
+| F7 | Parent notification defaults | Week-ahead + missing-still-open on; names shown with a "Hide student names" toggle | **Accepted (owner, 2026-09-27)** |
+| F8 | Student transparency (ethical) | "Who can see my Canvas" screen + new-observer alert + school path; ask Instructure for student-side unlink | **Accepted (owner, 2026-09-27)** |
 
 ## 3. Roadmap (milestones and exit gates)
 
@@ -110,6 +110,12 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |
 | **M5 Harden + pre-TestFlight gate** | UX-WP-21–23; ASC-05–08, 12, 17, 18; ENC-06–08; SEC-14, 15; ARC E08, G01 (delete legacy) | — | `release-gate.yml` all green: Release build, XCUITest critical flows (kit 13), accessibility audit 0 unwaived, screenshots at 1320×2868, privacy manifest + plist checks |
 | **M6 TestFlight → App Store** | ASC-15 (age range), ASC-16 (TestFlight lane), internal → external beta, submission | **O4, O7**, signing assets | Internal-testing crash-free; Beta App Review passed; submission accepted |
+
+**Scope change (2026-09-27, owner F6): family linking is in v1.** The work packages FAM-01…FAM-15 (`reviews/family-linking.md` §10) are distributed as follows:
+- FAM-02…05 (roles, endpoints, per-student snapshots, sealed storage) → **M1–M2**
+- FAM-06…11, FAM-14 (link management, alerts, parent notifications, header switcher, settings, widgets, sample-data family mode) → **M3**
+- FAM-01 (real-Canvas observer spike) → **M4**, gating launch through GL-05
+- FAM-12, FAM-13 (amended: StoreKit "Tally Parent" at $4.99/yr, not a Family Sharing plan), FAM-15 (privacy policy, review notes, counsel items) → **M5**
 
 **Critical path:** O1 (Instructure / pilot school) and O4 (developer account + D-U-N-S) are both calendar-time items outside engineering control. M0–M3 do not depend on them and proceed now, using sample-data mode and a mock Canvas server. M4 is where the paths join.
 

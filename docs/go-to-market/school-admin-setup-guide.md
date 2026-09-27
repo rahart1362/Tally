@@ -36,3 +36,19 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
 
 ## Turning Tally off
 Set the key to **OFF**. Every Tally token for your school stops working immediately.
+
+## Optional: family access (parents and guardians)
+Tally lets a student invite a parent. The parent uses their **own** Canvas observer account, linked with a pairing code the student creates. It works only if your school allows observers to self-register with a pairing code. To enable it, also select these scopes:
+
+| Purpose | Scope | Type |
+|---|---|---|
+| Student: see who can view their data | `url:GET\|/api/v1/users/:user_id/observers` | read |
+| Student: create an invite (pairing) code | `url:POST\|/api/v1/users/:user_id/observer_pairing_codes` | write |
+| Parent: list linked students | `url:GET\|/api/v1/users/:user_id/observees` | read |
+| Parent: add a student by code | `url:POST\|/api/v1/users/:user_id/observees` | write |
+| Parent: unlink a student | `url:DELETE\|/api/v1/users/:user_id/observees/:observee_id` | write |
+| Parent: a student's calendar | `url:GET\|/api/v1/users/:user_id/calendar_events` | read |
+| Parent: observer enrolments (optional) | `url:GET\|/api/v1/users/:user_id/enrollments` | read |
+
+Keep **"Allow Include Parameters"** on. Parents see only what Canvas already shows observers. Without these scopes, Tally's family features stay off at your school, and students can still share a summary report manually.
+

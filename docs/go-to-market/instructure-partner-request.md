@@ -15,7 +15,7 @@ I'm [[Owner name]], [[title]] of [[Company or "an independent developer"]]. I'm 
 - The student signs in directly with their school's Canvas using OAuth 2.0 **Authorization Code + PKCE** (public client). Tally never sees the student's password.
 - **Tally has no server and no Tally account.** Canvas data goes only from the institution's Canvas to the student's own iPhone. It is never sent to, stored on, or processed by anything Tally operates.
 - The on-device copy is encrypted, replaced on every refresh, and erased on sign-out. Sign-out also revokes the token through `DELETE /login/oauth2/token`.
-- Read-only access to about eight endpoints: profile, courses with scores, assignment groups with submissions, grading periods, planner items, calendar events, announcements and user colours. There is no write access.
+- Read-only access to about eight endpoints: profile, courses with scores, assignment groups with submissions, grading periods, planner items, calendar events, announcements and user colours. The only writes are the three observer-link actions described in item 5.
 - No ads, no analytics SDKs, no data sale.
 
 **What we're asking for**
@@ -23,6 +23,7 @@ I'm [[Owner name]], [[title]] of [[Company or "an independent developer"]]. I'm 
 2. **A global developer key for Tally.** It would be a public (PKCE) API key with the scopes above, so that students at participating institutions can connect without each school creating its own key. We'd welcome guidance on how it is enabled by default and how institutions can opt out.
 3. **Mobile-app token treatment for that key** (longer refresh-token lifetime), so students aren't asked to sign in again after short idle periods.
 4. **Partner Program enrolment** at the tier you recommend, including sandbox access for integration testing.
+5. **Your guidance on a parent view built on Canvas observers.** Students can invite a parent with a Canvas pairing code, and the parent signs in with their **own** observer account. Tally never shares a student's credentials. Tally would read only what Canvas already allows observers to see. The only writes are the three observer-link actions (create pairing code, add observee by code, remove observee), each started by a tap. We know this overlaps the Canvas Parent app. We would value your view on how to keep it complementary, and whether a student-side way to see and remove observers is on your roadmap.
 
 We'd be glad to share our security and privacy documentation, threat model and architecture decision records. We can also demo a build on request.
 
