@@ -24,9 +24,14 @@ public struct RootView: View {
         NavigationStack(path: $path) {
             WelcomeView(
                 onFindSchool: { path.append(.findSchool) },
-                onExploreSampleData: { path.append(.sampleData) }
+                onExploreSampleData: {
+                    print("DEBUG-NAV: onExploreSampleData tapped; path before=\(path)")
+                    path.append(.sampleData)
+                    print("DEBUG-NAV: path after=\(path)")
+                }
             )
             .navigationDestination(for: WelcomeRoute.self) { route in
+                let _ = print("DEBUG-NAV: navigationDestination building for route=\(route)")
                 switch route {
                 case .findSchool:
                     FindSchoolStub()

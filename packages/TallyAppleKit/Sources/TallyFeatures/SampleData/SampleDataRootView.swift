@@ -16,7 +16,8 @@ public struct SampleDataRootView: View {
     }
 
     public var body: some View {
-        Group {
+        let _ = print("DEBUG-NAV: SampleDataRootView.body evaluated; model=\(model != nil), loadError=\(loadError != nil)")
+        return Group {
             if let model {
                 TabShellView(
                     snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
@@ -40,7 +41,11 @@ public struct SampleDataRootView: View {
                     }
             } else {
                 ProgressView()
-                    .task { load() }
+                    .task {
+                        print("DEBUG-NAV: ProgressView.task firing load()")
+                        load()
+                        print("DEBUG-NAV: load() returned; model=\(model != nil), loadError=\(String(describing: loadError))")
+                    }
             }
         }
     }
@@ -48,8 +53,10 @@ public struct SampleDataRootView: View {
     private func load() {
         do {
             model = try SampleDataModel.live()
+            print("DEBUG-NAV: SampleDataModel.live() succeeded")
         } catch {
             loadError = error
+            print("DEBUG-NAV: SampleDataModel.live() threw: \(error)")
         }
     }
 }
