@@ -31,17 +31,51 @@ struct KeychainCredentialStoreTests {
     /// Raw item count for a service, bypassing `KeychainCredentialStore`
     /// entirely, so a test can independently confirm "exactly one item"
     /// rather than trusting the adapter's own read path.
+    ///
+    /// Bug fixed here (found by code review after CI run 36339695913 showed
+    /// this returning 0 right after a confirmed-successful save): with
+    /// `kSecMatchLimitAll` and NO return-type key at all
+    /// (`kSecReturnAttributes`/`kSecReturnData`/`kSecReturnRef`),
+    /// `SecItemCopyMatching` reports `errSecSuccess` but leaves `result`
+    /// `nil` — there is nothing to enumerate without a return type — and the
+    /// old fallback `(result != nil) ? 1 : 0` then misread "nil result" as
+    /// "zero items" instead of "an unrequested count". Fixed by requesting
+    /// `kSecReturnAttributes`, which is what actually makes matchLimit=all
+    /// meaningful.
     private func itemCount(service: String) -> Int {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecReturnAttributes as String: true,
         ]
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return 0 }
         guard status == errSecSuccess else { return -1 }
-        return (result as? [[String: Any]])?.count ?? ((result != nil) ? 1 : 0)
+        return (result as? [[String: Any]])?.count ?? 0
+    }
+
+    /// Field-by-field comparison with the actual values in the failure
+    /// message (unlike a bare `#expect(loaded == expected)`, which only ever
+    /// shows "tokens: <redacted>" per `CanvasCredential.description` — these
+    /// are synthetic test fixtures, never real Canvas secrets, so printing
+    /// them is fine and is exactly what CI run 36339695913's unexplained
+    /// `saveThenLoadRoundTrips` failure needed to be diagnosable).
+    private func expectEqual(_ loaded: CanvasCredential?, _ expected: CanvasCredential, _ label: String? = nil, sourceLocation: SourceLocation = #_sourceLocation) {
+        let prefix = label.map { "\($0): " } ?? ""
+        guard let loaded else {
+            Issue.record("\(prefix)load() returned nil, expected \(expected.accessToken)/\(expected.refreshToken)", sourceLocation: sourceLocation)
+            return
+        }
+        #expect(loaded.host == expected.host, "\(prefix)host", sourceLocation: sourceLocation)
+        #expect(loaded.userID == expected.userID, "\(prefix)userID", sourceLocation: sourceLocation)
+        #expect(loaded.accessToken == expected.accessToken, "\(prefix)accessToken: got \(loaded.accessToken), want \(expected.accessToken)", sourceLocation: sourceLocation)
+        #expect(loaded.refreshToken == expected.refreshToken, "\(prefix)refreshToken: got \(loaded.refreshToken), want \(expected.refreshToken)", sourceLocation: sourceLocation)
+        #expect(
+            loaded.accessTokenExpiresAt.timeIntervalSince1970.bitPattern == expected.accessTokenExpiresAt.timeIntervalSince1970.bitPattern,
+            "\(prefix)accessTokenExpiresAt: got \(loaded.accessTokenExpiresAt.timeIntervalSince1970), want \(expected.accessTokenExpiresAt.timeIntervalSince1970)",
+            sourceLocation: sourceLocation)
     }
 
     @Test("a fresh store reports notFound, never unavailable")
@@ -58,7 +92,7 @@ struct KeychainCredentialStoreTests {
         try await store.save(original)
 
         let loaded = await store.load()
-        #expect(loaded == original)
+        expectEqual(loaded, original)
         #expect(store.readStatus() == .found(original))
 
         await store.delete()
@@ -80,7 +114,7 @@ struct KeychainCredentialStoreTests {
             #expect(itemCount(service: service) == 1, "round \(round), after rotation (never delete-then-add)")
 
             let loaded = await store.load()
-            #expect(loaded == rotated, "round \(round)")
+            expectEqual(loaded, rotated, "round \(round)")
             #expect(loaded?.accessToken != first.accessToken, "round \(round)")
         }
 
