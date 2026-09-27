@@ -36,6 +36,10 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 | R16 | **"Mark done" is local-only.** Tally never writes to Canvas. | UX D-I5 | Keeps the read-only promise, the minimal scopes and the Instructure positioning. |
 | R17 | **Stale-data warning notification** after 24 h without a successful refresh (on by default; can be turned off). | UX D-I6 | The 2-h token window can silently stop background refresh (ADR 0001). |
 | R18 | **SMS and e-mail stay no-hosting only:** user-initiated compose sheets, plus a Shortcuts option pending a device test. Automatic sending is in backlog BL-14. | UX D-I3 + owner O2 | Owner's no-hosting preference. |
+| R19 | **v1 integrations** per `docs/pmo/ux/integrations.md`: Open in Canvas, widgets (Home/Lock/StandBy, interactive Done), calendar (R6), App Intents/Shortcuts/Siri, Control Center controls, Focus filter, Handoff, compose sheets. Also Watch mirroring, opt-in Spotlight, Siri suggestions, PDF snapshot and directions to class. Each passes the no-server, no-SDK, no-extra-scope, ≤1-prompt, iOS 26 gate. | UX (owner: low-friction integrations) | Owner asked for low-friction integrations. |
+| R20 | **Canvas links open in the Canvas Student app when installed** (`canvas-courses://`, undocumented), with an automatic web fallback that always ships (BL-22 contract check). | UX D-X1 | Submitting happens in Canvas (R16). |
+| R21 | **Spotlight indexing is opt-in (off by default)**, never with grade values. | UX D-X2 | The only surface where titles become system-searchable. |
+| R22 | **Live Activity countdown (BL-09) and exam-day alarms (BL-18) ship in v1.1**, not v1. | UX D-X3 | Extra R10 test surfaces; AlarmKit adds a prompt. |
 
 ## 2. Owner decisions (business, legal, identity — only you can make these)
 

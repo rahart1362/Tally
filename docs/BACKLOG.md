@@ -12,8 +12,8 @@ v1 scope is the kit's PRD minus what is listed here.
 | BL-05 | Multi-account switcher (dual enrolment, two schools) | PMO R8 | Single active account in v1; storage is already account-scoped. | User demand | UI-only follow-up; no migration. |
 | BL-06 | "Vault mode": Secure Enclave-bound cache key requiring user presence | encryption.md D-E5 | Blocks background refresh and widgets; the v1 app lock covers the UI. | Security-sensitive user segment requests it | encryption.md §3. |
 | BL-07 | iPad multi-column layout | Kit 06, PMO R4 | v1 is iPhone-only. | After v1 | — |
-| BL-08 | watchOS companion glance app | Kit 06 | Scope. | After v1 | Reuses the glance projection. |
-| BL-09 | Lock-screen Live Activity for the next due item | Kit 06 | Scope. | After v1 | Must respect notification privacy rules (R10). |
+| BL-08 | watchOS companion glance app | Kit 06 | Scope. v1 relies on free Apple Watch notification mirroring (integrations.md #9). | After v1 | Reuses `glance.v1` and `DisplayTextPolicy`. |
+| BL-09 | Lock-screen Live Activity: **deadline countdown, no-server variant** | Kit 06; integrations.md #14 | Keeps v1 scope; needs start-rule design (PMO R22). | v1.1 | Starts from the foreground or a `LiveActivityIntent` when a High item is due within 8 h; `Text(timerInterval:)`; no push server; R10 text rules. |
 | BL-10 | Semester planning wizard | Kit 06 | Scope. | After v1 | — |
 | BL-11 | Student academic goals and coach recommendations | Kit 06 | Scope. | After v1 | — |
 | BL-12 | Canvas GraphQL adapter for very large accounts | architecture.md §3.3 | REST is sufficient for v1. | Performance test shows large accounts over the 10 s budget | `CanvasGateway` protocol already allows it. |
@@ -22,3 +22,8 @@ v1 scope is the kit's PRD minus what is listed here.
 | BL-15 | School-paid licences (institution buys access for its students) | Pricing review §11.8 | Apple subscriptions can't be bought in volume, and offer codes may not be sold. Needs Apple's Volume Purchase / Apple School Manager route or an out-of-app contract. | A school asks to pay | `docs/pmo/reviews/pricing-licensing.md` |
 | BL-16 | Monthly plan | Pricing review §11.8 | One annual plan keeps the paywall simple; students' year maps to terms. | Price-review data (PRD §11.7) | — |
 | BL-17 | Promotional offers (signed, server-generated) | Pricing review §11.5 | Requires a server signature; the owner wants no hosting. Offer codes and win-back offers cover v1. | Only if a server ever exists (BL-01) | — |
+| BL-18 | Exam-day alarm (AlarmKit, iOS 26) | integrations.md #15 | Adds one permission prompt; pairs with exam mode (R15). PMO R22: v1.1. | v1.1, after exam-mode usage data | Opt-in from exam mode; `NSAlarmKitUsageDescription`; cancelled on sign-out. |
+| BL-19 | On-device language features (Foundation Models): natural-language week summary, draft study plan | integrations.md #16 | Apple Intelligence devices and regions only; needs an evaluation harness so it never states a wrong date or grade. | With the study-plan generator (BL-10/11) | The model only rephrases engine output; non-AI fallback; re-evaluate each iOS release. |
+| BL-20 | Apple Reminders export | integrations.md #17 | Needs full Reminders access. | User demand, after a device spike on a zero-permission share-sheet route | — |
+| BL-21 | QuickLook preview of Canvas attachments | integrations.md #18 | Needs an extra Canvas files scope, i.e. admin re-approval at every school. | Next scope renegotiation (GL-01) | Temporary protected file, deleted after preview, never indexed. |
+| BL-22 | Canvas Student deep-link contract check | integrations.md §2.1 | The `canvas-courses://` scheme is undocumented by Instructure. | Every Canvas Student major release | Device test in the release checklist; the web fallback always ships. |
