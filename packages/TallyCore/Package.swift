@@ -28,13 +28,22 @@ let package = Package(
             "TallyDomain",
             .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
         ]),
-        .target(name: "TallyStore", dependencies: ["TallyDomain"]),
+        .target(name: "TallyStore", dependencies: [
+            "TallyDomain",
+            .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+        ]),
         .target(name: "TallySync", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore"]),
-        .target(name: "TallyTestSupport", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore"]),
+        .target(name: "TallyTestSupport", dependencies: [
+            "TallyDomain", "TallyCanvasAPI", "TallyStore",
+            .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+        ]),
 
         .testTarget(name: "TallyDomainTests", dependencies: ["TallyDomain", "TallyTestSupport"]),
         .testTarget(name: "TallyCanvasAPITests", dependencies: ["TallyCanvasAPI", "TallyTestSupport"]),
-        .testTarget(name: "TallyStoreTests", dependencies: ["TallyStore", "TallyTestSupport"]),
+        .testTarget(name: "TallyStoreTests", dependencies: [
+            "TallyStore", "TallyTestSupport",
+            .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+        ]),
         .testTarget(name: "TallySyncTests", dependencies: ["TallySync", "TallyTestSupport"]),
     ]
 )
