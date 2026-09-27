@@ -34,6 +34,11 @@ public enum TallyConfig {
     public static let appLockGraceOneMinute: Duration = .seconds(60) // ADR 0001 default
     public static let appLockGraceFiveMinutes: Duration = .seconds(5 * 60)
     public static let appLockGraceFifteenMinutes: Duration = .seconds(15 * 60)
+
+    // Family linking (family-linking.md §6.7): client-side write-amplification throttle —
+    // "at most 5 invite codes per student per day" — enforced locally before W1 is ever called.
+    public static let maxInvitesPerDay = 5
+    public static let invitesPerDayWindow: Duration = .seconds(24 * 60 * 60)
 }
 
 extension Duration {
