@@ -18,8 +18,9 @@ public struct HTTPRequest: Sendable, Equatable {
     public var method: HTTPMethod
     public var url: URL
     public var headers: HTTPHeaders
-    public init(method: HTTPMethod = .get, url: URL, headers: HTTPHeaders = HTTPHeaders()) {
-        self.method = method; self.url = url; self.headers = headers
+    public var body: Data?
+    public init(method: HTTPMethod = .get, url: URL, headers: HTTPHeaders = HTTPHeaders(), body: Data? = nil) {
+        self.method = method; self.url = url; self.headers = headers; self.body = body
     }
 }
 
