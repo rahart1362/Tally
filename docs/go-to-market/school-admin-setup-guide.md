@@ -1,6 +1,6 @@
 # Enabling Tally at your school — Canvas administrator guide
 
-Supports GO-LIVE **GL-01** (route b, per-school keys). The in-app "Request Tally at my school" flow links students' administrators to this guide. Before publishing, host it on the Tally domain (GL-02).
+Supports GO-LIVE **GL-01** (route b, per-school keys). The in-app "Request Tally at my school" flow links students' administrators to this guide. To be published at https://tally-app.dev (GL-02).
 
 ## What Tally is
 Tally is an independent iOS app for students. It is not affiliated with Instructure. It shows a student's own courses, grades, deadlines and reminders. It reads only that student's data, using the student's own Canvas sign-in.
@@ -15,7 +15,7 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
 2. Fill in the fields:
    - **Key Name:** Tally
    - **Owner Email:** your admin contact
-   - **Redirect URIs:** `https://[[TALLY_ORG_DOMAIN]]/oauth/callback` — the real domain replaces this placeholder at go-live (GL-02).
+   - **Redirect URIs:** `https://tally-app.dev/oauth/callback` — the Tally domain (GL-02).
    - **Client type: Public** (PKCE, no client secret). ⚠︎ *Whether your Canvas admin UI exposes this option is being verified (GL-05). If it does not, contact [[support e-mail]].*
 3. **Enforce Scopes: ON.** Select only these:
 

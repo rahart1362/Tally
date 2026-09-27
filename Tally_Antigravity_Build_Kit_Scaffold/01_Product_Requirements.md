@@ -126,3 +126,79 @@ Optional, user-consented, device-side only:
 - widgets for today’s due work and current grade snapshot
 - export/share snapshot PDF for student use
 - accessibility-first support: Dynamic Type, VoiceOver, high contrast, reduced motion
+
+## 11. Licensing and Pricing (appended 2026-09-26)
+
+*Source: `docs/pmo/reviews/pricing-licensing.md`. Figures and Apple rules are verified there. Owner decisions P1–P5 are pending, and the defaults below are the analyst's recommendation.*
+
+### 11.1 Model and price
+- Tally is sold as **one auto-renewable annual subscription** ("Tally Annual") through **Apple In-App Purchase only**. The App Store handles payment, tax, renewal, receipts and refunds. There is no Tally account, server, licence key or web checkout.
+- List price **US$9.99 per student per year** on the US base storefront. Apple generates the other storefronts' prices.
+- New subscribers get a **1-month free trial** (Apple introductory offer).
+- **US$4.99** is used only as (a) **offer codes**, handed out free to pilot schools and campus ambassadors (never sold), and (b) a **win-back offer** for lapsed subscribers.
+- The developer account is enrolled in the **App Store Small Business Program** before the first sale.
+- **Family Sharing is off** for v1. *Revisit before launch together with the parent-linking design (`docs/pmo/reviews/family-linking.md`): if parents are the payers, Family Sharing lets one purchase cover a family. Turning Family Sharing on is irreversible.*
+
+### 11.2 Free vs paid
+- **Always free:**
+  - "Explore with Sample Data", with every feature on fictional data
+  - school search, the "not available at your school" screen and "Ask My School"
+  - Canvas sign-in and a **one-time first-sync preview of the student's real Dashboard**
+  - Settings, Privacy Policy, Terms of Use, app lock, **Sign out & erase**, Restore Purchases, Redeem Code, Manage Subscription
+- **Trial or subscription required:**
+  - ongoing Canvas refresh (launch, manual, background)
+  - Courses, Course Detail and what-if, To-Do, Calendar, Insights
+  - alerts, reminders, widgets, Shortcuts, and the §10 features
+- **On lapse:**
+  - the last saved snapshot stays readable, marked "Subscribe to refresh — showing saved data from <time>"
+  - background refresh stops
+  - pending Tally reminders are withdrawn
+  - Sign out & erase always works
+
+### 11.3 Paywall placement and disclosure
+- The paywall is **never shown before sign-in**, on the "not available at your school" screen, during app lock or Canvas reconnect, or after a failed first sync.
+- It is first shown **once, after the first successful sync has displayed the student's Dashboard**. After that it appears only when the student taps a locked feature or turns on reminders.
+- The paywall shows:
+  - the subscription name and duration, and what it includes
+  - **"$9.99/year" as the most prominent price**
+  - the trial length and the price after the trial
+  - Restore Purchases and Redeem Code
+  - links to Terms of Use and the Privacy Policy
+- It meets Dynamic Type (AX5) and VoiceOver requirements.
+- Settings → Subscription is reachable at all times, including in sample-data mode, so App Review can see and buy the subscription. In sample-data mode an interstitial first warns that Tally works only at schools where it is enabled.
+
+### 11.4 Canvas-access gating (GL-01)
+- Tally does not proactively offer a purchase until the student's school Canvas has **successfully connected and synced**. Students at schools where Tally isn't enabled are never asked to pay.
+- If a school's Canvas later rejects Tally's key, Tally shows a notice with **Manage Subscription** and **Request a Refund** (Apple's in-app refund sheet). Tally cannot issue refunds itself.
+- **Sign out & erase does not cancel the subscription.** The confirmation says so and links to Manage Subscription.
+- The subscription belongs to the student's Apple Account, so it carries over if the student moves to another enabled school.
+
+### 11.5 Entitlement without a server
+- Entitlement uses **StoreKit 2 on the device only**:
+  - App Store–signed transactions are verified by StoreKit
+  - `Transaction.currentEntitlements` is read at launch and foreground
+  - `Transaction.updates` is observed from app launch
+- Unverified, refunded or revoked transactions never grant access.
+- The last verified expiry is kept in the Keychain and the App Group, so widgets and background refresh can check access offline. Access **fails closed** after expiry plus a short named grace period.
+- App Store Server Notifications, the App Store Server API and promotional offers are **not used** in v1.
+
+### 11.6 Privacy
+- No purchase, trial or pricing data leaves the device through Tally. The App Privacy label stays **"Data Not Collected"**.
+- Post-launch measurement uses only **App Store Connect Analytics and Subscription Reports**, which are aggregate and supplied by Apple.
+
+### 11.7 Price review
+- After at least one full term at an enabled school, the owner reviews these App Store Connect metrics:
+  - D35 proceeds per download against Apple's peer benchmark
+  - D35 download-to-paid
+  - trial-to-paid
+  - first annual renewal
+  - refund rate
+- The list price moves to **$4.99 only if a test shows ≥ 2× the paying conversion of $9.99**, on at least ~720 installs per arm.
+- Price increases apply to new subscribers only, with existing prices preserved.
+- The test design and thresholds are in the review, §5.6.
+
+### 11.8 Out of scope for v1 (proposed backlog)
+- School-paid licences. Apple subscriptions cannot be bought in volume, and offer codes may not be sold.
+- Monthly plan.
+- Family Sharing.
+- Promotional offers that need a server.

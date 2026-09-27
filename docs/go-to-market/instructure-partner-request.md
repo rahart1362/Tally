@@ -27,7 +27,7 @@ I'm [[Owner name]], [[title]] of [[Company or "an independent developer"]]. I'm 
 We'd be glad to share our security and privacy documentation, threat model and architecture decision records. We can also demo a build on request.
 
 Thank you,
-[[Owner name]] · [[email]] · [[website — see GO-LIVE GL-02]]
+[[Owner name]] · [[email]] · https://tally-app.dev
 
 ---
 *Internal notes (remove before sending):*

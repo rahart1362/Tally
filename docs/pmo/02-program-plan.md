@@ -65,6 +65,18 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 | O8 | Standard iOS navigation bars with navy hero cards; redraw the app icon (simple serif-T + gold arc). | UX-WP-04/05 |
 | O9 | As recommended ("Average of N courses"; class times from Canvas events plus optional manual entry). **Plus:** ideate at-a-glance insights: dashboards, in-app alerts, push reminders now, SMS/e-mail later. | `docs/pmo/ux/insights-at-a-glance.md` (in progress); `docs/BACKLOG.md` BL-14 |
 
+### 2b. Pricing decisions (from `reviews/pricing-licensing.md`; PRD §11 appended 2026-09-26)
+
+| # | Decision | Analyst recommendation | Status |
+|---|---|---|---|
+| P1 | Price and structure | $9.99/yr auto-renewable annual subscription, 1-month free trial; $4.99 only as offer codes and win-back | Pending owner |
+| P2 | App Store Small Business Program | Enrol before the first sale (15% commission) | Pending owner (GTM-06) |
+| P3 | Family Sharing | Off for v1. **PMO: hold until the parent-linking review lands**, because parents may be the payers. | Pending owner |
+| P4 | Free tier shape | Free trial then paywall; sample-data mode and a first real-dashboard preview are always free | Pending owner |
+| P5 | Canvas-access gating | Don't offer a purchase until the school's Canvas connects successfully (no refund reliance) | Pending owner |
+
+Domain: **tally-app.dev** registered by the owner on 2026-09-26. Bundle ID `dev.tally-app.tally` (GL-02).
+
 ## 3. Roadmap (milestones and exit gates)
 
 Work-package IDs refer to the specialist reports. Every gate uses the validation pyramid: re-read artefacts, and never accept exit code 0 alone.

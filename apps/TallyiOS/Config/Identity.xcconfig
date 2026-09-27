@@ -13,10 +13,11 @@
 
 // Your registered domain. It hosts the privacy policy, the support page and the
 // OAuth universal-link callback (apple-app-site-association).
-TALLY_ORG_DOMAIN = tally.example.com // GO-LIVE-PLACEHOLDER
+TALLY_ORG_DOMAIN = tally-app.dev // set by owner 2026-09-26
 
-// Reverse-DNS form of the same domain, e.g. com.yourdomain
-TALLY_BUNDLE_ID_PREFIX = com.example // GO-LIVE-PLACEHOLDER
+// Reverse-DNS form of the same domain. The bundle ID becomes dev.tally-app.tally
+// and is permanent after the first TestFlight upload (changeable until then).
+TALLY_BUNDLE_ID_PREFIX = dev.tally-app // set by owner 2026-09-26
 
 // Your 10-character Apple Developer Team ID (App Store Connect > Membership).
 DEVELOPMENT_TEAM = // GO-LIVE-PLACEHOLDER
