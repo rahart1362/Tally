@@ -1,4 +1,5 @@
 import Testing
+import TallyDomain
 @testable import TallyFeatures
 @testable import Tally
 

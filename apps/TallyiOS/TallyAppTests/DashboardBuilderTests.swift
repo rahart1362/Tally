@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TallyDomain
+import TallyStore // GradeBand
 @testable import TallyFeatures
 
 /// UX-WP-13: `DashboardBuilder` over a real flagship snapshot (never fabricated — every

@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStore // GradeBand (GlanceProjection.swift)
 
 /// UX-WP-13: a pure projection of a `CanvasSnapshot` (plus the optional glance/digest a
 /// refresh just produced) into exactly what `DashboardView` renders. Building this is a plain
