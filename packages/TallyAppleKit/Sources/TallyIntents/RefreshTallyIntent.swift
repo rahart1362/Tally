@@ -13,8 +13,11 @@ import AppIntents
 /// paths"). This intent exists so the shortcut and Siri phrase are in place
 /// and testable now; `perform()` gets a real body in the sync work package.
 public struct RefreshTallyIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Refresh Tally"
-    public static var description = IntentDescription(
+    // `let`, not `var`: the compiler flags a nonisolated `static var` as
+    // unsafe shared mutable state under strict concurrency checking, even
+    // though `AppIntent`'s requirements are get-only.
+    public static let title: LocalizedStringResource = "Refresh Tally"
+    public static let description = IntentDescription(
         "Refreshes Tally's saved Canvas data. Not yet wired to a live refresh."
     )
 
