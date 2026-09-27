@@ -1,0 +1,109 @@
+import Foundation
+import TallyCanvasAPI
+import TallyDomain
+import TallyTestSupport
+
+/// ASC-14 "Explore with Sample Data": errors this module raises itself, as opposed to whatever
+/// `CanvasGateway`/`RefreshFailure` reports once the replay is running.
+nonisolated enum SampleDataError: Error {
+    case bundleResourceMissing(String)
+    case manifestMalformed
+}
+
+/// The bundled subset of `fixtures/canvas` this target ships (Package.swift: `resources:
+/// [.copy("CanvasFixtures")]`) — only the flagship persona plus the 404 fallback (implementation
+/// brief: "only the personas the sample mode needs, e.g. flagship"). `CanvasFixtures` is a single
+/// top-level directory directly under this target's `Sources/TallyFeatures/` root, deliberately:
+/// SwiftPM's `.copy(_:)` places a resource "at the top level of the resulting bundle" (Apple's
+/// package-resources documentation), so naming it one level deep here removes any ambiguity about
+/// whether an intermediate path prefix would survive into the bundle. Resolves through
+/// `Bundle.module`, never `Bundle.main`: `TallyFeatures` is a library target, and `Bundle.module`
+/// is the one path that is correct both hosted inside `Tally.app` (TallyAppTests) and inside a
+/// plain SwiftPM test run, whereas `Fixtures.root()` (`TallyTestSupport`, keyed off `#filePath`)
+/// resolves a source-tree path that does not exist on a device or in the shipped app.
+nonisolated enum SampleDataFixtureBundle {
+    static let root = "CanvasFixtures"
+
+    /// Trimmed `manifest.json` shape (see `CanvasFixtures/manifest.json`'s own `$comment` for
+    /// provenance/regeneration): just the flagship persona's routes, anchor and time zone, decoded
+    /// with the same `convertFromSnakeCase` strategy `CanvasManifest` uses so `RouteFixture`
+    /// (public, from `TallyTestSupport`) decodes unchanged.
+    private nonisolated struct ManifestFile: Decodable {
+        let anchor: Date
+        let timeZone: String
+        let host: String
+        let routes: [RouteFixture]
+    }
+
+    static func resourceRoot() throws -> URL {
+        guard let url = Bundle.module.url(forResource: nil, withExtension: nil, subdirectory: root) else {
+            throw SampleDataError.bundleResourceMissing(root)
+        }
+        return url
+    }
+
+    nonisolated struct Manifest {
+        let anchor: Date
+        let timeZone: TimeZone
+        let host: String
+        let routes: [RouteFixture]
+    }
+
+    static func loadManifest() throws -> Manifest {
+        let manifestURL = try resourceRoot().appendingPathComponent("manifest.json")
+        let data = try Data(contentsOf: manifestURL)
+        // `CanvasJSON.decoder()` (TallyCanvasAPI): the same custom date parser every Canvas DTO
+        // uses, not Foundation's `.iso8601` (which the codebase avoids — see its doc comment).
+        let decoder = CanvasJSON.decoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let file = try decoder.decode(ManifestFile.self, from: data)
+        guard let timeZone = TimeZone(identifier: file.timeZone) else { throw SampleDataError.manifestMalformed }
+        return Manifest(anchor: file.anchor, timeZone: timeZone, host: file.host, routes: file.routes)
+    }
+}
+
+/// A `CanvasGateway` that never touches the network (ASC-14: "No network calls in sample mode").
+/// Composes the exact same production pipeline a live account uses — `CanvasClient` ->
+/// `LiveCanvasGateway`, DTOs and mappers included — over `TallyTestSupport.ReplayTransport`
+/// pointed at the bundled flagship fixtures, then rebases every Canvas-content date forward so
+/// due dates look current (`SnapshotDateRebaser`, per `fixtures/canvas/README.md`).
+public actor SampleDataCanvasGateway: CanvasGateway {
+    private let live: LiveCanvasGateway
+    private let anchor: Date
+    private let timeZone: TimeZone
+
+    /// - Parameter dateProvider: only for tests (`SystemDateProvider()` in production); lets a
+    ///   test pin "now" instead of racing the real clock.
+    public init(dateProvider: any DateProviding = SystemDateProvider()) throws {
+        let manifest = try SampleDataFixtureBundle.loadManifest()
+        let transport = ReplayTransport(routes: manifest.routes, root: try SampleDataFixtureBundle.resourceRoot())
+        let accountKey = AccountKey("sample-flagship")
+        // A credential that never expires: `ReplayTransport` never inspects the bearer token, and
+        // there is no real Canvas account to refresh against, so a `TokenRefreshing` that always
+        // fails is the honest choice (it must never be called).
+        let credential = CanvasCredential(host: manifest.host, userID: "sample", accessToken: "sample-mode",
+                                          refreshToken: "unused", accessTokenExpiresAt: .distantFuture)
+        let tokens = TokenCoordinator(initial: credential, store: InMemoryCredentialStore(credential),
+                                     refresher: NeverRefresh(), clock: dateProvider)
+        let client = CanvasClient(host: manifest.host, transport: transport, tokens: tokens)
+        live = LiveCanvasGateway(host: manifest.host, accountKey: accountKey, client: client)
+        anchor = manifest.anchor
+        timeZone = manifest.timeZone
+    }
+
+    public func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
+        // `previous` is intentionally not forwarded: sample mode has no optional-section carry-
+        // forward story of its own (every flagship section is present in every replay), and
+        // reusing a caller's real-account `previous` here would be a category error.
+        let fetched = try await live.fetchSnapshot(previous: nil, now: now)
+        return SnapshotDateRebaser.rebase(fetched, anchor: anchor, now: now, timeZone: timeZone)
+    }
+}
+
+/// Never called (see `SampleDataCanvasGateway.init`'s comment); exists only because
+/// `TokenCoordinator` requires a `TokenRefreshing`.
+private nonisolated struct NeverRefresh: TokenRefreshing {
+    func refresh(_ credential: CanvasCredential) async throws -> CanvasCredential {
+        throw AuthError.reauthRequired
+    }
+}
