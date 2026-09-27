@@ -121,11 +121,16 @@ public nonisolated enum DashboardBuilder {
     /// grade alerts on the first snapshot").
     public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date) -> DashboardProjection {
         let coursesByID = Dictionary(uniqueKeysWithValues: snapshot.courses.map { ($0.id, $0) })
+        // PERF-03: computed once and shared by `nextUp`/`needsAttention` below, which used to
+        // each rebuild this (a `flatMap` over every course's every assignment group) from
+        // scratch. Same set, same order (both only ever iterated it, never relied on rebuilding
+        // it twice for any reason) -- a pure hoist, not a behavior change.
+        let items = openAssignments(in: snapshot, coursesByID: coursesByID)
 
         return DashboardProjection(
             hero: hero(courses: snapshot.courses),
-            nextUp: nextUp(snapshot: snapshot, coursesByID: coursesByID, now: now),
-            needsAttention: needsAttention(snapshot: snapshot, coursesByID: coursesByID, now: now),
+            nextUp: nextUp(items: items, snapshot: snapshot, now: now),
+            needsAttention: needsAttention(items: items, snapshot: snapshot, now: now),
             dueSoon: dueSoon(planner: snapshot.planner, coursesByID: coursesByID, now: now),
             weekAhead: weekAhead(planner: snapshot.planner, now: now),
             changeDigestSummary: changeDigestSummary(digest: digest, asOf: digestAsOf))
@@ -157,13 +162,13 @@ public nonisolated enum DashboardBuilder {
     }
 
     private static func nextUp(
-        snapshot: CanvasSnapshot, coursesByID: [CanvasID<Course>: Course], now: Date
+        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment)], snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: String] = [:]
         let courseOrder = Dictionary(uniqueKeysWithValues: snapshot.courses.enumerated().map { ($1.id, $0) })
 
-        for (course, groups, assignment) in openAssignments(in: snapshot, coursesByID: coursesByID) {
+        for (course, groups, assignment) in items {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
             let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
@@ -200,12 +205,12 @@ public nonisolated enum DashboardBuilder {
     // MARK: - Needs attention (§2)
 
     private static func needsAttention(
-        snapshot: CanvasSnapshot, coursesByID: [CanvasID<Course>: Course], now: Date
+        items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment)], snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.AttentionItem] {
         var alerts: [(Alert, String, String?)] = []
         var loadItems: [AlertEngine.LoadItem] = []
 
-        for (course, groups, assignment) in openAssignments(in: snapshot, coursesByID: coursesByID) {
+        for (course, groups, assignment) in items {
             if let missing = AlertEngine.missingAlert(assignment: assignment, now: now) {
                 alerts.append(rendered(missing, assignment: assignment, course: course))
             } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,

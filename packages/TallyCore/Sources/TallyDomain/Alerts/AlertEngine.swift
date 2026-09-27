@@ -144,19 +144,39 @@ public enum AlertEngine {
     /// maximal-count window without a continuous scan. Adjacent qualifying
     /// windows are merged into one alert (the first one found) so a single
     /// busy stretch doesn't produce a run of near-duplicate alerts.
+    ///
+    /// PERF-03: `windowItems` used to be `inHorizon.filter { ... }` recomputed from scratch for
+    /// every candidate start — O(n) work repeated up to n times, so O(n^2) overall. Measured via
+    /// `TallyPerfTests.ScalingGateTests`: 10x the courses cost ~19.4x the time in
+    /// `DashboardBuilder.build` (budget 12x) before this fix, tracing back to this function (it
+    /// is `needsAttention`'s only per-window, rather than per-item, cost). Both `start` and
+    /// `end = start + overloadWindow` only move forward as `start` advances through the sorted
+    /// candidate list, so a two-pointer scan over `items` sorted once by `dueAt` gives the exact
+    /// same `windowItems` set in amortized O(1) per candidate instead of O(n): each item enters
+    /// and leaves the window at most once across the whole scan. Total cost drops from O(n^2) to
+    /// O(n log n) (the two sorts). Same alerts, same order, same severities — this is an
+    /// algorithmic change only, not a rule change.
     public static func overloadClusters(_ items: [LoadItem], now: Date) -> [Alert] {
         let horizonEnd = now.addingTimeInterval(InsightsConfig.overloadHorizon.timeInterval)
         let inHorizon = items.filter { $0.dueAt >= now && $0.dueAt <= horizonEnd }
         guard !inHorizon.isEmpty else { return [] }
 
+        let sortedByDue = inHorizon.sorted { $0.dueAt < $1.dueAt }
         let candidateStarts = Set(inHorizon.map(\.dueAt)).sorted()
         var alerts: [Alert] = []
         var lastFiredEnd: Date?
+        // Invariant, maintained across loop iterations (never reset): `sortedByDue[left..<right]`
+        // is exactly the window for whichever `start` was last processed (skipped starts don't
+        // move the pointers; the next processed `start` simply advances them further, which is
+        // still correct since `start` only increases).
+        var left = 0, right = 0
 
         for start in candidateStarts {
             if let lastFiredEnd, start < lastFiredEnd { continue }
             let end = start.addingTimeInterval(InsightsConfig.overloadWindow.timeInterval)
-            let windowItems = inHorizon.filter { $0.dueAt >= start && $0.dueAt < end }
+            while left < sortedByDue.count, sortedByDue[left].dueAt < start { left += 1 }
+            while right < sortedByDue.count, sortedByDue[right].dueAt < end { right += 1 }
+            let windowItems = sortedByDue[left..<right]
             guard !windowItems.isEmpty else { continue }
             let maxCourseWeight = Dictionary(grouping: windowItems, by: \.courseID)
                 .mapValues { $0.reduce(0.0) { $0 + $1.weight } }
