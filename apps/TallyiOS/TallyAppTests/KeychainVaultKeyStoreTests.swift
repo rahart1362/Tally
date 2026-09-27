@@ -11,8 +11,11 @@ import TallyStore
 
 /// ENC-03. Hosted Keychain round-trip tests (simulator). Every test uses a
 /// unique `bundleID` (service prefix) so runs never collide with each other
-/// or with a real vault key.
-@Suite("KeychainVaultKeyStore")
+/// or with a real vault key. `.serialized`: `KeychainCredentialStoreTests`
+/// hit a one-off flake under Swift Testing's default cross-suite
+/// concurrency (CI run 36338337384); this suite hits the same Keychain
+/// just as heavily, so it is serialized for the same reason.
+@Suite("KeychainVaultKeyStore", .serialized)
 struct KeychainVaultKeyStoreTests {
     private func makeStore(appAccessGroup: String? = nil, widgetAccessGroup: String? = nil) -> (KeychainVaultKeyStore, String) {
         let bundleID = "dev.tally-app.tally.tests.\(UUID().uuidString)"
