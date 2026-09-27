@@ -131,6 +131,16 @@ targets:
       - target: Tally
       - package: TallyAppleKit
         product: TallyPlatform
+      # TallyPlatform depends on these internally, but SwiftPM/Xcode does not
+      # re-export a target's own dependencies to *its* clients: a test file
+      # that imports TallyCanvasAPI/TallyStore directly (to build HTTPRequest
+      # fixtures, KeyScope, etc.) needs them linked into TallyAppTests too,
+      # or the compile succeeds but the link fails with "Undefined symbols"
+      # (confirmed on CI run 36332912599).
+      - package: TallyCore
+        product: TallyCanvasAPI
+      - package: TallyCore
+        product: TallyStore
 
   TallyUITests:
     type: bundle.ui-testing
