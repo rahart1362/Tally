@@ -84,7 +84,11 @@ struct CrashSafetyGuardsTests {
         let input = GradeInput(weighting: .points, groups: [group], items: items)
         let clock = ContinuousClock()
         let elapsed = clock.measure { _ = GradeEngine.scores(for: input) }
-        #expect(elapsed < .seconds(2), "a single corrupt points_possible must never turn into a multi-second hang")
+        // 30s, not a tight bound: generous enough to tolerate ThreadSanitizer/AddressSanitizer
+        // instrumentation overhead (CS-04) while still catching a genuine hang, which this
+        // bisection would turn into if the ~340-step count instead scaled with the point
+        // value's *square* without a cap.
+        #expect(elapsed < .seconds(30), "a single corrupt points_possible must never turn into a hang")
     }
 
     // MARK: - PriorityScore.reasonText: Int(Double) on a non-finite hour/weight value

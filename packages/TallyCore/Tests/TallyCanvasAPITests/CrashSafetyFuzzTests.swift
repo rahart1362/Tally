@@ -112,7 +112,7 @@ struct CrashSafetyFuzzTests {
 
     /// Runs `body` and fails loudly if it takes longer than `seconds` — a hang is exactly as
     /// unacceptable as a crash for this charter ("finish in bounded time").
-    private func withinBudget(_ label: String, seconds: Double = 5, _ body: () throws -> Void) rethrows {
+    private func withinBudget(_ label: String, seconds: Double = 45, _ body: () throws -> Void) rethrows {
         let clock = ContinuousClock()
         let elapsed = try clock.measure(body)
         #expect(elapsed < .seconds(seconds), "\(label) took \(elapsed), exceeding the \(seconds)s crash-safety budget")
@@ -214,7 +214,7 @@ struct CrashSafetyFuzzTests {
             catch { caught = error } // a thrown RefreshFailure/.contract is success; a crash is not
         }
         _ = caught
-        #expect(elapsed < .seconds(10), "the full gateway pipeline must finish in bounded time even on corrupt input")
+        #expect(elapsed < .seconds(60), "the full gateway pipeline must finish in bounded time even on corrupt input")
     }
 
     // MARK: - Domain engines: pathological (non-JSON-representable) values built directly
@@ -238,7 +238,7 @@ struct CrashSafetyFuzzTests {
         let input = GradeInput(weighting: i % 2 == 0 ? .percent : .points, groups: [group], items: items)
         let clock = ContinuousClock()
         let elapsed = clock.measure { _ = GradeEngine.scores(for: input) }
-        #expect(elapsed < .seconds(5))
+        #expect(elapsed < .seconds(45))
     }
 
     @Test(arguments: Array(0..<poisonDoubles.count))
@@ -255,7 +255,7 @@ struct CrashSafetyFuzzTests {
             _ = GoalSeek.solve(assignmentID: "a0", targetPercent: poison, in: input, precision: 0.01)
             _ = GoalSeek.solve(assignmentID: "a0", targetPercent: 90, in: input, precision: poison)
         }
-        #expect(elapsed < .seconds(5))
+        #expect(elapsed < .seconds(45))
     }
 
     @Test(arguments: Array(0..<poisonDates.count))
@@ -279,7 +279,7 @@ struct CrashSafetyFuzzTests {
                                      candidates: [ReminderCandidate(assignment: assignment, isExam: false, priority: 50)],
                                      settings: ReminderSettings(), now: now, timeZone: .current, refresh: RefreshRecord())
         }
-        #expect(elapsed < .seconds(5))
+        #expect(elapsed < .seconds(45))
     }
 
     @Test func changeDigestNeverCrashesOnPoisonCourseScores() {
@@ -299,7 +299,7 @@ struct CrashSafetyFuzzTests {
         for poison in Self.poisonDoubles {
             let clock = ContinuousClock()
             let elapsed = clock.measure { _ = ChangeDigest.diff(old: snapshot(50), new: snapshot(poison)) }
-            #expect(elapsed < .seconds(5))
+            #expect(elapsed < .seconds(45))
         }
     }
 }

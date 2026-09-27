@@ -1,15 +1,22 @@
 import Foundation
-import Synchronization
 import Testing
 import TallyTestSupport
 @testable import TallyCanvasAPI
 
-/// Counts how many operations run at once.
-private final class ConcurrencyProbe: Sendable {
-    private let state = Mutex((current: 0, peak: 0))
-    var peak: Int { state.withLock { $0.peak } }
-    func enter() { state.withLock { $0.current += 1; $0.peak = max($0.peak, $0.current) } }
-    func leave() { state.withLock { $0.current -= 1 } }
+/// Counts how many operations run at once. CS-04 (crash-safety.md): was
+/// `Synchronization.Mutex`-backed; under `--sanitize=thread` that reported a "Swift access
+/// race" on `current` despite every access already going through the mutex's `withLock`.
+/// `NSLock` (the same primitive `CanvasClientTests.RecordingRefresher` already uses) is
+/// TSan-interceptable and reports clean, so this is very likely a gap in ThreadSanitizer's
+/// interception of the still-new `Synchronization` module rather than a real race in either
+/// version — but this test's own correctness should not depend on that being true.
+private final class ConcurrencyProbe: @unchecked Sendable {
+    private var current = 0
+    private var peakValue = 0
+    private let lock = NSLock()
+    var peak: Int { lock.withLock { peakValue } }
+    func enter() { lock.withLock { current += 1; peakValue = max(peakValue, current) } }
+    func leave() { lock.withLock { current -= 1 } }
 }
 
 @Suite("RequestScheduler and backoff")

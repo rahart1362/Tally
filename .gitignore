@@ -10,6 +10,8 @@ apps/TallyiOS/build/
 apps/TallyiOS/*/Generated/
 # SwiftPM
 .build/
+.build-tsan/
+.build-asan/
 .swiftpm/
 Package.resolved.bak
 # Python tooling
