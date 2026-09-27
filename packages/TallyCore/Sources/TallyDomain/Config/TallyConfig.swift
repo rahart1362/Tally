@@ -28,6 +28,14 @@ public enum TallyConfig {
 
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)
+
+    // Change digest (WP-A07, architecture §3.4: "course-score deltas at or above a threshold")
+    /// Percentage points. A course-level score move smaller than this (e.g. a 0.01 pt
+    /// rounding change) never appears in the "What changed" digest; engineering choice,
+    /// not from a PMO ruling — the AlertEngine A6 thresholds are for a different signal
+    /// (a health alert on a *drop*, one-directional) and are not reused here, since the
+    /// digest reports any clearing move, a rise or a fall.
+    public static let courseScoreChangeThreshold: Double = 0.5
 }
 
 extension Duration {
