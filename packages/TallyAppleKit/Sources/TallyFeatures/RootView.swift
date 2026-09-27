@@ -15,8 +15,10 @@ enum WelcomeRoute: Hashable {
     case schoolNotEnabled(school: String)
     /// A chosen school is enabled: on to the sign-in hand-off (UX-WP-09).
     case signIn(host: String, clientID: String, schoolDisplayName: String)
-    /// A real `CanvasCredential` was obtained. There is no Dashboard to route
-    /// to yet (app-core team's work), so this is as far as onboarding goes.
+    /// A real `CanvasCredential` was obtained: on to the first-sync skeleton (UX-WP-10).
+    case firstSync(schoolDisplayName: String)
+    /// The skeleton's publisher reported `.finished`. There is no Dashboard to
+    /// route to yet (app-core team's work), so this is as far as onboarding goes.
     case signedIn(schoolDisplayName: String)
 }
 
@@ -84,10 +86,24 @@ public struct RootView: View {
                                 // No CredentialStore is wired in yet (SEC WP-SEC-04, a platform-
                                 // adapters work package): a real, unpersisted CanvasCredential is
                                 // handed here and intentionally goes no further than this navigation.
-                                path.append(.signedIn(schoolDisplayName: schoolDisplayName))
+                                path.append(.firstSync(schoolDisplayName: schoolDisplayName))
                             }
                         ),
                         onChooseDifferentSchool: { path.removeLast() }
+                    )
+                case .firstSync(let schoolDisplayName):
+                    FirstSyncSkeletonView(
+                        viewModel: FirstSyncViewModel(
+                            schoolDisplayName: schoolDisplayName,
+                            publisher: UnavailableFirstSyncPublisher()
+                        ),
+                        onRetry: {
+                            path.removeLast()
+                            path.append(.firstSync(schoolDisplayName: schoolDisplayName))
+                        },
+                        onFinished: {
+                            path.append(.signedIn(schoolDisplayName: schoolDisplayName))
+                        }
                     )
                 case .signedIn(let schoolDisplayName):
                     SignedInPlaceholder(schoolDisplayName: schoolDisplayName)

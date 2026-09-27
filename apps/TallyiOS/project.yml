@@ -136,6 +136,8 @@ targets:
       - package: TallyCore
         product: TallyCanvasAPI
       - package: TallyCore
+        product: TallyDomain
+      - package: TallyCore
         product: TallyTestSupport
 
   TallyUITests:
