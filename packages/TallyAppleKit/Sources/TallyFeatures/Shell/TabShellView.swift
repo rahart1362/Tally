@@ -45,12 +45,9 @@ public struct TabShellView: View {
 
             TabView {
                 Tab("Dashboard", systemImage: "house") {
-                    // TEMPORARY diagnostic: bypass DashboardView specifically, keeping the rest
-                    // of TabShellView (5 tabs, banner, TabView/Tab/NavigationStack structure)
-                    // exactly as production has it, to isolate DashboardView itself from
-                    // TabShellView's own composition.
                     NavigationStack {
-                        Text("DASHBOARD PLACEHOLDER — \(snapshot?.courses.count ?? -1) courses")
+                        DashboardView(snapshot: snapshot, digest: digest, digestAsOf: digestAsOf,
+                                     freshness: freshness, studentDisplayName: studentDisplayName, onRefresh: onRefresh)
                             .toolbar { settingsToolbarItem }
                     }
                 }

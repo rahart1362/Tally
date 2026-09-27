@@ -3,8 +3,9 @@ import TallyDesignSystem
 
 /// ASC-14 "Explore with Sample Data": the real demo mode (app-store-compliance.md §3.2 option B)
 /// — the full tab shell and Dashboard, running over the bundled flagship persona, behind a
-/// persistent SAMPLE DATA banner, with an exit back to Welcome. This is what
-/// `WelcomeRoute.sampleData` now leads to (replacing the earlier `SampleDataStub` placeholder).
+/// persistent SAMPLE DATA banner, with an exit back to Welcome. `RootView` shows this as a
+/// sibling root (a plain `Bool` switch), never a `navigationDestination` push — see that type's
+/// doc comment for why (a pushed `TabView`, which `TabShellView` is, does not reliably render).
 public struct SampleDataRootView: View {
     let onExit: () -> Void
 
@@ -31,13 +32,18 @@ public struct SampleDataRootView: View {
                 // The bundled fixture resources failed to load — a packaging bug, not a runtime
                 // condition a student can hit in a correctly-built app. Honest, not fabricated:
                 // no sample data is shown rather than silently falling back to something fake.
-                ContentUnavailableView("Sample data unavailable", systemImage: "exclamationmark.triangle",
-                                       description: Text("The bundled sample data couldn't be loaded."))
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Back", action: onExit)
+                // A plain NavigationStack here (never a TabView) so the toolbar button has
+                // somewhere to attach to, now that this view is a sibling root rather than a
+                // NavigationStack-pushed destination.
+                NavigationStack {
+                    ContentUnavailableView("Sample data unavailable", systemImage: "exclamationmark.triangle",
+                                           description: Text("The bundled sample data couldn't be loaded."))
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Back", action: onExit)
+                            }
                         }
-                    }
+                }
             } else {
                 ProgressView()
                     .task { load() }
