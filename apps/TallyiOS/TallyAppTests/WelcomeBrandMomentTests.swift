@@ -5,6 +5,7 @@ import Testing
 /// Linux target: `TallyFeatures` is SwiftUI/iOS-only), but the motion
 /// decision itself is a pure value type, so it's tested directly rather
 /// than through the simulator (ux-ui.md §3.2 stage 1).
+@MainActor
 @Suite("Welcome brand moment (UX-WP-07)")
 struct WelcomeBrandMomentTests {
     @Test("Reduce Motion: no scale or translate, a single short cross-fade")
