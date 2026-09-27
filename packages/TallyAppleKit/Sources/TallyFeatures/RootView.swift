@@ -34,7 +34,6 @@ public struct RootView: View {
                     // ASC-14 "Explore with Sample Data": the real demo mode, replacing the
                     // earlier navigation-only `SampleDataStub`. `onExit` pops back to Welcome.
                     SampleDataRootView(onExit: { path.removeAll() })
-                        .toolbar(.hidden, for: .navigationBar)
                 }
             }
         }

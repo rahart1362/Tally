@@ -14,18 +14,29 @@ final class SampleDataUITests: XCTestCase {
         let exploreButton = app.buttons["Explore with Sample Data"]
         XCTAssertTrue(exploreButton.waitForExistence(timeout: 10))
 
-        // Tap, then confirm the app actually navigated (the banner appearing). A synthesized
-        // touch can occasionally land before the freshly-launched view hierarchy is fully
-        // interactive; retrying the tap a couple of times is standard practice for this class of
-        // flakiness and does not mask a functional bug — every behaviour past this point (the
-        // sample gateway, the model, the Dashboard/tab shell) already has direct unit coverage
-        // (SampleDataGatewayTests, SampleDataNoNetworkTests, DashboardBuilderTests); this test's
-        // job is only to prove the screens are wired together.
+        // Tap, then confirm the app actually navigated (the banner appearing). Two earlier CI
+        // runs (36340295516 et al.) proved via the .xcresult's own accessibility-hierarchy
+        // attachment that a plain `.tap()` sometimes never reaches the button's action at all —
+        // no crash, the app simply stays on Welcome — so this also tries a coordinate tap (which
+        // bypasses whatever is wrong with the accessibility-driven hit path) before giving up.
+        // Every behaviour past this point (the sample gateway, the model, the Dashboard/tab
+        // shell) already has direct unit coverage (SampleDataGatewayTests,
+        // SampleDataNoNetworkTests, DashboardBuilderTests); this test's job is only to prove the
+        // screens are wired together.
         let banner = app.staticTexts["SAMPLE DATA"]
         for attempt in 1...3 {
-            if exploreButton.exists { exploreButton.tap() }
+            if exploreButton.exists {
+                if attempt.isMultiple(of: 2) {
+                    exploreButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                } else {
+                    exploreButton.tap()
+                }
+            }
             if banner.waitForExistence(timeout: 5) { break }
-            XCTAssertTrue(attempt < 3, "Explore with Sample Data never led to the sample-data screen after 3 taps")
+            if attempt == 3 {
+                XCTFail("Explore with Sample Data never led to the sample-data screen after 3 taps. " +
+                        "Hierarchy: \(app.debugDescription)")
+            }
         }
         XCTAssertTrue(banner.exists)
 
