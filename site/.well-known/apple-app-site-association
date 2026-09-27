@@ -1,0 +1,15 @@
+{
+  "webcredentials": {
+    "apps": ["__TEAM_ID__.dev.tally-app.tally"]
+  },
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["__TEAM_ID__.dev.tally-app.tally"],
+        "components": [
+          { "/": "/oauth/callback", "comment": "Canvas sign-in redirect (ADR 0001)" }
+        ]
+      }
+    ]
+  }
+}

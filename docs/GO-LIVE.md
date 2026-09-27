@@ -33,7 +33,7 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
 - **Remaining steps:**
   1. ~~Register the domain.~~ Done (tally-app.dev).
   2. Set the Team ID above (after enrolling, GTM-01).
-  3. Publish the privacy policy, the support page and `/.well-known/apple-app-site-association` on the domain. These are static files; any static host works. The lowest-effort option is **GitHub Pages** with a custom domain (free, automatic HTTPS). `.dev` domains are HTTPS-only by design. Add a `.nojekyll` file so `/.well-known/` is served, and confirm the AASA content type when setting it up. Also set up a support address such as `support@tally-app.dev` (most registrars offer free e-mail forwarding).
+  3. Publish the privacy policy, the support page and `/.well-known/apple-app-site-association` on the domain. **Drafts are ready in `site/`** (GitHub Pages layout: `CNAME`, `.nojekyll`, `/privacy/`, `/support/`, `/oauth/callback/` fallback, AASA with `webcredentials` + `applinks` for `/oauth/callback`). Fill `__TEAM_ID__`, `__SUPPORT_EMAIL__` and `__EFFECTIVE_DATE__`; the scanner lists them. These are static files; any static host works. The lowest-effort option is **GitHub Pages** with a custom domain (free, automatic HTTPS). `.dev` domains are HTTPS-only by design. Add a `.nojekyll` file so `/.well-known/` is served, and confirm the AASA content type when setting it up. Also set up a support address such as `support@tally-app.dev` (most registrars offer free e-mail forwarding).
   4. Register the bundle ID and App Group in the Apple Developer portal.
   5. Run the script. **Done when it prints `No go-live placeholders remain.`**
   6. Docs are not scanned. Also fill the `[[...]]` fields in `docs/go-to-market/*.md` (`grep -rn '\[\[' docs/go-to-market`).
@@ -44,6 +44,7 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
   - (2) FERPA posture for a student-directed app;
   - (3) trademark clearance for the name "Tally" (other App Store apps use it);
   - (4) nominative use of "Canvas"/"Instructure" in metadata and the non-affiliation disclaimer, plus review of the privacy-policy text.
+- **Draft for review:** `site/privacy/index.html`, marked `DRAFT-PENDING-LEGAL-REVIEW` (the scanner blocks release until the marker is removed after sign-off).
 - **Refs:** `docs/pmo/reviews/app-store-compliance.md` D3, D7, R-sections
 
 ### GL-04 — App Review sign-in access · `OPEN`

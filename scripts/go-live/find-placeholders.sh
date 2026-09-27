@@ -22,7 +22,8 @@ excludes=(
 
 # label | extended regex
 checks=(
-  "Tagged placeholder (set the real value)|GO-LIVE-PLACEHOLDER"
+  "Tagged placeholder (set the real value)|GO-LIVE-PLACEHOLDER|__TEAM_ID__|__SUPPORT_EMAIL__|__EFFECTIVE_DATE__"
+  "Legal draft not yet reviewed (GL-03)|DRAFT-PENDING-LEGAL-REVIEW"
   "Placeholder domain / bundle prefix|tally\.example\.com|com\.example([^A-Za-z0-9]|$)"
   "Legacy hard-coded identifier (replace with a value derived from the bundle ID)|com\.tally|callbackURLScheme: \"tally\""
 )
