@@ -777,12 +777,12 @@ function famPaywall(){
     '<div style="text-align:left;margin:12px 4px">'+
       [["i-chart","Live, read-only view of courses, grades and due dates"],["i-bell","Alerts for missing work and new grades"],["i-person","Switch between your linked students"],["i-shield","Private: their data stays on this iPhone"]]
       .map(function(x){return '<div class="chk" style="font-size:.84em">'+ic(x[0])+'<span>'+x[1]+'</span></div>';}).join("")+'</div>'+
-    '<div class="price">$4.99/year</div><div class="sub" style="font-size:.8em;color:var(--t2)">per parent · covers all your linked students*</div>'+
+    '<div class="price">$4.99/year</div><div class="sub" style="font-size:.8em;color:var(--t2)">per parent · covers all your linked students</div>'+
     '<p class="foot" style="margin:10px 0 12px;font-size:.8em;color:var(--t1)">1 month free, then $4.99/year. Renews automatically; cancel anytime in Settings.</p>'+
     '<button class="cta" data-fact="trial">Start Free Month</button>'+
     '<div style="display:flex;justify-content:center;gap:18px;margin-top:8px"><span class="linkish" role="button" data-fact="restore">Restore Purchases</span><span class="linkish" role="button" data-fact="redeem">Redeem Code</span></div>'+
     '<div class="legal" style="margin-top:10px"><u>Terms of Use</u> · <u>Privacy Policy</u></div>'+
-    '<div class="legal" style="margin-top:6px">Shown once, after Maya’s first sync. *Coverage of all linked students is a PMO assumption, pending owner confirmation.</div></div></div>';
+    '<div class="legal" style="margin-top:6px">Shown once, after Maya’s first sync.</div></div></div>';
 }
 function famLinked(){
   var dlg="";
@@ -851,7 +851,7 @@ function famNotes(){
     report:{t:"School without observer accounts · free summary report",see:["The school message replaces Invite. <b>Send an update</b> offers Weekly/Monthly and Text/PDF, with <b>Include grades off by default</b>.","A live preview of the exact text, then Share… (share sheet) or Mail… (compose)."],
       rules:["It’s free and needs no hosting or parent account (PRD §11.9). Same pattern as R18.","The student sees exactly what will be sent before sending."]},
     paywall:{t:"Parent · Tally Parent paywall",see:["Shown <b>once, after the first successful observer sync</b> (Canvas-access gating, §11.4 and §11.9).","<b>$4.99/year is the most prominent price.</b> 1-month free trial, then $4.99/year. Restore Purchases, Redeem Code, Terms and Privacy."],
-      rules:["StoreKit 2 on the device; its own subscription group; Family Sharing off.","“Covers all linked students” is a PMO assumption, marked as such."]}
+      rules:["StoreKit 2 on the device; its own subscription group; Family Sharing off.","One plan per parent covers all linked students (owner-confirmed 2026-09-27)."]}
   }[S.famVariant];
   return {t:"10 · Family linking (concept): "+m.t.split(" · ")[1], see:m.see, rules:m.rules.concat(common)};
 }

@@ -205,7 +205,7 @@ Optional, user-consented, device-side only:
 
 ### 11.9 Parent plan (owner decision, 2026-09-27)
 - **"Tally Parent": US$4.99 per parent per year**, an auto-renewable annual subscription through Apple In-App Purchase. It is its own subscription group, so a person can hold both a student plan and a parent plan, and Family Sharing is off.
-- One parent plan covers all of that parent's linked students. *(PMO assumption; the owner may veto.)*
+- One parent plan covers **all** of that parent's linked students (confirmed by the owner, 2026-09-27).
 - It unlocks the parent (observer) role: a live, read-only view of linked students' courses, grades, due dates and alerts, with the header student switcher.
 - The same Canvas-access gating as §11.4 applies: purchase is offered only after the parent's observer account has synced successfully.
 - **Free parent option:** the student can share a weekly or monthly summary report (PDF or text) through the share sheet or Mail compose, with no hosting and no parent account. Automatic SMS/e-mail updates to parents come later (backlog BL-14).
