@@ -1,4 +1,3 @@
-import Foundation
 import SwiftUI
 import TallyDesignSystem
 
@@ -25,22 +24,15 @@ public struct RootView: View {
         NavigationStack(path: $path) {
             WelcomeView(
                 onFindSchool: { path.append(.findSchool) },
-                onExploreSampleData: {
-                    NSLog("DEBUG-NAV: onExploreSampleData tapped; path before=%@", "\(path)")
-                    path.append(.sampleData)
-                    NSLog("DEBUG-NAV: path after=%@", "\(path)")
-                }
+                onExploreSampleData: { path.append(.sampleData) }
             )
             .navigationDestination(for: WelcomeRoute.self) { route in
-                let _ = NSLog("DEBUG-NAV: navigationDestination building for route=%@", "\(route)")
                 switch route {
                 case .findSchool:
                     FindSchoolStub()
                 case .sampleData:
                     // ASC-14 "Explore with Sample Data": the real demo mode, replacing the
                     // earlier navigation-only `SampleDataStub`. `onExit` pops back to Welcome.
-                    // (SampleDataRootView's own body is temporarily simplified for diagnosis —
-                    // see that file's own TEMPORARY comment.)
                     SampleDataRootView(onExit: { path.removeAll() })
                 }
             }

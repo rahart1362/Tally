@@ -44,4 +44,21 @@ struct SampleDataGatewayTests {
         #expect(a.courses == b.courses)
         #expect(a.planner == b.planner)
     }
+
+    /// UI test evidence (runs 36348080137/36349442833) narrowed a stuck-navigation bug to
+    /// DashboardView specifically, over sample data. Every prior DashboardBuilder test
+    /// (DashboardBuilderTests) exercises the *raw, un-rebased* flagship fixture straight from
+    /// LiveCanvasGateway — never the combination this actually renders: a snapshot that has been
+    /// through SnapshotDateRebaser first. This is the one untested combination; if
+    /// DashboardBuilder.build (or anything it touches) has an issue that only surfaces against
+    /// rebased dates, this is where it would show up, far more cheaply than another UI-test run.
+    @Test("DashboardBuilder.build over a REBASED sample-data snapshot doesn't throw/trap")
+    func dashboardBuilderOverRebasedSampleData() async throws {
+        let now = Date()
+        let gateway = try SampleDataCanvasGateway()
+        let snapshot = try await gateway.fetchSnapshot(previous: nil, now: now)
+        let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: now)
+        #expect(state.hero.courseCount == 5)
+        #expect(state.weekAhead.count == 7)
+    }
 }

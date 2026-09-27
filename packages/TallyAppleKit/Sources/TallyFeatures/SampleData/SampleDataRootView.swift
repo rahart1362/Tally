@@ -1,4 +1,3 @@
-import Foundation
 import SwiftUI
 import TallyDesignSystem
 
@@ -17,27 +16,16 @@ public struct SampleDataRootView: View {
     }
 
     public var body: some View {
-        let _ = NSLog("DEBUG-NAV: SampleDataRootView.body evaluated; model=%@, loadError=%@",
-                      "\(model != nil)", "\(loadError != nil)")
-        return Group {
+        Group {
             if let model {
-                // TEMPORARY diagnostic: the previous step (a bare Text after model loads, no
-                // TabShellView at all) reached the screen and stayed there — so the data layer is
-                // fully cleared. This step renders DashboardView directly (no TabView/Tab
-                // wrapping, no 5-tab NavigationStack construction) to isolate DashboardView's own
-                // rendering from TabShellView's TabView/Tab composition.
-                NavigationStack {
-                    DashboardView(
-                        snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
-                        freshness: model.freshness, studentDisplayName: model.studentDisplayName,
-                        onRefresh: { await model.refresh() }
-                    )
-                }
+                TabShellView(
+                    snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
+                    freshness: model.freshness, studentDisplayName: model.studentDisplayName,
+                    banner: AnyView(SampleDataBanner(onExit: onExit)),
+                    onRefresh: { await model.refresh() }
+                )
                 .task {
-                    NSLog("DEBUG-NAV: model branch .task starting refresh")
                     if model.snapshot == nil { await model.refresh() }
-                    NSLog("DEBUG-NAV: model branch .task finished refresh; courses=%d",
-                          model.snapshot?.courses.count ?? -1)
                 }
             } else if loadError != nil {
                 // The bundled fixture resources failed to load — a packaging bug, not a runtime
@@ -52,12 +40,7 @@ public struct SampleDataRootView: View {
                     }
             } else {
                 ProgressView()
-                    .task {
-                        NSLog("DEBUG-NAV: ProgressView.task firing load()")
-                        load()
-                        NSLog("DEBUG-NAV: load() returned; model=%@, loadError=%@",
-                              "\(model != nil)", "\(String(describing: loadError))")
-                    }
+                    .task { load() }
             }
         }
     }
@@ -65,10 +48,8 @@ public struct SampleDataRootView: View {
     private func load() {
         do {
             model = try SampleDataModel.live()
-            NSLog("DEBUG-NAV: SampleDataModel.live() succeeded")
         } catch {
             loadError = error
-            NSLog("DEBUG-NAV: SampleDataModel.live() threw: %@", "\(error)")
         }
     }
 }

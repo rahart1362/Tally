@@ -13,34 +13,11 @@ final class SampleDataUITests: XCTestCase {
 
         let exploreButton = app.buttons["Explore with Sample Data"]
         XCTAssertTrue(exploreButton.waitForExistence(timeout: 10))
+        exploreButton.tap()
 
-        // Tap, then confirm the app actually navigated (the banner appearing). Two earlier CI
-        // runs (36340295516 et al.) proved via the .xcresult's own accessibility-hierarchy
-        // attachment that a plain `.tap()` sometimes never reaches the button's action at all —
-        // no crash, the app simply stays on Welcome — so this also tries a coordinate tap (which
-        // bypasses whatever is wrong with the accessibility-driven hit path) before giving up.
-        // Every behaviour past this point (the sample gateway, the model, the Dashboard/tab
-        // shell) already has direct unit coverage (SampleDataGatewayTests,
-        // SampleDataNoNetworkTests, DashboardBuilderTests); this test's job is only to prove the
-        // screens are wired together.
-        // TEMPORARY: SampleDataRootView's body is simplified for diagnosis (renders DashboardView
-        // directly, no banner) — use its hero text as the success marker for this round.
-        let banner = app.staticTexts["Average of 5 courses"]
-        for attempt in 1...3 {
-            if exploreButton.exists {
-                if attempt.isMultiple(of: 2) {
-                    exploreButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                } else {
-                    exploreButton.tap()
-                }
-            }
-            if banner.waitForExistence(timeout: 5) { break }
-            if attempt == 3 {
-                XCTFail("Explore with Sample Data never led to the sample-data screen after 3 taps. " +
-                        "Hierarchy: \(app.debugDescription)")
-            }
-        }
-        XCTAssertTrue(banner.exists)
+        // The persistent SAMPLE DATA banner (ASC-14) is visible immediately.
+        let banner = app.staticTexts["SAMPLE DATA"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
 
         // The Dashboard tab is selected by default; its hero states the flagship's course count
         // (5) — this is both "the Average-of-courses hero" and evidence the flagship's 5 courses
@@ -58,21 +35,5 @@ final class SampleDataUITests: XCTestCase {
         // Exit returns to Welcome.
         app.buttons["Exit"].tap()
         XCTAssertTrue(app.buttons["Explore with Sample Data"].waitForExistence(timeout: 10))
-    }
-
-    /// TEMPORARY diagnostic (to be removed): does tapping the *other* Welcome button
-    /// ("Find My School", a different PrimitiveButtonStyle/.tallyPrimary) navigate correctly?
-    /// If this also fails to reach FindSchoolStub's content, the bug is environment- or
-    /// framework-wide (any Welcome button tap), not specific to SampleDataRootView or
-    /// TallySecondaryButtonStyle.
-    func testDiagnosticFindMySchoolNavigates() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let findButton = app.buttons["Find My School"]
-        XCTAssertTrue(findButton.waitForExistence(timeout: 10))
-        findButton.tap()
-        let stubText = app.staticTexts["School search lands in a later milestone."]
-        XCTAssertTrue(stubText.waitForExistence(timeout: 10),
-                     "Find My School never led to FindSchoolStub either. Hierarchy: \(app.debugDescription)")
     }
 }
