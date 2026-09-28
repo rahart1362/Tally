@@ -251,6 +251,9 @@ jobs:
             IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
+        # The report-only floor runs below run even after a red test above, so a failure there
+        # never hides the floor's own result (run 36378109668 skipped them).
+        if: ${{ !cancelled() }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -259,7 +262,7 @@ jobs:
       # fixed in 26.4), so the hosted tests also run on the lowest 26.x here.
       # Report-only until its first green runs (PMO), then it becomes required.
       - name: TallyAppTests on the deployment-floor runtime (report-only for now)
-        if: steps.floor.outputs.runtime != steps.sim.outputs.runtime
+        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
         continue-on-error: true
         run: |
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
@@ -270,7 +273,7 @@ jobs:
       # ("Test crashed with signal abrt while preparing to run tests", run 36374124903). This
       # second report-only floor run skips the one XCTest class, to tell whether it is the trigger.
       - name: TallyAppTests on the deployment floor, without SampleLoadPerformanceTests (diagnosis)
-        if: steps.floor.outputs.runtime != steps.sim.outputs.runtime
+        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
         continue-on-error: true
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \

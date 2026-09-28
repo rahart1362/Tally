@@ -45,12 +45,22 @@ class TallyUITestCase: XCTestCase {
         _ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 10,
         file: StaticString = #filePath, line: UInt = #line
     ) {
+        waitUntilHittable(element, in: app, timeout: timeout, file: file, line: line)
+        element.tap()
+    }
+
+    /// Waits up to `timeout` for `element` to exist and become hittable, and asserts it did. A
+    /// test that times what a tap starts calls this first, then reads the clock, then taps.
+    @MainActor
+    func waitUntilHittable(
+        _ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 10,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout),
                       "\(element) never appeared. Hierarchy: \(app.debugDescription)", file: file, line: line)
         let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: element)
         XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: timeout), .completed,
                        "\(element) exists but is not hittable. Hierarchy: \(app.debugDescription)",
                        file: file, line: line)
-        element.tap()
     }
 }

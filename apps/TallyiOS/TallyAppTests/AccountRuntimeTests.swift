@@ -26,7 +26,44 @@ actor CountingGateway: CanvasGateway {
     }
 }
 
+/// A `CanvasGateway` whose first fetch lands at once and every later one after `latency`. It
+/// counts fetches, and the fetches that were cancelled before they landed.
+actor SlowAfterFirstFetchGateway: CanvasGateway {
+    private let snapshot: CanvasSnapshot
+    private let latency: Duration
+    private(set) var fetches = 0
+    private(set) var cancelled = 0
+
+    init(snapshot: CanvasSnapshot, latency: Duration) {
+        self.snapshot = snapshot
+        self.latency = latency
+    }
+
+    func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
+        fetches += 1
+        guard fetches > 1 else { return snapshot }
+        do {
+            try await Task.sleep(for: latency)
+        } catch {
+            cancelled += 1
+            throw error
+        }
+        return snapshot
+    }
+}
+
 enum AccountTestSupport {
+    /// Polls an async `condition` every 10 ms for up to `timeout`.
+    @MainActor
+    static func eventually(timeout: Duration = .seconds(5), _ condition: () async -> Bool) async throws -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !(await condition()) {
+            guard ContinuousClock.now < deadline else { return false }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return true
+    }
+
     /// A real `RefreshCoordinator` over `gateway`, committing to a temporary vault-sealed store.
     static func coordinator(gateway: any CanvasGateway, account: String = "account-runtime-test") throws -> RefreshCoordinator {
         let accountKey = AccountKey(account)
@@ -121,6 +158,44 @@ struct AccountHomeSourceTests {
 
         await runtime.end() // sign-out: .noCache, then every stream finishes
         #expect(try await HomeTestSupport.waitUntil { model.freshness == .noCache })
+    }
+
+    /// Plan 06 row 7 (SH-2): once every caller waiting on `RefreshCoordinator.run` is cancelled,
+    /// the coordinator cancels the fetch and discards its result, and automatic refreshes then stay
+    /// throttled for 5 minutes. So `.refreshable`'s task must never be the run's only caller: the
+    /// run belongs to `HomeModel`, and cancelling the pull only stops the waiting.
+    @Test("pull-to-refresh over the real coordinator: cancelling the view's task still commits the refresh",
+          .timeLimit(.minutes(1)))
+    func cancelledPullStillCommits() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Date())
+        // The launch fetch lands at once; the pull's fetch takes 1.5 s, far past the 1 s a
+        // cancelled pull may take to return.
+        let gateway = SlowAfterFirstFetchGateway(snapshot: snapshot, latency: .milliseconds(1_500))
+        let coordinator = try AccountTestSupport.coordinator(gateway: gateway)
+        let runtime = AccountRuntime()
+        await runtime.install(coordinator)
+        let model = HomeModel(source: AccountHomeSource(runtime: runtime))
+        await model.start() // the launch run commits generation 1
+        #expect(try await HomeTestSupport.waitUntil { model.phase == .loaded })
+        #expect(await coordinator.committedSnapshot?.generation == 1)
+
+        let pull = Task { await model.refreshUntilSettledOrDelayed(budget: .seconds(10)) }
+        #expect(try await AccountTestSupport.eventually { await gateway.fetches == 2 }, "the pull never started a fetch")
+        let cancelledAt = ContinuousClock.now
+        pull.cancel()
+        await pull.value
+        #expect(ContinuousClock.now - cancelledAt < .seconds(1), "the cancelled pull kept waiting")
+
+        #expect(try await AccountTestSupport.eventually { await coordinator.committedSnapshot?.generation == 2 },
+                "the refresh was abandoned with the view's task: nothing was committed")
+        #expect(await gateway.cancelled == 0, "the coordinator cancelled the pull's fetch")
+        #expect(try await HomeTestSupport.waitUntil {
+            if case .fresh = model.freshness { return true }
+            return false
+        }, "the Home never showed the committed refresh as fresh")
+
+        await model.end()
+        await runtime.end()
     }
 
     @Test("without an account the source reports noCache once and finishes", .timeLimit(.minutes(1)))
