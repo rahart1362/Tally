@@ -442,12 +442,13 @@ jobs:
           retention-days: 7
 
   ios-tsan:
-    name: iOS ThreadSanitizer (TallyAppTests; report-only until O12 is fixed)
+    name: iOS ThreadSanitizer (TallyAppTests)
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 60
-    # Plan 06 A7: required once it is first green (PMO).
-    continue-on-error: true
+    # Plan 06 A7 and the PMO's O1 ruling: required once O12 was fixed (92b92f9, M2-C2) and the job
+    # was green in two full runs (36457770542, 36488159412). Branch protection must require the
+    # new name.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
