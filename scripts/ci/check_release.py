@@ -486,8 +486,8 @@ FLOWS = (
     Flow("REL.flow.01-first-login", "First login: OAuth sign-in, then the Dashboard", (), "", "M5",
          "M5: ASC-11's mock OAuth/Canvas server was deferred to M5 (plan 07 §1); M2-C1 builds the replay-backed first sync"),
     Flow("REL.flow.02-launch-with-cache", "Launch with a valid cache paints it before the network", (), "", "M2",
-         "M2-C1 (plan 06 step 8, the M2 exit's UI test, plan 07 §3 item 1): not on this commit; map its test here "
-         "when it merges"),
+         "M2-C1 (plan 06 step 8; plan 07 §3 item 1): LaunchFromCacheUITests on m2/lifecycle, not merged at this "
+         "commit; map it here (and run it) when it merges"),
     Flow("REL.flow.03-launch-no-cache", "Launch with no cache shows Welcome",
          ("TallyLaunchUITests/testAppLaunchesAndRootViewExists",), "Release", "M2", ""),
     Flow("REL.flow.04-refresh-under-10s", "A refresh under 10 s updates in place", (), "", "M5",
