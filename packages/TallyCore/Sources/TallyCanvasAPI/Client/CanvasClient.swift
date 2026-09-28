@@ -10,6 +10,13 @@ public actor CanvasClient {
     public static let acceptHeader = "application/json+canvas-string-ids"
     public static let userAgent = "Tally/1.0"
 
+    /// R-1 (resilience.md): the most times one request is retried while Canvas rate-limits it (429,
+    /// or 403 "Rate Limit Exceeded"), so a persistent rate limit costs at most `1 +
+    /// maxRateLimitRetries` requests per call. Canvas's API policy expects clients to back off, and
+    /// hammering can get an institution's developer key throttled for every user of it. Each retry
+    /// also has to fit in the request's budget (`fetchPage`).
+    public static let maxRateLimitRetries = 4
+
     private let host: String
     private let allowedHosts: Set<String>
     private let transport: any HTTPTransport
@@ -17,13 +24,25 @@ public actor CanvasClient {
     private let scheduler: RequestScheduler
     private let backoff: BackoffPolicy
     private var rng: any RandomNumberGenerator
+    /// R-1: monotonic time since this client was made, from the injected `Clock`. Budgets are
+    /// measured on it.
+    private let elapsed: @Sendable () -> Duration
+    /// R-1: every backoff wait goes through the same `Clock`, so a test clock can skip it.
+    private let sleep: @Sendable (Duration) async throws -> Void
+    /// R-1: "now" for an HTTP-date `Retry-After` on a response without a `Date` header.
+    private let wallClock: any DateProviding
 
     /// - Parameters:
     ///   - allowedHosts: hosts a bearer token may be attached to (this account's own host
     ///     plus any redirected-to vanity domain from login). Defaults to just `host`.
-    public init(host: String, allowedHosts: Set<String>? = nil, transport: any HTTPTransport, tokens: TokenCoordinator,
-               scheduler: RequestScheduler = RequestScheduler(), backoff: BackoffPolicy = BackoffPolicy(),
-               rng: any RandomNumberGenerator = SystemRandomNumberGenerator()) {
+    ///   - clock: measures each request's budget and runs its backoff waits (R-1). Tests pass a
+    ///     virtual clock (`TallyTestSupport.VirtualClock`).
+    ///   - wallClock: reads an HTTP-date `Retry-After` when the response has no `Date` header.
+    public init<C: Clock>(host: String, allowedHosts: Set<String>? = nil, transport: any HTTPTransport, tokens: TokenCoordinator,
+                          scheduler: RequestScheduler = RequestScheduler(), backoff: BackoffPolicy = BackoffPolicy(),
+                          rng: any RandomNumberGenerator = SystemRandomNumberGenerator(),
+                          clock: C = ContinuousClock(), wallClock: any DateProviding = SystemDateProvider())
+        where C.Duration == Duration {
         self.host = host
         self.allowedHosts = allowedHosts ?? [host]
         self.transport = transport
@@ -31,6 +50,10 @@ public actor CanvasClient {
         self.scheduler = scheduler
         self.backoff = backoff
         self.rng = rng
+        let origin = clock.now
+        elapsed = { origin.duration(to: clock.now) }
+        sleep = { try await clock.sleep(for: $0) }
+        self.wallClock = wallClock
     }
 
     private static var baseHeaders: HTTPHeaders { HTTPHeaders(["Accept": acceptHeader, "User-Agent": userAgent]) }
@@ -89,6 +112,16 @@ public actor CanvasClient {
     /// scope) fails without refreshing; on 429 or a rate-limited 403 backs off within
     /// `budget`; on 5xx retries at most twice with `BackoffPolicy`.
     ///
+    /// R-1 (resilience.md): `budget` is measured from this call's start, on the injected clock. A
+    /// retry is scheduled only if its wait, plus another attempt as long as the last one took, ends
+    /// inside what is left of the budget, so the call returns within its budget unless an attempt
+    /// runs longer than the one before it. A rate limit is retried at most `maxRateLimitRetries`
+    /// times, never sooner than the response's `Retry-After` or the policy's exponential floor
+    /// (`BackoffPolicy.rateLimitDelay`). When the cap is reached, or the next retry (after a
+    /// `Retry-After` longer than the budget, say) would not fit, the call throws `.rateLimited` at
+    /// once rather than wait. A cancelled wait throws `.offline`, like every other below-HTTP
+    /// interruption, instead of sending another request.
+    ///
     /// `throwOnClientError` (added for `perform`, defaults `true` so `fetchOne`/
     /// `fetchAllPages` are unchanged): when `false`, `.insufficientScope`, `.forbidden`,
     /// `.notFound` and `.unexpected` return the raw response instead of throwing `.unknown`
@@ -98,8 +131,10 @@ public actor CanvasClient {
         var request = initialRequest
         var alreadyRefreshed = false
         var serverErrorAttempts = 0
-        var rateLimitAttempts = 0
+        var rateLimitRetries = 0
+        let deadline = elapsed() + budget
         while true {
+            let attemptStart = elapsed()
             let token: String
             do { token = try await tokens.accessToken() } catch { throw Self.authFailure(error) }
             request.headers["Authorization"] = "Bearer \(token)"
@@ -111,6 +146,10 @@ public actor CanvasClient {
                 throw .offline // every below-HTTP failure (offline, timed out, cancelled) is reported the same way
             }
 
+            // What is left of the budget for the next retry's wait, keeping back as long again as
+            // this attempt took, for the retry's own request.
+            let now = elapsed()
+            let retryBudget = deadline - now - (now - attemptStart)
             switch ResponseClassifier.classify(response) {
             case .success:
                 // CS-05: a response body past this size never reaches a mapper — this bounds
@@ -129,21 +168,31 @@ public actor CanvasClient {
             case .serverError:
                 serverErrorAttempts += 1
                 guard serverErrorAttempts <= 2,
-                      let delay = backoff.delay(attempt: serverErrorAttempts - 1, remainingBudget: budget, using: &rng)
+                      let delay = backoff.delay(attempt: serverErrorAttempts - 1, remainingBudget: retryBudget, using: &rng)
                 else { throw .server }
-                try? await Task.sleep(for: delay)
+                try await pause(for: delay)
             case .rateLimited:
-                // Bounded only by the remaining budget (architecture §3.3), not a fixed attempt count.
-                guard let delay = backoff.delay(attempt: rateLimitAttempts, remainingBudget: budget, using: &rng) else {
-                    throw .rateLimited
-                }
-                rateLimitAttempts += 1
-                try? await Task.sleep(for: delay)
+                // R-1: bounded by a retry cap and by what is left of the budget. It used to get the
+                // whole budget on every attempt, so a persistent 429 retried until cancelled
+                // (crash-safety-2.md F-6: 1,520 requests in 4 s).
+                rateLimitRetries += 1
+                guard rateLimitRetries <= Self.maxRateLimitRetries,
+                      let delay = backoff.rateLimitDelay(attempt: rateLimitRetries - 1,
+                                                         retryAfter: RetryAfter.delay(in: response, now: wallClock.now()),
+                                                         remainingBudget: retryBudget, using: &rng)
+                else { throw .rateLimited }
+                try await pause(for: delay)
             case .forbidden, .notFound, .unexpected:
                 if !throwOnClientError { return response }
                 throw .unknown
             }
         }
+    }
+
+    /// A backoff wait on the injected clock. Cancelled, it ends the request as `.offline` (the
+    /// report every below-HTTP interruption gets) rather than go on to send another request.
+    private func pause(for delay: Duration) async throws(RefreshFailure) {
+        do { try await sleep(delay) } catch { throw .offline }
     }
 
     private static func authFailure(_ error: AuthError) -> RefreshFailure {
