@@ -23,4 +23,13 @@ public enum TestTimeBudget {
     public static func seconds(_ base: Double) -> Duration {
         .milliseconds(Int64((base * scale * 1_000).rounded()))
     }
+
+    /// `base` whole minutes, times `scale` and rounded up, for Swift Testing's
+    /// `.timeLimit(.minutes(_:))` trait. That trait takes whole minutes, and its argument is
+    /// evaluated when the test plan is built, so every suite limit can scale with `scale`. Under a
+    /// sanitizer on a shared CI runner, a CPU-bound suite (`BoundedGradeInputTests`, for example) can wait
+    /// behind other heavy suites for longer than a fixed minute (run 36411999390, attempt 2).
+    public static func minutes(_ base: Int) -> Int {
+        max(base, Int((Double(base) * scale).rounded(.up)))
+    }
 }

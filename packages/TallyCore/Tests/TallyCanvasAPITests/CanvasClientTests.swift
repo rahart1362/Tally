@@ -112,8 +112,8 @@ struct CanvasClientTests {
         await transport.inject(response: try ReplayTransport.errorResponse("429-rate-limit-exceeded"), times: 2,
                                matching: { $0.url.path == "/api/v1/users/self/profile" })
         // On a VirtualClock the budget is spent only by the backoff waits, never by how fast the
-        // machine runs. On the real clock this test flaked under ThreadSanitizer on CI's 2-vCPU
-        // runner: CPU starvation used up the elapsed-time budget that R-1 (CS-08) now enforces
+        // machine runs. On the real clock this test flaked under ThreadSanitizer on CI's shared
+        // Linux runner: CPU starvation used up the elapsed-time budget that R-1 (CS-08) now enforces
         // (app-core report O7: 54.8 s against 50 s in run 36394287625).
         let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff(),
                                   rng: SeededRandom(seed: 1), clock: VirtualClock(), wallClock: TestClock())

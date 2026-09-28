@@ -27,7 +27,7 @@ import TallyTestSupport
 // (TallyTestSupport/TestTimeBudget.swift): one minute and 45 s locally and on Linux CI; 4x on
 // the macOS runner; 10x under the sanitizer targets.
 @Suite("Pipeline fuzz: every post-fetch consumer survives mutated snapshots (CS-07)", .serialized,
-       .timeLimit(.minutes(Int(TestTimeBudget.scale.rounded(.up)))))
+       .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct PipelineFuzzTests {
     static let now = Date(timeIntervalSince1970: 1_790_600_400)
     /// Per-case budget, below the suite's one-minute limit. Generous for the sanitizer lanes, which

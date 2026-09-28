@@ -10,7 +10,7 @@ import TallyTestSupport
 /// `DropRuleSelection.keptIndices` (every grade computation) and
 /// `PriorityScore.WeightContext.weight(of:)` (every Dashboard build). Both now behave exactly as
 /// for any count that already covers the whole group.
-@Suite("Drop-rule counts near Int.max never trap (CS-07)", .timeLimit(.minutes(1)))
+@Suite("Drop-rule counts near Int.max never trap (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct DropRuleOverflowTests {
     private func input(_ rules: DropRules) -> GradeInput {
         GradeInput(weighting: .points, groups: [GradeInput.Group(id: "g1", weight: 100, rules: rules)],

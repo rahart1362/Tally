@@ -13,7 +13,7 @@ import TallyTestSupport
 /// - `RefreshCoordinator` commits whatever its gateway returns. A scripted gateway (or any gateway
 ///   other than `LiveCanvasGateway`) skips the gateway's de-duplication, so the commit path itself
 ///   (`SnapshotBudget`, `ChangeDigest.diff`, `SnapshotStore.commit`) must survive repeats.
-@Suite("Repeated identifiers: reconciler and refresh coordinator never trap (CS-07)", .timeLimit(.minutes(1)))
+@Suite("Repeated identifiers: reconciler and refresh coordinator never trap (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct DuplicateIDSyncTests {
     private let now = DuplicateIDFixture.now
 
