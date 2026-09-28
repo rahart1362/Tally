@@ -15,17 +15,20 @@ import TallyDomain
 /// main run loop has not serviced events for that long: Apple's definition of a hang (tools report
 /// from 250 ms, `TallyConfig.mainThreadHangThreshold`).
 ///
-/// **Phases.** While the app is launching, the threshold is `TallyConfig.launchHangThreshold`.
-/// Launch ends once the first root view's `.task` has run (`firstRootTaskDidRun()`) and the main
-/// thread has then stayed responsive for `TallyConfig.launchSettleWindow`. CI run 36367196647
-/// showed why a fixed "until the first `.task`" grace is not enough: in Debug UI tests the first
-/// render's type resolution and XCUITest attaching its accessibility client stalled the main
-/// thread past 250 ms up to 3.9 s after launch, after that first `.task`, and never in Tally's own
-/// logic. From then on the threshold is `mainThreadHangThreshold`.
+/// **Phases.** The app is *launching* until the first root view's `.task` has run
+/// (`firstRootTaskDidRun()`) and the main thread has then stayed responsive for
+/// `TallyConfig.launchSettleWindow`; after that it is *interactive*. A launch-phase stall is a
+/// hang past `TallyConfig.launchHangThreshold` and is only ever logged: CI measured Debug launches
+/// on the simulator stalling the main thread for 1.0-1.65 s (run 36368473854), and up to 3.9 s
+/// after launch in first-render type resolution and XCUITest's accessibility attach, after the
+/// first `.task` (run 36367196647), never in Tally's own logic. Launch speed has its own budget
+/// and metric (`warmStartBudget`, perf-app-runtime.md §7 step 8). An interactive stall is a hang
+/// past `mainThreadHangThreshold` (250 ms), the watchdog's real job.
 ///
 /// **Modes** come from `TALLY_MAIN_THREAD_WATCHDOG` (`Mode.parse`):
-/// - `fatal:<ms>` — UI tests (`TallyUITestCase`): a fault is logged, then `fatalError("MAIN-THREAD
-///   HANG …")` from the watchdog thread, so the crash report holds the main thread's backtrace.
+/// - `fatal:<ms>` — UI tests (`TallyUITestCase`): an interactive hang logs a fault, then
+///   `fatalError("MAIN-THREAD HANG …")` from the watchdog thread, so the crash report holds the
+///   main thread's backtrace.
 /// - `report:<ms>` — the DEBUG default: a fault and a signpost event.
 /// - `off`, or any value when a debugger is attached (a paused debugger is not a hang).
 ///
@@ -67,6 +70,12 @@ public final class MainThreadWatchdog: Sendable {
         public let phase: Phase
         /// When the stall was observed, measured from `start()`.
         public let sinceStart: Duration
+
+        public init(duration: Duration, phase: Phase, sinceStart: Duration) {
+            self.duration = duration
+            self.phase = phase
+            self.sinceStart = sinceStart
+        }
     }
 
     public enum Event: Equatable, Sendable {
@@ -84,27 +93,32 @@ public final class MainThreadWatchdog: Sendable {
         switch mode {
         case .off:
             return nil
-        case .fatal(let threshold):
+        case .fatal(let threshold), .report(let threshold):
+            let modeName = if case .fatal = mode { "fatal" } else { "report" }
             return MainThreadWatchdog(threshold: threshold) { event in
-                switch event {
-                case .hang(let stall):
-                    logger.fault("main_thread_hang_fatal mode=fatal \(MainThreadWatchdog.describe(stall), privacy: .public)")
-                    fatalError("MAIN-THREAD HANG ≥ \(threshold.wholeMilliseconds) ms: \(MainThreadWatchdog.describe(stall))")
-                case .stallEnded(let stall):
-                    logger.notice("main_thread_stall mode=fatal \(MainThreadWatchdog.describe(stall), privacy: .public)")
+                let text = "mode=\(modeName) " + MainThreadWatchdog.describe(event)
+                if MainThreadWatchdog.isFatal(event, in: mode) {
+                    logger.fault("main_thread_hang_fatal \(text, privacy: .public)")
+                    fatalError("MAIN-THREAD HANG ≥ \(threshold.wholeMilliseconds) ms: \(text)")
                 }
-            }
-        case .report(let threshold):
-            return MainThreadWatchdog(threshold: threshold) { event in
                 switch event {
-                case .hang(let stall):
-                    OSSignposter(logger: logger).emitEvent("MainThreadHang", "\(MainThreadWatchdog.describe(stall), privacy: .public)")
-                case .stallEnded(let stall):
-                    logger.fault("main_thread_stall mode=report \(MainThreadWatchdog.describe(stall), privacy: .public)")
+                case .hang:
+                    logger.fault("main_thread_hang \(text, privacy: .public)")
+                    OSSignposter(logger: logger).emitEvent("MainThreadHang", "\(text, privacy: .public)")
+                case .stallEnded:
+                    logger.notice("main_thread_stall \(text, privacy: .public)")
                 }
             }
         }
     }()
+
+    /// Whether `event` crashes the process in `mode`: only an *interactive* hang in `.fatal` mode.
+    /// A launch-phase hang is logged, never fatal: a Debug launch on the CI simulator stalls the
+    /// main thread for 1.0-1.65 s (run 36368473854), and launch speed has its own metric.
+    public static func isFatal(_ event: Event, in mode: Mode) -> Bool {
+        guard case .fatal = mode, case .hang(let stall) = event else { return false }
+        return stall.phase == .interactive
+    }
 
     /// Starts the process-wide watchdog in the mode the environment asks for. Idempotent.
     public static func arm() {
@@ -118,8 +132,13 @@ public final class MainThreadWatchdog: Sendable {
     }
 
     /// `phase=interactive ms=312 since_start_ms=5120`: what the log lines and the crash carry.
-    static func describe(_ stall: Stall) -> String {
-        "phase=\(stall.phase.rawValue) ms=\(stall.duration.wholeMilliseconds) since_start_ms=\(stall.sinceStart.wholeMilliseconds)"
+    static func describe(_ event: Event) -> String {
+        let stall: Stall
+        switch event {
+        case .hang(let hang): stall = hang
+        case .stallEnded(let ended): stall = ended
+        }
+        return "phase=\(stall.phase.rawValue) ms=\(stall.duration.wholeMilliseconds) since_start_ms=\(stall.sinceStart.wholeMilliseconds)"
     }
 
     private let threshold: Duration

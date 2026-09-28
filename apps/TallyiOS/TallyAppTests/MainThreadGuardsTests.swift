@@ -28,6 +28,21 @@ struct MainThreadGuardsTests {
         #expect(Mode.parse("fatal:250", debuggerAttached: true) == .off)
     }
 
+    @Test("only an interactive hang in fatal mode crashes; launch hangs, ended stalls and report mode never do")
+    func onlyInteractiveHangsAreFatal() {
+        typealias Watchdog = MainThreadWatchdog
+        let fatal = Watchdog.Mode.fatal(TallyConfig.mainThreadHangThreshold)
+        let report = Watchdog.Mode.report(TallyConfig.mainThreadHangThreshold)
+        func stall(_ phase: Watchdog.Stall.Phase) -> Watchdog.Stall {
+            Watchdog.Stall(duration: .milliseconds(1500), phase: phase, sinceStart: .seconds(5))
+        }
+        #expect(Watchdog.isFatal(.hang(stall(.interactive)), in: fatal))
+        #expect(!Watchdog.isFatal(.hang(stall(.launch)), in: fatal))
+        #expect(!Watchdog.isFatal(.stallEnded(stall(.interactive)), in: fatal))
+        #expect(!Watchdog.isFatal(.hang(stall(.interactive)), in: report))
+        #expect(!Watchdog.isFatal(.hang(stall(.interactive)), in: .off))
+    }
+
     // MARK: - Watchdog detection
 
     /// Collects the events a watchdog sends, from its own thread.

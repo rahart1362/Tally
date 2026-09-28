@@ -39,8 +39,10 @@ public enum TallyConfig {
     /// Apple's tools start reporting a hang once the main run loop has been unresponsive for
     /// 250 ms ("Understanding hangs in your app"). The DEBUG main-thread watchdog's threshold.
     public static let mainThreadHangThreshold: Duration = .milliseconds(250)
-    /// The watchdog's threshold while the app is still launching, which covers one-time launch
-    /// work (loading, the first render) that is not an interaction hang.
+    /// While the app is still launching, the watchdog logs stalls longer than this as launch hangs
+    /// but never treats them as fatal: one-time launch work (loading, the first render) is not an
+    /// interaction hang, and a Debug launch on the CI simulator stalls for 1.0-1.65 s (CI run
+    /// 36368473854). Launch speed has its own budget, `warmStartBudget`.
     public static let launchHangThreshold: Duration = .milliseconds(1000)
     /// Launch ends, for the watchdog, once the first root view's `.task` has run and the main
     /// thread has then stayed responsive for this long. CI run 36367196647 showed launch-phase
