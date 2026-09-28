@@ -107,6 +107,12 @@ struct URLSessionTransportTests {
         await #expect(throws: TransportError.other) {
             _ = try await transport.send(HTTPRequest(url: Self.url))
         }
+        // URLSession calls `stopLoading` on the stub's own thread after it cancels the task, which
+        // can be after `send` has thrown (ios-tsan, run 36390172728): wait up to 2 s for it.
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !ChunkedStubURLProtocol.wasStopped, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         #expect(ChunkedStubURLProtocol.wasStopped, "the request was not cancelled")
         #expect(ChunkedStubURLProtocol.deliveredChunks < 40, "every chunk was loaded: the cap did not stop the stream")
     }
