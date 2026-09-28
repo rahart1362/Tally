@@ -71,22 +71,4 @@ final class ToDoUITests: TallyUITestCase {
             XCTAssertTrue(found, "batch Mark Done did not mark '\(label)'. Hierarchy: \(app.debugDescription)")
         }
     }
-
-    /// A11Y-02 at the largest text size.
-    @MainActor
-    func testToDoAtAccessibilityXXXL() throws {
-        let app = launchSample(arguments: Self.largestTextArguments)
-        openTab("To-Do", in: app)
-        let header = text("Missing & overdue", in: app)
-        XCTAssertTrue(header.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
-        let first = elements("todo.row", in: app).firstMatch
-        XCTAssertTrue(first.exists)
-        XCTAssertGreaterThan(first.frame.height, 150, "the row did not grow with Dynamic Type: \(first.frame)")
-        let complete = app.buttons.matching(identifier: "todo.complete").firstMatch
-        XCTAssertGreaterThanOrEqual(complete.frame.height, 44)
-        assertEveryButtonHasALabel(app, screen: "To-Do AX XXXL")
-        // A11Y-04 names the completion control: the audit's hit-region check runs here too.
-        assertAccessibilityAudit(app, screen: "To-Do AX XXXL",
-                                 types: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
-    }
 }

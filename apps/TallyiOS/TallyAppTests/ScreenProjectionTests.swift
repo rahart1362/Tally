@@ -264,22 +264,6 @@ struct CalendarProjectionTests {
         #expect(calendar.week.map(\.dotCount).allSatisfy { (0...3).contains($0) })
     }
 
-    @Test("the AX day pager steps through the agenda from today and stops at either end")
-    func dayPager() async throws {
-        let (_, screens) = try await ScreenFixtures.projections("flagship")
-        let calendar = screens.calendar
-        let today = try #require(calendar.day(from: nil, offset: 0))
-        #expect(today.isToday)
-        #expect(calendar.day(from: today.id, offset: 1)?.id == calendar.days.first { $0.id > today.id }?.id)
-        #expect(calendar.day(from: today.id, offset: -1)?.id == calendar.days.last { $0.id < today.id }?.id)
-        let first = try #require(calendar.days.first)
-        let last = try #require(calendar.days.last)
-        #expect(calendar.day(from: first.id, offset: -1) == nil)
-        #expect(calendar.day(from: last.id, offset: 1) == nil)
-        #expect(calendar.day(from: first.id, offset: calendar.days.count - 1)?.id == last.id)
-        #expect(CalendarProjection.empty.day(from: nil, offset: 0) == nil)
-    }
-
     @Test("R6: the student's own feed as a webcal:// link")
     func subscribeLink() async throws {
         let (_, screens) = try await ScreenFixtures.projections("flagship")
@@ -397,6 +381,31 @@ struct InsightsProjectionTests {
         #expect(screens.insights.trendInput.courses.isEmpty)
         #expect(screens.courseCards.isEmpty)
         #expect(screens.toDo.sections.isEmpty)
+    }
+}
+
+@Suite("M3-A: the what-if summary's words (UX-WP-16)")
+struct WhatIfCopyTests {
+    @Test("VoiceOver hears the projection and its change in one sentence")
+    func spoken() {
+        #expect(WhatIfCopy.spoken(projected: nil, baseline: 90.1) == "Projected grade: working it out")
+        #expect(WhatIfCopy.spoken(projected: 90.12, baseline: nil) == "Projected 90.1 percent")
+        #expect(WhatIfCopy.spoken(projected: 90.12, baseline: 90.1) == "Projected 90.1 percent, the same as your current grade")
+        #expect(WhatIfCopy.spoken(projected: 91.4, baseline: 90.1)
+                == "Projected 91.4 percent, up 1.3 points from your current 90.1 percent")
+        #expect(WhatIfCopy.spoken(projected: 86.2, baseline: 90.1)
+                == "Projected 86.2 percent, down 3.9 points from your current 90.1 percent")
+    }
+
+    @Test("the summary shows the percentage and an arrow with the change, nothing when it rounds to zero")
+    func shown() {
+        #expect(WhatIfCopy.percent(91.44) == "91.4%")
+        #expect(WhatIfCopy.percent(nil) == "\u{2026}")
+        #expect(WhatIfCopy.change(1.26) == "\u{25B2} 1.3")
+        #expect(WhatIfCopy.change(-0.4) == "\u{25BC} 0.4")
+        #expect(WhatIfCopy.change(0.04) == nil)
+        #expect(WhatIfCopy.change(nil) == nil)
+        #expect(WhatIfCopy.simulationLabel == "Simulation \u{2014} not your real grade")
     }
 }
 

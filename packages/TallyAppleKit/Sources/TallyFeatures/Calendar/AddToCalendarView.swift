@@ -19,6 +19,18 @@ struct AddToCalendarView: UIViewControllerRepresentable {
         // Creating a store and an unsaved event asks for nothing; the editor saves, if the student
         // taps Add, in its own process.
         let store = EKEventStore()
+        let controller = EKEventEditViewController()
+        controller.eventStore = store
+        controller.event = Self.event(for: draft, in: store)
+        controller.editViewDelegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ controller: EKEventEditViewController, context: Context) {}
+
+    /// The unsaved event the editor opens with: the draft's title, times, place and link. Tested
+    /// in a hosted test rather than through the system sheet.
+    static func event(for draft: CalendarEventDraft, in store: EKEventStore) -> EKEvent {
         let event = EKEvent(eventStore: store)
         event.title = draft.title
         event.startDate = draft.start
@@ -26,14 +38,8 @@ struct AddToCalendarView: UIViewControllerRepresentable {
         event.isAllDay = draft.isAllDay
         event.location = draft.location
         event.url = draft.url
-        let controller = EKEventEditViewController()
-        controller.eventStore = store
-        controller.event = event
-        controller.editViewDelegate = context.coordinator
-        return controller
+        return event
     }
-
-    func updateUIViewController(_ controller: EKEventEditViewController, context: Context) {}
 
     final class Coordinator: NSObject, EKEventEditViewDelegate {
         private let onFinish: () -> Void

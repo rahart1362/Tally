@@ -54,20 +54,24 @@ private struct WhatIfSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
-            Label("Simulation — not your real grade", systemImage: "flask")
+            // One element with the words as its label: an identifier on a bare `Label` can land on
+            // its icon (run 36454544581 read the flask's label, not the words).
+            Label(WhatIfCopy.simulationLabel, systemImage: "flask")
                 .font(TallyTypography.footnote.weight(.semibold))
                 .foregroundStyle(TallyColor.textPrimary)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(WhatIfCopy.simulationLabel)
                 .accessibilityIdentifier("whatif.simulationLabel")
             HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
                 Text("Projected")
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
-                Text(Self.percent(model.projected))
+                Text(WhatIfCopy.percent(model.projected))
                     .font(.system(.title, design: .serif).bold())
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
                     .contentTransition(reduceMotion ? .identity : .numericText())
-                if let change = Self.change(model.delta) {
+                if let change = WhatIfCopy.change(model.delta) {
                     Text(change)
                         .font(TallyTypography.subheadline)
                         .foregroundStyle(TallyColor.textSecondary)
@@ -75,34 +79,13 @@ private struct WhatIfSummary: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Self.spoken(projected: model.projected, baseline: model.baseline))
+            .accessibilityLabel(WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline))
             .accessibilityIdentifier("whatif.projected")
         }
         .padding(.horizontal, TallySpacing.screenMargin)
         .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(TallyColor.bgCanvas)
-    }
-
-    static func percent(_ value: Double?) -> String {
-        value.map { $0.formatted(.number.precision(.fractionLength(1))) + "%" } ?? "…"
-    }
-
-    /// "▲ 1.3" / "▼ 0.4"; nothing when the change rounds to zero.
-    static func change(_ delta: Double?) -> String? {
-        guard let delta, abs(delta) >= 0.05 else { return nil }
-        return (delta > 0 ? "▲ " : "▼ ") + abs(delta).formatted(.number.precision(.fractionLength(1)))
-    }
-
-    static func spoken(projected: Double?, baseline: Double?) -> String {
-        guard let projected else { return "Projected grade: working it out" }
-        let value = projected.formatted(.number.precision(.fractionLength(1)))
-        guard let baseline else { return "Projected \(value) percent" }
-        let delta = projected - baseline
-        guard abs(delta) >= 0.05 else { return "Projected \(value) percent, the same as your current grade" }
-        let points = abs(delta).formatted(.number.precision(.fractionLength(1)))
-        return "Projected \(value) percent, \(delta > 0 ? "up" : "down") \(points) points from your current "
-            + "\(baseline.formatted(.number.precision(.fractionLength(1)))) percent"
     }
 }
 

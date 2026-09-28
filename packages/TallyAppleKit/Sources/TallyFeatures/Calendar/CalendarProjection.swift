@@ -71,15 +71,6 @@ public nonisolated struct CalendarProjection: Equatable, Sendable {
     public let subscribeURL: URL?
 
     public static let empty = CalendarProjection(monthTitle: "", week: [], days: [], todayID: nil, subscribeURL: nil)
-
-    /// The agenda day `offset` days from `id` (from today when `id` is nil), or nil past either end
-    /// of the agenda. The day pager that replaces the week strip at the accessibility sizes steps
-    /// through the agenda with it.
-    public func day(from id: Date?, offset: Int) -> AgendaDay? {
-        guard let anchor = id ?? todayID, let start = days.firstIndex(where: { $0.id == anchor }) else { return nil }
-        let target = start + offset
-        return days.indices.contains(target) ? days[target] : nil
-    }
 }
 
 /// Builds the Calendar tab from one snapshot (pure; unit-tested).

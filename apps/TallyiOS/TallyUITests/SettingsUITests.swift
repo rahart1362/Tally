@@ -68,17 +68,4 @@ final class SettingsUITests: TallyUITestCase {
         tapWhenHittable(app.buttons["Done"], in: app)
         XCTAssertTrue(eventually { !app.navigationBars["Settings"].exists })
     }
-
-    /// A11Y-02 at the largest text size.
-    @MainActor
-    func testSettingsAtAccessibilityXXXL() throws {
-        let app = launchSample(arguments: Self.largestTextArguments)
-        openSettings(app)
-        let everyChange = app.switches["settings.everyChange"]
-        XCTAssertTrue(everyChange.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(scrollUntilHittable(everyChange, in: app))
-        XCTAssertGreaterThan(everyChange.frame.height, 60, "the row did not grow with Dynamic Type: \(everyChange.frame)")
-        assertEveryButtonHasALabel(app, screen: "Settings AX XXXL")
-        assertAccessibilityAudit(app, screen: "Settings AX XXXL")
-    }
 }

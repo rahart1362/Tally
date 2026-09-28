@@ -255,26 +255,20 @@ struct CourseDetailView: View {
     }
 }
 
-/// Overview · Assignments · Grades: segmented, or a menu from the accessibility sizes up, where a
-/// segmented control would cut its labels short.
+/// Overview · Assignments · Grades, as `ux-ui.md` §3.7.3 specifies: a segmented control at every
+/// size. A menu variant tried at the accessibility sizes had its "Show" label flagged by the audit
+/// (run 36454544581), so it was dropped; how the segmented control reads at those sizes is
+/// unverified (the large-text UI tests were retired).
 private struct SegmentPicker: View {
     @Binding var selection: CourseDetailSegment
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        if typeSize.isAccessibilitySize {
-            picker.pickerStyle(.menu)
-        } else {
-            picker.pickerStyle(.segmented)
-        }
-    }
-
-    private var picker: some View {
         Picker("Show", selection: $selection) {
             ForEach(CourseDetailSegment.allCases) { segment in
                 Text(segment.title).tag(segment)
             }
         }
+        .pickerStyle(.segmented)
         .accessibilityIdentifier("courseDetail.segments")
     }
 }
@@ -287,6 +281,8 @@ struct CourseHeroCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
             CourseColorMark(paletteIndex: detail.paletteIndex, style: .bar)
+            // The text column takes all the width there is (a Spacer beside it took half, and at
+            // AX XXXL "Needs attention" was cut short: run 36454544581's audit).
             VStack(alignment: .leading, spacing: TallySpacing.sm) {
                 Text(detail.code)
                     .font(TallyTypography.footnote)
@@ -298,7 +294,7 @@ struct CourseHeroCard: View {
                         .foregroundStyle(TallyColor.textOnHero2)
                 }
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(TallySpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -87,7 +87,7 @@ struct CalendarScreen: View {
                         }
                     }
                     // ux-ui.md §3.7.4: the timeline only below the accessibility sizes.
-                    if !typeSize.isAccessibilitySize {
+                    if Self.offersTimeline(at: typeSize) {
                         Picker("View", selection: $mode) {
                             ForEach(Mode.allCases) { mode in
                                 Text(mode.title).tag(mode)
@@ -112,7 +112,13 @@ struct CalendarScreen: View {
     }
 
     private var showsTimeline: Bool {
-        mode == .timeline && !typeSize.isAccessibilitySize
+        mode == .timeline && Self.offersTimeline(at: typeSize)
+    }
+
+    /// UX-WP-17: the day timeline's hour grid clips text at the accessibility sizes, so it is
+    /// offered only below them (ux-ui.md §3.7.4). A hosted test pins it for every size.
+    static func offersTimeline(at size: DynamicTypeSize) -> Bool {
+        !size.isAccessibilitySize
     }
 
     private func timelineDay(_ calendar: CalendarProjection) -> AgendaDay? {

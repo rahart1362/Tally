@@ -1,12 +1,14 @@
 import Foundation
 import Testing
 
-/// M3-A's two source rules, checked on every CI run over the shipping sources (the hosted tests read
+/// M3-A's source rules, checked on every CI run over the shipping sources (the hosted tests read
 /// the repository the same way `TallyTestSupport.Fixtures` does, through `#filePath`):
 /// - UX-WP-19: no emoji in UI strings (VoiceOver reads an emoji aloud literally; ux-ui.md UX-16);
 /// - UX-WP-15: no `Int.random` anywhere in shipping code, and no randomness at all in app code (the
-///   old mockup's random grade distribution, UX-12, changed on every render).
-@Suite("M3-A: source hygiene (no emoji in UI strings, no random values)")
+///   old mockup's random grade distribution, UX-12, changed on every render);
+/// - PMO R6: no calendar or reminders access request anywhere in the app (Add to Calendar and the
+///   subscribed feed need none, so the student never sees a permission prompt for them).
+@Suite("M3-A: source hygiene (no emoji in UI strings, no random values, no calendar access requests)")
 struct ScreenSourceHygieneTests {
     /// `<repo>/apps/TallyiOS/TallyAppTests/ScreenSourceHygieneTests.swift` → `<repo>`.
     static let repository = URL(fileURLWithPath: #filePath)
@@ -78,9 +80,23 @@ struct ScreenSourceHygieneTests {
         #expect(coreHits.isEmpty, "Int.random in TallyCore:\n\(coreHits.joined(separator: "\n"))")
     }
 
+    @Test("R6: the app never asks for calendar or reminders access")
+    func noCalendarAccessRequests() throws {
+        let appFiles = try Self.appRoots.flatMap { try Self.swiftFiles(under: $0) }
+        let hits = try Self.hits(in: appFiles) { line in
+            Self.calendarAccessRequests.contains { line.contains($0) }
+        }
+        #expect(hits.isEmpty, "calendar access requested in app code:\n\(hits.joined(separator: "\n"))")
+    }
+
+    /// EventKit's access requests, old and new.
+    static let calendarAccessRequests = ["requestAccess(to:", "requestFullAccessToEvents",
+                                         "requestWriteOnlyAccessToEvents", "requestFullAccessToReminders"]
+
     @Test("the scanner itself: it sees an emoji and a random call in a planted line")
     func scannerSelfTest() {
         #expect("Text(\"Great job \u{1F525}\")".unicodeScalars.contains(where: Self.isEmoji))
         #expect(!"Text(\"12-day streak\") · ▲ 1.3 — \u{201C}What changed\u{201D}".unicodeScalars.contains(where: Self.isEmoji))
+        #expect(Self.calendarAccessRequests.contains { "try await store.requestFullAccessToEvents()".contains($0) })
     }
 }

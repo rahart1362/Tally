@@ -32,6 +32,9 @@ struct ToDoScreen: View {
                 .listStyle(.insetGrouped)
                 .environment(\.editMode, $editMode)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
+                // Select mode's bottom bar (Mark Done) takes the tab bar's place, as in Photos; with
+                // both shown, the tab bar covered Mark Done (run 36454544581).
+                .toolbarVisibility(editMode.isEditing ? .hidden : .automatic, for: .tabBar)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }

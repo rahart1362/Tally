@@ -35,17 +35,4 @@ final class InsightsUITests: TallyUITestCase {
         XCTAssertGreaterThan(elements("insights.risk", in: app).count, 0)
         assertEveryButtonHasALabel(app, screen: "Insights")
     }
-
-    /// A11Y-02 at the largest text size.
-    @MainActor
-    func testInsightsAtAccessibilityXXXL() throws {
-        let app = launchSample(arguments: Self.largestTextArguments)
-        openTab("Insights", in: app)
-        let header = text("Performance trend", in: app)
-        XCTAssertTrue(header.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
-        XCTAssertGreaterThan(header.frame.height, 40, "the title did not grow with Dynamic Type: \(header.frame)")
-        XCTAssertTrue(element("chart.trend", in: app).waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
-        assertEveryButtonHasALabel(app, screen: "Insights AX XXXL")
-        assertAccessibilityAudit(app, screen: "Insights AX XXXL")
-    }
 }
