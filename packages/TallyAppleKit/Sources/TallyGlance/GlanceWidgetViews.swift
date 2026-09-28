@@ -66,10 +66,10 @@ public struct StandingWidgetView: View {
 }
 
 /// The one grade any widget shows. PMO R10: grades are opt-in (the glance has none otherwise) and
-/// redacted while the iPhone is locked. WidgetKit applies the `.privacy` redaction reason to
-/// privacy-sensitive content when the device is locked; this view then shows a fixed "hidden"
-/// line instead of the band, the same for every band, and `.privacySensitive()` also lets
-/// WidgetKit redact it by its own rules.
+/// redacted while the iPhone is locked. Two layers: when the environment carries the `.privacy`
+/// redaction reason (WidgetKit's locked rendering), the band is not drawn at all and a fixed,
+/// readable "Hidden while locked" line takes its place, the same for every band; and the band text
+/// itself is `.privacySensitive()`, so WidgetKit's own redaction also hides it.
 struct GradeBandBadge: View {
     let band: GradeBand
     @Environment(\.redactionReasons) private var redactionReasons
@@ -84,10 +84,10 @@ struct GradeBandBadge: View {
                     .font(TallyTypography.screenTitle)
                     .minimumScaleFactor(GlanceMetrics.bandMinimumScale)
                     .lineLimit(1)
+                    .privacySensitive()
             }
         }
         .foregroundStyle(TallyColor.textOnHero)
-        .privacySensitive()
     }
 }
 
