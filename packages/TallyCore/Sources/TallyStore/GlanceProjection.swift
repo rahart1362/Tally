@@ -70,7 +70,10 @@ public enum GlanceProjectionBuilder {
     /// `includeGrades` is the caller's resolved opt-in flag (from `UserState.showGradesInGlance`);
     /// this builder never defaults it to true.
     public static func build(from snapshot: CanvasSnapshot, includeGrades: Bool) -> GlanceProjection {
-        let courseByID = Dictionary(uniqueKeysWithValues: snapshot.courses.map { ($0.id, $0) })
+        // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
+        // overlap). `Dictionary(uniqueKeysWithValues:)` trapped on that, at every commit and on
+        // every self-heal load. The first occurrence wins, as in `PriorityScore.WeightContext`.
+        let courseByID = Dictionary(snapshot.courses.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let courses = snapshot.courses.map { course in
             GlanceCourse(id: course.id, shortCode: course.courseCode, currentGrade: gradeBand(for: course, includeGrades: includeGrades))
         }
