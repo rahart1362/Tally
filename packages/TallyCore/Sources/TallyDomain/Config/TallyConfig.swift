@@ -35,6 +35,21 @@ public enum TallyConfig {
     /// while still bounding worst-case memory from a corrupt or adversarial account.
     public static let maxSnapshotItems = 20_000
 
+    // Main-thread responsiveness (perf-app-runtime.md §5, 05-perf-crash-charter.md budgets)
+    /// Apple's tools start reporting a hang once the main run loop has been unresponsive for
+    /// 250 ms ("Understanding hangs in your app"). The DEBUG main-thread watchdog's threshold.
+    public static let mainThreadHangThreshold: Duration = .milliseconds(250)
+    /// The watchdog's threshold from launch until the first root view's `.task` runs, which
+    /// covers one-time launch work (loading, the first render) that is not an interaction hang.
+    public static let launchHangThreshold: Duration = .milliseconds(1000)
+    /// The longest synchronous main-actor stretch allowed anywhere in the launch, load and render
+    /// paths (charter: "No synchronous main-actor work ≥ 50 ms"). Hosted tests hold a Debug build
+    /// to this budget and a Release build to half of it.
+    public static let mainActorStallBudget: Duration = .milliseconds(50)
+    /// The longest a dashboard projection may stay on screen without being recomputed, whatever
+    /// else changes (perf-app-runtime.md §2.3: one term of `validUntil`).
+    public static let dashboardMaxStaleness: Duration = .seconds(900)
+
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)
 

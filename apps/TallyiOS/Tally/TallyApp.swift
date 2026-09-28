@@ -15,6 +15,14 @@ import TallySync
 struct TallyApp: App {
     @State private var environment = AppEnvironment.live()
 
+    init() {
+        #if DEBUG
+        // perf-app-runtime.md §5.1: DEBUG-only main-thread hang detection, armed before the
+        // first frame. UI tests run it in `fatal:250` mode (`TallyUITestCase`).
+        MainThreadWatchdog.arm()
+        #endif
+    }
+
     var body: some Scene {
         // `.backgroundTask(_:action:)`'s closure does not inherit this
         // (MainActor) context — its whole point is to be able to run
@@ -34,7 +42,14 @@ struct TallyApp: App {
         // never here: `body` stays free of side effects.
         return WindowGroup {
             RootView(appModel: appModel, webAuthPresenter: webAuthPresenter)
-                .task { logger.log(.appLaunch) }
+                .task {
+                    logger.log(.appLaunch)
+                    #if DEBUG
+                    // The first root view's `.task`: launch is over, so the watchdog drops from
+                    // `launchHangThreshold` to `mainThreadHangThreshold`.
+                    MainThreadWatchdog.endLaunchGrace()
+                    #endif
+                }
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             logger.log(.backgroundRefreshInvoked)
