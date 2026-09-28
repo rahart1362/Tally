@@ -1,5 +1,4 @@
 import SwiftUI
-import TallyFeatures // MUTATION MW1
 import TallyGlance
 import WidgetKit
 
@@ -29,7 +28,7 @@ struct TallyNextUpWidget: Widget {
             NextUpWidgetView(entry: entry)
         }
         .configurationDisplayName("Next Up")
-        .description("The next thing due in your courses. \(String(describing: AppModel.self))") // MUTATION MW1
+        .description("The next thing due in your courses.")
         .supportedFamilies([.systemSmall])
     }
 }

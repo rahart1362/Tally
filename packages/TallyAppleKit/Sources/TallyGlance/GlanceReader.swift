@@ -1,10 +1,6 @@
 import Foundation
-import Synchronization
 import TallyDomain
 import TallyStore
-
-// MUTATION MW2: 8 MB of touched memory retained per read.
-enum MutationMW2 { static let retained = Mutex<[Data]>([]) }
 
 /// What the widget can say about the glance right now.
 public enum GlanceReadResult: Equatable, Sendable {
@@ -43,7 +39,6 @@ public struct GlanceReader: Sendable {
     }
 
     public func read() async -> GlanceReadResult {
-        MutationMW2.retained.withLock { $0.append(Data(repeating: 0xAB, count: 8_000_000)) } // MUTATION MW2
         guard let storeRoot else { return .unavailable }
         let accounts = Self.accountKeys(in: storeRoot)
         guard !accounts.isEmpty else { return .noAccount }
@@ -66,7 +61,7 @@ public struct GlanceReader: Sendable {
             case .unavailable(.retryAfterUnlock):
                 sawLocked = true
             case .unavailable(.keepAndReport):
-                continue // MUTATION MW5
+                sawUnavailable = true
             case .unavailable(.discardAndRebuild), .unavailable(.resetUserStateAndTell):
                 continue // unopenable (a purged account's key is gone): the app rebuilds or removes it
             }

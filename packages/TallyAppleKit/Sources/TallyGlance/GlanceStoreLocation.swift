@@ -51,9 +51,6 @@ public struct GlanceConfiguration: Sendable, Equatable {
 /// (architecture.md §3.2). `SnapshotStore` (`StoreLayout`) adds `accounts/<accountKey>/glance.v1.sealed`
 /// below it. The app's composition root must commit the glance under this same root.
 public enum GlanceStoreLocation {
-    // MUTATION W2: an undeclared required-reason API in the widget bundle.
-    public static var mutationW2: Bool { UserDefaults.standard.bool(forKey: "mutationW2") }
-
     public static func storeRoot(inContainer container: URL) -> URL {
         container
             .appendingPathComponent("Library", isDirectory: true)
