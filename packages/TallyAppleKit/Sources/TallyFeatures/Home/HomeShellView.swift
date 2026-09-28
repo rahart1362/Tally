@@ -46,30 +46,33 @@ public struct HomeShellView: View {
                             .toolbar { settingsToolbarItem }
                     }
                 }
+                // M3-A (E05a-e, UX-WP-14…20): each tab's root screen, over `model`'s projections.
                 Tab("Courses", systemImage: "books.vertical") {
                     NavigationStack {
-                        CoursesListView(courses: model.courses)
+                        CoursesScreen()
                             .modifier(FreshnessSubtitle())
                             .toolbar { settingsToolbarItem }
                     }
                 }
                 Tab("Calendar", systemImage: "calendar") {
                     NavigationStack {
-                        CalendarListView(events: model.events)
+                        CalendarScreen()
                             .modifier(FreshnessSubtitle())
                             .toolbar { settingsToolbarItem }
                     }
                 }
                 Tab("To-Do", systemImage: "checklist") {
                     NavigationStack {
-                        ToDoListView(items: model.toDo)
+                        ToDoScreen()
                             .modifier(FreshnessSubtitle())
                             .toolbar { settingsToolbarItem }
                     }
                 }
+                // ux-ui.md §3.4: the To-Do badge counts missing work only (HIG: critical information).
+                .badge(model.toDoScreen.missingCount)
                 Tab("Insights", systemImage: "chart.xyaxis.line") {
                     NavigationStack {
-                        InsightsPlaceholderView(courses: model.courses)
+                        InsightsScreen()
                             .modifier(FreshnessSubtitle())
                             .toolbar { settingsToolbarItem }
                     }
@@ -81,7 +84,9 @@ public struct HomeShellView: View {
         }
         .environment(model)
         .sheet(isPresented: $isSettingsPresented) {
-            SettingsPlaceholderView()
+            // M3-A (UX-WP-20): the sheet's content gets the Home model explicitly.
+            SettingsView()
+                .environment(model)
         }
         .task { await model.start() }
         .task(id: model.validUntil) { await model.reprojectWhenStale() }
@@ -113,129 +118,6 @@ public struct HomeShellView: View {
                 Image(systemName: "person.crop.circle")
             }
             .accessibilityLabel("Settings")
-        }
-    }
-}
-
-/// A neutral, data-driven empty state (implementation brief / UX-WP-05: "'Coming soon' is not
-/// acceptable in shipping; use a neutral 'No items' state driven by real data"). Full screens for
-/// Courses, Calendar, To-Do and Insights are separate M3 work packages (E05a-e,
-/// UX-WP-14…20); these are minimal, honest, real-data list views over precomputed rows.
-struct CoursesListView: View {
-    let courses: [HomeProjection.CourseRow]
-
-    var body: some View {
-        Group {
-            if courses.isEmpty {
-                ContentUnavailableView("No courses yet", systemImage: "books.vertical",
-                                       description: Text("Your courses will appear here once you're signed in."))
-            } else {
-                List(courses) { course in
-                    VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        Text(course.code).font(TallyTypography.cardTitle)
-                        Text(course.name).font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
-                        if let percent = course.percent {
-                            Text(percent.formatted(.number.precision(.fractionLength(1))) + "%")
-                                .font(TallyTypography.subheadline).foregroundStyle(TallyColor.textSecondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Courses")
-    }
-}
-
-struct CalendarListView: View {
-    let events: [HomeProjection.EventRow]
-
-    var body: some View {
-        Group {
-            if events.isEmpty {
-                ContentUnavailableView("No events yet", systemImage: "calendar",
-                                       description: Text("Your class schedule and exams will appear here."))
-            } else {
-                List(events) { event in
-                    VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        Text(event.title).font(TallyTypography.cardTitle)
-                        Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Calendar")
-    }
-}
-
-struct ToDoListView: View {
-    let items: [HomeProjection.ToDoRow]
-
-    var body: some View {
-        Group {
-            if items.isEmpty {
-                ContentUnavailableView("No items", systemImage: "checklist",
-                                       description: Text("Assignments and to-dos will appear here."))
-            } else {
-                List(items) { item in
-                    VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        Text(item.title).font(TallyTypography.cardTitle)
-                        if let due = item.dueAt {
-                            Text("Due \(due.formatted(date: .abbreviated, time: .shortened))")
-                                .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("To-Do")
-    }
-}
-
-/// UX-WP-19 (Insights, renamed from "More") is a separate M3 work package; this is the minimal,
-/// honest stand-in the tab shell needs today.
-struct InsightsPlaceholderView: View {
-    let courses: [HomeProjection.CourseRow]
-
-    var body: some View {
-        Group {
-            if courses.isEmpty {
-                ContentUnavailableView("No insights yet", systemImage: "chart.xyaxis.line",
-                                       description: Text("Trends and course health will appear here."))
-            } else {
-                List(courses) { course in
-                    HStack {
-                        Text(course.code).font(TallyTypography.cardTitle)
-                        Spacer()
-                        if let grade = course.letterGrade {
-                            Text(grade).font(TallyTypography.subheadline).foregroundStyle(TallyColor.textSecondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Insights")
-    }
-}
-
-/// UX-WP-05: "Settings is presented as a sheet from the toolbar." The full Settings `Form`
-/// (Sign Out & Erase, etc.) is UX-WP-20/M3 scope; this is the honest placeholder until then.
-struct SettingsPlaceholderView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView("Settings", systemImage: "gearshape",
-                                   description: Text("Account and notification settings will appear here."))
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
-                    }
-                }
         }
     }
 }
