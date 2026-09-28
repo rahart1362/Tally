@@ -168,6 +168,11 @@ jobs:
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Main-thread watchdog stalls during the UI tests (phase, length)
+        # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
+        # it becomes required): every stall past 250 ms, launch-phase ones included.
+        if: always()
+        run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the smallest iOS 26 iPhone simulator
         id: small
         run: python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"

@@ -15,14 +15,22 @@ import TallyDomain
 /// main run loop has not serviced events for that long: Apple's definition of a hang (tools report
 /// from 250 ms, `TallyConfig.mainThreadHangThreshold`).
 ///
-/// Modes come from `TALLY_MAIN_THREAD_WATCHDOG` (`Mode.parse`):
-/// - `fatal:<ms>` — UI tests (`TallyUITestCase`): `fatalError("MAIN-THREAD HANG …")` from the
-///   watchdog thread, so the crash report holds the main thread's live backtrace.
-/// - `report:<ms>` — the DEBUG default: an os_log fault and a signpost event.
+/// **Phases.** While the app is launching, the threshold is `TallyConfig.launchHangThreshold`.
+/// Launch ends once the first root view's `.task` has run (`firstRootTaskDidRun()`) and the main
+/// thread has then stayed responsive for `TallyConfig.launchSettleWindow`. CI run 36367196647
+/// showed why a fixed "until the first `.task`" grace is not enough: in Debug UI tests the first
+/// render's type resolution and XCUITest attaching its accessibility client stalled the main
+/// thread past 250 ms up to 3.9 s after launch, after that first `.task`, and never in Tally's own
+/// logic. From then on the threshold is `mainThreadHangThreshold`.
+///
+/// **Modes** come from `TALLY_MAIN_THREAD_WATCHDOG` (`Mode.parse`):
+/// - `fatal:<ms>` — UI tests (`TallyUITestCase`): a fault is logged, then `fatalError("MAIN-THREAD
+///   HANG …")` from the watchdog thread, so the crash report holds the main thread's backtrace.
+/// - `report:<ms>` — the DEBUG default: a fault and a signpost event.
 /// - `off`, or any value when a debugger is attached (a paused debugger is not a hang).
 ///
-/// Until `endLaunchGrace()` (the first root view's `.task`), the threshold is
-/// `TallyConfig.launchHangThreshold` instead.
+/// In every mode, each stall longer than the hang threshold is also logged when it ends, with its
+/// full length and phase (category `watchdog`); CI prints those lines after the UI tests.
 public final class MainThreadWatchdog: Sendable {
     public enum Mode: Equatable, Sendable {
         case fatal(Duration)
@@ -48,23 +56,52 @@ public final class MainThreadWatchdog: Sendable {
         }
     }
 
+    /// One main-thread stall longer than the hang threshold.
+    public struct Stall: Equatable, Sendable {
+        public enum Phase: String, Equatable, Sendable {
+            case launch, interactive
+        }
+
+        /// How long the main thread had gone without running a heartbeat (so far, for `.hang`).
+        public let duration: Duration
+        public let phase: Phase
+        /// When the stall was observed, measured from `start()`.
+        public let sinceStart: Duration
+    }
+
+    public enum Event: Equatable, Sendable {
+        /// A stall crossed its phase's threshold. Sent once per stall, while it is still going.
+        case hang(Stall)
+        /// A stall longer than the hang threshold ended; `duration` is its full length.
+        case stallEnded(Stall)
+    }
+
     /// The process-wide instance `arm()` starts, or `nil` when the mode is `.off`.
     private static let shared: MainThreadWatchdog? = {
         let mode = Mode.parse(ProcessInfo.processInfo.environment[Mode.environmentKey],
                               debuggerAttached: isDebuggerAttached())
+        let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "dev.tally-app.tally", category: "watchdog")
         switch mode {
         case .off:
             return nil
         case .fatal(let threshold):
-            return MainThreadWatchdog(threshold: threshold) { stalled in
-                fatalError("MAIN-THREAD HANG ≥ \(threshold.wholeMilliseconds) ms: the main run loop has not serviced events for \(stalled.wholeMilliseconds) ms")
+            return MainThreadWatchdog(threshold: threshold) { event in
+                switch event {
+                case .hang(let stall):
+                    logger.fault("main_thread_hang_fatal mode=fatal \(MainThreadWatchdog.describe(stall), privacy: .public)")
+                    fatalError("MAIN-THREAD HANG ≥ \(threshold.wholeMilliseconds) ms: \(MainThreadWatchdog.describe(stall))")
+                case .stallEnded(let stall):
+                    logger.notice("main_thread_stall mode=fatal \(MainThreadWatchdog.describe(stall), privacy: .public)")
+                }
             }
         case .report(let threshold):
-            return MainThreadWatchdog(threshold: threshold) { stalled in
-                let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "dev.tally-app.tally", category: "watchdog")
-                logger.fault("main_thread_hang stalled_ms=\(stalled.wholeMilliseconds, privacy: .public)")
-                let signposter = OSSignposter(logger: logger)
-                signposter.emitEvent("MainThreadHang", "stalled_ms=\(stalled.wholeMilliseconds, privacy: .public)")
+            return MainThreadWatchdog(threshold: threshold) { event in
+                switch event {
+                case .hang(let stall):
+                    OSSignposter(logger: logger).emitEvent("MainThreadHang", "\(MainThreadWatchdog.describe(stall), privacy: .public)")
+                case .stallEnded(let stall):
+                    logger.fault("main_thread_stall mode=report \(MainThreadWatchdog.describe(stall), privacy: .public)")
+                }
             }
         }
     }()
@@ -74,38 +111,49 @@ public final class MainThreadWatchdog: Sendable {
         shared?.start()
     }
 
-    /// The first root view's `.task` ran: switch from the launch threshold to the hang threshold.
-    public static func endLaunchGrace() {
-        shared?.endLaunchGrace()
+    /// The first root view's `.task` ran: launch ends once the main thread then stays responsive
+    /// for `TallyConfig.launchSettleWindow`.
+    public static func firstRootTaskDidRun() {
+        shared?.firstRootTaskDidRun()
+    }
+
+    /// `phase=interactive ms=312 since_start_ms=5120`: what the log lines and the crash carry.
+    static func describe(_ stall: Stall) -> String {
+        "phase=\(stall.phase.rawValue) ms=\(stall.duration.wholeMilliseconds) since_start_ms=\(stall.sinceStart.wholeMilliseconds)"
     }
 
     private let threshold: Duration
     private let launchThreshold: Duration
+    private let settleWindow: Duration
     private let pingInterval: Duration
     private let checkInterval: Duration
-    private let onHang: @Sendable (Duration) -> Void
+    private let onEvent: @Sendable (Event) -> Void
     /// `DispatchTime` uptime nanoseconds of the last heartbeat the main queue ran.
     private let lastBeat = Atomic<UInt64>(0)
-    private let inLaunchGrace = Atomic<Bool>(true)
+    private let firstRootTaskRan = Atomic<Bool>(false)
     private let started = Atomic<Bool>(false)
     private let stopped = Atomic<Bool>(false)
 
     /// - Parameters:
-    ///   - threshold: how long the main queue may go without running a heartbeat before `onHang`.
-    ///   - launchThreshold: the threshold until `endLaunchGrace()`.
-    ///   - onHang: called on the watchdog thread with the stall so far, once per hang.
+    ///   - threshold: after launch, how long the main queue may go without running a heartbeat.
+    ///   - launchThreshold: the same limit while the app is launching.
+    ///   - settleWindow: how long the main thread must stay responsive, after
+    ///     `firstRootTaskDidRun()`, for launch to end.
+    ///   - onEvent: called on the watchdog thread.
     public init(
         threshold: Duration,
         launchThreshold: Duration = TallyConfig.launchHangThreshold,
+        settleWindow: Duration = TallyConfig.launchSettleWindow,
         pingInterval: Duration = .milliseconds(50),
         checkInterval: Duration = .milliseconds(10),
-        onHang: @escaping @Sendable (Duration) -> Void
+        onEvent: @escaping @Sendable (Event) -> Void
     ) {
         self.threshold = threshold
         self.launchThreshold = launchThreshold
+        self.settleWindow = settleWindow
         self.pingInterval = pingInterval
         self.checkInterval = checkInterval
-        self.onHang = onHang
+        self.onEvent = onEvent
     }
 
     public func start() {
@@ -117,8 +165,8 @@ public final class MainThreadWatchdog: Sendable {
         thread.start()
     }
 
-    public func endLaunchGrace() {
-        inLaunchGrace.store(false, ordering: .relaxed)
+    public func firstRootTaskDidRun() {
+        firstRootTaskRan.store(true, ordering: .relaxed)
     }
 
     /// Ends the watchdog thread within one `checkInterval` (tests; the app's instance never stops).
@@ -126,10 +174,19 @@ public final class MainThreadWatchdog: Sendable {
         stopped.store(true, ordering: .relaxed)
     }
 
+    /// Runs on the watchdog thread only, so its bookkeeping is plain local state.
     private func watch() {
-        var lastPing: UInt64 = 0
-        var reportedThisHang = false
+        let startedAt = Self.uptimeNanoseconds()
         let pingNanos = Self.nanoseconds(pingInterval)
+        let hangNanos = Self.nanoseconds(threshold)
+        let launchNanos = Self.nanoseconds(launchThreshold)
+        let settleNanos = Self.nanoseconds(settleWindow)
+        var lastPing: UInt64 = 0
+        var launching = true
+        var responsiveSince: UInt64?
+        var currentStall: (longest: UInt64, phase: Stall.Phase, at: UInt64)?
+        var reportedCurrentStall = false
+
         while !stopped.load(ordering: .relaxed) {
             let now = Self.uptimeNanoseconds()
             if now &- lastPing >= pingNanos {
@@ -140,14 +197,29 @@ public final class MainThreadWatchdog: Sendable {
             }
             let beat = lastBeat.load(ordering: .relaxed)
             let stalled = now > beat ? now - beat : 0
-            let limit = Self.nanoseconds(inLaunchGrace.load(ordering: .relaxed) ? launchThreshold : threshold)
-            if stalled > limit {
-                if !reportedThisHang {
-                    reportedThisHang = true
-                    onHang(.nanoseconds(Int64(clamping: stalled)))
+
+            if stalled > hangNanos {
+                let phase: Stall.Phase = launching ? .launch : .interactive
+                currentStall = (longest: max(currentStall?.longest ?? 0, stalled),
+                                phase: currentStall?.phase ?? phase, at: currentStall?.at ?? now)
+                responsiveSince = nil
+                if !reportedCurrentStall, stalled > (launching ? launchNanos : hangNanos) {
+                    reportedCurrentStall = true
+                    onEvent(.hang(Stall(duration: .nanoseconds(Int64(clamping: stalled)), phase: phase,
+                                        sinceStart: .nanoseconds(Int64(clamping: now - startedAt)))))
                 }
             } else {
-                reportedThisHang = false
+                if let stall = currentStall {
+                    onEvent(.stallEnded(Stall(duration: .nanoseconds(Int64(clamping: stall.longest)), phase: stall.phase,
+                                              sinceStart: .nanoseconds(Int64(clamping: stall.at - startedAt)))))
+                    currentStall = nil
+                }
+                reportedCurrentStall = false
+                if launching, firstRootTaskRan.load(ordering: .relaxed) {
+                    let since = responsiveSince ?? now
+                    responsiveSince = since
+                    if now - since >= settleNanos { launching = false }
+                }
             }
             Thread.sleep(forTimeInterval: checkInterval.timeInterval)
         }

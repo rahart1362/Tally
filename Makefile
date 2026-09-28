@@ -93,7 +93,7 @@ IOS_TEST_FLAGS   = -collect-test-diagnostics never -test-timeouts-enabled YES \
 IOS_TEST_SUCCESS = "\*\* TEST (EXECUTE )?SUCCEEDED \*\*"
 IOS_CONSOLE      = "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed"
 
-.PHONY: ios-project ios-build-for-testing ios-test ios-tsan ios-asan ios-perf ios-summary
+.PHONY: ios-project ios-build-for-testing ios-test ios-tsan ios-asan ios-perf ios-summary ios-watchdog-log
 
 ios-project: ## Generate apps/TallyiOS/Tally.xcodeproj with XcodeGen
 	cd $(IOS_PROJECT_DIR) && xcodegen generate --spec project.yml
@@ -159,6 +159,13 @@ ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 	xcrun xcresulttool get test-results metrics --path $(IOS_OUT)/Tally-perf.xcresult --compact \
 		> $(IOS_OUT)/perf-metrics.json
 	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json
+
+ios-watchdog-log: ## Print the DEBUG main-thread watchdog's lines from IOS_SIM_UDID's log (stalls: phase, ms)
+	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
+	@xcrun simctl bootstatus $(IOS_SIM_UDID) -b > /dev/null 2>&1 || true
+	@xcrun simctl spawn $(IOS_SIM_UDID) log show --style compact --last 3h \
+		--predicate 'subsystem == "dev.tally-app.tally" AND category == "watchdog"' 2>&1 \
+		| grep -E "main_thread_(stall|hang)" || echo "No main-thread stalls past the hang threshold were logged."
 
 ios-summary: ## Print an xcresult's counts and every failure in full (IOS_RESULT=path)
 	@if [ -d "$(IOS_RESULT)" ]; then \

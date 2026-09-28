@@ -30,30 +30,64 @@ struct MainThreadGuardsTests {
 
     // MARK: - Watchdog detection
 
-    /// Collects the stalls a watchdog reports, from its own thread.
-    private final class HangLog: Sendable {
-        private let stalls = Mutex<[Duration]>([])
-        func record(_ stall: Duration) { stalls.withLock { $0.append(stall) } }
-        var recorded: [Duration] { stalls.withLock { $0 } }
+    /// Collects the events a watchdog sends, from its own thread.
+    private final class EventLog: Sendable {
+        private let events = Mutex<[MainThreadWatchdog.Event]>([])
+        func record(_ event: MainThreadWatchdog.Event) { events.withLock { $0.append(event) } }
+        var hangs: [MainThreadWatchdog.Stall] {
+            events.withLock { all in
+                all.compactMap { event -> MainThreadWatchdog.Stall? in
+                    if case .hang(let stall) = event { return stall }
+                    return nil
+                }
+            }
+        }
+        var ended: [MainThreadWatchdog.Stall] {
+            events.withLock { all in
+                all.compactMap { event -> MainThreadWatchdog.Stall? in
+                    if case .stallEnded(let stall) = event { return stall }
+                    return nil
+                }
+            }
+        }
     }
 
-    @Test("an idle main thread is never reported; a 600 ms block is reported once, past the threshold")
+    @Test("after launch settles: an idle main thread is never reported; a 600 ms block is a hang, reported once")
     @MainActor
-    func watchdogReportsABlockedMainThread() async throws {
-        let log = HangLog()
+    func watchdogReportsAnInteractiveHang() async throws {
+        let log = EventLog()
         let threshold = TallyConfig.mainThreadHangThreshold
-        let watchdog = MainThreadWatchdog(threshold: threshold, launchThreshold: threshold) { log.record($0) }
+        let watchdog = MainThreadWatchdog(threshold: threshold, settleWindow: .milliseconds(100)) { log.record($0) }
+        watchdog.start()
+        defer { watchdog.stop() }
+        watchdog.firstRootTaskDidRun()
+
+        try await Task.sleep(for: .milliseconds(500)) // idle: heartbeats run, launch settles
+        #expect(log.hangs.isEmpty, "false positive while the main thread was idle: \(log.hangs)")
+
+        Self.blockCurrentThread(seconds: 0.6) // the main thread itself, like a hang would
+        try await Task.sleep(for: .milliseconds(300))
+        let hangs = log.hangs.filter { $0.phase == .interactive }
+        #expect(hangs.count == 1, "one hang, reported once: \(log.hangs)")
+        #expect(hangs.allSatisfy { $0.duration > threshold }, "\(hangs)")
+        let blocked = log.ended.filter { $0.duration >= .milliseconds(500) }
+        #expect(blocked.count == 1 && blocked.first?.phase == .interactive, "the full stall is logged when it ends: \(log.ended)")
+    }
+
+    @Test("while launching, a 600 ms block is under the launch threshold: logged when it ends, never a hang")
+    @MainActor
+    func launchGraceCoversAFirstRenderStall() async throws {
+        let log = EventLog()
+        // Launch never settles in this test: `firstRootTaskDidRun()` is never called.
+        let watchdog = MainThreadWatchdog(threshold: TallyConfig.mainThreadHangThreshold) { log.record($0) }
         watchdog.start()
         defer { watchdog.stop() }
 
-        try await Task.sleep(for: .milliseconds(400)) // idle: heartbeats run
-        #expect(log.recorded.isEmpty, "false positive while the main thread was idle: \(log.recorded)")
-
-        Self.blockCurrentThread(seconds: 0.6) // the main thread itself, like a hang would
-        try await Task.sleep(for: .milliseconds(200))
-        let recorded = log.recorded
-        #expect(recorded.count == 1, "one hang, reported once: \(recorded)")
-        #expect(recorded.allSatisfy { $0 > threshold }, "\(recorded)")
+        Self.blockCurrentThread(seconds: 0.6)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(log.hangs.isEmpty, "a launch-phase stall under launchHangThreshold is not a hang: \(log.hangs)")
+        let blocked = log.ended.filter { $0.duration >= .milliseconds(500) }
+        #expect(blocked.count == 1 && blocked.first?.phase == .launch, "\(log.ended)")
     }
 
     /// Synchronous on purpose: `Thread.sleep` is unavailable from async contexts.

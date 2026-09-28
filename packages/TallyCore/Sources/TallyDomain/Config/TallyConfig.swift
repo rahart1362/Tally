@@ -39,9 +39,14 @@ public enum TallyConfig {
     /// Apple's tools start reporting a hang once the main run loop has been unresponsive for
     /// 250 ms ("Understanding hangs in your app"). The DEBUG main-thread watchdog's threshold.
     public static let mainThreadHangThreshold: Duration = .milliseconds(250)
-    /// The watchdog's threshold from launch until the first root view's `.task` runs, which
-    /// covers one-time launch work (loading, the first render) that is not an interaction hang.
+    /// The watchdog's threshold while the app is still launching, which covers one-time launch
+    /// work (loading, the first render) that is not an interaction hang.
     public static let launchHangThreshold: Duration = .milliseconds(1000)
+    /// Launch ends, for the watchdog, once the first root view's `.task` has run and the main
+    /// thread has then stayed responsive for this long. CI run 36367196647 showed launch-phase
+    /// stalls past 250 ms up to 3.9 s after launch in Debug UI tests (the first render's type
+    /// resolution, XCUITest attaching its accessibility client), after that first `.task`.
+    public static let launchSettleWindow: Duration = .seconds(2)
     /// The longest synchronous main-actor stretch allowed anywhere in the launch, load and render
     /// paths (charter: "No synchronous main-actor work ≥ 50 ms"). Hosted tests hold a Debug build
     /// to this budget and a Release build to half of it.

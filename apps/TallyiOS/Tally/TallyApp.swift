@@ -45,9 +45,10 @@ struct TallyApp: App {
                 .task {
                     logger.log(.appLaunch)
                     #if DEBUG
-                    // The first root view's `.task`: launch is over, so the watchdog drops from
-                    // `launchHangThreshold` to `mainThreadHangThreshold`.
-                    MainThreadWatchdog.endLaunchGrace()
+                    // The first root view's `.task`: once the main thread then stays responsive
+                    // for `launchSettleWindow`, the watchdog moves from `launchHangThreshold` to
+                    // `mainThreadHangThreshold`.
+                    MainThreadWatchdog.firstRootTaskDidRun()
                     #endif
                 }
         }
