@@ -2,39 +2,39 @@ import SwiftUI
 import TallyDesignSystem
 
 /// ASC-14 "Explore with Sample Data": the real demo mode (app-store-compliance.md §3.2 option B)
-/// — the full tab shell and Dashboard, running over the bundled flagship persona, behind a
-/// persistent SAMPLE DATA banner, with an exit back to Welcome. `RootView` shows this as a
-/// sibling root (a plain `Bool` switch), never a `navigationDestination` push — see that type's
-/// doc comment for why (a pushed `TabView`, which `TabShellView` is, does not reliably render).
-public struct SampleDataRootView: View {
+/// — the full Home shell and Dashboard, running over the bundled flagship persona, behind a
+/// persistent SAMPLE DATA banner, with an exit back to Welcome. `RootView` shows this for
+/// `RootRoute.sample`, a root switch and never a `navigationDestination` push (a pushed `TabView`
+/// does not render; see `HomeShellView`).
+///
+/// This view owns only the sample-data *loading* state. The shell itself comes from `shell`, which
+/// `RootView` supplies, so the Home shell is constructed in exactly one file (the hygiene grep
+/// gate, perf-app-runtime.md §3 item 2).
+public struct SampleDataRootView<Shell: View>: View {
     let onExit: () -> Void
+    let shell: (SampleDataModel) -> Shell
 
     @State private var model: SampleDataModel?
     @State private var loadError: Error?
 
-    public init(onExit: @escaping () -> Void) {
+    public init(onExit: @escaping () -> Void, @ViewBuilder shell: @escaping (SampleDataModel) -> Shell) {
         self.onExit = onExit
+        self.shell = shell
     }
 
     public var body: some View {
         Group {
             if let model {
-                TabShellView(
-                    snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
-                    freshness: model.freshness, studentDisplayName: model.studentDisplayName,
-                    banner: AnyView(SampleDataBanner(onExit: onExit)),
-                    onRefresh: { await model.refresh() }
-                )
-                .task {
-                    if model.snapshot == nil { await model.refresh() }
-                }
+                shell(model)
+                    .task {
+                        if model.snapshot == nil { await model.refresh() }
+                    }
             } else if loadError != nil {
                 // The bundled fixture resources failed to load — a packaging bug, not a runtime
                 // condition a student can hit in a correctly-built app. Honest, not fabricated:
                 // no sample data is shown rather than silently falling back to something fake.
-                // A plain NavigationStack here (never a TabView) so the toolbar button has
-                // somewhere to attach to, now that this view is a sibling root rather than a
-                // NavigationStack-pushed destination.
+                // A `NavigationStack` as this root's own root (never pushed), so the toolbar
+                // button has somewhere to attach to.
                 NavigationStack {
                     ContentUnavailableView("Sample data unavailable", systemImage: "exclamationmark.triangle",
                                            description: Text("The bundled sample data couldn't be loaded."))

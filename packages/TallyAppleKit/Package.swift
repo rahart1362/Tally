@@ -81,6 +81,11 @@ let package = Package(
                 .product(name: "TallyStore", package: "TallyCore"),
                 .product(name: "TallySync", package: "TallyCore"),
                 .product(name: "TallyTestSupport", package: "TallyCore"),
+                // perf-app-runtime.md §7 step 1: `AppModel` sets and clears
+                // `RefreshIntentBridge` when it attaches to or detaches from an account's
+                // coordinator, instead of `TallyApp.body` doing it as a side effect. The widget
+                // links TallyIntents only, so this edge never pulls TallyFeatures into it.
+                "TallyIntents",
             ],
             // A single top-level directory under this target's source root, deliberately —
             // `.copy(_:)` places a resource "as-is... at the top level of the resulting bundle"

@@ -2,16 +2,21 @@ import SwiftUI
 import TallyDesignSystem
 import TallyDomain
 
-/// UX-WP-05: the main navigation shell. Five tabs — Dashboard, Courses, Calendar, To-Do,
+/// UX-WP-05: the Home shell. Five tabs — Dashboard, Courses, Calendar, To-Do,
 /// **Insights** (never "More", ux-ui.md §3.4/app-store-compliance.md R5) — using the plain
 /// system tab bar (`Tab(_:systemImage:)`, iOS 18 API) with no `UITabBarAppearance` overrides, so
 /// Liquid Glass renders the way the platform gives it "automatically" (ux-ui.md §3.4). Settings
 /// is a sheet from the toolbar, never pushed, never nested (ux-ui.md §3.4).
 ///
+/// **A root only.** This view is the app's root `TabView`, each tab owning its own
+/// `NavigationStack`, so it is built only by `RootView` for `RootRoute.sample` and
+/// `.signedIn` (perf-app-runtime.md §3 item 2). A pushed `TabView` does not render (2d3131f's
+/// bisect), and CI's hygiene job fails if any other shipping file constructs this type.
+///
 /// Takes its data purely as parameters (a `CanvasSnapshot?` plus the freshness/refresh hooks)
-/// rather than reaching for a global — this is the one view both `SampleDataRootView` (ASC-14)
-/// and, later, a signed-in session can present, over whatever data source each has.
-public struct TabShellView: View {
+/// rather than reaching for a global, so sample mode and a signed-in session present the same
+/// shell over different data sources.
+public struct HomeShellView: View {
     let snapshot: CanvasSnapshot?
     let digest: ChangeDigest?
     let digestAsOf: Date?

@@ -15,16 +15,24 @@ import TallyDesignSystem
 /// first frame (ux-ui.md: "non-blocking (the CTA is live from frame 1)").
 /// Under Reduce Motion this becomes a single 0.2 s cross-fade with no scale
 /// or translate ("Reduce Motion: 0.2 s cross-fade, no scale or translate").
-/// Per ux-ui.md this plays "First run and after sign-out only"; today this
-/// view is the app's only entry point, so it plays on every appearance —
-/// gating it on session state is the app-core composition root's job, once
-/// that routing exists.
+/// Per ux-ui.md this plays "First run and after sign-out only": the root
+/// route decides (`AppModel.playsBrandMoment`, passed in as
+/// `playsBrandMoment`). When it must not play — back from sample data — the
+/// view starts in its settled end state, so nothing animates.
 struct WelcomeView: View {
     let onFindSchool: () -> Void
     let onExploreSampleData: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var revealed = false
+    @State private var revealed: Bool
+
+    init(playsBrandMoment: Bool = true, onFindSchool: @escaping () -> Void, onExploreSampleData: @escaping () -> Void) {
+        self.onFindSchool = onFindSchool
+        self.onExploreSampleData = onExploreSampleData
+        // Already revealed = the end state from the first frame: `.onAppear`'s guard then skips
+        // the entrance, and the `.animation(_:value:)` modifiers never see `revealed` change.
+        _revealed = State(initialValue: !playsBrandMoment)
+    }
 
     var body: some View {
         ScrollView {
@@ -179,5 +187,5 @@ struct BrandMomentMotion: Equatable {
 }
 
 #Preview {
-    RootView()
+    RootView(appModel: AppModel())
 }

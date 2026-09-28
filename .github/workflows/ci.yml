@@ -47,6 +47,17 @@ jobs:
             echo "::error::Banned pattern in shipping code (lines above)"
             exit 1
           fi
+      - name: The Home shell (a TabView) is built only in RootView.swift, as a root route
+        # perf-app-runtime.md section 3 item 2. A TabView or NavigationStack pushed as a
+        # navigationDestination never renders (2d3131f bisect), so the Home shell may be
+        # constructed only by RootView's route switch. The TallyUITests root-switch
+        # assertions cover a push written inside RootView.swift itself.
+        run: |
+          if git grep -n "HomeShellView(" -- packages apps/TallyiOS/Tally apps/TallyiOS/TallyWidgets \
+              ':!packages/TallyAppleKit/Sources/TallyFeatures/RootView.swift'; then
+            echo "::error::HomeShellView constructed outside RootView.swift (lines above)"
+            exit 1
+          fi
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)

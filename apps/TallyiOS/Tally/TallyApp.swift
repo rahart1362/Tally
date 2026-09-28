@@ -26,15 +26,14 @@ struct TallyApp: App {
         // (`RefreshCoordinator` is an actor, so the reference itself is
         // `Sendable`).
         let logger = environment.logger
+        let appModel = environment.appModel
         let webAuthPresenter = environment.webAuthPresenter
         let coordinator = environment.appModel.refreshCoordinator
-        // E04 / RefreshIntentBridge: keeps "Refresh Tally" pointed at whatever
-        // coordinator the app currently has (today, always `nil` — see
-        // `AppEnvironment`'s doc comment). Real wiring around a currently-
-        // empty value, not a fabricated result.
-        RefreshIntentBridge.coordinator = coordinator
+        // "Refresh Tally"'s `RefreshIntentBridge` is set and cleared by
+        // `AppModel.attach(_:)`/`detach()` (perf-app-runtime.md §7 step 1),
+        // never here: `body` stays free of side effects.
         return WindowGroup {
-            RootView(webAuthPresenter: webAuthPresenter)
+            RootView(appModel: appModel, webAuthPresenter: webAuthPresenter)
                 .task { logger.log(.appLaunch) }
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
