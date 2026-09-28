@@ -316,3 +316,41 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - Also noted: `SnapshotBudget` can leave a snapshot over its item limit when course and assignment data alone exceed it. The grade data is never trimmed, by design.
 
 **PMO CI evidence (run 36361080347, head 875d445)**: `lint`, `core-sanitizers`, `core-perf`, `hygiene` and `core-linux` are green on their first run. `ios-build` was still running at the time of writing.
+
+## 2026-09-27 | Perf/crash program merge: m2/perf-algorithms, PERF-05 (core algorithms engineer; PMO verified)
+**Merged**:
+- PA-1: a per-course scaling gate. It scales assignments per course; the existing gate only scales the number of courses.
+- PA-2: `PriorityScore.WeightContext`, per-course sums precomputed in O(n·p). Additive API.
+- PA-3: hotspot profiling, and a sweep instead of the all-pairs loop in `AlertEngine.scheduleConflicts`.
+- PA-4: differential proofs. The weight context matches the old code bit for bit over 62,007 comparisons.
+- PA-6: an allocation-free `CanvasDate` parser. It replaces the static `Regex` and its LSan suppression.
+- PA-5: a permanent per-course gate, plus a 13 ms ceiling on `dashboardBuild/stress`.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 523 tests (Sync 35, Store 61, Perf 8, Domain 251 with the 4 known issues, CanvasAPI 168), 0 failures.
+- `make lint`: 0 violations in 120 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 523 tests each.
+- `make core-perf`: 38 tests pass. Stress medians:
+  - `dashboardBuild` 5.63 ms, down from about 70 ms;
+  - `priorityScoreAllItems` 1.31 ms, down from about 28 ms;
+  - `alertEngineAllItems` 1.13 ms, down from about 44 ms;
+  - `mapperDecode` 81.3 ms, down from 238 ms;
+  - `fullRefresh` 101.9 ms, down from 271 ms;
+  - the date-parse share of decoding is now 2% (116 ns per date).
+- Per-course scaling for 10× the assignments: `dashboardBuild` 8.62×, `PriorityScore` 6.63×, `AlertEngine` 7.13×, `scheduleConflicts` 11.29×.
+
+**PMO independent mutations** (each restored byte-identical):
+- P1, leap years ignore the century rule: caught by `calendarEdgesSweepParsesTheSame` and `seededFuzzCorpusParsesTheSame`.
+- P2, a tenth fraction digit is accepted: caught by `seededFuzzCorpusParsesTheSame`.
+- P3, the last duplicate group wins: caught by `adversarialCoursesWeighTheSame`.
+- P4, course sums ignore grading periods: caught by three differential tests.
+
+**PMO decisions**:
+- (1) Dates before 1582-10-15 keep **Foundation's hybrid Julian/Gregorian rule**, not proleptic Gregorian. That keeps results identical to the old parser and to Foundation's calendar, which the app uses to display dates, and Canvas never sends such dates.
+- (2) The one allowed difference: the parser now rejects non-ASCII digits and Unicode whitespace, which the old `Regex` wrongly accepted.
+
+**Remaining hotspots**: both run after commit, off the main actor.
+- `ReminderPlanner` stress is 27 ms, 87% of it quiet-hours shifting. Tracked.
+- `GradeEngine` stress is 70 ms, 74% of it `DropRuleSelection`, which is parity-critical and left unchanged.
+
+**New crash risk (PERF-05 finding, PMO confirmed by grep)**: `Dictionary(uniqueKeysWithValues:)` over Canvas-derived collections traps on a duplicate ID. It appears in `GlanceProjection`, `DashboardProjection` (3 sites), `ChangeDigest` and `NotificationReconciler`, and on `m2/app-core` in `DashboardViewState` (3 sites). This is dispatched as CS-07 (`m2/crash-safety-2`).

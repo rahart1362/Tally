@@ -68,6 +68,80 @@ public enum Bench {
         print(result.reportLine)
         return result
     }
+
+    /// PERF-05: times two bodies in alternation (`a`, `b`, `a`, `b`, ...) instead of all of `a`
+    /// then all of `b`, and prints and returns both medians. A ratio gate compares the two
+    /// medians, and this machine is shared with other builds: a burst of outside load that lands
+    /// on only one side of a sequential run moves the ratio by itself (observed: a
+    /// `ScalingGateTests` ratio of 20.63x for the linear `ChangeDigest.diff` while another
+    /// engineer's Swift container was running). Alternating spreads any such burst over both
+    /// sides.
+    public static func timeInterleaved(_ labelA: String, _ labelB: String, iterations: Int = 5, warmup: Int = 1,
+                                       _ a: () throws -> Void, _ b: () throws -> Void) rethrows -> (a: BenchResult, b: BenchResult) {
+        for _ in 0..<warmup {
+            try a()
+            try b()
+        }
+        var samplesA: [Duration] = [], samplesB: [Duration] = []
+        samplesA.reserveCapacity(iterations)
+        samplesB.reserveCapacity(iterations)
+        let clock = ContinuousClock()
+        for _ in 0..<iterations {
+            var start = clock.now
+            try a()
+            samplesA.append(clock.now - start)
+            start = clock.now
+            try b()
+            samplesB.append(clock.now - start)
+        }
+        let resultA = BenchResult(label: labelA, samples: samplesA, iterations: iterations)
+        let resultB = BenchResult(label: labelB, samples: samplesB, iterations: iterations)
+        print(resultA.reportLine)
+        print(resultB.reportLine)
+        return (resultA, resultB)
+    }
+
+    /// PERF-05 PA-5: a scaling gate's ratio, `scaled` median over `base` median, measured in
+    /// `rounds` separate interleaved rounds (each `timeInterleaved(iterations:warmup:)`), and
+    /// the median of the round ratios. Why rounds: after PERF-05 made `DashboardBuilder.build`
+    /// cheap, outside load on this shared machine could slow its stress side for a whole
+    /// measurement while the 10x-smaller baseline stayed fast, which alternating samples alone
+    /// cannot cancel out: one interleaved run read 16.73x for a linear function (stress-side
+    /// minimum 8.05 ms against ~4.9 ms in other runs). A real superlinear cost is high in every
+    /// round, so the median of three still fails on it; an outside episode has to last through
+    /// two of the three rounds to.
+    public static func scalingRatio(_ baseLabel: String, _ scaledLabel: String, rounds: Int = 3, iterations: Int = 11,
+                                    warmup: Int = 2, base: () throws -> Void, scaled: () throws -> Void) rethrows
+        -> (ratio: Double, roundRatios: [Double]) {
+        var ratios: [Double] = []
+        for round in 1...max(1, rounds) {
+            let (b, s) = try timeInterleaved("\(baseLabel)#\(round)", "\(scaledLabel)#\(round)",
+                                             iterations: iterations, warmup: warmup, base, scaled)
+            ratios.append(milliseconds(s.median) / max(milliseconds(b.median), 0.000_001))
+        }
+        return (medianOf(ratios), ratios)
+    }
+
+    /// The middle value (the mean of the middle two for an even count); 0 for no values.
+    public static func medianOf(_ values: [Double]) -> Double {
+        let sorted = values.sorted()
+        guard !sorted.isEmpty else { return 0 }
+        let mid = sorted.count / 2
+        return sorted.count.isMultiple(of: 2) ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+    }
+
+    public static func milliseconds(_ d: Duration) -> Double {
+        Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
+    }
+
+    /// PERF-05: keeps a benchmark body's result observable, so the optimizer cannot delete the
+    /// work that produced it once enough of that work is inlined across modules. The branch is
+    /// never taken for a real checksum (every pass sums finite, non-negative terms), but the
+    /// compiler cannot prove that, so it must compute `value`.
+    @inline(never)
+    public static func keep(_ value: Double) {
+        if value.isNaN && value.sign == .minus { print("Bench.keep: unreachable checksum \(value)") }
+    }
 }
 
 /// Peak resident set size, read from `/proc/self/status` (Linux only — the pinned container
