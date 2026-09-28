@@ -160,7 +160,33 @@ struct ChangeDigestTests {
     @Test func aCustomThresholdOverridesTheDefault() {
         let old = snapshot(courseScore: 90.0)
         let new = snapshot(courseScore: 90.2)
-        #expect(ChangeDigest.diff(old: old, new: new, courseScoreThreshold: 1.0).courseScoreChanges.isEmpty)
-        #expect(!ChangeDigest.diff(old: old, new: new, courseScoreThreshold: 0.1).courseScoreChanges.isEmpty)
+        #expect(ChangeDigest.diff(old: old, new: new, thresholds: DigestThresholds(global: .points(1.0))).courseScoreChanges.isEmpty)
+        #expect(!ChangeDigest.diff(old: old, new: new, thresholds: DigestThresholds(global: .points(0.1))).courseScoreChanges.isEmpty)
+    }
+
+    // MARK: Owner decision 2026-09-27: 0.5 pt default, "All" or a per-course threshold.
+
+    @Test func defaultIsHalfAPointAndAllReportsTinyChanges() {
+        let old = snapshot(courseScore: 90.0)
+        let tiny = snapshot(courseScore: 90.01)
+        #expect(DigestThresholds.default.threshold(for: course) == .points(0.5))
+        #expect(ChangeDigest.diff(old: old, new: tiny).courseScoreChanges.isEmpty)
+        #expect(ChangeDigest.diff(old: old, new: tiny, thresholds: DigestThresholds(global: .all)).courseScoreChanges.count == 1)
+        #expect(ChangeDigest.diff(old: old, new: old, thresholds: DigestThresholds(global: .all)).courseScoreChanges.isEmpty, "no change, nothing to report")
+    }
+
+    @Test func perCourseOverrideBeatsTheGlobalSettingInBothDirections() {
+        let old = snapshot(courseScore: 90.0)
+        let small = snapshot(courseScore: 89.8) // a 0.2 pt drop
+        let loose = DigestThresholds(global: .points(0.5), perCourse: [course: .all])
+        #expect(ChangeDigest.diff(old: old, new: small, thresholds: loose).courseScoreChanges.first?.delta ?? 0 < 0)
+        let strict = DigestThresholds(global: .all, perCourse: [course: .points(2.0)])
+        #expect(ChangeDigest.diff(old: old, new: small, thresholds: strict).courseScoreChanges.isEmpty)
+        #expect(strict.threshold(for: "99999") == .all, "courses without an override use the global setting")
+    }
+
+    @Test func thresholdsRoundTripThroughJSON() throws {
+        let value = DigestThresholds(global: .all, perCourse: [course: .points(1.5)])
+        #expect(try JSONDecoder().decode(DigestThresholds.self, from: JSONEncoder().encode(value)) == value)
     }
 }

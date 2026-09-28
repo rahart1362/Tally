@@ -10,13 +10,20 @@ public struct AuthorizationRequest: Sendable, Equatable, Codable {
     public let pkce: PKCEPair
     public let createdAt: Date
     public let forceLogin: Bool
+    /// Sends the parent to Canvas's own login page rather than the school's student SSO
+    /// (family-linking.md §4.3: `canvas_login=1`, forwarded by
+    /// `oauth2_provider_controller.rb:108-117`; undocumented, hosted UNVERIFIED pending
+    /// FAM-01). Only ever set on the parent sign-in path — always paired with
+    /// `forceLogin: true` there, since a shared family device must never let a child's
+    /// Safari session silently authorize the parent (family-linking.md §6.7).
+    public let canvasLogin: Bool
 
     public static func begin(host: String, clientID: String, redirectURI: URL, now: Date,
-                             forceLogin: Bool = false,
+                             forceLogin: Bool = false, canvasLogin: Bool = false,
                              using rng: inout some RandomNumberGenerator) -> AuthorizationRequest {
         AuthorizationRequest(host: host, clientID: clientID, redirectURI: redirectURI,
                              state: Base64URL.randomToken(byteCount: 32, using: &rng),
-                             pkce: .make(using: &rng), createdAt: now, forceLogin: forceLogin)
+                             pkce: .make(using: &rng), createdAt: now, forceLogin: forceLogin, canvasLogin: canvasLogin)
     }
 
     /// `https://<host>/login/oauth2/auth?...` for `ASWebAuthenticationSession`.
@@ -31,7 +38,8 @@ public struct AuthorizationRequest: Sendable, Equatable, Codable {
             .init(name: "code_challenge", value: pkce.challenge),
             .init(name: "code_challenge_method", value: "S256"),
         ] + (forceLogin ? [.init(name: "force_login", value: "1")] : [])
-        return c.url!
+          + (canvasLogin ? [.init(name: "canvas_login", value: "1")] : [])
+        return c.url! // swiftlint:disable:this force_unwrapping — scheme/host/path are always well-formed here
     }
 }
 

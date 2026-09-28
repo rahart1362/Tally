@@ -139,13 +139,14 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        # This target now links TallyIntents (RefreshIntentBridge, E04) plus
-        # several TallyCore products directly, and Xcode's App Intents
-        # metadata/SSU-training build phase runs for any bundle that
-        # transitively links AppIntents-containing code. Without its own
-        # PRODUCT_BUNDLE_IDENTIFIER, AppIntentsSSUTraining invokes with a
-        # blank --bundle-id and fails ("Unable to parse Info.plist"). Fixed
-        # the same way TallyWidgets already handles its own identifier.
+        # This bundle links AppIntents-containing code two ways: TallyIntents
+        # (RefreshIntentBridge, E04) and TallyPlatform's WidgetKit import
+        # (WidgetReloader, M2 platform-adapters batch; WidgetKit auto-links
+        # AppIntents). Xcode's App Intents metadata/SSU-training build phases
+        # therefore run for it, and without an explicit bundle id
+        # AppIntentsSSUTraining invokes with a blank `--bundle-id` and fails
+        # with "Unable to parse Info.plist" (confirmed on CI run 36334863817).
+        # TallyUITests doesn't need this: it links neither.
         PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.tests
     dependencies:
       - target: Tally
@@ -153,6 +154,13 @@ targets:
         product: TallyPlatform
       - package: TallyAppleKit
         product: TallyFeatures
+      # TallyPlatform/TallyFeatures depend on these internally, but SwiftPM/Xcode
+      # does not re-export a target's own dependencies to *its* clients: a test
+      # file that imports TallyCanvasAPI/TallyStore/TallyDomain/TallySync/
+      # TallyTestSupport directly (to build HTTPRequest fixtures, KeyScope,
+      # RefreshCoordinator, etc.) needs them linked into TallyAppTests too, or
+      # the compile succeeds but the link fails with "Undefined symbols"
+      # (confirmed on CI run 36332912599).
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore

@@ -125,8 +125,12 @@ public enum GradeEngine {
                 // ignore_submission?: with posted scores only, unposted work is absent.
                 if ignoreUnposted, submission?.posted == false { submission = nil }
                 if ignoreUngraded, submission?.workflowState == "pending_review" { submission = nil }
+                // CS-01/CS-03 (crash-safety.md): sanitized again here, not just at the DTO
+                // mapping boundary (`GradeSanitizing`'s doc) — `GradeInput` also accepts
+                // hand-built values from "what-if" callers (this struct's own doc comment),
+                // which never go through a mapper at all.
                 return Row(assignmentID: item.id, submissionID: submission?.id, hasSubmission: submission != nil,
-                           score: submission?.score, total: item.pointsPossible ?? 0,
+                           score: GradeSanitizing.saneScore(submission?.score), total: GradeSanitizing.sanePoints(item.pointsPossible) ?? 0,
                            excused: submission?.excused ?? false, omit: item.omitFromFinalGrade)
             }
             if input.enrollmentCompleted { rows = rows.filter(\.hasSubmission) }
@@ -164,7 +168,7 @@ public enum GradeEngine {
         case .percent:
             let relevant = groups.filter { $0.possible != 0 }
             var final = Decimal(0)
-            for g in relevant { final += (g.score / g.possible) * RubyNumerics.decimal(g.weight) }
+            for g in relevant { final += (g.score / g.possible) * RubyNumerics.decimal(GradeSanitizing.saneWeightOrZero(g.weight)) }
             var fullWeight = 0.0
             for g in relevant { fullWeight += g.weight }
             let grade: Decimal

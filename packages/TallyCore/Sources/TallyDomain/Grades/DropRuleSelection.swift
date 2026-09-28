@@ -49,7 +49,12 @@ enum DropRuleSelection {
         let kept: [Int]
         if (cantDrop + subs).contains(where: { items[$0].total > 0 }) {
             let exact = Exact(items: items, indices: cantDrop + subs)
-            let maxTotal = (subs + cantDrop).map { exact.total[$0]! }.max()!
+            // Every index in `subs + cantDrop` was just passed to `Exact.init` above, so
+            // `total(_:)` never falls back to its `BigInt(0)` default here; `.max()` is over a
+            // provably non-empty array (`subs` was checked non-empty above). Both fallbacks
+            // exist only so a future bookkeeping bug degrades instead of crashing (CS-01/CS-06:
+            // no force-unwrapping in shipping code).
+            let maxTotal = (subs + cantDrop).map { exact.total($0) }.max() ?? BigInt(0)
             let highest = exact.keep(subs, cantDrop: cantDrop, keep: keepHighest, maxTotal: maxTotal, best: true)
             kept = exact.keep(highest, cantDrop: cantDrop, keep: keepLowest, maxTotal: maxTotal, best: false)
         } else {
@@ -105,12 +110,19 @@ enum DropRuleSelection {
             self.total = total
         }
 
+        /// Safe accessors for `score`/`total`: every real call site only ever indexes a set of
+        /// indices this `Exact` was itself built from (CS-01/CS-06: no force-unwrapping in
+        /// shipping code). `BigInt(0)` is a neutral, never-crashing fallback if that invariant
+        /// is ever violated by a future change — covered by the CS-03 fuzz suite.
+        func score(_ i: Int) -> BigInt { score[i] ?? BigInt(0) }
+        func total(_ i: Int) -> BigInt { total[i] ?? BigInt(0) }
+
         /// gradecalc.py `_keep_helper`: keeps `keep` of `subs` (best: highest), never-drop items fixed.
         func keep(_ subs: [Int], cantDrop: [Int], keep: Int, maxTotal: BigInt, best: Bool) -> [Int] {
             if subs.count <= keep { return subs }
             let both = subs + cantDrop
-            let unpointed = both.filter { total[$0]!.signum == 0 }
-            let pointed = both.filter { total[$0]!.signum != 0 }
+            let unpointed = both.filter { total($0).signum == 0 }
+            let pointed = both.filter { total($0).signum != 0 }
             if pointed.isEmpty {
                 // Canvas's "really dumb situation": keep_highest removed every pointed item.
                 // (Unreachable in "highest" mode: the caller checked some total > 0.)
@@ -118,9 +130,13 @@ enum DropRuleSelection {
                 return keep > 0 ? Array(ordered.suffix(keep)) : []
             }
 
-            let grades = pointed.map { Ratio(score[$0]!, total[$0]!) }
-            let lowest = grades.min(by: <)!
-            let highest = estimateQHigh(pointed: pointed, unpointed: unpointed) ?? grades.max(by: <)!
+            let grades = pointed.map { Ratio(score($0), total($0)) }
+            // `pointed` is non-empty (just checked above), so first/reduce never falls back to
+            // `grades[0]` being wrong — this is `min`/`max` written without a force-unwrap.
+            guard let firstGrade = grades.first else { return subs } // unreachable; safe fallback
+            let lowest = grades.dropFirst().reduce(firstGrade) { $1 < $0 ? $1 : $0 }
+            let highestGrade = grades.dropFirst().reduce(firstGrade) { $0 < $1 ? $1 : $0 }
+            let highest = estimateQHigh(pointed: pointed, unpointed: unpointed) ?? highestGrade
 
             // q values over one shared denominator `den`.
             var den = lowest.denominator * highest.denominator
@@ -148,9 +164,9 @@ enum DropRuleSelection {
         /// gradecalc.py `_estimate_q_high` for the unpointed case; nil means "use the highest grade".
         private func estimateQHigh(pointed: [Int], unpointed: [Int]) -> Ratio? {
             guard !unpointed.isEmpty else { return nil }
-            let pointsPossible = pointed.reduce(BigInt(0)) { $0 + total[$1]! }
-            let pointedScore = pointed.reduce(BigInt(0)) { $0 + score[$1]! }
-            let unpointedScore = unpointed.reduce(BigInt(0)) { $0 + score[$1]! }
+            let pointsPossible = pointed.reduce(BigInt(0)) { $0 + total($1) }
+            let pointedScore = pointed.reduce(BigInt(0)) { $0 + score($1) }
+            let unpointedScore = unpointed.reduce(BigInt(0)) { $0 + score($1) }
             guard pointsPossible.signum != 0 else { return nil }   // only with negative totals
             return Ratio(max(pointsPossible, pointedScore) + unpointedScore, pointsPossible)
         }
@@ -159,7 +175,7 @@ enum DropRuleSelection {
         /// positive factor 10^scale/den, so their numerators order and sum exactly.
         private func bigF(_ qNum: BigInt, _ den: BigInt, subs: [Int], cantDrop: [Int], keep: Int, best: Bool)
             -> (BigInt, [Int]) {
-            func rating(_ i: Int) -> BigInt { score[i]! * den - qNum * total[i]! }
+            func rating(_ i: Int) -> BigInt { score(i) * den - qNum * total(i) }
             let rated = subs.map(rating)
             let order = DropRuleSelection.stableSorted(Array(subs.indices)) { a, b in
                 best ? rated[b] < rated[a] : rated[a] < rated[b]

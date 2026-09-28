@@ -1,6 +1,5 @@
 import Foundation
 import TallyDomain
-import TallyStore // GradeBand (GlanceProjection.swift)
 
 /// UX-WP-13: a pure projection of a `CanvasSnapshot` (plus the optional glance/digest a
 /// refresh just produced) into exactly what `DashboardView` renders. Building this is a plain
@@ -153,7 +152,7 @@ public nonisolated enum DashboardBuilder {
     private static func priorityModifiers(assignment: Assignment, course: Course, now: Date) -> PriorityScore.Modifiers {
         let overdueStillOpen: Bool = {
             guard let due = assignment.dueAt, due < now else { return false }
-            return assignment.lockAt == nil || assignment.lockAt! > now
+            return assignment.lockAt.map { $0 > now } ?? true // no lock date: still open
         }()
         let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(currentScore: course.scores?.currentScore, goal: nil)
         return PriorityScore.Modifiers(overdueStillOpen: overdueStillOpen, courseBelowGoal: belowGoal, nearBoundary: nearBoundary)

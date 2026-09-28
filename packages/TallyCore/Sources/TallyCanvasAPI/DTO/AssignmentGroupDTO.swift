@@ -45,19 +45,21 @@ public enum AssignmentGroupMapper {
                 guard let name = a.name else { dropped += 1; return nil }
                 return Assignment(
                     id: CanvasID(a.id), courseID: a.courseId.map { CanvasID($0) } ?? courseID, groupID: groupID,
-                    name: name, dueAt: a.dueAt, lockAt: a.lockAt, pointsPossible: a.pointsPossible,
+                    name: name, dueAt: a.dueAt, lockAt: a.lockAt, pointsPossible: GradeSanitizing.sanePoints(a.pointsPossible),
                     gradingType: a.gradingType.flatMap(GradingType.init(rawValue:)) ?? .points,
                     omitFromFinalGrade: a.omitFromFinalGrade ?? false, htmlURL: a.htmlUrl,
                     submission: a.submission.map { s in
-                        Submission(score: s.score, grade: s.grade, submittedAt: s.submittedAt, gradedAt: s.gradedAt,
-                                   postedAt: s.postedAt, excused: s.excused ?? false, missing: s.missing ?? false,
-                                   late: s.late ?? false, workflowState: s.workflowState ?? "unsubmitted",
+                        Submission(score: GradeSanitizing.saneScore(s.score), grade: s.grade, submittedAt: s.submittedAt,
+                                   gradedAt: s.gradedAt, postedAt: s.postedAt, excused: s.excused ?? false,
+                                   missing: s.missing ?? false, late: s.late ?? false,
+                                   workflowState: s.workflowState ?? "unsubmitted",
                                    id: s.id.map { CanvasID($0) }, gradingPeriodID: s.gradingPeriodId.map { CanvasID($0) })
                     },
                     published: a.published ?? true, submissionTypes: a.submissionTypes ?? [])
             }
             return AssignmentGroup(
-                id: groupID, name: dto.name ?? "", position: dto.position ?? 0, weight: dto.groupWeight,
+                id: groupID, name: dto.name ?? "", position: dto.position ?? 0,
+                weight: GradeSanitizing.saneWeight(dto.groupWeight),
                 rules: DropRules(dropLowest: dto.rules?.dropLowest ?? 0, dropHighest: dto.rules?.dropHighest ?? 0,
                                  neverDrop: (dto.rules?.neverDrop ?? []).map { CanvasID($0) }),
                 assignments: assignments)

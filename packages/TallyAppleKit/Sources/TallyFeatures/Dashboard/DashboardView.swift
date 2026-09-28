@@ -1,7 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
-import TallyStore // GradeBand (GlanceProjection.swift)
 
 /// UX-WP-13: the Dashboard, over the glance/snapshot (ux-ui.md §3.7.1, insights-at-a-glance.md
 /// §1). Built purely from parameters — the same view serves a signed-in session and ASC-14's

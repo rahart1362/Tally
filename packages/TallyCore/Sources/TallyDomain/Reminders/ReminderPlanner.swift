@@ -85,7 +85,7 @@ public enum ReminderPlanner {
 
         if settings.missingFollowupEnabled {
             let fire = due.addingTimeInterval(InsightsConfig.missingFollowupOffset.timeInterval)
-            let isOpenAtFollowup = assignment.lockAt == nil || assignment.lockAt! > fire
+            let isOpenAtFollowup = assignment.lockAt.map { $0 > fire } ?? true
             if isOpenAtFollowup {
                 let shifted = shiftOutOfQuietHours(fire, quietHours: settings.quietHours, timeZone: timeZone)
                 out.append(PendingReminder(

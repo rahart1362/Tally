@@ -6,5 +6,13 @@
     <array>
         <string>$(TALLY_SHARED_APP_GROUP_ID)</string>
     </array>
+    <!-- ENC-05: only the App Group group — never the app-private group — so
+         the widget process can open the `glance` vault key and nothing else
+         (encryption.md §3.4: "It can therefore open glance and nothing
+         else: a snapshot open returns keyMissing"). -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)</string>
+    </array>
 </dict>
 </plist>

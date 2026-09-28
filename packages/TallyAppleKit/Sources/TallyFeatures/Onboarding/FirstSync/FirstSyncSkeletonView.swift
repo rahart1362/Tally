@@ -1,0 +1,113 @@
+import SwiftUI
+import TallyDesignSystem
+import TallyDomain
+
+/// UX-WP-10: the first-sync skeleton (ux-ui.md §3.2 stage 5 / prototype
+/// `heroSkeleton`). The real Dashboard hero card (with its ring, sparkline
+/// and course rows) is a later work package — this view is the progressive
+/// placeholder shell that precedes it, driven entirely by
+/// `FirstSyncViewModel`.
+struct FirstSyncSkeletonView: View {
+    @State private var viewModel: FirstSyncViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let onRetry: () -> Void
+    let onFinished: () -> Void
+
+    init(viewModel: FirstSyncViewModel, onRetry: @escaping () -> Void, onFinished: @escaping () -> Void) {
+        _viewModel = State(wrappedValue: viewModel)
+        self.onRetry = onRetry
+        self.onFinished = onFinished
+    }
+
+    var body: some View {
+        VStack(spacing: TallySpacing.xl) {
+            if let failure = viewModel.failure {
+                failureState(failure)
+            } else {
+                heroPlaceholder
+                progressSection
+                if viewModel.showsSlowLoadNotice {
+                    // "Large course loads can take a minute — you can keep exploring"
+                    // (ux-ui.md §3.2 stage 5), not the stale breadcrumb: nothing is saved yet.
+                    Text("Large course loads can take a minute — you can keep exploring")
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(TallySpacing.screenMargin)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(TallyColor.bgCanvas)
+        .animation(reduceMotion ? nil : .snappy, value: viewModel.showsSlowLoadNotice)
+        .onChange(of: viewModel.isFinished) { _, isFinished in
+            if isFinished { onFinished() }
+        }
+    }
+
+    private var heroPlaceholder: some View {
+        VStack(spacing: TallySpacing.lg) {
+            Text("Setting up Tally")
+                .font(TallyTypography.sectionHeader)
+                .foregroundStyle(TallyColor.textSecondary)
+
+            HStack(spacing: TallySpacing.lg) {
+                Circle()
+                    .fill(TallyColor.separator)
+                    .frame(width: 72, height: 72)
+                VStack(alignment: .leading, spacing: TallySpacing.sm) {
+                    RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+                        .fill(TallyColor.separator)
+                        .frame(height: 16)
+                    RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+                        .fill(TallyColor.separator)
+                        .frame(width: 120, height: 12)
+                }
+            }
+            .redacted(reason: .placeholder)
+            // "the hero is accessibilityElement(children: .combine) while it is busy"
+            // (ux-ui.md §3.2 stage 5).
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(viewModel.statusText)
+        }
+    }
+
+    private var progressSection: some View {
+        VStack(spacing: TallySpacing.sm) {
+            Text(viewModel.statusText)
+                .font(TallyTypography.footnote)
+                .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityHidden(true) // already carried by the hero's combined label above
+
+            ProgressView(value: viewModel.progress)
+                .tint(TallyColor.brandGold)
+                .accessibilityLabel("Setting up Tally")
+                .accessibilityValue("\(Int(viewModel.progress * 100)) percent")
+        }
+    }
+
+    private func failureState(_ failure: RefreshFailure) -> some View {
+        ContentUnavailableView {
+            Label("Couldn't set up Tally", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(Self.message(for: failure))
+        } actions: {
+            Button("Retry", action: onRetry)
+                .buttonStyle(.tallyPrimary)
+        }
+    }
+
+    private static func message(for failure: RefreshFailure) -> String {
+        switch failure {
+        case .offline:
+            "You're offline. Connect to the internet to load your courses."
+        case .authExpired:
+            "Your sign-in expired before setup finished. Sign in again to continue."
+        case .rateLimited, .server:
+            "Your school's Canvas is taking too long to respond. Try again in a moment."
+        case .contract, .unknown:
+            "Something went wrong setting up Tally. Try again."
+        }
+    }
+}

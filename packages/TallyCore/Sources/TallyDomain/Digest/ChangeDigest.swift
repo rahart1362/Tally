@@ -69,7 +69,8 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
     }
 
     /// A course present in both snapshots whose overall current score moved by at
-    /// least `TallyConfig.courseScoreChangeThreshold` points, in either direction.
+    /// least the course's `DigestThresholds` value (default `TallyConfig.courseScoreChangeThreshold` points;
+    /// "All" reports any change), in either direction.
     /// Never reported for a course with hidden totals in *either* snapshot, matching
     /// the "Tally never shows a band/score it wasn't given" rule applied elsewhere
     /// (`GlanceProjectionBuilder`, `AlertEngine.belowGoalAlert`).
@@ -119,7 +120,7 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
     /// pair of snapshots are byte-for-byte equal.
     public static func diff(
         old: CanvasSnapshot?, new: CanvasSnapshot,
-        courseScoreThreshold: Double = TallyConfig.courseScoreChangeThreshold
+        thresholds: DigestThresholds = .default
     ) -> ChangeDigest {
         guard let old else { return .empty }
 
@@ -130,8 +131,7 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
         var newAssignmentEntries: [NewAssignment] = []
         var dueDateChanges: [DueDateChange] = []
 
-        for assignmentID in newAssignmentsMap.keys.sorted() {
-            let (courseID, assignment) = newAssignmentsMap[assignmentID]!
+        for (assignmentID, (courseID, assignment)) in newAssignmentsMap.sorted(by: { $0.key < $1.key }) {
             guard let (_, previousAssignment) = oldAssignments[assignmentID] else {
                 newAssignmentEntries.append(NewAssignment(courseID: courseID, assignmentID: assignmentID, dueAt: assignment.dueAt))
                 continue
@@ -159,7 +159,7 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
                   course.gradeVisibility == .visible, previousCourse.gradeVisibility == .visible,
                   let previousScore = previousCourse.scores?.currentScore,
                   let newScore = course.scores?.currentScore else { continue }
-            guard abs(newScore - previousScore) >= courseScoreThreshold else { continue }
+            guard thresholds.threshold(for: course.id).isCleared(by: newScore - previousScore) else { continue }
             courseScoreChanges.append(CourseScoreChange(courseID: course.id, previousScore: previousScore, newScore: newScore))
         }
 

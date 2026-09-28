@@ -45,6 +45,8 @@ public actor RefreshCoordinator {
     private var record: RefreshRecord
     private var previousSnapshot: CanvasSnapshot?
     private var committedGeneration: UInt64
+    /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
+    private var digestThresholds: DigestThresholds = .default
     private var epoch: UInt64 = 0
     /// The task running this run's `perform`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
@@ -61,6 +63,11 @@ public actor RefreshCoordinator {
 
     public nonisolated let events: AsyncStream<Event>
     private let continuation: AsyncStream<Event>.Continuation
+
+    /// Called when the user changes the "What changed" threshold in Settings; the next commit uses it.
+    public func updateDigestThresholds(_ thresholds: DigestThresholds) {
+        digestThresholds = thresholds
+    }
 
     public init(
         gateway: any CanvasGateway,
@@ -103,6 +110,14 @@ public actor RefreshCoordinator {
         inFlight?.cancel()
         record = RefreshRecord()
         emit(.stateChanged(currentState))
+        // CS-05: this coordinator is retired on sign-out (one instance per signed-in account),
+        // so finish `events` here too. Without this, a consumer that iterates `events` with
+        // `for await` but never separately learns to stop (e.g. a UI model that forgot to call
+        // its own `detach()`) awaits a value that will never come, leaking the task and every
+        // strong reference its closure holds — including this actor, its gateway and its
+        // store. `Continuation.finish()` is documented idempotent, so a later call (or a
+        // caller that invokes `bumpEpochAndCancel()` more than once) is harmless.
+        continuation.finish()
     }
 
     /// Starts a refresh for `trigger`, or joins one already running (single-flight). Returns once
@@ -199,8 +214,11 @@ public actor RefreshCoordinator {
                 emit(.stateChanged(currentState))
                 return
             }
-            let stamped = restamped(fetched, generation: attemptGeneration)
-            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped)
+            let restampedSnapshot = restamped(fetched, generation: attemptGeneration)
+            // CS-05: degrade before persisting, not after — a snapshot that blew past the item
+            // budget must never even reach `SnapshotStore`'s encode/seal path at full size.
+            let stamped = SnapshotBudget.enforce(restampedSnapshot).snapshot
+            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped, thresholds: digestThresholds)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades)
                 committedGeneration = stamped.generation

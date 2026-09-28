@@ -111,4 +111,39 @@ struct CanvasClientTests {
         let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: .seconds(5))
         #expect(!data.isEmpty)
     }
+
+    // MARK: - CS-05: resource limits
+
+    @Test func fetchOneRejectsAResponseBodyPastTheConfiguredCap() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let oversized = HTTPResponse(status: 200, body: Data(count: TallyConfig.maxResponseBodyBytes + 1))
+        await transport.inject(response: oversized, times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
+        await #expect(throws: RefreshFailure.contract) {
+            _ = try await client.fetchOne(path: "/api/v1/users/self/profile")
+        }
+    }
+
+    @Test func fetchOneAcceptsARegularSizedBodyRightAtTheCap() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let atCap = HTTPResponse(status: 200, body: Data(count: TallyConfig.maxResponseBodyBytes))
+        await transport.inject(response: atCap, times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
+        let data = try await client.fetchOne(path: "/api/v1/users/self/profile")
+        #expect(data.count == TallyConfig.maxResponseBodyBytes, "exactly at the cap must still succeed")
+    }
+
+    /// Verifies the existing `TallyConfig.maxPagesPerResource` cap: a server that never stops
+    /// sending `Link: rel="next"` must not be followed forever (CS-05).
+    @Test func fetchAllPagesStopsAtTheConfiguredPageCapEvenWhenLinkNeverStops() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let endlessNext = HTTPResponse(status: 200, headers: HTTPHeaders(["Link": "<https://\(host)/api/v1/courses?page=2>; rel=\"next\""]),
+                                       body: Data("[]".utf8))
+        await transport.inject(response: endlessNext, times: TallyConfig.maxPagesPerResource + 10,
+                               matching: { $0.url.path == "/api/v1/courses" })
+        let pages = try await client.fetchAllPages(path: "/api/v1/courses", query: CanvasQuery.courses())
+        #expect(pages.count == TallyConfig.maxPagesPerResource,
+                "must stop exactly at TallyConfig.maxPagesPerResource even when the server's Link header never stops")
+    }
 }

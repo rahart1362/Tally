@@ -13,15 +13,23 @@ import TallyPlatform
 /// `refreshCoordinator` starts `nil` — pure construction can't stand up a
 /// real per-account `RefreshCoordinator` without knowing whether an account
 /// exists, and reading that (Keychain, the store) is I/O this initializer is
-/// forbidden from doing. Onboarding/sign-in (a separate, concurrently
-/// developed work package) is what will eventually call `appModel.attach(_:)`
-/// once a real account and its coordinator exist.
-@MainActor
+/// forbidden from doing. Sign-in is what will eventually call
+/// `appModel.attach(_:)` once a real account and its coordinator exist.
 struct AppEnvironment {
     let logger: any TallyPlatformLogger
+    /// UX-WP-09: the real `ASWebAuthenticationSession` adapter for the
+    /// `WebAuthPresenting` port `SignInHandoffViewModel` (`TallyFeatures`) depends on.
+    let webAuthPresenter: any WebAuthPresenting
     let appModel: AppModel
 
+    /// `@MainActor`: `WebAuthPresenter` is main-actor isolated (it drives
+    /// `ASWebAuthenticationSession`, which must run on the main thread), and
+    /// `AppModel` is `@MainActor @Observable`. `TallyApp` conforms to `App`,
+    /// itself a main-actor protocol, so calling this from
+    /// `@State private var environment = AppEnvironment.live()` is already on
+    /// the right actor.
+    @MainActor
     static func live() -> AppEnvironment {
-        AppEnvironment(logger: OSLogPlatformLogger(), appModel: AppModel())
+        AppEnvironment(logger: OSLogPlatformLogger(), webAuthPresenter: WebAuthPresenter(), appModel: AppModel())
     }
 }

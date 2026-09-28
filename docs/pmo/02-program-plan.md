@@ -82,6 +82,13 @@ This plan **supersedes** the kit's `05_Execution_Manifest.yaml` and the repo's `
 
 Domain: **tally-app.dev** registered by the owner on 2026-09-26. Bundle ID `dev.tally-app.tally` (GL-02).
 
+### 2d. Further owner decisions (2026-09-27)
+
+| # | Decision | Status |
+|---|---|---|
+| D-E4 | User-authored settings (reminder rules, goals, class times, digest thresholds) are **not** included in backups. A new install or data wipe starts from defaults, and Canvas data is fetched fresh. This matches the implementation: device-only key, excluded from backup. | **Decided** (owner changed an earlier "include" answer the same day) |
+| DG-1 | The "What changed" course-grade threshold defaults to **0.5 points**. Users can set it to **All** (any change) or to a point value, globally or **per course**. | **Decided, implemented** (`DigestThresholds`, UserState v3) |
+
 ### 2c. Family linking decisions (from `reviews/family-linking.md`, 2026-09-26)
 
 Canvas natively supports parent access through **observer** accounts and student-generated **pairing codes** (endpoints verified in Instructure's docs by the PMO, 2026-09-26). The owner's "parent uses the student's credential" idea is **not recommended**: the parent could act as the student, it breaks R3/ADR 0001 and Instructure's API Policy, and rotating refresh tokens would sign the two phones out of each other.
@@ -104,7 +111,7 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | Milestone | Scope (WP IDs) | Needs from owner | Exit gate |
 |---|---|---|---|
 | **M0 Stabilise** | Repo hygiene: delete `ci_fail.log`, `scratch_*.txt`, `tally-test.html`, stale `build/state`; add `.gitignore`. Fix `main` CI: interim opaque 1024 icon, `macos-26`/Xcode 26.6. CI hardening (SEC-13). Remove fabricated behaviour (R12 / ASC-05). Compliance check script (ASC-04). Logging facade + `print(` ban (SEC-09). | Permission to push a branch/PR so macOS CI runs | `main` green on macOS CI for the first time since Aug 27; grep gates clean |
-| **M1 Core engine (Linux)** | ARC A01–A08, B01–B06, B08, C01–C03, D01–D02; ENC-01/02; SEC-01–03; UX-WP-01, UX-WP-06. Synthetic Canvas fixtures from the API docs. | — | `make core-test` green in container **and** on the CI ubuntu job; GradeEngine parity on fixtures ±0.01 |
+| **M1 Core engine (Linux)** ✅ *complete 2026-09-27: 437 tests, 0 failures* | ARC A01–A08, B01–B06, B08, C01–C03, D01–D02; ENC-01/02; SEC-01–03; UX-WP-01, UX-WP-06. Synthetic Canvas fixtures from the API docs. | — | `make core-test` green in container **and** on the CI ubuntu job; GradeEngine parity on fixtures ±0.01 |
 | **M2 iOS shell** | ARC E01–E04; SEC-04, 07, 08; ENC-03; UX-WP-02, 03, 05; ASC-01, 03, 09, 10, 11 (mock Canvas server), 14 (sample-data mode) | O5 (else placeholders) | App boots from cache in the simulator, <300 ms warm; 12-s slow replay shows the breadcrumb, which self-heals |
 | **M3 Features** | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |

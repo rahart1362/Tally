@@ -117,6 +117,7 @@ Optional, user-consented, device-side only:
 
 ## 10. Additional Features to Include
 - change digest: “what changed since last refresh”
+  - *(owner, 2026-09-27)* A course-grade move appears only if it reaches the threshold: **0.5 points by default**. The user can choose **All** or a point value, for all courses or per course.
 - exam mode: elevate finals, missing work, projected grade impact
 - smart study plan generator
 - conflict detection between classes, deadlines, and calendar events
