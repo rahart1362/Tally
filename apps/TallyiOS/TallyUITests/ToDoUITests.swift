@@ -47,15 +47,28 @@ final class ToDoUITests: TallyUITestCase {
         swipeDone.tap()
         XCTAssertTrue(eventually { second.label.contains("Marked done in Tally") }, "row: '\(second.label)'")
 
-        // Batch select: two rows, then Mark Done.
+        // Batch select: two rows not yet done, then Mark Done. Rows are found by their labels,
+        // since scrolling changes which rows are in the hierarchy.
         tapWhenHittable(app.buttons["todo.select"], in: app)
-        let third = rows.element(boundBy: 2)
-        let fourth = rows.element(boundBy: 3)
-        tapWhenHittable(third, in: app)
-        tapWhenHittable(fourth, in: app)
+        let notDone = rows.matching(NSPredicate(format: "NOT (label CONTAINS 'Marked done in Tally')"))
+        XCTAssertGreaterThanOrEqual(notDone.count, 2, "Hierarchy: \(app.debugDescription)")
+        let picked = [notDone.element(boundBy: 0).label, notDone.element(boundBy: 1).label]
+        for label in picked {
+            let row = rows.matching(NSPredicate(format: "label == %@", label)).firstMatch
+            XCTAssertTrue(scrollUntilHittable(row, in: app, maxSwipes: 4), "'\(label)' is not on screen. Hierarchy: \(app.debugDescription)")
+            row.tap()
+        }
         tapWhenHittable(app.buttons["todo.markDone"], in: app)
-        XCTAssertTrue(eventually { third.label.contains("Marked done in Tally") && fourth.label.contains("Marked done in Tally") },
-                      "batch Mark Done: '\(third.label)' / '\(fourth.label)'")
+        // The rows keep their places; the scroll may have moved the first one above the screen.
+        for label in picked.reversed() {
+            let done = rows.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS 'Marked done in Tally'", label)).firstMatch
+            var found = eventually(timeout: 5) { done.exists }
+            for _ in 0..<3 where !found {
+                app.swipeDown(velocity: .slow)
+                found = eventually(timeout: 2) { done.exists }
+            }
+            XCTAssertTrue(found, "batch Mark Done did not mark '\(label)'. Hierarchy: \(app.debugDescription)")
+        }
     }
 
     /// A11Y-02 at the largest text size.
@@ -71,6 +84,8 @@ final class ToDoUITests: TallyUITestCase {
         let complete = app.buttons.matching(identifier: "todo.complete").firstMatch
         XCTAssertGreaterThanOrEqual(complete.frame.height, 44)
         assertEveryButtonHasALabel(app, screen: "To-Do AX XXXL")
-        assertAccessibilityAudit(app, screen: "To-Do AX XXXL")
+        // A11Y-04 names the completion control: the audit's hit-region check runs here too.
+        assertAccessibilityAudit(app, screen: "To-Do AX XXXL",
+                                 types: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
     }
 }

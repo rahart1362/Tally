@@ -29,13 +29,18 @@ final class CoursesUITests: TallyUITestCase {
         XCTAssertEqual(app.navigationBars.buttons.matching(NSPredicate(format: "label IN {'Add', '+'}")).count, 0)
         assertEveryButtonHasALabel(app, screen: "Courses")
 
-        // Edit: drag the first card to the bottom with its reorder control, then Done.
+        // Edit: drag the first card's reorder control past the second card's, then Done. (Only
+        // the cards on screen are in the hierarchy, so the drag stays on screen.)
         let firstLabel = cards.element(boundBy: 0).label
         tapWhenHittable(app.buttons["courses.edit"], in: app)
-        let handles = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Reorder'"))
+        let handles = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Reorder'"))
         XCTAssertTrue(handles.firstMatch.waitForExistence(timeout: 5), "no reorder controls. Hierarchy: \(app.debugDescription)")
-        let last = handles.element(boundBy: handles.count - 1)
-        handles.element(boundBy: 0).press(forDuration: 1.0, thenDragTo: last)
+        let first = handles.element(boundBy: 0)
+        let second = handles.element(boundBy: 1)
+        XCTAssertTrue(first.isHittable && second.isHittable, "reorder controls off screen. Hierarchy: \(app.debugDescription)")
+        let start = first.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = second.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).withOffset(CGVector(dx: 0, dy: 24))
+        start.press(forDuration: 1.0, thenDragTo: end)
         tapWhenHittable(app.buttons["courses.edit"], in: app)
         XCTAssertTrue(eventually { cards.element(boundBy: 0).label != firstLabel },
                       "the move did not change the order. Hierarchy: \(app.debugDescription)")

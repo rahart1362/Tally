@@ -11,6 +11,9 @@ final class CourseDetailUITests: TallyUITestCase {
         openTab("Courses", in: app)
         let math = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'course.card' AND label CONTAINS 'MATH 122'")).firstMatch
+        // At the accessibility sizes one card fills most of the screen, so MATH 122 may start below it.
+        XCTAssertTrue(elements("course.card", in: app).firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(math, in: app, maxSwipes: 15), "MATH 122 never came on screen. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(math, in: app, timeout: 15)
         XCTAssertTrue(element("courseDetail.hero", in: app).waitForExistence(timeout: 10),
                       "Course Detail never opened. Hierarchy: \(app.debugDescription)")
@@ -29,6 +32,15 @@ final class CourseDetailUITests: TallyUITestCase {
         }
         XCTAssertFalse(app.buttons["People"].exists)
 
+        // The segments, while the picker is on screen: Assignments (its first section) and Grades.
+        tapWhenHittable(app.buttons["Assignments"], in: app)
+        XCTAssertTrue(eventually { self.text("Upcoming", in: app).exists || self.text("Missing", in: app).exists },
+                      "no assignment sections. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["Grades"], in: app)
+        XCTAssertTrue(app.staticTexts["Current grade counts graded work only."].waitForExistence(timeout: 5),
+                      "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["Overview"], in: app)
+
         // A11Y-08: the category-weights chart has a label and a value.
         let weights = element("chart.weights", in: app)
         XCTAssertTrue(scrollUntilHittable(weights, in: app), "no weights chart. Hierarchy: \(app.debugDescription)")
@@ -38,14 +50,7 @@ final class CourseDetailUITests: TallyUITestCase {
         XCTAssertFalse(element("chart.distribution", in: app).exists)
         assertEveryButtonHasALabel(app, screen: "Course Detail")
 
-        tapWhenHittable(app.buttons["Assignments"], in: app)
-        XCTAssertTrue(text("Missing", in: app).waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
-        tapWhenHittable(app.buttons["Grades"], in: app)
-        XCTAssertTrue(app.staticTexts["Current grade counts graded work only."].waitForExistence(timeout: 5),
-                      "Hierarchy: \(app.debugDescription)")
-
         // The what-if sheet.
-        tapWhenHittable(app.buttons["Overview"], in: app)
         let whatIf = element("courseDetail.whatIf", in: app)
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "no What-If button. Hierarchy: \(app.debugDescription)")
         whatIf.tap()
@@ -116,6 +121,8 @@ final class CourseDetailUITests: TallyUITestCase {
         XCTAssertGreaterThanOrEqual(raise.frame.height, 44)
         XCTAssertTrue(app.sliders.matching(identifier: "whatif.slider").firstMatch.exists)
         assertEveryButtonHasALabel(app, screen: "What-If AX XXXL")
-        assertAccessibilityAudit(app, screen: "What-If AX XXXL")
+        // A11Y-04 names the what-if stepper: the audit's hit-region check runs here too.
+        assertAccessibilityAudit(app, screen: "What-If AX XXXL",
+                                 types: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion])
     }
 }

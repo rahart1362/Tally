@@ -28,16 +28,6 @@ struct CalendarScreen: View {
         let calendar = model.calendarScreen
         ScrollViewReader { proxy in
             List {
-                if !calendar.week.isEmpty {
-                    Section {
-                        WeekStrip(days: calendar.week, selected: selectedDay ?? calendar.todayID) { day in
-                            selectedDay = day
-                            withAnimation { proxy.scrollTo(day, anchor: .top) }
-                        }
-                        .listRowInsets(EdgeInsets(top: TallySpacing.sm, leading: TallySpacing.sm,
-                                                  bottom: TallySpacing.sm, trailing: TallySpacing.sm))
-                    }
-                }
                 if showsTimeline, let day = timelineDay(calendar) {
                     Section {
                         DayTimeline(day: day)
@@ -64,12 +54,27 @@ struct CalendarScreen: View {
             }
             .listStyle(.insetGrouped)
             .refreshable { await model.refreshUntilSettledOrDelayed() }
+            // The week strip stays in place above the agenda (it is how the student moves through
+            // the week), under the breadcrumb when one shows.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                VStack(spacing: 0) {
+                    FreshnessBreadcrumb()
+                    if !calendar.week.isEmpty {
+                        WeekStrip(days: calendar.week, selected: selectedDay ?? calendar.todayID) { day in
+                            selectedDay = day
+                            withAnimation { proxy.scrollTo(day, anchor: .top) }
+                        }
+                        .padding(.horizontal, TallySpacing.sm)
+                        .padding(.vertical, TallySpacing.xs)
+                        .background(TallyColor.bgCanvas)
+                    }
+                }
+            }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).
                 if let today = calendar.todayID, selectedDay == nil { proxy.scrollTo(today, anchor: .top) }
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
         .navigationTitle(calendar.monthTitle.isEmpty ? "Calendar" : calendar.monthTitle)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

@@ -133,7 +133,7 @@ private struct WhatIfItemRow: View {
                     TextField("Score", text: $text)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 120)
+                        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120)
                         .accessibilityLabel("Score for \(item.title), \(item.outOfText)")
                         .accessibilityIdentifier("whatif.field")
                     Text(item.outOfText)

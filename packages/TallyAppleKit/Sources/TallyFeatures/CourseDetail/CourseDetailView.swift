@@ -51,13 +51,7 @@ struct CourseDetailView: View {
                     .listRowBackground(Color.clear)
             }
             Section {
-                Picker("Show", selection: $segment) {
-                    ForEach(CourseDetailSegment.allCases) { segment in
-                        Text(segment.title).tag(segment)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("courseDetail.segments")
+                SegmentPicker(selection: $segment)
             }
             switch segment {
             case .overview: overview(detail)
@@ -258,6 +252,30 @@ struct CourseDetailView: View {
             return "What-if isn't available for a course that shows letter grades only."
         }
         return "Everything in this course has a score, so there is nothing to try."
+    }
+}
+
+/// Overview · Assignments · Grades: segmented, or a menu from the accessibility sizes up, where a
+/// segmented control would cut its labels short.
+private struct SegmentPicker: View {
+    @Binding var selection: CourseDetailSegment
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            picker.pickerStyle(.menu)
+        } else {
+            picker.pickerStyle(.segmented)
+        }
+    }
+
+    private var picker: some View {
+        Picker("Show", selection: $selection) {
+            ForEach(CourseDetailSegment.allCases) { segment in
+                Text(segment.title).tag(segment)
+            }
+        }
+        .accessibilityIdentifier("courseDetail.segments")
     }
 }
 

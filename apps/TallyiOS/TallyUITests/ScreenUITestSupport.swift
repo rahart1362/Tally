@@ -51,6 +51,20 @@ extension TallyUITestCase {
         return element.exists && element.isHittable
     }
 
+    /// Flips a Form toggle. The toggle's element spans the whole row, and a tap on the row's centre
+    /// lands on the label, which does not flip it; tap the switch itself (the row's inner switch
+    /// when the hierarchy has one, else the trailing end of the row where the switch sits).
+    @MainActor
+    func flip(_ toggle: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        waitUntilHittable(toggle, in: app, file: file, line: line)
+        let inner = toggle.switches.firstMatch
+        if inner.exists, inner.isHittable {
+            inner.tap()
+        } else {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        }
+    }
+
     /// The first element of `query` that is on screen and hittable, waiting up to `timeout`.
     @MainActor
     func firstHittable(_ query: XCUIElementQuery, timeout: TimeInterval = 10) -> XCUIElement? {
@@ -83,25 +97,74 @@ extension TallyUITestCase {
     }
 
     /// A11Y-01/02: Apple's accessibility audit on the screen as it is now. Every issue fails the test
-    /// unless `ScreenAuditWaivers` names it (A11Y-01: waivers only through the issue handler, each
-    /// with its reason in code).
+    /// unless `ScreenAuditWaivers` accepts it (A11Y-01: waivers only through the issue handler, each
+    /// with its reason in code). Every issue, waived or not, is listed with its element: waived ones
+    /// in an attachment, the rest in the failure message.
     @MainActor
     func assertAccessibilityAudit(_ app: XCUIApplication, screen: String,
                                   types: XCUIAccessibilityAuditType = [.dynamicType, .textClipped, .sufficientElementDescription],
                                   file: StaticString = #filePath, line: UInt = #line) {
+        let bars = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex
+                    + app.toolbars.allElementsBoundByIndex).map(\.frame)
+        var failing: [String] = []
+        var waived: [String] = []
         do {
             try app.performAccessibilityAudit(for: types) { issue in
-                ScreenAuditWaivers.isWaived(issue)
+                let described = ScreenAuditWaivers.describe(issue)
+                if let reason = ScreenAuditWaivers.waiver(for: issue, systemBars: bars) {
+                    waived.append("\(described) | waived: \(reason)")
+                } else {
+                    failing.append(described)
+                }
+                return true
             }
         } catch {
             XCTFail("\(screen): the accessibility audit could not run: \(error)", file: file, line: line)
         }
+        if !waived.isEmpty {
+            for entry in waived { print("M3A-AUDIT-WAIVED \(screen): \(entry)") }
+            let attachment = XCTAttachment(string: waived.joined(separator: "\n"))
+            attachment.name = "\(screen): waived audit issues"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        XCTAssertTrue(failing.isEmpty, "\(screen): \(failing.count) accessibility audit issue(s):\n"
+                      + failing.joined(separator: "\n") + "\nHierarchy: \(app.debugDescription)", file: file, line: line)
     }
 }
 
-/// Audit issues this suite accepts, each with its reason. Empty: nothing is waived.
+/// Audit issues this suite accepts. A11Y-01 allows a waiver only through the issue handler with a
+/// ticket ID in code; the repository has no ticket tracker, so each waiver carries an ID that
+/// docs/pmo/reviews/m3-screens-report.md lists with its evidence.
+@MainActor
 enum ScreenAuditWaivers {
-    static func isWaived(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        false
+    /// M3A-W1: text drawn by UIKit's navigation bars, tab bar and toolbars. UIKit sizes that text
+    /// itself and caps it at the accessibility sizes (bar items offer the Large Content Viewer on
+    /// a long press instead); Tally does not size or draw it. Only these two audit types, and only
+    /// for an element that lies wholly inside one of those bars.
+    static let systemBarTextID = "M3A-W1"
+    static let systemBarTypes: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+
+    static func waiver(for issue: XCUIAccessibilityAuditIssue, systemBars: [CGRect]) -> String? {
+        guard systemBarTypes.contains(issue.auditType), let frame = issue.element?.frame, !frame.isEmpty,
+              systemBars.contains(where: { $0.insetBy(dx: -1, dy: -1).contains(frame) }) else { return nil }
+        return "\(systemBarTextID): text drawn by a system bar"
+    }
+
+    static func describe(_ issue: XCUIAccessibilityAuditIssue) -> String {
+        let element = issue.element.map {
+            "element type \($0.elementType.rawValue) label '\($0.label)' id '\($0.identifier)' frame \($0.frame)"
+        } ?? "no element"
+        return "\(name(of: issue.auditType)) | \(issue.compactDescription) | \(issue.detailedDescription) | \(element)"
+    }
+
+    static func name(of type: XCUIAccessibilityAuditType) -> String {
+        let names: [(XCUIAccessibilityAuditType, String)] = [
+            (.contrast, "contrast"), (.elementDetection, "elementDetection"), (.hitRegion, "hitRegion"),
+            (.sufficientElementDescription, "sufficientElementDescription"), (.dynamicType, "dynamicType"),
+            (.textClipped, "textClipped"), (.trait, "trait"),
+        ]
+        let matched = names.filter { type.contains($0.0) }.map(\.1)
+        return matched.isEmpty ? "type \(type.rawValue)" : matched.joined(separator: "+")
     }
 }

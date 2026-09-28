@@ -30,11 +30,14 @@ final class SettingsUITests: TallyUITestCase {
         XCTAssertTrue(everyChange.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         XCTAssertEqual(everyChange.value as? String, "0")
         XCTAssertTrue(element("settings.points", in: app).exists)
-        everyChange.tap()
-        XCTAssertTrue(eventually { everyChange.value as? String == "1" })
-        XCTAssertFalse(element("settings.points", in: app).exists)
-        everyChange.tap()
-        XCTAssertTrue(eventually { element("settings.points", in: app).exists })
+        flip(everyChange, in: app)
+        XCTAssertTrue(eventually { everyChange.value as? String == "1" },
+                      "the toggle did not turn on: \(String(describing: everyChange.value)). Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(eventually { !self.element("settings.points", in: app).exists },
+                      "every change still shows the points. Hierarchy: \(app.debugDescription)")
+        flip(everyChange, in: app)
+        XCTAssertTrue(eventually { everyChange.value as? String == "0" && self.element("settings.points", in: app).exists },
+                      "the points did not come back. Hierarchy: \(app.debugDescription)")
 
         // Per course: a navigating row, then one menu per course.
         tapWhenHittable(app.buttons["settings.perCourse"], in: app)
