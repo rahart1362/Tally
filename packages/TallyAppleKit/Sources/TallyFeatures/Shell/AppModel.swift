@@ -87,7 +87,7 @@ public final class AppModel {
     @ObservationIgnored private var pendingSignIn: PendingSignIn?
     @ObservationIgnored private var isLaunching = false
 
-    #if true || TALLY_TEST_HOOKS
+    #if DEBUG || TALLY_TEST_HOOKS
     /// UI-test hooks (`LaunchTestHooks`): never compiled into a shipping Release build.
     public var testHooks: LaunchTestHooks?
     #endif
@@ -120,7 +120,7 @@ public final class AppModel {
         guard route == .launching, !isLaunching else { return }
         isLaunching = true
         LaunchSignpost.enterPhase(LaunchSignpost.resolve)
-        #if true || TALLY_TEST_HOOKS
+        #if DEBUG || TALLY_TEST_HOOKS
         if let testHooks, let accountEnvironment { await testHooks.prepareLaunch(accountEnvironment) }
         #endif
         apply(await launcher.resolve())
@@ -153,9 +153,7 @@ public final class AppModel {
         LaunchSignpost.enterPhase(LaunchSignpost.homeRender)
         lock.configure(with: resolution.lock)
         let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime))
-        let runtime = accountRuntime
-        Task { await runtime.coordinator()?.run(trigger: .launch) }
-        _ = resolution.glance
+        if let glance = resolution.glance { home.showGlance(glance) }
         self.home = home
         activeAccount = account
         route = .signedIn(account.accountKey)

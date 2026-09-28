@@ -42,21 +42,21 @@ public struct RootView: View {
     public var body: some View {
         content
             .overlay {
-                if appModel.lock.showsPrivacyCover && false {
+                if appModel.lock.showsPrivacyCover {
                     LaunchPlaceholderView(role: .privacyCover)
                 }
             }
             .onChange(of: scenePhase, initial: true) { _, phase in
                 appModel.lock.scenePhaseChanged(to: AppLockPolicy.Phase(phase))
             }
-            #if true || TALLY_TEST_HOOKS
+            #if DEBUG || TALLY_TEST_HOOKS
             .modifier(LaunchTestHookOverlay(appModel: appModel))
             #endif
     }
 
     @ViewBuilder
     private var content: some View {
-        if appModel.route != .launching, appModel.lock.isLocked, appModel.home == nil {
+        if appModel.route != .launching, appModel.lock.isLocked {
             LockView(lock: appModel.lock, onSignOut: { appModel.signOut() })
         } else {
             switch appModel.route {

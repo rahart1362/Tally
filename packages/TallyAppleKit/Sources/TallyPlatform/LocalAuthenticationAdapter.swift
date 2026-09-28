@@ -88,7 +88,6 @@ public final class LocalAuthenticationAdapter: AppLockAuthenticating, Sendable {
         switch LAError.Code(rawValue: error.code) {
         case .passcodeNotSet?: return .passcodeNotSet
         case .biometryLockout?: return .biometryLockout
-        case .userCancel?: return .success(via: .biometric)
         case .biometryNotAvailable?, .biometryNotEnrolled?: return .biometryUnavailable
         default: return .failedOrCancelled
         }

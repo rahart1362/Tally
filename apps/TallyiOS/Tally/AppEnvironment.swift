@@ -59,7 +59,7 @@ struct AppEnvironment {
                                     makeTokenExchange: SignInServices.canvasTokenExchange(transport: transport))
         var authenticator: any AppLockAuthenticating = LocalAuthenticationAdapter()
 
-        #if true || TALLY_TEST_HOOKS
+        #if DEBUG || TALLY_TEST_HOOKS
         // UI tests only (LaunchTestHooks); never compiled into a shipping Release build.
         let hooks = LaunchTestHooks(arguments: ProcessInfo.processInfo.arguments)
         if hooks.isActive {
@@ -74,7 +74,7 @@ struct AppEnvironment {
         let lock = AppLockModel(authenticator: authenticator, preferences: accountEnvironment.lockPreferences)
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 lock: lock)
-        #if true || TALLY_TEST_HOOKS
+        #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif
         return AppEnvironment(logger: logger, accountRuntime: accountRuntime, appModel: appModel, signIn: signIn)

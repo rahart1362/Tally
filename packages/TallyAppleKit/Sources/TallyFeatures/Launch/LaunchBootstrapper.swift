@@ -62,7 +62,7 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         self.threadProbe = threadProbe
     }
 
-    @MainActor
+    @concurrent
     public func resolve() async -> LaunchResolution {
         guard let root = try? environment.storeRoot() else {
             // No store location at all: nothing to open, but the lock setting still applies.

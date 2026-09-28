@@ -1,4 +1,4 @@
-#if true || TALLY_TEST_HOOKS
+#if DEBUG || TALLY_TEST_HOOKS
 import SwiftUI
 import TallyDesignSystem
 
