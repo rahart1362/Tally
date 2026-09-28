@@ -56,6 +56,29 @@ Each has its own worktree under `~/Documents/Tally-worktrees/` and a fresh agent
 6. ASC-03: the script passes, and a mutation (an undeclared required-reason API) fails it. ASC-10: `release-gate.yml` runs.
 7. Every required check is green on the validation commit. The PMO re-reads the logs, runs 2-4 mutation checks of its own, and records the result in the journal. Only then is **M2 marked complete** in `02-program-plan.md`.
 
+### 3.1 Result (the PMO, 2026-09-28): M2 complete
+
+The validation run is 36494900022, PR #3's full run on `809eee1` (M2-C1 + M2-C2 + the O9 fix). Every required job is green; the logs were read.
+
+1. **Launch:**
+   - `LaunchFromCacheUITests` passed. It shows 0 Canvas requests before the cached paint, then the stale breadcrumb at the live budget; that check was restored after the O9 fix.
+   - `Launch.GlancePaint` median 2.06 s on the CI simulator. The previous medians were 1.97 s and 1.53 s.
+   - `XCTApplicationLaunchMetric` median 3.80 s was recorded.
+   - **Owner decision O10:** a required CI-simulator gate of 3.0 s median (`perf/budgets.json`, `ios-perf` required). 300 ms stays the on-device target (D-P3).
+2. Both `SlowRefreshUITests` passed.
+3. **SEC-07:** all four `AppLockUITests` passed: cold-launch lock, the cover on `.inactive`, a cancel keeping it locked, and the real `LAContext` on the simulator. The PL-03 async-`LAContext` gate is in hygiene.
+4. `SignInSignOutUITests` passed: sign-in, first sync, root switch, then sign-out. `SignOutTests` also passed, covering the seven steps and the instance counter.
+5. **Widget:** the link-map and binaries gates passed, and the memory median delta passed its budget in M2-C2's run 36491573304 and in 36494900022.
+6. **ASC-03:** the check passed in hygiene. **ASC-10:** `release-gate.yml` ran (36465775989).
+7. **PMO mutation checks,** each caught and restored byte-identical (journal):
+   - O9 (the old task-group race);
+   - PM1 (ASC-03, an undeclared `UserDefaults`);
+   - PM2 (widget isolation, `import TallySync`);
+   - PM3 (PL-03, callback `evaluatePolicy`);
+   - the glance-selection parity test (OI3).
+
+`ios-tsan` is required from 2026-09-28.
+
 ## 4. M3 streams to start after M2 closes (or when capacity allows)
 
 - **M3-B StoreKit 2:** Tally Annual ($9.99/yr, 1-month trial); Tally Parent ($4.99/yr per parent); a StoreKit configuration file; paywalls (PRD §11.3, §11.9); purchase gated on a working Canvas connection.
