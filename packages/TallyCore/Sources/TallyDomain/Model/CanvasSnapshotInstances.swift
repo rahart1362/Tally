@@ -1,5 +1,5 @@
 #if DEBUG
-import Synchronization
+import Foundation
 
 /// DEBUG only: how many `CanvasSnapshot` values are alive, per account (plan 06 step 10, plan 07
 /// M2-C1 L-3: "no `CanvasSnapshot` is reachable after sign-out, checked by a DEBUG live-instance
@@ -15,22 +15,44 @@ import Synchronization
 /// Keyed by account because tests run in parallel: a sign-out test uses its own account key and
 /// reads only that account's count. Release builds compile none of this.
 public enum CanvasSnapshotInstances {
-    private static let live = Mutex<[String: Int]>([:])
+    private static let registry = LiveCounts()
 
     /// Live snapshot values whose `accountKey` is `account`.
     public static func liveCount(for account: AccountKey) -> Int {
-        live.withLock { $0[account.rawValue, default: 0] }
+        registry.count(account.rawValue)
     }
 
     static func created(_ account: String) {
-        live.withLock { $0[account, default: 0] += 1 }
+        registry.change(account, by: 1)
     }
 
     static func released(_ account: String) {
-        live.withLock { counts in
-            let remaining = counts[account, default: 0] - 1
-            counts[account] = remaining > 0 ? remaining : nil
-        }
+        registry.change(account, by: -1)
+    }
+}
+
+/// The counts behind `CanvasSnapshotInstances`, behind an `NSLock` (a pthread mutex).
+///
+/// Not `Synchronization.Mutex`: the toolchain's Synchronization module is not built with
+/// ThreadSanitizer instrumentation, so TSan never sees that lock being taken and reported every
+/// concurrent count as a data race (`make core-tsan`; CI run 36441894351, 63 reports, all inside
+/// the lock's closure). TSan does intercept pthread mutexes.
+private final class LiveCounts: @unchecked Sendable {
+    // @unchecked: `counts` is read and written only with `lock` held.
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+
+    func count(_ account: String) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return counts[account, default: 0]
+    }
+
+    func change(_ account: String, by delta: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        let updated = counts[account, default: 0] + delta
+        counts[account] = updated > 0 ? updated : nil
     }
 }
 

@@ -24,16 +24,29 @@ enum TestHooks {
     static let flagshipHero = "Average of 5 courses"
 }
 
-extension TallyUITestCase {
+/// The lifecycle suites' shared set-up and tear-down steps. Static, so a nonisolated `tearDown`
+/// can run them on the main actor without sending the test case across isolation.
+enum LifecycleUITest {
     /// Erases every account, key, credential and the app-lock setting (the reset hook), so the next
-    /// test launches to Welcome whatever this one left behind. Every lifecycle suite calls it from
-    /// `tearDown`: the simulator keeps the app's container and Keychain between UI tests.
+    /// test launches to Welcome whatever this one left behind. Every lifecycle suite runs it in
+    /// `tearDown`: the simulator keeps the app's container and Keychain between UI tests, and the
+    /// other suites expect Welcome at launch.
     @MainActor
-    func resetAppState(file: StaticString = #filePath, line: UInt = #line) {
-        let app = launchApp(arguments: TestHooks.reset)
+    static func resetAppState(file: StaticString = #filePath, line: UInt = #line) {
+        let app = XCUIApplication()
+        app.launchArguments += TestHooks.reset
+        app.launchEnvironment.merge(TallyUITestCase.watchdogEnvironment) { _, armed in armed }
+        app.launch()
         XCTAssertTrue(app.buttons["Find My School"].waitForExistence(timeout: 30),
                       "the reset launch did not reach Welcome. Hierarchy: \(app.debugDescription)", file: file, line: line)
         app.terminate()
+    }
+}
+
+extension TallyUITestCase {
+    @MainActor
+    func resetAppState(file: StaticString = #filePath, line: UInt = #line) {
+        LifecycleUITest.resetAppState(file: file, line: line)
     }
 
     /// Writes a sealed, signed-in flagship store (the seed hook), checks that the launch paints its

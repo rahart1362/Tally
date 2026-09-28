@@ -16,7 +16,8 @@ final class TallyPerfUITests: TallyUITestCase {
     private static let subsystem = "dev.tally-app.tally"
 
     override func tearDownWithError() throws {
-        MainActor.assumeIsolated { resetAppState() }
+        // XCTest runs a synchronous tearDown on the main thread.
+        MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
     @MainActor

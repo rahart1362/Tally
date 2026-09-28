@@ -11,7 +11,8 @@ final class SignInSignOutUITests: TallyUITestCase {
     private static let demoHost = "canvas.northfield.example"
 
     override func tearDownWithError() throws {
-        MainActor.assumeIsolated { resetAppState() }
+        // XCTest runs a synchronous tearDown on the main thread.
+        MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
     @MainActor

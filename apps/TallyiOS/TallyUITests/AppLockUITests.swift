@@ -15,7 +15,8 @@ final class AppLockUITests: TallyUITestCase {
     private static let lockedTitle = "Tally is locked"
 
     override func tearDownWithError() throws {
-        MainActor.assumeIsolated { resetAppState() }
+        // XCTest runs a synchronous tearDown on the main thread.
+        MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
     @MainActor

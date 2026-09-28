@@ -10,7 +10,8 @@ import XCTest
 /// takes over over the same saved data.
 final class LaunchFromCacheUITests: TallyUITestCase {
     override func tearDownWithError() throws {
-        MainActor.assumeIsolated { resetAppState() }
+        // XCTest runs a synchronous tearDown on the main thread.
+        MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
     @MainActor

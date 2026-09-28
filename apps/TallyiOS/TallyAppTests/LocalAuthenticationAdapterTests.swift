@@ -53,7 +53,7 @@ struct LocalAuthenticationAdapterTests {
         return policy.state == .locked
     }
 
-    @Test("an LAError from the evaluation keeps the app locked", arguments: allLAErrorCodes)
+    @Test("an LAError from the evaluation keeps the app locked", arguments: LocalAuthenticationAdapterTests.allLAErrorCodes)
     func evaluationErrorsStayLocked(_ code: Int) async {
         let context = FakeLAContext(evaluation: .failure(Self.laError(code)))
         let result = await LocalAuthenticationAdapter(makeContext: { context }).authenticate(reason: "test")
@@ -62,7 +62,7 @@ struct LocalAuthenticationAdapterTests {
         #expect(context.evaluatedPolicies == [.deviceOwnerAuthentication])
     }
 
-    @Test("an LAError from canEvaluatePolicy keeps the app locked and never evaluates", arguments: allLAErrorCodes)
+    @Test("an LAError from canEvaluatePolicy keeps the app locked and never evaluates", arguments: LocalAuthenticationAdapterTests.allLAErrorCodes)
     func canEvaluateErrorsStayLocked(_ code: Int) async {
         let context = FakeLAContext(canEvaluateError: Self.laError(code), evaluation: .success(true))
         let result = await LocalAuthenticationAdapter(makeContext: { context }).authenticate(reason: "test")
