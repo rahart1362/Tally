@@ -239,24 +239,47 @@ jobs:
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
             IOS_ONLY_TESTING=-only-testing:TallyAppTests IOS_RESULT_NAME=Tally-floor
+      # Diagnosis (plan 06 A2): since step 5 the floor run aborts before its first test
+      # ("Test crashed with signal abrt while preparing to run tests", run 36374124903). This
+      # second report-only floor run skips the one XCTest class, to tell whether it is the trigger.
+      - name: TallyAppTests on the deployment floor, without SampleLoadPerformanceTests (diagnosis)
+        if: steps.floor.outputs.runtime != steps.sim.outputs.runtime
+        continue-on-error: true
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
+            IOS_ONLY_TESTING="-only-testing:TallyAppTests -skip-testing:TallyAppTests/SampleLoadPerformanceTests" \
+            IOS_RESULT_NAME=Tally-floor-noxctest
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
         run: make ios-summary IOS_RESULT="$RUNNER_TEMP/ios/Tally.xcresult"
       - name: Collect simulator crash reports
         # perf-app-runtime.md §6: a crash (for example the DEBUG main-thread watchdog's
-        # deliberate one) leaves a Tally*.ips report; whether xcresult embeds it is UNVERIFIED.
+        # deliberate one) leaves an .ips report. ReportCrash writes it a few seconds after the
+        # process dies, and a hosted test process may not be named Tally, so wait once and keep
+        # every report written during this job; print the head of each.
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/ios/crash-reports"
-          find "$HOME/Library/Logs/DiagnosticReports" -name 'Tally*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
+          sleep 20
+          find "$HOME/Library/Logs/DiagnosticReports" -name '*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
             -exec cp {} "$RUNNER_TEMP/ios/crash-reports/" \; 2>/dev/null || true
           ls -l "$RUNNER_TEMP/ios/crash-reports"
-      - name: Upload crash reports
+          for f in "$RUNNER_TEMP"/ios/crash-reports/*.ips; do
+            [ -e "$f" ] || continue
+            echo "===== $f"
+            head -c 4000 "$f"
+            echo
+          done
+      - name: Upload crash reports and the floor xcresults
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: crash-reports
-          path: ${{ runner.temp }}/ios/crash-reports
+          path: |
+            ${{ runner.temp }}/ios/crash-reports
+            ${{ runner.temp }}/ios/Tally-floor*.xcresult
+            ${{ runner.temp }}/ios/Tally-floor*.log
           if-no-files-found: ignore
           retention-days: 7
       - name: Build for iOS device (Release, unsigned)
