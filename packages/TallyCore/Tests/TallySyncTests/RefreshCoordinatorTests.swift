@@ -11,7 +11,7 @@ import TallyTestSupport
 /// signal, partial-failure and 401 handling. Timing assertions use real (short) `Duration`
 /// budgets injected into the coordinator, the same way `CanvasGatewayTests` speeds up
 /// `BackoffPolicy`; `TestClock` supplies the domain-facing "now" that ends up in `RefreshRecord`.
-@Suite("RefreshCoordinator: single-flight, generations, epochs, and failure handling")
+@Suite("RefreshCoordinator: single-flight, generations, epochs, and failure handling", .timeLimit(.minutes(1)))
 struct RefreshCoordinatorTests {
     private let host = "canvas.northfield.example"
     private let userID = "4820117"
@@ -100,7 +100,8 @@ struct RefreshCoordinatorTests {
         await harness.transport.inject(latency: .milliseconds(90), times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
 
         let log = EventLog()
-        let consumer = Task { for await event in harness.coordinator.events { log.append(event) } }
+        let stream = await harness.coordinator.events()
+        let consumer = Task { for await event in stream { log.append(event) } }
 
         let final = await harness.coordinator.run(trigger: .manual)
         try await Task.sleep(for: .milliseconds(50)) // let the consumer drain what was already yielded
@@ -149,6 +150,7 @@ struct RefreshCoordinatorTests {
         }
         #expect(onDisk.generation == 5, "the older, slower run must never overwrite the newer one already committed")
         #expect(onDisk == outOfBand)
+        #expect(await harness.coordinator.committedSnapshot == outOfBand, "SH-3: it adopts the newer generation the store holds")
     }
 
     // MARK: - Epoch guard: sign-out mid-flight discards the result
@@ -212,32 +214,45 @@ struct RefreshCoordinatorTests {
         #expect(stillFirst == firstSnapshot, "the cache must never be touched when reauth is required")
     }
 
-    // MARK: - CS-05: sign-out finishes `events`, so a consumer's `for await` loop always ends
+    // MARK: - SH-2: a caller leaving mid-fetch is not reported as offline
 
-    /// Before the fix, `bumpEpochAndCancel()` never called `continuation.finish()`: a consumer
-    /// iterating `coordinator.events` with `for await` (e.g. `RefreshStatusModel`, if it ever
-    /// forgot to separately call its own `detach()`) would suspend forever waiting for a next
-    /// event that was never coming — leaking the task and everything its closure captured
-    /// (the coordinator itself, its gateway, its store). This proves the stream now finishes.
+    /// Over the live pipeline a cancelled request surfaces as `RefreshFailure.offline`
+    /// (`CanvasClient` maps every below-HTTP failure, cancellation included, to it). When the only
+    /// caller leaves, the abandoned run's outcome is discarded, so the state reverts instead of
+    /// telling the user they are offline.
+    @Test func aCallerLeavingMidFetchIsNotReportedAsOffline() async throws {
+        let harness = try makeHarness(liveRefreshBudget: .seconds(30), foregroundHardCeiling: .seconds(60), backgroundBudget: .seconds(60))
+        await harness.transport.inject(latency: .seconds(30), times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
+        let caller = Task { await harness.coordinator.run(trigger: .manual) }
+        #expect(await eventually { await harness.transport.requestCount == 1 }, "the first request is in flight")
+
+        caller.cancel()
+
+        #expect(await finished(caller) != nil)
+        #expect(await eventually { await harness.coordinator.currentState == .noCache },
+                "reverts to what it was; recording the cancellation would show .offline(showing: nil)")
+        guard case .absent = await harness.store.loadSnapshot() else { Issue.record("expected nothing to be committed"); return }
+    }
+
+    // MARK: - CS-05: sign-out finishes `events()`, so a consumer's `for await` loop always ends
+
+    /// Before the fix, `bumpEpochAndCancel()` never finished the event stream: a consumer
+    /// iterating it with `for await` (e.g. `RefreshStatusModel`, if it ever forgot to separately
+    /// call its own `detach()`) would suspend forever waiting for a next event that was never
+    /// coming — leaking the task and everything its closure captured (the coordinator itself, its
+    /// gateway, its store). This proves the stream now finishes (via `shutdown()`, SH-1), with
+    /// `.noCache` as the last thing the subscriber sees.
     @Test func bumpEpochAndCancelFinishesTheEventStream() async throws {
         let harness = try makeHarness()
-
-        let drain = Task<Int, Never> {
-            var count = 0
-            for await _ in harness.coordinator.events { count += 1 }
-            return count // only reached once the stream finishes
-        }
+        let stream = await harness.coordinator.events()
+        let consumer = Task { await drain(stream) } // only returns once the stream finishes
 
         await harness.coordinator.bumpEpochAndCancel()
 
-        let result = await withTaskGroup(of: Int?.self) { group in
-            group.addTask { await drain.value }
-            group.addTask { try? await Task.sleep(for: .seconds(2)); return nil }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
-        }
-        #expect(result != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
+        // `finished` cancels the consumer after 2 s, so a regression fails here instead of hanging.
+        let seen = await finished(consumer, within: .seconds(2))
+        #expect(seen != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
+        #expect(seen?.last == .stateChanged(.noCache))
     }
 
     /// CS-05 leak check: nothing outside the coordinator keeps it alive once the caller's own

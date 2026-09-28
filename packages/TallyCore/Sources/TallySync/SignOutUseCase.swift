@@ -7,7 +7,9 @@ import TallyStore
 /// package specify:
 /// 1. Revoke the token, best effort (network trouble or an already-signed-out account never
 ///    blocks the rest of this sequence), then bump the `RefreshCoordinator`'s epoch and cancel any
-///    refresh in flight, so a late result can never land after this point.
+///    refresh in flight, so a late result can never land after this point. That also retires the
+///    coordinator (`shutdown()`): its subscribers' streams finish, it never fetches again, and it
+///    releases its decoded snapshot.
 /// 2. Remove every Tally notification this account has pending or the ledger remembers.
 /// 3. Crypto-shred the account's vault keys and delete its store files
 ///    (`AccountPurger.purge`, which itself calls `VaultPurger.purge` — one call covers both halves

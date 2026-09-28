@@ -288,6 +288,81 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - The scaling gate only scales the number of courses, so it cannot see per-course quadratic cost.
 - The PMO baseline entry above claimed PERF-03 would replace the `CanvasDate` regex. It did not, and the regex is still on the refresh hot path. That work moves to PERF-05 PA-6, with a differential test.
 
+## 2026-09-27 | Perf/crash program merge: m2/sync-hardening (sync hardening engineer; PMO verified)
+**Merged**:
+- SH-1: per-subscriber `RefreshCoordinator.events()` with `.bufferingNewest(8)`; a new subscriber gets the current state first.
+- SH-1: `shutdown()` finishes every stream, refuses later runs and releases the snapshot. `bumpEpochAndCancel()` calls it.
+- SH-2: caller cancellation. When every waiting caller is cancelled, the fetch is cancelled and its result discarded, so the user is not told "offline" for leaving. A run shared with a caller who is still waiting keeps going.
+- SH-3: `committedSnapshot`, the committed value itself and never re-decoded.
+- SH-4: `SnapshotStore` and `TokenCoordinator` lifecycle tests; neither leaks.
+- SH-5: a test that `RefreshCoordinator.finish` applies `SnapshotBudget`. It closes the PMO's M2 gap.
+
+**API change for the app**: `events` (property) becomes `events()` (async method). `RefreshStatusModel` on `m2/app-core` must migrate; `sync-hardening.md` §1 has the code. `pmo/assessment`'s own app code does not use it (checked with `git grep`).
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 509 tests (Sync 35, Store 61, Perf 5, Domain 245 with the 4 known issues, CanvasAPI 163), 0 failures.
+- `make lint`: 0 violations.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 509 tests each.
+
+**PMO independent mutations** (run in the finished worktree, under a hard timeout, each restored byte-identical to sha256 `f7f7d92f…`). All five were caught cleanly, with no hangs:
+- S1, no initial state on subscribe;
+- S2, emit reaches only one subscriber;
+- S3, the last cancelled caller no longer cancels the fetch;
+- S4, any cancelled caller cancels a shared run;
+- S5, shutdown keeps the snapshot.
+
+**Plan update (06, step 7)**:
+- An abandoned run keeps automatic refreshes throttled for 5 minutes. So pull-to-refresh must not tie the run to the view's `.refreshable` task: `HomeModel` owns it.
+- Also noted: `SnapshotBudget` can leave a snapshot over its item limit when course and assignment data alone exceed it. The grade data is never trimmed, by design.
+
+**PMO CI evidence (run 36361080347, head 875d445)**: `lint`, `core-sanitizers`, `core-perf`, `hygiene` and `core-linux` are green on their first run. `ios-build` was still running at the time of writing.
+
+## 2026-09-27 | Perf/crash program merge: m2/perf-algorithms, PERF-05 (core algorithms engineer; PMO verified)
+**Merged**:
+- PA-1: a per-course scaling gate. It scales assignments per course; the existing gate only scales the number of courses.
+- PA-2: `PriorityScore.WeightContext`, per-course sums precomputed in O(n·p). Additive API.
+- PA-3: hotspot profiling, and a sweep instead of the all-pairs loop in `AlertEngine.scheduleConflicts`.
+- PA-4: differential proofs. The weight context matches the old code bit for bit over 62,007 comparisons.
+- PA-6: an allocation-free `CanvasDate` parser. It replaces the static `Regex` and its LSan suppression.
+- PA-5: a permanent per-course gate, plus a 13 ms ceiling on `dashboardBuild/stress`.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 523 tests (Sync 35, Store 61, Perf 8, Domain 251 with the 4 known issues, CanvasAPI 168), 0 failures.
+- `make lint`: 0 violations in 120 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 523 tests each.
+- `make core-perf`: 38 tests pass. Stress medians:
+  - `dashboardBuild` 5.63 ms, down from about 70 ms;
+  - `priorityScoreAllItems` 1.31 ms, down from about 28 ms;
+  - `alertEngineAllItems` 1.13 ms, down from about 44 ms;
+  - `mapperDecode` 81.3 ms, down from 238 ms;
+  - `fullRefresh` 101.9 ms, down from 271 ms;
+  - the date-parse share of decoding is now 2% (116 ns per date).
+- Per-course scaling for 10× the assignments: `dashboardBuild` 8.62×, `PriorityScore` 6.63×, `AlertEngine` 7.13×, `scheduleConflicts` 11.29×.
+
+**PMO independent mutations** (each restored byte-identical):
+- P1, leap years ignore the century rule: caught by `calendarEdgesSweepParsesTheSame` and `seededFuzzCorpusParsesTheSame`.
+- P2, a tenth fraction digit is accepted: caught by `seededFuzzCorpusParsesTheSame`.
+- P3, the last duplicate group wins: caught by `adversarialCoursesWeighTheSame`.
+- P4, course sums ignore grading periods: caught by three differential tests.
+
+**PMO decisions**:
+- (1) Dates before 1582-10-15 keep **Foundation's hybrid Julian/Gregorian rule**, not proleptic Gregorian. That keeps results identical to the old parser and to Foundation's calendar, which the app uses to display dates, and Canvas never sends such dates.
+- (2) The one allowed difference: the parser now rejects non-ASCII digits and Unicode whitespace, which the old `Regex` wrongly accepted.
+
+**Remaining hotspots**: both run after commit, off the main actor.
+- `ReminderPlanner` stress is 27 ms, 87% of it quiet-hours shifting. Tracked.
+- `GradeEngine` stress is 70 ms, 74% of it `DropRuleSelection`, which is parity-critical and left unchanged.
+
+**New crash risk (PERF-05 finding, PMO confirmed by grep)**: `Dictionary(uniqueKeysWithValues:)` over Canvas-derived collections traps on a duplicate ID. It appears in `GlanceProjection`, `DashboardProjection` (3 sites), `ChangeDigest` and `NotificationReconciler`, and on `m2/app-core` in `DashboardViewState` (3 sites). This is dispatched as CS-07 (`m2/crash-safety-2`).
+
+## 2026-09-27 | PMO: CI red on 57ce02e, a hang-detector timing flake (fixed)
+**Symptom**: run 36368653168 failed `ios-build` (TallyCore tests on Xcode 26.6) and `core-sanitizers` (TSan). Both came from the same assertion: `gradeEngineAndDropRuleSelectionNeverCrashOnPoisonValues`, case 3 (`.greatestFiniteMagnitude`). It took 47.8 s on the macOS runner against a 45 s budget. It had already taken 43.98 s in the previous green run, so it was not caused by the PERF-05 merge. TSan on the 2-vCPU Linux runner exceeded 45 s as well.
+**PMO measurements (Linux, pinned 6.4)**: the same test takes 2.48 s for all 8 cases in debug and 0.174 s in release. The macOS debug build is about 20x slower. A release timing on Apple silicon is now collected by the new non-blocking job `core-perf-apple`, to rule out a production cost.
+**Fix**:
+- `TallyTestSupport/TestTimeBudget` scales every crash-safety hang budget by `TALLY_TEST_TIME_SCALE`: 1 by default; 10 in the Makefile sanitizer targets; 4 in CI's macOS TallyCore step. Values below 1, or unparsable ones, are ignored, so a budget can never be tightened. A probe test checked that: empty→1, 4→180 s, 10→450 s, 0.5→1, abc→1.
+- The budgets stay as they were written for local and Linux runs.
+**Evidence**: `make core-test` 523 tests, 0 failures; `make lint` 0 violations.
+
 ## 2026-09-28 | App-core iteration 3 (Iteration A), step 0: merge pmo/assessment @ 875d445 (commit ebeda93)
 **Changes**: PMO-authorised merge of `origin/pmo/assessment` into `m2/app-core`. Exactly the 6 predicted conflicts, resolved per perf-app-runtime.md §7 step 0: `RootView` hosts onboarding's stack as the welcome root with sample data kept a sibling root (`case sampleData`/`SampleDataStub` dropped; SchoolNotEnabled → sample is a root switch); `AppEnvironment` is the union (logger, webAuthPresenter, appModel; `@MainActor static func live()`); `TallyApp`, `AppEnvironmentTests`, `Package.swift` and `project.yml` take the union of both sides. Core API adoption (plan 06 §5): `GradeBand` from TallyDomain; the tests' `DashboardBuilder` is module-qualified (TallyDomain now declares one too); `DashboardViewState`'s `assignment.lockAt!` → `assignment.lockAt.map { $0 > now } ?? true`.
 **Evidence (run 36361492205, all required jobs green)**: hygiene, core-linux, lint, core-sanitizers and ios-build success; core-perf success (report-only). xcresult (newest iOS 26 simulator): 97 total = 93 hosted Swift Testing + 4 UI, 94 passed, 3 expected failures (platform's known issues), 0 failed. The declaration union is exact (app-core 37 + pmo 65 − 4 shared base, one hit being a doc comment). TallyCore on the Xcode 26.6 toolchain: 490 tests, 4 known issues. Deployment floor (iOS 26.2, report-only): 93 total, 90 passed, 3 expected failures. `make lint`: 0 violations in 129 files; mutation: restoring the `!` fails lint at `DashboardViewState.swift:155:65`, restored byte-identical (sha256 77fe79e5…). Xcode 27 preview (report-only): 3 `UNNotificationSchedulerTests` fail with `UNErrorDomain` 2003 "Source is not authorized" — item A4.

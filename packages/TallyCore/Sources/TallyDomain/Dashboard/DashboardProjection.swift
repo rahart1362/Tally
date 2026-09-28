@@ -130,8 +130,9 @@ public nonisolated enum DashboardBuilder {
         // grading-period course, searches the course's periods -- `priorityModifiers`/`score`
         // are cheap arithmetic by comparison), so it is the one computed once here and threaded
         // through both, rather than three names for the same lookup. Same set, same order, same
-        // weight values (still `PriorityScore.weight`, called exactly once per item now instead
-        // of up to three times) -- a pure hoist, not a rule change.
+        // weight values (still `PriorityScore.weight`'s, computed exactly once per item now
+        // instead of up to three times, and since PERF-05 from one precomputed
+        // `PriorityScore.WeightContext` per course) -- a pure hoist, not a rule change.
         let items = scoredAssignments(in: snapshot, coursesByID: coursesByID)
 
         return DashboardProjection(
@@ -159,15 +160,20 @@ public nonisolated enum DashboardBuilder {
 
     /// Every assignment across every course's groups, each with its `PriorityScore.weight`
     /// computed exactly once (see `build(from:...)`'s comment on why weight specifically).
+    ///
+    /// PERF-05 PA-2: from one `PriorityScore.WeightContext` per course. Calling
+    /// `PriorityScore.weight` per item re-summed the item's whole group or course each time,
+    /// O(n²·p) per course; the context sums each course once. Same values, bit for bit
+    /// (`PriorityWeightDifferentialTests`).
     private static func scoredAssignments(
         in snapshot: CanvasSnapshot, coursesByID: [CanvasID<Course>: Course]
     ) -> [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)] {
         snapshot.groups.flatMap { courseID, groups -> [(Course, [AssignmentGroup], Assignment, Double)] in
             guard let course = coursesByID[courseID] else { return [] }
+            let weights = PriorityScore.WeightContext(course: course, groups: groups,
+                                                      gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
             return groups.flatMap(\.assignments).map { assignment in
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
-                return (course, groups, assignment, weight)
+                (course, groups, assignment, weights.weight(of: assignment))
             }
         }
     }

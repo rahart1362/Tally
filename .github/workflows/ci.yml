@@ -122,6 +122,29 @@ jobs:
           make core-perf CONTAINER=docker 2>&1 | tee "$RUNNER_TEMP/perf.log"
           grep -E "^PERF(-BUDGET|-SCALING)? \|" "$RUNNER_TEMP/perf.log" || true
 
+  core-perf-apple:
+    name: TallyCore perf on Apple silicon (release, non-blocking)
+    runs-on: macos-26
+    timeout-minutes: 30
+    # Release numbers from Apple's toolchain on Apple silicon are closer to a device than
+    # the Linux x86 numbers. Also times the extreme-input grade cases in release, since
+    # debug on this runner is 20x slower than on Linux (run 36368653168). Report-only.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: swift test -c release (TallyPerfTests + extreme-input grade timing)
+        working-directory: packages/TallyCore
+        run: |
+          set -o pipefail
+          swift test -c release \
+            --filter "TallyPerfTests|gradeEngineAndDropRuleSelectionNeverCrashOnPoisonValues|goalSeekNeverCrashesOnPoisonValues" \
+            2>&1 | tee "$RUNNER_TEMP/perf-apple.log" | grep -E "^PERF|passed after|failed after|known issue|error:" || true
+          grep -qE "Test run with [0-9]+ tests? .*passed" "$RUNNER_TEMP/perf-apple.log"
+
   ios-build:
     name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
@@ -134,6 +157,11 @@ jobs:
           xcodebuild -version
       - name: TallyCore tests (Xcode 26.6 Swift toolchain)
         working-directory: packages/TallyCore
+        env:
+          # Debug builds on this runner are much slower than on Linux: the extreme-points
+          # grade case took 47.8 s here, against a 45 s hang budget (run 36368653168).
+          # The budgets scale; see TallyTestSupport/TestTimeBudget.swift.
+          TALLY_TEST_TIME_SCALE: "4"
         run: swift test
       - name: Install XcodeGen (checksum-verified)
         run: |

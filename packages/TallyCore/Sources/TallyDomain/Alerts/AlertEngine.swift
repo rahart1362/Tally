@@ -224,19 +224,58 @@ public enum AlertEngine {
     /// Exam-vs-class or exam-vs-exam overlap is High; an ordinary due time
     /// during a class, or two ordinary due instants within `closeDueGap`, is
     /// Info (§2.1 A8).
+    ///
+    /// PERF-05 PA-3: this used to test every pair of items, O(n²) whatever the schedule
+    /// (measured: 10x the items cost 99.7x the time). It now sweeps the items in start order
+    /// and tests an item only against the later-starting items within its *reach* — its own
+    /// duration for an interval, never less than `closeDueGap` — because no pair further apart
+    /// can overlap (see `reach`). O(n log n + candidate pairs). The same pairs are found and
+    /// emitted in the same `(i, j)` input-index order as the double loop, with the same alerts;
+    /// `ScheduleConflictsDifferentialTests` holds this to `==` against the double loop.
     public static func scheduleConflicts(_ items: [ScheduleItem]) -> [Alert] {
-        var alerts: [Alert] = []
-        for i in items.indices {
-            for j in (i + 1)..<items.count {
-                let a = items[i]
+        // A NaN start has no place in a sorted order, and it can still overlap (`Date`'s `>=`
+        // and `<=` are `!(<)`, so they hold against NaN), so such items skip the sweep and are
+        // tested against every other item directly, as before.
+        let starts = items.map(\.start.timeIntervalSinceReferenceDate) // `Date`'s own `<` compares these
+        let isNaNStart = starts.map(\.isNaN)
+        let order = items.indices.filter { !isNaNStart[$0] }.sorted { starts[$0] < starts[$1] }
+        var pairs: [(first: Int, second: Int)] = []
+        for (position, i) in order.enumerated() {
+            let a = items[i]
+            let limit = reach(a)
+            for j in order[(position + 1)...] {
                 let b = items[j]
+                // Sorted by start, so every later `b` is at least this far from `a`.
+                if b.start.timeIntervalSince(a.start) > limit { break }
                 guard overlaps(a, b) else { continue }
-                let severity: AlertSeverity = (a.isExam || b.isExam) ? .high : .info
-                let ids = a.id < b.id ? (a.id, b.id) : (b.id, a.id)
-                alerts.append(Alert(kind: .scheduleConflict(idA: ids.0, idB: ids.1), severity: severity))
+                pairs.append(i < j ? (i, j) : (j, i))
             }
         }
-        return alerts
+        for i in items.indices where isNaNStart[i] {
+            // Each pair once: against every sorted item, and against later NaN-start items.
+            for j in items.indices where j != i && (!isNaNStart[j] || j > i) && overlaps(items[i], items[j]) {
+                pairs.append(i < j ? (i, j) : (j, i))
+            }
+        }
+        pairs.sort { $0.first != $1.first ? $0.first < $1.first : $0.second < $1.second }
+        return pairs.map { i, j in
+            let a = items[i]
+            let b = items[j]
+            let severity: AlertSeverity = (a.isExam || b.isExam) ? .high : .info
+            let ids = a.id < b.id ? (a.id, b.id) : (b.id, a.id)
+            return Alert(kind: .scheduleConflict(idA: ids.0, idB: ids.1), severity: severity)
+        }
+    }
+
+    /// How far past `a.start` a later-starting item can begin and still overlap `a`: for an
+    /// interval, its duration (an overlapping item starts before `a` ends); for an instant,
+    /// `closeDueGap` (another instant) or zero (an interval can only contain an instant that
+    /// starts no earlier than itself). Measured with the same `timeIntervalSince` rounding
+    /// `overlaps` uses, and rounding is monotonic, so pruning at this distance never drops a
+    /// pair `overlaps` would accept. A NaN end gives a NaN reach, which never prunes: such an
+    /// interval overlaps every later instant (`b.start <= NaN` is `!(NaN < b.start)`).
+    private static func reach(_ a: ScheduleItem) -> TimeInterval {
+        max(a.end.map { $0.timeIntervalSince(a.start) } ?? 0, InsightsConfig.closeDueGap.timeInterval)
     }
 
     private static func overlaps(_ a: ScheduleItem, _ b: ScheduleItem) -> Bool {
