@@ -139,15 +139,22 @@ ios-tsan: ## TallyAppTests under ThreadSanitizer: fails on a test failure or any
 	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/tsan.log
 	! grep -q "ThreadSanitizer:" $(IOS_OUT)/tsan.log
 
-ios-asan: ## App + UI tests under AddressSanitizer: fails on a test failure or any ASan report
+# Which tests `ios-asan` runs; empty means the app and UI tests. CI's required ASan job runs the
+# hosted app tests (TallyAppTests). The UI tests run under ASan in a separate, report-only job:
+# on the slow instrumented simulator their XCUITest waits time out with 0 ASan reports (PR #2,
+# run 36434300284, attempts 1 and 2: two different SampleDataUITests failures).
+IOS_ASAN_ONLY ?=
+IOS_ASAN_RESULT ?= Tally-asan
+
+ios-asan: ## Tests under AddressSanitizer (IOS_ASAN_ONLY narrows them): fails on a test failure or any ASan report
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
 	@mkdir -p $(IOS_OUT)
-	rm -rf $(IOS_OUT)/Tally-asan.xcresult
+	rm -rf $(IOS_OUT)/$(IOS_ASAN_RESULT).xcresult
 	$(IOS_XCODEBUILD) test -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
-		-derivedDataPath $(IOS_OUT)/DerivedData-asan -enableAddressSanitizer YES $(IOS_SANITIZER_SKIP) \
-		-resultBundlePath $(IOS_OUT)/Tally-asan.xcresult $(IOS_TEST_FLAGS) \
+		-derivedDataPath $(IOS_OUT)/DerivedData-asan -enableAddressSanitizer YES $(IOS_SANITIZER_SKIP) $(IOS_ASAN_ONLY) \
+		-resultBundlePath $(IOS_OUT)/$(IOS_ASAN_RESULT).xcresult $(IOS_TEST_FLAGS) \
 		2>&1 | tee $(IOS_OUT)/asan.log | grep -E $(IOS_CONSOLE)"|AddressSanitizer" || true
-	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-asan.xcresult
+	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/$(IOS_ASAN_RESULT).xcresult
 	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/asan.log
 	! grep -q "ERROR: AddressSanitizer" $(IOS_OUT)/asan.log
 
