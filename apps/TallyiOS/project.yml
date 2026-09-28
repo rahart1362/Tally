@@ -120,11 +120,21 @@ targets:
         CFBundleVersion: "1"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # Plan 06 step 11: what the widget process needs to find the glance
+        # (TallyGlance.GlanceConfiguration). The app's bundle ID names the vault
+        # key's Keychain service; the Team ID prefix ("ABCDE12345.", empty until
+        # GO-LIVE GL-02) plus the App Group ID is that key's access group.
+        TallyAppGroupID: $(TALLY_SHARED_APP_GROUP_ID)
+        TallyAppBundleID: $(TALLY_BUNDLE_ID_PREFIX).tally
+        TallyKeychainAccessGroupPrefix: $(AppIdentifierPrefix)
     dependencies:
       - package: TallyAppleKit
         product: TallyDesignSystem
+      # The glance reader, timeline and views. Not TallyIntents (it links
+      # TallySync and TallyCanvasAPI) and never TallyFeatures or TallyPlatform:
+      # the widget reads the glance only (CI's widget isolation gates).
       - package: TallyAppleKit
-        product: TallyIntents
+        product: TallyGlance
 
   TallyAppTests:
     type: bundle.unit-test
@@ -162,6 +172,9 @@ targets:
       # fails with "Undefined symbols" (confirmed on CI run 36332912599).
       - package: TallyAppleKit
         product: TallyIntents
+      # WidgetGlanceTests: the widget's reader, timeline, Keychain parity and views.
+      - package: TallyAppleKit
+        product: TallyGlance
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore

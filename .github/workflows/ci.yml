@@ -111,6 +111,14 @@ jobs:
         run: |
           python3 scripts/ci/check_privacy_manifest.py --self-test
           python3 scripts/ci/check_privacy_manifest.py .
+      - name: The widget reads the glance only (its module closure and its sources)
+        # Plan 06 step 11, perf-app-runtime.md §2.4 W3: the widget never decodes the snapshot, uses
+        # the network, builds a RefreshCoordinator or reads a credential, and links no TallyFeatures.
+        # This checks the widget's module closure (project.yml, Package.swift) and scans its code;
+        # ios-build checks the built binaries' link map and load commands.
+        run: |
+          python3 scripts/ci/check_widget_isolation.py --self-test
+          python3 scripts/ci/check_widget_isolation.py --sources .
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
@@ -385,6 +393,31 @@ jobs:
           echo "Mach-O binaries checked for swift_task_deinitOnExecutor: $checked (Release and Debug apps, their extensions and debug dylibs)"
           if [ "$checked" -lt 2 ]; then echo "::error::fewer binaries than expected were checked"; fail=1; fi
           exit $fail
+      - name: The widget links no TallyFeatures and reads the glance only (plan 06 step 11)
+        # The Release widget's link map names none of TallyFeatures, TallyPlatform, TallySync,
+        # TallyCanvasAPI, TallyIntents, TallyReplay, TallySampleFixtures or TallyTestSupport (and
+        # does name TallyGlance and TallyStore); no Mach-O file in the Release or the Debug
+        # .appex loads one of them (otool -L). The hygiene job checks the sources.
+        if: ${{ !cancelled() && steps.device_build.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/dd/Build/Products"
+          map="$(find "$RUNNER_TEMP/dd/Build/Intermediates.noindex" -name 'TallyWidgets-LinkMap-*-arm64.txt' | head -1)"
+          if [ -z "$map" ]; then echo "::error::no link map for the Release widget"; exit 1; fi
+          python3 scripts/ci/check_widget_isolation.py --link-map "$map" \
+            --bundle "$products/Release-iphoneos/Tally.app/PlugIns/TallyWidgets.appex" \
+            --bundle "$products/Debug-iphonesimulator/Tally.app/PlugIns/TallyWidgets.appex"
+      - name: Widget memory budget (WidgetGlanceTests, XCTMemoryMetric delta <= 5 MB)
+        # Plan 06 step 11, perf-app-runtime.md §2.2 item 6: the widget's design budget is a 15 MB
+        # peak. The hosted WidgetGlanceTests measures the glance read, the timeline and a render
+        # of both widgets in the test host; the median "Memory Physical" delta must stay under
+        # 5 MB (perf/widget-budgets.json). Runs whenever the main test run ran, red or green.
+        if: ${{ !cancelled() && (steps.main_tests.outcome == 'success' || steps.main_tests.outcome == 'failure') }}
+        run: |
+          set -euo pipefail
+          xcrun xcresulttool get test-results metrics --path "$RUNNER_TEMP/ios/Tally.xcresult" --compact \
+            > "$RUNNER_TEMP/ios/widget-metrics.json"
+          python3 scripts/ci/check_perf_budgets.py perf/widget-budgets.json "$RUNNER_TEMP/ios/widget-metrics.json"
       - name: Verify built app identity
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
