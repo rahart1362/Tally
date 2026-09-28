@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://northgate.instructure.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"current\",<https://northgate.instructure.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"first\",<https://northgate.instructure.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"last\"",
+    "X-Request-Cost": "0.04729999496974843",
+    "X-Rate-Limit-Remaining": "699.9146153776144"
+  }
+}

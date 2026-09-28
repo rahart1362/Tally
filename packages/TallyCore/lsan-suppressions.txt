@@ -1,0 +1,13 @@
+# LeakSanitizer suppressions for TallyCore's `make core-asan` lane (CS-04, docs/pmo/reviews/crash-safety.md).
+# Format: `leak:<substring>`, matched against any frame's resolved symbol/source path in the
+# leak's stack trace. Every entry below was independently reproduced and its stack trace read
+# in full before being added here — see crash-safety.md's ASan section for the exact commands
+# and byte/allocation counts observed.
+
+# XCTest's own runner bootstrap (XCTMainMisc, XCTestSuiteRun.init/addTestCase) allocates a
+# handful of small objects that are never freed before process exit. This is inside the Swift
+# toolchain's libXCTest.so (Tally's tests are written in Swift Testing; XCTest is only present
+# as swift-corelibs-foundation's/swiftpm's shared test-runner entry point), not Tally code, and
+# the size is fixed (a few hundred bytes total) regardless of how many tests run — it does not
+# grow, so it is not a real leak in the sense this charter cares about.
+leak:libXCTest.so

@@ -1,9 +1,11 @@
 {
-  "current_phase": "Complete",
-  "active_task": "None",
-  "current_status": "done",
-  "latest_verified_result": "Project completely scaffolded on Windows",
-  "next_action": "User to build project on macOS with Xcode",
-  "blockers": "None",
-  "latest_completed_checkpoint": "P6"
+  "project": "Tally",
+  "control_plane": "docs/pmo/02-program-plan.md (supersedes the kit manifest and the P1-P6 checkpoints in build/checkpoints/)",
+  "current_milestone": "M0 Stabilise",
+  "status": "in_progress",
+  "last_updated": "2026-09-26",
+  "latest_verified_result": "Baseline audit (docs/pmo/00-baseline-audit.md): the prior 'Complete/P6' status was unverified; CI had failed since 2026-08-27. M0 changes pending macOS CI evidence.",
+  "next_action": "Get CI green on macos-26 / Xcode 26.6, then start M1 (TallyCore on Linux).",
+  "go_live_blockers": "docs/GO-LIVE.md",
+  "blockers": []
 }

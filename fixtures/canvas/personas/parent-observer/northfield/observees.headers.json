@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"current\",<https://canvas.northfield.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"first\",<https://canvas.northfield.example/api/v1/users/self/observees?include%5B%5D=avatar_url&page=1&per_page=100>; rel=\"last\"",
+    "X-Request-Cost": "0.02216457409461553",
+    "X-Rate-Limit-Remaining": "699.9380712482482"
+  }
+}

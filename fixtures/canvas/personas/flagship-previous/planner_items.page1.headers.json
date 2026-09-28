@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/planner/items?end_date=2026-11-26&start_date=2026-09-13&page=first&per_page=100>; rel=\"current\",<https://canvas.northfield.example/api/v1/planner/items?end_date=2026-11-26&start_date=2026-09-13&page=bookmark:WyIyMDI2LTEwLTE3VDA0OjU5OjAwWiIsMTIwNDQ2Nl0&per_page=100>; rel=\"next\",<https://canvas.northfield.example/api/v1/planner/items?end_date=2026-11-26&start_date=2026-09-13&page=first&per_page=100>; rel=\"first\"",
+    "X-Request-Cost": "2.9931688349993735",
+    "X-Rate-Limit-Remaining": "685.4197929322982"
+  }
+}

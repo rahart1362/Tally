@@ -1,0 +1,1668 @@
+{
+  "synthetic": true,
+  "tolerance": 0.01,
+  "captured_at": "2026-09-28T13:00:00Z",
+  "calculator": "tools/canvas-synth/canvas_synth/gradecalc.py (port of canvas-lms lib/grade_calculator.rb @ 1c9f0bb)",
+  "scenarios": {
+    "weighted-groups": {
+      "course_id": "58000",
+      "course_code": "SCN 101",
+      "name": "Scenario: Weighted Groups",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 88.11,
+      "final_score": 57.0,
+      "current_grade": "B+",
+      "final_grade": "F",
+      "unposted_current_score": 88.11,
+      "unposted_final_score": 57.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Homework",
+          "group_weight": 40.0,
+          "current": {
+            "score": 54.5,
+            "possible": 60.0,
+            "grade": 90.83,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 54.5,
+            "possible": 80.0,
+            "grade": 68.13,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199001",
+          "name": "Quizzes",
+          "group_weight": 35.0,
+          "current": {
+            "score": 85.0,
+            "possible": 100.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 85.0,
+            "possible": 100.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199002",
+          "name": "Final",
+          "group_weight": 25.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 100.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "unweighted-groups": {
+      "course_id": "58000",
+      "course_code": "SCN 102",
+      "name": "Scenario: Points",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 55.99,
+      "final_score": 12.38,
+      "current_grade": "F",
+      "final_grade": "F",
+      "unposted_current_score": 55.99,
+      "unposted_final_score": 12.38,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Assignments",
+          "group_weight": 0.0,
+          "current": {
+            "score": 142.0,
+            "possible": 191.0,
+            "grade": 74.35,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 142.0,
+            "possible": 191.0,
+            "grade": 74.35,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199001",
+          "name": "Exams",
+          "group_weight": 0.0,
+          "current": {
+            "score": 17.0,
+            "possible": 93.0,
+            "grade": 18.28,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 17.0,
+            "possible": 1093.0,
+            "grade": 1.56,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "drop-lowest": {
+      "course_id": "58000",
+      "course_code": "SCN 103",
+      "name": "Scenario: Drop Lowest",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 74.64,
+      "final_score": 63.41,
+      "current_grade": "C",
+      "final_grade": "D-",
+      "unposted_current_score": 74.64,
+      "unposted_final_score": 63.41,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Labs",
+          "group_weight": 0.0,
+          "current": {
+            "score": 103.0,
+            "possible": 138.0,
+            "grade": 74.64,
+            "dropped_submission_ids": [
+              "990000066",
+              "990000070"
+            ]
+          },
+          "final": {
+            "score": 156.0,
+            "possible": 246.0,
+            "grade": 63.41,
+            "dropped_submission_ids": [
+              "990000082"
+            ]
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "drop-highest": {
+      "course_id": "58000",
+      "course_code": "SCN 104",
+      "name": "Scenario: Drop Highest",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 67.65,
+      "final_score": 67.65,
+      "current_grade": "D+",
+      "final_grade": "D+",
+      "unposted_current_score": 67.65,
+      "unposted_final_score": 67.65,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Quizzes",
+          "group_weight": 0.0,
+          "current": {
+            "score": 23.0,
+            "possible": 34.0,
+            "grade": 67.65,
+            "dropped_submission_ids": [
+              "990000000"
+            ]
+          },
+          "final": {
+            "score": 23.0,
+            "possible": 34.0,
+            "grade": 67.65,
+            "dropped_submission_ids": [
+              "990000000"
+            ]
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "never-drop": {
+      "course_id": "58000",
+      "course_code": "SCN 105",
+      "name": "Scenario: Never Drop",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 76.67,
+      "final_score": 76.67,
+      "current_grade": "C",
+      "final_grade": "C",
+      "unposted_current_score": 76.67,
+      "unposted_final_score": 76.67,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Homework",
+          "group_weight": 0.0,
+          "current": {
+            "score": 23.0,
+            "possible": 30.0,
+            "grade": 76.67,
+            "dropped_submission_ids": [
+              "990000098"
+            ]
+          },
+          "final": {
+            "score": 23.0,
+            "possible": 30.0,
+            "grade": 76.67,
+            "dropped_submission_ids": [
+              "990000098"
+            ]
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "excused": {
+      "course_id": "58000",
+      "course_code": "SCN 106",
+      "name": "Scenario: Excused",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 85.0,
+      "final_score": 85.0,
+      "current_grade": "B",
+      "final_grade": "B",
+      "unposted_current_score": 85.0,
+      "unposted_final_score": 85.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Labs",
+          "group_weight": 60.0,
+          "current": {
+            "score": 34.0,
+            "possible": 40.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 34.0,
+            "possible": 40.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199001",
+          "name": "Field Trip",
+          "group_weight": 40.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "pass-fail": {
+      "course_id": "58000",
+      "course_code": "SCN 107",
+      "name": "Scenario: Pass/Fail",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "5510",
+      "grading_scheme": [
+        [
+          "Pass",
+          0.6
+        ],
+        [
+          "Fail",
+          0.0
+        ]
+      ],
+      "current_score": 66.67,
+      "final_score": 50.0,
+      "current_grade": "Pass",
+      "final_grade": "Fail",
+      "unposted_current_score": 66.67,
+      "unposted_final_score": 50.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Logs",
+          "group_weight": 0.0,
+          "current": {
+            "score": 20.0,
+            "possible": 30.0,
+            "grade": 66.67,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 20.0,
+            "possible": 40.0,
+            "grade": 50.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "letter-grades": {
+      "course_id": "58000",
+      "course_code": "SCN 108",
+      "name": "Scenario: Letter Grades",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 87.33,
+      "final_score": 65.5,
+      "current_grade": "B+",
+      "final_grade": "D",
+      "unposted_current_score": 87.33,
+      "unposted_final_score": 65.5,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Projects",
+          "group_weight": 0.0,
+          "current": {
+            "score": 131.0,
+            "possible": 150.0,
+            "grade": 87.33,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 131.0,
+            "possible": 200.0,
+            "grade": 65.5,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "no-due-date": {
+      "course_id": "58000",
+      "course_code": "SCN 109",
+      "name": "Scenario: No Due Date",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 88.0,
+      "final_score": 36.67,
+      "current_grade": "B+",
+      "final_grade": "F",
+      "unposted_current_score": 88.0,
+      "unposted_final_score": 36.67,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Portfolio",
+          "group_weight": 0.0,
+          "current": {
+            "score": 22.0,
+            "possible": 25.0,
+            "grade": 88.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 22.0,
+            "possible": 60.0,
+            "grade": 36.67,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "unposted-and-omitted": {
+      "course_id": "58000",
+      "course_code": "SCN 110",
+      "name": "Scenario: Unposted & Omitted",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 80.0,
+      "final_score": 38.1,
+      "current_grade": "B-",
+      "final_grade": "F",
+      "unposted_current_score": 60.0,
+      "unposted_final_score": 57.14,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Work",
+          "group_weight": 0.0,
+          "current": {
+            "score": 80.0,
+            "possible": 100.0,
+            "grade": 80.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 80.0,
+            "possible": 210.0,
+            "grade": 38.1,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "weighted-grading-periods": {
+      "course_id": "58000",
+      "course_code": "SCN 111",
+      "name": "Scenario: Grading Periods",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": true,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 71.25,
+      "final_score": 35.63,
+      "current_grade": "C-",
+      "final_grade": "F",
+      "unposted_current_score": 71.25,
+      "unposted_final_score": 35.63,
+      "current_grading_period_id": "2201",
+      "grading_periods": [
+        {
+          "id": "2201",
+          "title": "Period 1",
+          "weight": 50.0,
+          "current_score": 71.25,
+          "final_score": 71.25,
+          "current_grade": "C-",
+          "final_grade": "C-"
+        },
+        {
+          "id": "2202",
+          "title": "Period 2",
+          "weight": 50.0,
+          "current_score": null,
+          "final_score": 0.0,
+          "current_grade": null,
+          "final_grade": "F"
+        }
+      ],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Homework",
+          "group_weight": 60.0,
+          "current": {
+            "score": 15.0,
+            "possible": 20.0,
+            "grade": 75.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 15.0,
+            "possible": 30.0,
+            "grade": 50.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199001",
+          "name": "Quizzes",
+          "group_weight": 20.0,
+          "current": {
+            "score": 12.0,
+            "possible": 20.0,
+            "grade": 60.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 12.0,
+            "possible": 20.0,
+            "grade": 60.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199002",
+          "name": "Tests",
+          "group_weight": 20.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 40.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "unweighted-grading-periods": {
+      "course_id": "58000",
+      "course_code": "SCN 112",
+      "name": "Scenario: Grading Periods",
+      "apply_assignment_group_weights": true,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 71.25,
+      "final_score": 42.0,
+      "current_grade": "C-",
+      "final_grade": "F",
+      "unposted_current_score": 71.25,
+      "unposted_final_score": 42.0,
+      "current_grading_period_id": "2201",
+      "grading_periods": [
+        {
+          "id": "2201",
+          "title": "Period 1",
+          "weight": 50.0,
+          "current_score": 71.25,
+          "final_score": 71.25,
+          "current_grade": "C-",
+          "final_grade": "C-"
+        },
+        {
+          "id": "2202",
+          "title": "Period 2",
+          "weight": 50.0,
+          "current_score": null,
+          "final_score": 0.0,
+          "current_grade": null,
+          "final_grade": "F"
+        }
+      ],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Homework",
+          "group_weight": 60.0,
+          "current": {
+            "score": 15.0,
+            "possible": 20.0,
+            "grade": 75.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 15.0,
+            "possible": 30.0,
+            "grade": 50.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199001",
+          "name": "Quizzes",
+          "group_weight": 20.0,
+          "current": {
+            "score": 12.0,
+            "possible": 20.0,
+            "grade": 60.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 12.0,
+            "possible": 20.0,
+            "grade": 60.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "199002",
+          "name": "Tests",
+          "group_weight": 20.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 40.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "hidden-final-grades": {
+      "course_id": "58000",
+      "course_code": "SCN 113",
+      "name": "Scenario: Hidden Totals",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": true,
+      "visible_in_api": false,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 85.0,
+      "final_score": 85.0,
+      "current_grade": "B",
+      "final_grade": "B",
+      "unposted_current_score": 85.0,
+      "unposted_final_score": 85.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Labs",
+          "group_weight": 0.0,
+          "current": {
+            "score": 17.0,
+            "possible": 20.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 17.0,
+            "possible": 20.0,
+            "grade": 85.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "late-and-missing": {
+      "course_id": "58000",
+      "course_code": "SCN 114",
+      "name": "Scenario: Late & Missing",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 55.0,
+      "final_score": 25.38,
+      "current_grade": "F",
+      "final_grade": "F",
+      "unposted_current_score": 55.0,
+      "unposted_final_score": 25.38,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Work",
+          "group_weight": 0.0,
+          "current": {
+            "score": 33.0,
+            "possible": 60.0,
+            "grade": 55.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 33.0,
+            "possible": 130.0,
+            "grade": 25.38,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "concluded-course": {
+      "course_id": "58000",
+      "course_code": "SCN 090",
+      "name": "Scenario: Spring Course (concluded)",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 90.0,
+      "final_score": 90.0,
+      "current_grade": "A-",
+      "final_grade": "A-",
+      "unposted_current_score": 90.0,
+      "unposted_final_score": 60.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Work",
+          "group_weight": 0.0,
+          "current": {
+            "score": 180.0,
+            "possible": 200.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 180.0,
+            "possible": 200.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "multiple-enrollments": {
+      "course_id": "58000",
+      "course_code": "SCN 115",
+      "name": "Scenario: Cross-listed Sections",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 86.0,
+      "final_score": 86.0,
+      "current_grade": "B",
+      "final_grade": "B",
+      "unposted_current_score": 86.0,
+      "unposted_final_score": 86.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "199000",
+          "name": "Work",
+          "group_weight": 0.0,
+          "current": {
+            "score": 86.0,
+            "possible": 100.0,
+            "grade": 86.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 86.0,
+            "possible": 100.0,
+            "grade": 86.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    "large-ids": {
+      "course_id": "184670000000012345",
+      "course_code": "SCN 116",
+      "name": "Scenario: Cross-shard IDs",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 90.0,
+      "final_score": 90.0,
+      "current_grade": "A-",
+      "final_grade": "A-",
+      "unposted_current_score": 90.0,
+      "unposted_final_score": 90.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "184670000000045678",
+          "name": "Work",
+          "group_weight": 0.0,
+          "current": {
+            "score": 9.0,
+            "possible": 10.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 9.0,
+            "possible": 10.0,
+            "grade": 90.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    }
+  }
+}

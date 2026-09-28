@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "X-Request-Cost": "0.03574025898681091",
+    "X-Rate-Limit-Remaining": "672.2625445720931"
+  }
+}

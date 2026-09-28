@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/AccountSearchResult.schema.json",
+  "title": "AccountSearchResult",
+  "$comment": "GET https://canvas.instructure.com/api/v1/accounts/search?name=... is NOT in the REST docs or the open-source controllers. Field set, types and Link format observed live (unauthenticated) on 2026-09-26; ids were integers because that probe sent no string-ids Accept header. UNVERIFIED as a documented contract. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "distance": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authentication_provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "domain",
+    "distance",
+    "authentication_provider"
+  ],
+  "additionalProperties": false
+}

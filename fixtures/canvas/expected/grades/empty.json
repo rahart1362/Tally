@@ -1,0 +1,15 @@
+{
+  "persona": "empty",
+  "synthetic": true,
+  "captured_at": "2026-09-28T13:00:00Z",
+  "tolerance": 0.01,
+  "calculator": "tools/canvas-synth/canvas_synth/gradecalc.py -- port of canvas-lms lib/grade_calculator.rb @ 1c9f0bb8013ed69c4f2efe11fd483025469b7e6c",
+  "parity_rule": "GradeEngine.currentScore(course) == current_score +/- tolerance, computed only from the persona's fixture responses (courses, assignment_groups, grading_periods).",
+  "caveat": "Synthetic parity proves consistency with this port of Canvas's algorithm only; it does not replace an owner-run recording against real Canvas (WP-B07).",
+  "courses": [],
+  "tally_overall": {
+    "definition": "mean of visible current scores (Tally 'Average of N courses'; not a Canvas value)",
+    "courses_counted": 0,
+    "mean_current_score": null
+  }
+}

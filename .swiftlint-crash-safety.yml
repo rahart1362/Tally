@@ -1,0 +1,43 @@
+# CS-06 (crash-safety.md): the crash-safety lint gate, run via `make lint`. Deliberately
+# separate from the repo-root .swiftlint.yml (which still covers the legacy, slated-for-deletion
+# packages/Tally{AppFeature,Cache,...} tree and the old root Package.swift): this file's job is
+# only the merged TallyCore/TallyAppleKit code the crash-safety charter owns.
+#
+# `only_rules` replaces SwiftLint's entire default rule set with exactly these four — this
+# gate's whole job (CS-06) is those four crash-safety rules, not this project's general style
+# (`.swiftformat`/the root .swiftlint.yml already own that, and enabling SwiftLint's full
+# default set here would fail on ~300 pre-existing style-only findings unrelated to crash
+# safety, e.g. line length and short identifier names this codebase uses idiomatically).
+only_rules:
+  - force_unwrapping
+  - force_try
+  - force_cast
+  - implicitly_unwrapped_optional
+  - custom_rules
+
+# Plan 06 A6: the app targets are shipping code too (their test targets are not).
+included:
+  - packages/TallyCore/Sources
+  - packages/TallyAppleKit/Sources
+  - apps/TallyiOS/Tally
+  - apps/TallyiOS/TallyWidgets
+
+excluded:
+  # Test support code (fixture/fake infrastructure only test targets link against), not
+  # shipping code, even though SwiftPM requires it live under Sources/ like any other target.
+  # Its one `try!` (loading a bundled test fixture) is documented and intentional: see
+  # docs/pmo/reviews/crash-safety.md's CS-01 findings table.
+  - packages/TallyCore/Sources/TallyTestSupport
+
+# Plan 06 A6: shipping code never traps on purpose. The one exception is the DEBUG-only
+# main-thread watchdog (perf-app-runtime.md §5.1), whose `fatalError` is its whole job and which
+# is compiled only under `#if DEBUG`. `match_kinds: identifier` skips comments and strings.
+custom_rules:
+  no_fatal_error:
+    name: "No fatalError in shipping code"
+    regex: '\bfatalError\s*\('
+    match_kinds:
+      - identifier
+    excluded: 'TallyPlatform/MainThreadWatchdog\.swift$'
+    message: "Shipping code must not trap: return an error or a safe default (plan 06 A6). Only the DEBUG main-thread watchdog may call fatalError."
+    severity: error

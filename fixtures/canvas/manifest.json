@@ -1,0 +1,2534 @@
+{
+  "$schema": "schemas/tally/Manifest.schema.json",
+  "synthetic": true,
+  "provenance": {
+    "statement": "Every person, school, course, domain and grade in this tree is fictional and generated. No real student data, no recording.",
+    "generator": "tools/canvas-synth",
+    "generator_version": "1.0.0",
+    "command": "cd tools/canvas-synth && python3 -m canvas_synth generate --out ../../fixtures/canvas",
+    "seed": 20260928,
+    "canvas_sources": {
+      "docs": "https://developerdocs.instructure.com/services/canvas (retrieved 2026-09-26)",
+      "code": "https://github.com/instructure/canvas-lms @ 1c9f0bb8013ed69c4f2efe11fd483025469b7e6c (master; latest public commit 2026-04-30 as of 2026-09-26)"
+    },
+    "parity_caveat": "Synthetic grade parity proves consistency with this port of Canvas's algorithm, not with production Canvas; an owner-run recording (WP-B07) is still required."
+  },
+  "anchor": "2026-09-28T13:00:00Z",
+  "rebasing": {
+    "rule": "Rule (also in fixtures/canvas/README.md and manifest.json \"rebasing\"): 1. ``days = local_date(now, tz) - local_date(ANCHOR, tz)`` where ``tz`` is the persona's time zone (manifest ``personas.<key>.time_zone``) and ANCHOR is 2026-09-28T13:00:00Z. Only whole days are shifted, so \"today\" in demo mode shows the anchor day's content and every class meeting keeps its local wall-clock time. 2. Every JSON string value that is a full ISO 8601 UTC timestamp (``YYYY-MM-DDTHH:MM:SSZ``) is converted to local wall-clock time in ``tz``, its date moved by ``days``, and converted back to UTC (so 11:59 pm stays 11:59 pm across a DST change). 3. Every value that is exactly a date (``YYYY-MM-DD``, e.g. ``all_day_date``) moves by ``days``. 4. Nothing else changes: ids, URLs (including ``Link`` headers and bookmark tokens), durations such as ``seconds_late`` and all scores stay as they are. Route matching treats start_date/end_date as wildcards, so rebased request windows still match. Durations derived from \"now\" (``seconds_late``, ``missing``, ``locked_for_user``) stay frozen at the anchor; they remain consistent because every timestamp moves by the same local-day offset.",
+    "reference_implementation": "tools/canvas-synth/canvas_synth/rebase.py"
+  },
+  "request_headers": {
+    "Accept": "application/json+canvas-string-ids",
+    "Authorization": "Bearer <token>",
+    "User-Agent": "Tally/<version>"
+  },
+  "route_matching": {
+    "key": "method + host + path + normalized query",
+    "query_normalization": "percent-decode every key and value, sort pairs by (key, value), join as k=v with '&', no re-encoding. 'query' is exact; 'query_match' replaces the values of start_date/end_date with '*' (match any value) so rebased demo requests still match. Follow Link rel=next URLs verbatim; their route entries carry the page parameter.",
+    "unmatched_request": "respond 404 with errors/404-not-found.json"
+  },
+  "schema_map": {
+    "personas/**/<endpoint files>, scenarios/<endpoint>/*.json": {
+      "profile": "schemas/Profile.schema.json",
+      "courses": "schemas/Course.schema.json (array items)",
+      "assignment_groups": "schemas/AssignmentGroup.schema.json (array items)",
+      "grading_periods": "schemas/GradingPeriodIndex.schema.json",
+      "planner_items": "schemas/PlannerItem.schema.json (array items)",
+      "calendar_events": "schemas/CalendarEvent.schema.json (array items)",
+      "announcements": "schemas/Announcement.schema.json (array items)",
+      "colors": "schemas/CustomColors.schema.json",
+      "observees": "schemas/Observee.schema.json (array items)",
+      "accounts_search": "schemas/AccountSearchResult.schema.json (array items)"
+    },
+    "**/*.headers.json": "schemas/HeadersSidecar.schema.json",
+    "errors/*.json": "schemas/ErrorBody.schema.json",
+    "errors/*.txt": "schemas/RateLimitText.schema.json",
+    "expected/grades/*.json": "schemas/tally/ExpectedGrades.schema.json (scenarios.json: ExpectedScenarioGrades)",
+    "expected/digest/*.json": "schemas/tally/Digest.schema.json",
+    "manifest.json": "schemas/tally/Manifest.schema.json"
+  },
+  "personas": {
+    "flagship": {
+      "key": "flagship",
+      "title": "Flagship undergrad (dashboard mockup)",
+      "description": "Alex Sample, 5 courses at Northfield State University reproducing the Tally mockup: Calculus II 90.1% A-, Introduction to Psychology 87.2% B+, Biology 101 93.4% A, World History 82.0% B, English Composition 89.0% A-.",
+      "synthetic": true,
+      "school": "Northfield State University",
+      "host": "canvas.northfield.example",
+      "user_id": "4820117",
+      "user_name": "Alex Sample",
+      "time_zone": "America/Chicago",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "51845",
+        "51842",
+        "51847",
+        "51843",
+        "51846"
+      ],
+      "request_count": 13,
+      "covers": [
+        "weighted groups",
+        "unweighted groups",
+        "drop lowest",
+        "custom grading schemes",
+        "missing (unsubmitted)",
+        "late with deduction",
+        "late (manual status)",
+        "excused",
+        "unposted grade (manual post policy)",
+        "omit_from_final_grade",
+        "not_graded assignment",
+        "locked quiz (unlock_at in future)",
+        "due-date change",
+        "recurring class events",
+        "multi-page planner and calendar events",
+        "planner note",
+        "planner override",
+        "new_activity on newly posted grade",
+        "graded quiz with negative grader_id"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/flagship/profile.json",
+          "headers": "personas/flagship/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/courses.json",
+          "headers": "personas/flagship/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51845/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/assignment_groups/51845.json",
+          "headers": "personas/flagship/assignment_groups/51845.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51842/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/assignment_groups/51842.json",
+          "headers": "personas/flagship/assignment_groups/51842.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51847/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/assignment_groups/51847.json",
+          "headers": "personas/flagship/assignment_groups/51847.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51843/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/assignment_groups/51843.json",
+          "headers": "personas/flagship/assignment_groups/51843.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51846/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship/assignment_groups/51846.json",
+          "headers": "personas/flagship/assignment_groups/51846.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/flagship/planner_items.page1.json",
+          "headers": "personas/flagship/planner_items.page1.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/flagship/planner_items.page2.json",
+          "headers": "personas/flagship/planner_items.page2.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/flagship/calendar_events.chunk1.page1.json",
+          "headers": "personas/flagship/calendar_events.chunk1.page1.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/flagship/calendar_events.chunk1.page2.json",
+          "headers": "personas/flagship/calendar_events.chunk1.page2.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/flagship/announcements.chunk1.json",
+          "headers": "personas/flagship/announcements.chunk1.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/flagship/colors.json",
+          "headers": "personas/flagship/colors.headers.json"
+        }
+      ]
+    },
+    "flagship-previous": {
+      "key": "flagship-previous",
+      "title": "Flagship undergrad, one day earlier",
+      "description": "The same world as 'flagship' observed 24 hours earlier (2026-09-27T13:00:00Z), so diffing the two snapshots yields a real change digest.",
+      "synthetic": true,
+      "school": "Northfield State University",
+      "host": "canvas.northfield.example",
+      "user_id": "4820117",
+      "user_name": "Alex Sample",
+      "time_zone": "America/Chicago",
+      "captured_at": "2026-09-27T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "51845",
+        "51842",
+        "51847",
+        "51843",
+        "51846"
+      ],
+      "request_count": 13,
+      "covers": [
+        "change digest baseline"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/flagship-previous/profile.json",
+          "headers": "personas/flagship-previous/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/courses.json",
+          "headers": "personas/flagship-previous/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51845/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/assignment_groups/51845.json",
+          "headers": "personas/flagship-previous/assignment_groups/51845.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51842/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/assignment_groups/51842.json",
+          "headers": "personas/flagship-previous/assignment_groups/51842.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51847/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/assignment_groups/51847.json",
+          "headers": "personas/flagship-previous/assignment_groups/51847.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51843/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/assignment_groups/51843.json",
+          "headers": "personas/flagship-previous/assignment_groups/51843.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51846/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/flagship-previous/assignment_groups/51846.json",
+          "headers": "personas/flagship-previous/assignment_groups/51846.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-26&per_page=100&start_date=2026-09-13",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/flagship-previous/planner_items.page1.json",
+          "headers": "personas/flagship-previous/planner_items.page1.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-26&page=bookmark:WyIyMDI2LTEwLTE3VDA0OjU5OjAwWiIsMTIwNDQ2Nl0&per_page=100&start_date=2026-09-13",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTEwLTE3VDA0OjU5OjAwWiIsMTIwNDQ2Nl0&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/flagship-previous/planner_items.page2.json",
+          "headers": "personas/flagship-previous/planner_items.page2.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-26&per_page=100&start_date=2026-09-13&type=event",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/flagship-previous/calendar_events.chunk1.page1.json",
+          "headers": "personas/flagship-previous/calendar_events.chunk1.page1.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-26&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=2026-09-13&type=event",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/flagship-previous/calendar_events.chunk1.page2.json",
+          "headers": "personas/flagship-previous/calendar_events.chunk1.page2.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=2026-09-13",
+          "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/flagship-previous/announcements.chunk1.json",
+          "headers": "personas/flagship-previous/announcements.chunk1.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/flagship-previous/colors.json",
+          "headers": "personas/flagship-previous/colors.headers.json"
+        }
+      ]
+    },
+    "finals": {
+      "key": "finals",
+      "title": "Finals-week overload",
+      "description": "Riley Sample, last week of an 8-week session at Harbor City College: 4 exams in 3 days, two overlapping finals on Tuesday, 12 items due in 5 days, CHEM 110 at 70.04% (C-, just above D+) and STAT 150 at 89.95% (B+, 0.05 below A-).",
+      "synthetic": true,
+      "school": "Harbor City College",
+      "host": "harborcity.instructure.example",
+      "user_id": "5561204",
+      "user_name": "Riley Sample",
+      "time_zone": "America/Los_Angeles",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "70313",
+        "70312",
+        "70311",
+        "70314"
+      ],
+      "request_count": 10,
+      "covers": [
+        "clustered deadlines",
+        "overlapping exam events",
+        "score just above a threshold",
+        "score just below a threshold",
+        "term ending this week"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/finals/profile.json",
+          "headers": "personas/finals/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/finals/courses.json",
+          "headers": "personas/finals/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/courses/70313/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/finals/assignment_groups/70313.json",
+          "headers": "personas/finals/assignment_groups/70313.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/courses/70312/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/finals/assignment_groups/70312.json",
+          "headers": "personas/finals/assignment_groups/70312.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/courses/70311/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/finals/assignment_groups/70311.json",
+          "headers": "personas/finals/assignment_groups/70311.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/courses/70314/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/finals/assignment_groups/70314.json",
+          "headers": "personas/finals/assignment_groups/70314.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/finals/planner_items.json",
+          "headers": "personas/finals/planner_items.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_70311&context_codes[]=course_70312&context_codes[]=course_70313&context_codes[]=course_70314&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_70311&context_codes[]=course_70312&context_codes[]=course_70313&context_codes[]=course_70314&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/finals/calendar_events.chunk1.json",
+          "headers": "personas/finals/calendar_events.chunk1.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_70311&context_codes[]=course_70312&context_codes[]=course_70313&context_codes[]=course_70314&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_70311&context_codes[]=course_70312&context_codes[]=course_70313&context_codes[]=course_70314&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/finals/announcements.chunk1.json",
+          "headers": "personas/finals/announcements.chunk1.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "harborcity.instructure.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/finals/colors.json",
+          "headers": "personas/finals/colors.headers.json"
+        }
+      ]
+    },
+    "grading-periods": {
+      "key": "grading-periods",
+      "title": "Grading periods, hidden totals, pass/fail, letter-only",
+      "description": "Jordan Sample at Northgate Online Academy. The term uses a weighted grading-period set (Quarter 1 40%, Quarter 2 40%, Semester Exam 20%). Chemistry Honors hides final grades; Physical Education is pass/fail; Studio Art is letter-graded only.",
+      "synthetic": true,
+      "school": "Northgate Online Academy",
+      "host": "northgate.instructure.example",
+      "user_id": "6603318",
+      "user_name": "Jordan Sample",
+      "time_zone": "America/New_York",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "90411",
+        "90412",
+        "90413",
+        "90414"
+      ],
+      "request_count": 14,
+      "covers": [
+        "weighted grading periods",
+        "current grading period scores",
+        "no-due-date assignment in last period",
+        "hide_final_grades (no computed_* fields)",
+        "pass_fail assignments",
+        "letter_grade assignments",
+        "course pass/fail scheme",
+        "never_drop + drop_lowest",
+        "excused lab"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/profile.json",
+          "headers": "personas/grading-periods/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/grading-periods/courses.json",
+          "headers": "personas/grading-periods/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90411/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/grading-periods/assignment_groups/90411.json",
+          "headers": "personas/grading-periods/assignment_groups/90411.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90412/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/grading-periods/assignment_groups/90412.json",
+          "headers": "personas/grading-periods/assignment_groups/90412.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90413/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/grading-periods/assignment_groups/90413.json",
+          "headers": "personas/grading-periods/assignment_groups/90413.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90414/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/grading-periods/assignment_groups/90414.json",
+          "headers": "personas/grading-periods/assignment_groups/90414.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90411/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/grading_periods/90411.json",
+          "headers": "personas/grading-periods/grading_periods/90411.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90412/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/grading_periods/90412.json",
+          "headers": "personas/grading-periods/grading_periods/90412.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90413/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/grading_periods/90413.json",
+          "headers": "personas/grading-periods/grading_periods/90413.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/courses/90414/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/grading_periods/90414.json",
+          "headers": "personas/grading-periods/grading_periods/90414.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/grading-periods/planner_items.json",
+          "headers": "personas/grading-periods/planner_items.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/grading-periods/calendar_events.chunk1.json",
+          "headers": "personas/grading-periods/calendar_events.chunk1.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/grading-periods/announcements.chunk1.json",
+          "headers": "personas/grading-periods/announcements.chunk1.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "northgate.instructure.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/grading-periods/colors.json",
+          "headers": "personas/grading-periods/colors.headers.json"
+        }
+      ]
+    },
+    "empty": {
+      "key": "empty",
+      "title": "New student, no active courses",
+      "description": "Morgan Sample, a brand-new Lakeshore University account between terms: no active enrollments, no planner items, no custom colors.",
+      "synthetic": true,
+      "school": "Lakeshore University",
+      "host": "canvas.lakeshore.example",
+      "user_id": "7710042",
+      "user_name": "Morgan Sample",
+      "time_zone": "America/Chicago",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [],
+      "request_count": 4,
+      "covers": [
+        "empty course list",
+        "empty planner",
+        "empty custom colors"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.lakeshore.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/empty/profile.json",
+          "headers": "personas/empty/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.lakeshore.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/empty/courses.json",
+          "headers": "personas/empty/courses.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.lakeshore.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/empty/planner_items.json",
+          "headers": "personas/empty/planner_items.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "canvas.lakeshore.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/empty/colors.json",
+          "headers": "personas/empty/colors.headers.json"
+        }
+      ]
+    },
+    "large": {
+      "key": "large",
+      "title": "Large account (12 courses)",
+      "description": "Taylor Sample at Northfield State: 7 academic courses plus 5 community/program courses, 153 assignments, forcing multi-page planner and announcement responses and two context-code chunks (10 + 2).",
+      "synthetic": true,
+      "school": "Northfield State University",
+      "host": "canvas.northfield.example",
+      "user_id": "4833390",
+      "user_name": "Taylor Sample",
+      "time_zone": "America/Chicago",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "52111",
+        "52104",
+        "52106",
+        "52107",
+        "52110",
+        "52103",
+        "52102",
+        "52100",
+        "52101",
+        "52109",
+        "52105",
+        "52108"
+      ],
+      "request_count": 23,
+      "covers": [
+        "12 courses",
+        "context_codes chunking (10 + 2)",
+        "multi-page planner (bookmark pagination)",
+        "multi-page announcements (numbered pagination)",
+        "courses without a grading scheme (null letter grades)"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/large/profile.json",
+          "headers": "personas/large/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/large/courses.json",
+          "headers": "personas/large/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52111/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52111.json",
+          "headers": "personas/large/assignment_groups/52111.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52104/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52104.json",
+          "headers": "personas/large/assignment_groups/52104.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52106/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52106.json",
+          "headers": "personas/large/assignment_groups/52106.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52107/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52107.json",
+          "headers": "personas/large/assignment_groups/52107.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52110/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52110.json",
+          "headers": "personas/large/assignment_groups/52110.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52103/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52103.json",
+          "headers": "personas/large/assignment_groups/52103.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52102/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52102.json",
+          "headers": "personas/large/assignment_groups/52102.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52100/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52100.json",
+          "headers": "personas/large/assignment_groups/52100.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52101/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52101.json",
+          "headers": "personas/large/assignment_groups/52101.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52109/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52109.json",
+          "headers": "personas/large/assignment_groups/52109.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52105/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52105.json",
+          "headers": "personas/large/assignment_groups/52105.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/52108/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/large/assignment_groups/52108.json",
+          "headers": "personas/large/assignment_groups/52108.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/large/planner_items.page1.json",
+          "headers": "personas/large/planner_items.page1.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTA5LTI5VDA0OjU5OjU5WiIsMTIxMDEzNl0&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTA5LTI5VDA0OjU5OjU5WiIsMTIxMDEzNl0&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/large/planner_items.page2.json",
+          "headers": "personas/large/planner_items.page2.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTExLTE3VDE1OjAwOjAwWiIsMTIxMDA4Ml0&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTExLTE3VDE1OjAwOjAwWiIsMTIxMDA4Ml0&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/large/planner_items.page3.json",
+          "headers": "personas/large/planner_items.page3.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/large/calendar_events.chunk1.json",
+          "headers": "personas/large/calendar_events.chunk1.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_52105&context_codes[]=course_52108&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_52105&context_codes[]=course_52108&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/large/calendar_events.chunk2.json",
+          "headers": "personas/large/calendar_events.chunk2.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/large/announcements.chunk1.page1.json",
+          "headers": "personas/large/announcements.chunk1.page1.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&page=2&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_52100&context_codes[]=course_52101&context_codes[]=course_52102&context_codes[]=course_52103&context_codes[]=course_52104&context_codes[]=course_52106&context_codes[]=course_52107&context_codes[]=course_52109&context_codes[]=course_52110&context_codes[]=course_52111&page=2&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/large/announcements.chunk1.page2.json",
+          "headers": "personas/large/announcements.chunk1.page2.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_52105&context_codes[]=course_52108&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_52105&context_codes[]=course_52108&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/large/announcements.chunk2.json",
+          "headers": "personas/large/announcements.chunk2.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/large/colors.json",
+          "headers": "personas/large/colors.headers.json"
+        }
+      ]
+    },
+    "parent-observer": {
+      "key": "parent-observer",
+      "title": "Parent observing two students",
+      "synthetic": true,
+      "description": "Pat Sample observes Alex Sample (flagship, Northfield State University) and Jordan Sample (grading-periods, Northgate Online Academy). Canvas observation links are per root account (observation_link_root_account_ids), and the two schools are separate Canvas instances, so the parent has one login per institution: two accounts, one observee each. Bodies identical to the observee's own responses are shared (body_shared_with).",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "user_name": "Pat Sample",
+      "time_zone": null,
+      "accounts": [
+        {
+          "host": "canvas.northfield.example",
+          "school": "Northfield State University",
+          "observer_user_id": "4820990",
+          "observee": {
+            "persona": "flagship",
+            "user_id": "4820117",
+            "name": "Alex Sample"
+          },
+          "course_ids": [
+            "51845",
+            "51842",
+            "51847",
+            "51843",
+            "51846"
+          ],
+          "request_count": 10,
+          "routes": [
+            {
+              "endpoint": "profile",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/users/self/profile",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/profile.json",
+              "headers": "personas/parent-observer/northfield/profile.headers.json"
+            },
+            {
+              "endpoint": "observees",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/users/self/observees",
+              "query": "include[]=avatar_url&per_page=100",
+              "query_match": "include[]=avatar_url&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/observees.json",
+              "headers": "personas/parent-observer/northfield/observees.headers.json"
+            },
+            {
+              "endpoint": "courses",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses",
+              "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+              "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/courses.json",
+              "headers": "personas/parent-observer/northfield/courses.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses/51845/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/assignment_groups/51845.json",
+              "headers": "personas/parent-observer/northfield/assignment_groups/51845.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses/51842/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/assignment_groups/51842.json",
+              "headers": "personas/parent-observer/northfield/assignment_groups/51842.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses/51847/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/assignment_groups/51847.json",
+              "headers": "personas/parent-observer/northfield/assignment_groups/51847.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses/51843/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/assignment_groups/51843.json",
+              "headers": "personas/parent-observer/northfield/assignment_groups/51843.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/courses/51846/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northfield/assignment_groups/51846.json",
+              "headers": "personas/parent-observer/northfield/assignment_groups/51846.headers.json"
+            },
+            {
+              "endpoint": "planner_items",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/users/4820117/planner/items",
+              "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+              "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&per_page=100&start_date=*",
+              "status": 200,
+              "body": "personas/flagship/planner_items.page1.json",
+              "headers": "personas/parent-observer/northfield/planner_items.page1.headers.json",
+              "body_shared_with": "personas/flagship"
+            },
+            {
+              "endpoint": "planner_items",
+              "method": "GET",
+              "host": "canvas.northfield.example",
+              "path": "/api/v1/users/4820117/planner/items",
+              "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=2026-09-14",
+              "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=*",
+              "status": 200,
+              "body": "personas/flagship/planner_items.page2.json",
+              "headers": "personas/parent-observer/northfield/planner_items.page2.headers.json",
+              "body_shared_with": "personas/flagship"
+            }
+          ],
+          "time_zone": "America/Chicago"
+        },
+        {
+          "host": "northgate.instructure.example",
+          "school": "Northgate Online Academy",
+          "observer_user_id": "6603990",
+          "observee": {
+            "persona": "grading-periods",
+            "user_id": "6603318",
+            "name": "Jordan Sample"
+          },
+          "course_ids": [
+            "90411",
+            "90412",
+            "90413",
+            "90414"
+          ],
+          "request_count": 12,
+          "routes": [
+            {
+              "endpoint": "profile",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/users/self/profile",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/profile.json",
+              "headers": "personas/parent-observer/northgate/profile.headers.json"
+            },
+            {
+              "endpoint": "observees",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/users/self/observees",
+              "query": "include[]=avatar_url&per_page=100",
+              "query_match": "include[]=avatar_url&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/observees.json",
+              "headers": "personas/parent-observer/northgate/observees.headers.json"
+            },
+            {
+              "endpoint": "courses",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses",
+              "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+              "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/courses.json",
+              "headers": "personas/parent-observer/northgate/courses.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90411/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/assignment_groups/90411.json",
+              "headers": "personas/parent-observer/northgate/assignment_groups/90411.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90412/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/assignment_groups/90412.json",
+              "headers": "personas/parent-observer/northgate/assignment_groups/90412.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90413/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/assignment_groups/90413.json",
+              "headers": "personas/parent-observer/northgate/assignment_groups/90413.headers.json"
+            },
+            {
+              "endpoint": "assignment_groups",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90414/assignment_groups",
+              "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+              "status": 200,
+              "body": "personas/parent-observer/northgate/assignment_groups/90414.json",
+              "headers": "personas/parent-observer/northgate/assignment_groups/90414.headers.json"
+            },
+            {
+              "endpoint": "grading_periods",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90411/grading_periods",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/grading-periods/grading_periods/90411.json",
+              "headers": "personas/parent-observer/northgate/grading_periods/90411.headers.json",
+              "body_shared_with": "personas/grading-periods"
+            },
+            {
+              "endpoint": "grading_periods",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90412/grading_periods",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/grading-periods/grading_periods/90412.json",
+              "headers": "personas/parent-observer/northgate/grading_periods/90412.headers.json",
+              "body_shared_with": "personas/grading-periods"
+            },
+            {
+              "endpoint": "grading_periods",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90413/grading_periods",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/grading-periods/grading_periods/90413.json",
+              "headers": "personas/parent-observer/northgate/grading_periods/90413.headers.json",
+              "body_shared_with": "personas/grading-periods"
+            },
+            {
+              "endpoint": "grading_periods",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/courses/90414/grading_periods",
+              "query": "",
+              "query_match": "",
+              "status": 200,
+              "body": "personas/grading-periods/grading_periods/90414.json",
+              "headers": "personas/parent-observer/northgate/grading_periods/90414.headers.json",
+              "body_shared_with": "personas/grading-periods"
+            },
+            {
+              "endpoint": "planner_items",
+              "method": "GET",
+              "host": "northgate.instructure.example",
+              "path": "/api/v1/users/6603318/planner/items",
+              "query": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+              "query_match": "context_codes[]=course_90411&context_codes[]=course_90412&context_codes[]=course_90413&context_codes[]=course_90414&end_date=*&per_page=100&start_date=*",
+              "status": 200,
+              "body": "personas/grading-periods/planner_items.json",
+              "headers": "personas/parent-observer/northgate/planner_items.headers.json",
+              "body_shared_with": "personas/grading-periods"
+            }
+          ],
+          "time_zone": "America/New_York"
+        }
+      ],
+      "request_count": 22,
+      "covers": [
+        "observees list",
+        "ObserverEnrollment rows with associated_user_id",
+        "observed students' scores in the observer's course list",
+        "submission arrays with include[]=observed_users",
+        "planner via /users/:id/planner/items"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "grades/weighted-groups",
+      "description": "apply_assignment_group_weights=true; the ungraded Final group (25%) is left out of the current score and the remaining 75% is scaled to 100%.",
+      "covers": [
+        "weighted groups",
+        "weight scaling"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/weighted-groups.json",
+          "headers": "scenarios/courses/weighted-groups.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/weighted-groups.json",
+          "headers": "scenarios/assignment_groups/weighted-groups.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/unweighted-groups",
+      "description": "Points-based course; mirrors canvas-lms ui/shared/grading/__tests__/CourseGradeCalculator2.test.js (159/284 current, 159/1284 final).",
+      "covers": [
+        "unweighted groups",
+        "ungraded counts as zero in final"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/unweighted-groups.json",
+          "headers": "scenarios/courses/unweighted-groups.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/unweighted-groups.json",
+          "headers": "scenarios/assignment_groups/unweighted-groups.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/drop-lowest",
+      "description": "drop_lowest=2 on mixed points; current keeps 100/100 + 3/38 (103/138), final drops 3/38 and the ungraded 0/1000 (156/246). Mirrors AssignmentGroupGradeCalculator2.test.js.",
+      "covers": [
+        "drop lowest"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/drop-lowest.json",
+          "headers": "scenarios/courses/drop-lowest.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/drop-lowest.json",
+          "headers": "scenarios/assignment_groups/drop-lowest.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/drop-highest",
+      "description": "drop_highest=1 drops 31/40 (the best percentage), leaving 23/34.",
+      "covers": [
+        "drop highest"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/drop-highest.json",
+          "headers": "scenarios/courses/drop-highest.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/drop-highest.json",
+          "headers": "scenarios/assignment_groups/drop-highest.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/never-drop",
+      "description": "drop_lowest=1 with never_drop on the lowest item (4/10): Homework 3 (8/10) is dropped instead; rules.never_drop is an array of string ids.",
+      "covers": [
+        "never_drop"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/never-drop.json",
+          "headers": "scenarios/courses/never-drop.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/never-drop.json",
+          "headers": "scenarios/assignment_groups/never-drop.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/excused",
+      "description": "Excused submissions are removed from score and possible; a group whose only item is excused has possible 0 and its 40% weight is dropped from the scaling.",
+      "covers": [
+        "excused"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/excused.json",
+          "headers": "scenarios/courses/excused.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/excused.json",
+          "headers": "scenarios/assignment_groups/excused.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/pass-fail",
+      "description": "grading_type=pass_fail: grade 'complete'/'incomplete', score = points_possible or 0; course uses a Pass/Fail scheme (computed_current_grade 'Pass').",
+      "covers": [
+        "pass_fail"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/pass-fail.json",
+          "headers": "scenarios/courses/pass-fail.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/pass-fail.json",
+          "headers": "scenarios/assignment_groups/pass-fail.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/letter-grades",
+      "description": "grading_type=letter_grade: grade is the letter; score is GradingStandard#grade_to_score x points_possible (A=100%; otherwise one point below the next-higher cutoff: B+=89%, C-=73% on the default scheme).",
+      "covers": [
+        "letter grades"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/letter-grades.json",
+          "headers": "scenarios/courses/letter-grades.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/letter-grades.json",
+          "headers": "scenarios/assignment_groups/letter-grades.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/no-due-date",
+      "description": "due_at null: no cached_due_date, never late or missing, absent from planner items; with grading periods such items belong to the last period.",
+      "covers": [
+        "no due date"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/no-due-date.json",
+          "headers": "scenarios/courses/no-due-date.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/no-due-date.json",
+          "headers": "scenarios/assignment_groups/no-due-date.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/unposted-and-omitted",
+      "description": "Unposted grade (score/grade keys omitted, posted_at null) is ignored; omit_from_final_grade, not_graded and hide_in_gradebook items never count; a pending_review quiz is ignored for current and counts 0 for final.",
+      "covers": [
+        "unposted",
+        "omit_from_final_grade",
+        "hide_in_gradebook",
+        "not_graded",
+        "pending_review"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/unposted-and-omitted.json",
+          "headers": "scenarios/courses/unposted-and-omitted.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/unposted-and-omitted.json",
+          "headers": "scenarios/assignment_groups/unposted-and-omitted.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/weighted-grading-periods",
+      "description": "Weighted grading periods (50/50): the course score is the weighted mean of the stored period scores; Period 2 has no graded work so the current score is Period 1 alone.",
+      "covers": [
+        "weighted grading periods",
+        "current_period_computed_* fields",
+        "no due date -> last period"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/weighted-grading-periods.json",
+          "headers": "scenarios/courses/weighted-grading-periods.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/weighted-grading-periods.json",
+          "headers": "scenarios/assignment_groups/weighted-grading-periods.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "scenarios/grading_periods/weighted-grading-periods.json",
+          "headers": "scenarios/grading_periods/weighted-grading-periods.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/unweighted-grading-periods",
+      "description": "Grading periods without weights: the course score is computed from all assignments; period scores are informational.",
+      "covers": [
+        "unweighted grading periods",
+        "current_period_computed_* fields",
+        "no due date -> last period"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/unweighted-grading-periods.json",
+          "headers": "scenarios/courses/unweighted-grading-periods.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/unweighted-grading-periods.json",
+          "headers": "scenarios/assignment_groups/unweighted-grading-periods.headers.json"
+        },
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "scenarios/grading_periods/unweighted-grading-periods.json",
+          "headers": "scenarios/grading_periods/unweighted-grading-periods.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/hidden-final-grades",
+      "description": "hide_final_grades=true: include[]=total_scores is ignored, so the enrollment has no computed_* keys at all (never render 0%). Assignment scores stay visible.",
+      "covers": [
+        "hidden final grades"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/hidden-final-grades.json",
+          "headers": "scenarios/courses/hidden-final-grades.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/hidden-final-grades.json",
+          "headers": "scenarios/assignment_groups/hidden-final-grades.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/late-and-missing",
+      "description": "late=true with points_deducted (score = entered_score - deduction); missing unsubmitted item (no score, seconds_late grows with now); teacher-marked missing with score 0 (counts); manual late status; on_paper never missing; quiz 60-second grace.",
+      "covers": [
+        "late",
+        "missing",
+        "late_policy_status",
+        "seconds_late"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/late-and-missing.json",
+          "headers": "scenarios/courses/late-and-missing.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/late-and-missing.json",
+          "headers": "scenarios/assignment_groups/late-and-missing.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/concluded-course",
+      "description": "Hard-concluded course (workflow_state 'completed', enrollment_state 'completed'); returned only for enrollment_state=completed, never by the enrollment_state=active request Tally makes. With every enrollment completed, Canvas drops unsubmitted/unposted items from the final score too.",
+      "covers": [
+        "concluded course"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=completed&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=completed&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/concluded-course.json",
+          "headers": "scenarios/courses/concluded-course.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/concluded-course.json",
+          "headers": "scenarios/assignment_groups/concluded-course.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/multiple-enrollments",
+      "description": "One course, two StudentEnrollment rows (lecture + lab section); each carries identical scores. De-duplicate by course id.",
+      "covers": [
+        "multiple enrollments"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/multiple-enrollments.json",
+          "headers": "scenarios/courses/multiple-enrollments.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/multiple-enrollments.json",
+          "headers": "scenarios/assignment_groups/multiple-enrollments.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "grades/large-ids",
+      "description": "Ids above 2^53 (9007199254740992), as produced by Canvas's sharded global ids; with Accept: application/json+canvas-string-ids they arrive as strings and must never be parsed as Double.",
+      "covers": [
+        "string IDs above 2^53"
+      ],
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/large-ids.json",
+          "headers": "scenarios/courses/large-ids.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/184670000000012345/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "scenarios/assignment_groups/large-ids.json",
+          "headers": "scenarios/assignment_groups/large-ids.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "courses/access-restricted-by-date",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "courses_controller.rb always adds include 'access_restricted_by_date': a course whose enrollments are all inactive and whose dates restrict access is returned as {id, access_restricted_by_date: true} only. Treat as not viewable.",
+      "covers": [
+        "access_restricted_by_date"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/courses/access-restricted-by-date.json",
+          "headers": "scenarios/courses/access-restricted-by-date.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "courses/multi-page",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Numbered pagination (Api.paginate over an Array): Link carries current/next/prev/first/last; per_page=2 here only to force two pages.",
+      "covers": [
+        "multi-page Link",
+        "rel=last present"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=2",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=2",
+          "status": 200,
+          "body": "scenarios/courses/multi-page.page1.json",
+          "headers": "scenarios/courses/multi-page.page1.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&page=2&per_page=2",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&page=2&per_page=2",
+          "status": 200,
+          "body": "scenarios/courses/multi-page.page2.json",
+          "headers": "scenarios/courses/multi-page.page2.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "planner_items/multi-page",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "BookmarkedCollection pagination: page=first, then opaque page=bookmark:... tokens; no rel=last. Follow rel=next until absent.",
+      "covers": [
+        "multi-page Link",
+        "rel=last absent",
+        "opaque next URL"
+      ],
+      "routes": [
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=2&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=2&start_date=*",
+          "status": 200,
+          "body": "scenarios/planner_items/multi-page.page1.json",
+          "headers": "scenarios/planner_items/multi-page.page1.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTEwLTAxVDA0OjU5OjU5WiIsMTI5MDAwMV0&per_page=2&start_date=2026-09-14",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTEwLTAxVDA0OjU5OjU5WiIsMTI5MDAwMV0&per_page=2&start_date=*",
+          "status": 200,
+          "body": "scenarios/planner_items/multi-page.page2.json",
+          "headers": "scenarios/planner_items/multi-page.page2.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTEwLTAzVDA0OjU5OjU5WiIsMTI5MDAwM10&per_page=2&start_date=2026-09-14",
+          "query_match": "end_date=*&page=bookmark:WyIyMDI2LTEwLTAzVDA0OjU5OjU5WiIsMTI5MDAwM10&per_page=2&start_date=*",
+          "status": 200,
+          "body": "scenarios/planner_items/multi-page.page3.json",
+          "headers": "scenarios/planner_items/multi-page.page3.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "pagination/lowercase-header-names",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "HTTP/2 delivers lower-case header names (link, x-request-cost, x-rate-limit-remaining). Header lookup must be case-insensitive. Canvas-emitted over HTTP/2.",
+      "covers": [
+        "pagination safety"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/pagination/lowercase-header-names.json",
+          "headers": "scenarios/pagination/lowercase-header-names.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "pagination/next-link-foreign-host",
+      "canvas_emits": false,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Defensive: rel=next points to a host outside the account's allowed set. The client must not attach the bearer token and must stop paginating (not Canvas behaviour).",
+      "covers": [
+        "pagination safety"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/pagination/next-link-foreign-host.json",
+          "headers": "scenarios/pagination/next-link-foreign-host.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "pagination/next-link-http",
+      "canvas_emits": false,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Defensive: rel=next uses http://. The client must refuse it (not Canvas behaviour).",
+      "covers": [
+        "pagination safety"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "scenarios/pagination/next-link-http.json",
+          "headers": "scenarios/pagination/next-link-http.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "dates/iso8601-variants",
+      "canvas_emits": false,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Date-parser input with offsets and fractional seconds (see file note).",
+      "covers": [
+        "ISO 8601 offsets",
+        "fractional seconds"
+      ],
+      "routes": [],
+      "file": "scenarios/dates/iso8601-variants.json"
+    },
+    {
+      "id": "grading_periods/none",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Course without grading periods (Tally only calls this when has_grading_periods, but the empty envelope is valid).",
+      "covers": [
+        "empty grading periods"
+      ],
+      "routes": [
+        {
+          "endpoint": "grading_periods",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/58000/grading_periods",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "scenarios/grading_periods/none.json",
+          "headers": "scenarios/grading_periods/none.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "courses/rate-limited-429",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Throttled when Setting request_throttle.send_429_response is true.",
+      "source": "app/middleware/request_throttle.rb#rate_limit_exceeded",
+      "covers": [
+        "HTTP 429"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 429,
+          "body": "scenarios/courses/rate-limited-429.txt",
+          "headers": "scenarios/courses/rate-limited-429.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "courses/rate-limited-403",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Throttled (default hosted behaviour). Plain text, not JSON; no X-Request-Cost.",
+      "source": "app/middleware/request_throttle.rb#rate_limit_exceeded",
+      "covers": [
+        "HTTP 403"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 403,
+          "body": "scenarios/courses/rate-limited-403.txt",
+          "headers": "scenarios/courses/rate-limited-403.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "courses/forbidden-403",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Authenticated but not permitted. A 403 that is NOT a rate limit (no 'Rate Limit Exceeded').",
+      "source": "lib/authentication_methods.rb#render_json_unauthorized",
+      "covers": [
+        "HTTP 403"
+      ],
+      "routes": [
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 403,
+          "body": "scenarios/courses/forbidden-403.json",
+          "headers": "scenarios/courses/forbidden-403.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "profile/token-invalid-401",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "OAuth access token past expires_at (AccessToken#usable? false -> AccessTokenError). This is what an expired 1-hour token returns: refresh once, then authExpired.",
+      "source": "app/controllers/application_controller.rb#api_error_json; lib/authentication_methods.rb; app/models/access_token.rb",
+      "covers": [
+        "HTTP 401"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 401,
+          "body": "scenarios/profile/token-invalid-401.json",
+          "headers": "scenarios/profile/token-invalid-401.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "profile/token-expired-401",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Token past permanent_expires_at (ExpiredAccessTokenError).",
+      "source": "same",
+      "covers": [
+        "HTTP 401"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 401,
+          "body": "scenarios/profile/token-expired-401.json",
+          "headers": "scenarios/profile/token-expired-401.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "profile/token-revoked-401",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Token deleted/revoked (RevokedAccessTokenError).",
+      "source": "same",
+      "covers": [
+        "HTTP 401"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 401,
+          "body": "scenarios/profile/token-revoked-401.json",
+          "headers": "scenarios/profile/token-revoked-401.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "profile/unauthenticated-401",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "No credentials at all.",
+      "source": "lib/authentication_methods.rb#render_json_unauthorized",
+      "covers": [
+        "HTTP 401"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 401,
+          "body": "scenarios/profile/unauthenticated-401.json",
+          "headers": "scenarios/profile/unauthenticated-401.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "planner_items/insufficient-scope-401",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Scoped developer key missing the endpoint's scope (AccessTokenScopeError, mapped to 401 in config/application.rb).",
+      "source": "same; config/application.rb rescue_responses",
+      "covers": [
+        "HTTP 401"
+      ],
+      "routes": [
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 401,
+          "body": "scenarios/planner_items/insufficient-scope-401.json",
+          "headers": "scenarios/planner_items/insufficient-scope-401.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "assignment_groups/course-not-found-404",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Course (or other record) not found / deleted.",
+      "source": "application_controller.rb#api_error_json",
+      "covers": [
+        "HTTP 404"
+      ],
+      "routes": [
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/courses/51899/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 404,
+          "body": "scenarios/assignment_groups/course-not-found-404.json",
+          "headers": "scenarios/assignment_groups/course-not-found-404.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "calendar_events/server-error-500",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Unhandled server error; error_report_id is stringified with string ids.",
+      "source": "application_controller.rb#rescue_action_in_api",
+      "covers": [
+        "HTTP 500"
+      ],
+      "routes": [
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "canvas.northfield.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_51842&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_51842&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 500,
+          "body": "scenarios/calendar_events/server-error-500.json",
+          "headers": "scenarios/calendar_events/server-error-500.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "accounts_search/north",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Institution directory search used by onboarding (unauthenticated). Field set and Link format observed live on 2026-09-26 (not in the REST docs); every school here is fictional. ids are strings because Tally sends the canvas-string-ids Accept header (ints were observed without it).",
+      "covers": [
+        "institution search"
+      ],
+      "routes": [
+        {
+          "endpoint": "accounts_search",
+          "method": "GET",
+          "host": "canvas.instructure.com",
+          "path": "/api/v1/accounts/search",
+          "query": "name=north",
+          "query_match": "name=north",
+          "status": 200,
+          "body": "scenarios/accounts_search/north.json",
+          "headers": "scenarios/accounts_search/north.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "accounts_search/northfield",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Institution directory search used by onboarding (unauthenticated). Field set and Link format observed live on 2026-09-26 (not in the REST docs); every school here is fictional. ids are strings because Tally sends the canvas-string-ids Accept header (ints were observed without it).",
+      "covers": [
+        "institution search"
+      ],
+      "routes": [
+        {
+          "endpoint": "accounts_search",
+          "method": "GET",
+          "host": "canvas.instructure.com",
+          "path": "/api/v1/accounts/search",
+          "query": "name=northfield",
+          "query_match": "name=northfield",
+          "status": 200,
+          "body": "scenarios/accounts_search/northfield.json",
+          "headers": "scenarios/accounts_search/northfield.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "accounts_search/lakeshore",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Institution directory search used by onboarding (unauthenticated). Field set and Link format observed live on 2026-09-26 (not in the REST docs); every school here is fictional. ids are strings because Tally sends the canvas-string-ids Accept header (ints were observed without it).",
+      "covers": [
+        "institution search"
+      ],
+      "routes": [
+        {
+          "endpoint": "accounts_search",
+          "method": "GET",
+          "host": "canvas.instructure.com",
+          "path": "/api/v1/accounts/search",
+          "query": "name=lakeshore",
+          "query_match": "name=lakeshore",
+          "status": 200,
+          "body": "scenarios/accounts_search/lakeshore.json",
+          "headers": "scenarios/accounts_search/lakeshore.headers.json"
+        }
+      ]
+    },
+    {
+      "id": "accounts_search/no-match",
+      "canvas_emits": true,
+      "captured_at": "2026-09-28T13:00:00Z",
+      "description": "Institution directory search used by onboarding (unauthenticated). Field set and Link format observed live on 2026-09-26 (not in the REST docs); every school here is fictional. ids are strings because Tally sends the canvas-string-ids Accept header (ints were observed without it).",
+      "covers": [
+        "institution search"
+      ],
+      "routes": [
+        {
+          "endpoint": "accounts_search",
+          "method": "GET",
+          "host": "canvas.instructure.com",
+          "path": "/api/v1/accounts/search",
+          "query": "name=zzqx",
+          "query_match": "name=zzqx",
+          "status": 200,
+          "body": "scenarios/accounts_search/no-match.json",
+          "headers": "scenarios/accounts_search/no-match.headers.json"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "grades": {
+      "flagship": "expected/grades/flagship.json",
+      "flagship-previous": "expected/grades/flagship-previous.json",
+      "finals": "expected/grades/finals.json",
+      "grading-periods": "expected/grades/grading-periods.json",
+      "empty": "expected/grades/empty.json",
+      "large": "expected/grades/large.json",
+      "scenarios": "expected/grades/scenarios.json",
+      "parent-observer": "reuse flagship + grading-periods"
+    },
+    "digest": {
+      "flagship-previous->flagship": "expected/digest/flagship.json"
+    }
+  }
+}

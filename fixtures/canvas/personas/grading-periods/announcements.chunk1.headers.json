@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://northgate.instructure.example/api/v1/announcements?context_codes%5B%5D=course_90411&context_codes%5B%5D=course_90412&context_codes%5B%5D=course_90413&context_codes%5B%5D=course_90414&start_date=2026-09-14&page=1&per_page=50>; rel=\"current\",<https://northgate.instructure.example/api/v1/announcements?context_codes%5B%5D=course_90411&context_codes%5B%5D=course_90412&context_codes%5B%5D=course_90413&context_codes%5B%5D=course_90414&start_date=2026-09-14&page=1&per_page=50>; rel=\"first\",<https://northgate.instructure.example/api/v1/announcements?context_codes%5B%5D=course_90411&context_codes%5B%5D=course_90412&context_codes%5B%5D=course_90413&context_codes%5B%5D=course_90414&start_date=2026-09-14&page=1&per_page=50>; rel=\"last\"",
+    "X-Request-Cost": "0.6295655384736165",
+    "X-Rate-Limit-Remaining": "683.2331871497686"
+  }
+}

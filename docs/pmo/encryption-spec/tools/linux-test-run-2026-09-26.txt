@@ -1,0 +1,27 @@
+# 2026-09-26, host wuzzyfuzzy (Linux x86_64), rootless podman, image docker.io/library/swift:6.4.0-noble (Swift version 6.4 (swift-6.4-RELEASE)), --network=none
+# command: ln -sf .../libcrypto.so.3 .../libcrypto.so && swift test   (0 compiler warnings; Swift 6 language mode)
+Build complete! (1.13 secs)
+Test Case 'SealerAndStoreTests.testAbsentFileReadsAsAbsent' passed (0.001 seconds)
+Test Case 'SealerAndStoreTests.testBlobCopiedIntoAnotherSlotIsRejected' passed (0.001 seconds)
+Test Case 'SealerAndStoreTests.testCiphertextOnDiskContainsNoPlaintext' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testConcurrentFirstSealsMintExactlyOneKeyPerScope' passed (0.001 seconds)
+Test Case 'SealerAndStoreTests.testDispositionTable' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testLockedKeychainIsRetryAfterUnlockAndDestroysNothing' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testNewDeviceKeyMissingDiscardsRederivableFile' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testPurgeIsCryptographicEvenIfCiphertextSurvives' passed (0.001 seconds)
+Test Case 'SealerAndStoreTests.testPurgeOneAccountLeavesOtherAccountReadable' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testReinstallWithSurvivingKeychainShredsInheritedKeys' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testRoundTripAtomicReplaceNoTempFilesOneKeyPerScope' passed (0.001 seconds)
+Test Case 'SealerAndStoreTests.testSweepRemovesOrphanedTempFilesOnly' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testTamperedBlobIsDiscarded' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testUnclassifiedErrorKeepsFile' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testUserStateFailureIsResetAndToldNotSilentlyRebuilt' passed (0.0 seconds)
+Test Case 'SealerAndStoreTests.testWidgetCanOpenGlanceOnlyAndNeverWritesOrDeletes' passed (0.0 seconds)
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.009 (0.009) seconds
+Test Case 'VectorTests.testEnvelopeKnownAnswers' passed (0.001 seconds)
+Test Case 'VectorTests.testNegativeVectors' passed (0.0 seconds)
+Test Case 'VectorTests.testPrimitiveMatchesGCMSpecTestCase16' passed (0.0 seconds)
+Test Case 'VectorTests.testRandomNoncesNeverRepeat' passed (0.003 seconds)
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.014 (0.014) seconds
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.014 (0.014) seconds

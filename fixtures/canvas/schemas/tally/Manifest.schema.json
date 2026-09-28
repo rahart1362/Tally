@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/tally/Manifest.schema.json",
+  "title": "Manifest",
+  "$comment": "Tally fixture metadata (tools/canvas-synth); not a Canvas object.",
+  "type": "object",
+  "required": [
+    "synthetic",
+    "provenance",
+    "anchor",
+    "rebasing",
+    "request_headers",
+    "route_matching",
+    "personas",
+    "scenarios",
+    "expected"
+  ],
+  "properties": {
+    "synthetic": {
+      "const": true
+    },
+    "anchor": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "personas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "description",
+          "synthetic"
+        ],
+        "properties": {
+          "synthetic": {
+            "const": true
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "endpoint",
+                "method",
+                "host",
+                "path",
+                "query",
+                "query_match",
+                "status",
+                "body",
+                "headers"
+              ],
+              "properties": {
+                "endpoint": {
+                  "type": "string"
+                },
+                "method": {
+                  "const": "GET"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/api/v1/"
+                },
+                "query": {
+                  "type": "string"
+                },
+                "query_match": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "headers": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "body_shared_with": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "host",
+                "routes"
+              ],
+              "properties": {
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "endpoint",
+                      "method",
+                      "host",
+                      "path",
+                      "query",
+                      "query_match",
+                      "status",
+                      "body",
+                      "headers"
+                    ],
+                    "properties": {
+                      "endpoint": {
+                        "type": "string"
+                      },
+                      "method": {
+                        "const": "GET"
+                      },
+                      "host": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "^/api/v1/"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "query_match": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "integer"
+                      },
+                      "body": {
+                        "type": "string"
+                      },
+                      "headers": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "body_shared_with": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "covers",
+          "canvas_emits",
+          "routes"
+        ],
+        "properties": {
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "endpoint",
+                "method",
+                "host",
+                "path",
+                "query",
+                "query_match",
+                "status",
+                "body",
+                "headers"
+              ],
+              "properties": {
+                "endpoint": {
+                  "type": "string"
+                },
+                "method": {
+                  "const": "GET"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/api/v1/"
+                },
+                "query": {
+                  "type": "string"
+                },
+                "query_match": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "headers": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "body_shared_with": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "canvas_emits": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

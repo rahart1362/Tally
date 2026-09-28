@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://northgate.instructure.example/api/v1/planner/items?end_date=2026-11-27&start_date=2026-09-14&page=first&per_page=100>; rel=\"current\",<https://northgate.instructure.example/api/v1/planner/items?end_date=2026-11-27&start_date=2026-09-14&page=first&per_page=100>; rel=\"first\"",
+    "X-Request-Cost": "4.789984825116738",
+    "X-Rate-Limit-Remaining": "684.5387724530798"
+  }
+}

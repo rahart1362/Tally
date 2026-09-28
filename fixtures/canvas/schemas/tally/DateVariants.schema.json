@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/tally/DateVariants.schema.json",
+  "title": "DateVariants",
+  "$comment": "Tally fixture metadata (tools/canvas-synth); not a Canvas object.",
+  "type": "object",
+  "required": [
+    "synthetic",
+    "instant_utc",
+    "note",
+    "values"
+  ],
+  "properties": {
+    "synthetic": {
+      "const": true
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "form",
+          "value",
+          "canvas_emits"
+        ],
+        "properties": {
+          "form": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "canvas_emits": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/HeadersSidecar.schema.json",
+  "title": "HeadersSidecar",
+  "$comment": "Tally fixture sidecar (not a Canvas object). Header names as Canvas sets them (app/middleware/request_throttle.rb, lib/api.rb#build_links_from_hash); match case-insensitively. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "integer"
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "properties": {
+        "Link": {
+          "type": "string",
+          "pattern": "^<https?://[^>]+>; rel=\"[a-z]+\"(,<https?://[^>]+>; rel=\"[a-z]+\")*$"
+        },
+        "link": {
+          "type": "string"
+        },
+        "X-Request-Cost": {
+          "type": "string",
+          "pattern": "^[0-9.e-]+$"
+        },
+        "X-Rate-Limit-Remaining": {
+          "type": "string",
+          "pattern": "^-?[0-9.e-]+$"
+        }
+      }
+    }
+  },
+  "required": [
+    "status",
+    "headers"
+  ],
+  "additionalProperties": false
+}

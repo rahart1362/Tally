@@ -1,0 +1,151 @@
+{
+  "$comment": "Derived from fixtures/canvas/manifest.json personas.flagship.routes (13 routes) for ASC-14 sample mode (packages/TallyAppleKit/Sources/TallyFeatures/SampleData/SampleDataGateway.swift). Regenerate: python3 -c \"import json; m=json.load(open('fixtures/canvas/manifest.json')); f=m['personas']['flagship']; json.dump({'anchor': m['anchor'], 'time_zone': f['time_zone'], 'host': f['host'], 'routes': f['routes']}, open('packages/TallyAppleKit/Sources/TallySampleFixtures/CanvasFixtures/manifest.json', 'w'), indent=2)\"",
+  "anchor": "2026-09-28T13:00:00Z",
+  "time_zone": "America/Chicago",
+  "host": "canvas.northfield.example",
+  "routes": [
+    {
+      "endpoint": "profile",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/users/self/profile",
+      "query": "",
+      "query_match": "",
+      "status": 200,
+      "body": "personas/flagship/profile.json",
+      "headers": "personas/flagship/profile.headers.json"
+    },
+    {
+      "endpoint": "courses",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses",
+      "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/courses.json",
+      "headers": "personas/flagship/courses.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses/51845/assignment_groups",
+      "query": "include[]=assignments&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/assignment_groups/51845.json",
+      "headers": "personas/flagship/assignment_groups/51845.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses/51842/assignment_groups",
+      "query": "include[]=assignments&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/assignment_groups/51842.json",
+      "headers": "personas/flagship/assignment_groups/51842.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses/51847/assignment_groups",
+      "query": "include[]=assignments&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/assignment_groups/51847.json",
+      "headers": "personas/flagship/assignment_groups/51847.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses/51843/assignment_groups",
+      "query": "include[]=assignments&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/assignment_groups/51843.json",
+      "headers": "personas/flagship/assignment_groups/51843.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/courses/51846/assignment_groups",
+      "query": "include[]=assignments&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/flagship/assignment_groups/51846.json",
+      "headers": "personas/flagship/assignment_groups/51846.headers.json"
+    },
+    {
+      "endpoint": "planner_items",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/planner/items",
+      "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+      "query_match": "end_date=*&per_page=100&start_date=*",
+      "status": 200,
+      "body": "personas/flagship/planner_items.page1.json",
+      "headers": "personas/flagship/planner_items.page1.headers.json"
+    },
+    {
+      "endpoint": "planner_items",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/planner/items",
+      "query": "end_date=2026-11-27&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=2026-09-14",
+      "query_match": "end_date=*&page=bookmark:WyIyMDI2LTEwLTE2VDEzOjAwOjAwWiIsMzMxMDA0N10&per_page=100&start_date=*",
+      "status": 200,
+      "body": "personas/flagship/planner_items.page2.json",
+      "headers": "personas/flagship/planner_items.page2.headers.json"
+    },
+    {
+      "endpoint": "calendar_events",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/calendar_events",
+      "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+      "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&per_page=100&start_date=*&type=event",
+      "status": 200,
+      "body": "personas/flagship/calendar_events.chunk1.page1.json",
+      "headers": "personas/flagship/calendar_events.chunk1.page1.headers.json"
+    },
+    {
+      "endpoint": "calendar_events",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/calendar_events",
+      "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=2026-11-27&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=2026-09-14&type=event",
+      "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&end_date=*&page=bookmark:WyIyMDI2LTExLTIzVDIyOjAwOjAwWiIsMzMxMDI3NF0&per_page=100&start_date=*&type=event",
+      "status": 200,
+      "body": "personas/flagship/calendar_events.chunk1.page2.json",
+      "headers": "personas/flagship/calendar_events.chunk1.page2.headers.json"
+    },
+    {
+      "endpoint": "announcements",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/announcements",
+      "query": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=2026-09-14",
+      "query_match": "context_codes[]=course_51842&context_codes[]=course_51843&context_codes[]=course_51845&context_codes[]=course_51846&context_codes[]=course_51847&per_page=50&start_date=*",
+      "status": 200,
+      "body": "personas/flagship/announcements.chunk1.json",
+      "headers": "personas/flagship/announcements.chunk1.headers.json"
+    },
+    {
+      "endpoint": "colors",
+      "method": "GET",
+      "host": "canvas.northfield.example",
+      "path": "/api/v1/users/self/colors",
+      "query": "",
+      "query_match": "",
+      "status": 200,
+      "body": "personas/flagship/colors.json",
+      "headers": "personas/flagship/colors.headers.json"
+    }
+  ]
+}

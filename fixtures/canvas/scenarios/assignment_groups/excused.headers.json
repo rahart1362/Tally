@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://canvas.northfield.example/api/v1/courses/58000/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"current\",<https://canvas.northfield.example/api/v1/courses/58000/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"first\",<https://canvas.northfield.example/api/v1/courses/58000/assignment_groups?include%5B%5D=assignments&include%5B%5D=submission&page=1&per_page=100>; rel=\"last\"",
+    "X-Request-Cost": "1.7377050465385309",
+    "X-Rate-Limit-Remaining": "683.0016798570545"
+  }
+}

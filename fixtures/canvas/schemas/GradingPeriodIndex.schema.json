@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/GradingPeriodIndex.schema.json",
+  "title": "GradingPeriodIndex",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/grading_periods#method.grading_periods.index ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c app/controllers/grading_periods_controller.rb#index (serialize_json_api + index_permissions + grading_periods_read_only) and lib/api.rb#jsonapi_meta. Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "grading_periods": {
+      "type": "array",
+      "items": {
+        "$ref": "GradingPeriod.schema.json"
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "per_page": {
+              "type": "integer"
+            },
+            "next": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "last": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "prev": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "current": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "first": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "page": {
+              "type": "integer"
+            },
+            "template": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            },
+            "page_count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "per_page",
+            "current",
+            "first",
+            "page",
+            "template"
+          ],
+          "additionalProperties": false
+        },
+        "primaryCollection": {
+          "const": "grading_periods"
+        }
+      },
+      "required": [
+        "pagination",
+        "primaryCollection"
+      ],
+      "additionalProperties": false
+    },
+    "can_create_grading_periods": {
+      "type": "boolean"
+    },
+    "grading_periods_read_only": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "grading_periods",
+    "meta",
+    "can_create_grading_periods",
+    "grading_periods_read_only"
+  ],
+  "additionalProperties": false
+}

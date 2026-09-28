@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.tally.example/canvas/CalendarEvent.schema.json",
+  "title": "CalendarEvent",
+  "$comment": "https://developerdocs.instructure.com/services/canvas/resources/calendar_events#calendarevent ; canvas-lms@1c9f0bb8013ed69c4f2efe11fd483025469b7e6c lib/api/v1/calendar_event.rb#calendar_event_json. Request: GET /api/v1/calendar_events?type=event&context_codes[]=...(<=10)&start_date&end_date&per_page=100 (bookmark pagination). Docs retrieved 2026-09-26; canvas-lms master 1c9f0bb (2026-04-30, latest public commit on 2026-09-26).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "start_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "end_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "workflow_state": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "all_day": {
+      "type": "boolean"
+    },
+    "all_day_date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "comments": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "series_uuid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rrule": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "blackout_date": {
+      "type": "boolean"
+    },
+    "location_address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "location_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "type": {
+      "const": "event"
+    },
+    "description": {
+      "type": "string"
+    },
+    "child_events_count": {
+      "type": "integer"
+    },
+    "all_context_codes": {
+      "type": "string"
+    },
+    "context_code": {
+      "type": "string"
+    },
+    "context_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context_color": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "parent_event_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hidden": {
+      "type": "boolean"
+    },
+    "child_events": {
+      "type": "array"
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "html_url": {
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "duplicates": {
+      "type": "array"
+    },
+    "important_dates": {
+      "type": "boolean"
+    },
+    "series_head": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "start_at",
+    "end_at",
+    "workflow_state",
+    "created_at",
+    "updated_at",
+    "all_day",
+    "all_day_date",
+    "comments",
+    "series_uuid",
+    "rrule",
+    "blackout_date",
+    "location_address",
+    "location_name",
+    "type",
+    "description",
+    "child_events_count",
+    "all_context_codes",
+    "context_code",
+    "context_name",
+    "context_color",
+    "parent_event_id",
+    "hidden",
+    "child_events",
+    "url",
+    "html_url",
+    "duplicates",
+    "important_dates"
+  ],
+  "additionalProperties": false
+}
