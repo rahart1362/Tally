@@ -26,6 +26,8 @@ public struct HomeShellView: View {
     let banner: AnyView?
 
     @Environment(\.scenePhase) private var scenePhase
+    /// `RootView` puts it here for the sample and signed-in routes; Settings' account actions use it.
+    @Environment(AppModel.self) private var appModel: AppModel?
     @State private var isSettingsPresented = false
 
     public init(model: HomeModel, banner: AnyView? = nil) {
@@ -84,9 +86,10 @@ public struct HomeShellView: View {
         }
         .environment(model)
         .sheet(isPresented: $isSettingsPresented) {
-            // M3-A (UX-WP-20): the sheet's content gets the Home model explicitly.
+            // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
             SettingsView()
                 .environment(model)
+                .environment(appModel)
         }
         .task { await model.start() }
         .task(id: model.validUntil) { await model.reprojectWhenStale() }

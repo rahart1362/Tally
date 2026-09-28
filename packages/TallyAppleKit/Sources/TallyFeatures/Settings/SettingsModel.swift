@@ -7,6 +7,10 @@ import TallyStore
 /// globally and per course. Every change is written to `UserState.digestThresholds` through the
 /// injected `UserStateAccess`; for a signed-in account that access also hands the thresholds to
 /// the account's `RefreshCoordinator` (`updateDigestThresholds`).
+///
+/// Also "Show Grades in Widgets" (M2-C2 OI5): `UserState.showGradesInGlance`, off unless the student
+/// turns it on (PMO R10). The account's coordinator reads it when it is built
+/// (`AccountSessionFactory`), and every commit's glance follows it from then on.
 @MainActor
 @Observable
 public final class SettingsModel {
@@ -20,9 +24,14 @@ public final class SettingsModel {
     public static let pointStep: Double = 0.5
 
     public private(set) var thresholds: DigestThresholds = .default
+    /// `UserState.showGradesInGlance`.
+    public private(set) var showGradesInWidgets = false
     public private(set) var hasLoaded = false
-    /// The last save failed (the file could not be written); the controls show what was asked for.
+    /// The last threshold save failed (the file could not be written); the controls show what was
+    /// asked for.
     public private(set) var saveFailed = false
+    /// The same, for the widget setting.
+    public private(set) var widgetSaveFailed = false
 
     private let userState: any UserStateAccess
     /// Saves run one after another, each writing the whole thresholds value, so the last change wins.
@@ -34,8 +43,17 @@ public final class SettingsModel {
 
     public func load() async {
         guard !hasLoaded else { return }
-        thresholds = await userState.load().digestThresholds
+        let state = await userState.load()
+        thresholds = state.digestThresholds
+        showGradesInWidgets = state.showGradesInGlance
         hasLoaded = true
+    }
+
+    /// "Show Grades in Widgets" on or off.
+    public func setShowGradesInWidgets(_ show: Bool) {
+        guard show != showGradesInWidgets else { return }
+        showGradesInWidgets = show
+        save({ $0.showGradesInGlance = show }, failed: { model, failed in model.widgetSaveFailed = failed })
     }
 
     /// "Show every change" on (`.all`) or off (back to a point value).
@@ -71,15 +89,22 @@ public final class SettingsModel {
         guard changed != thresholds else { return }
         thresholds = changed
         let saved = changed
+        save({ $0.digestThresholds = saved }, failed: { model, failed in model.saveFailed = failed })
+    }
+
+    /// One save, after every save before it: each is a read-modify-write of the whole `UserState`,
+    /// so two that overlapped could lose one change.
+    private func save(_ change: @escaping @Sendable (inout UserState) -> Void,
+                      failed: @escaping @MainActor (SettingsModel, Bool) -> Void) {
         let access = userState
         let previous = lastSave
         lastSave = Task { [weak self] in
             await previous?.value
             do {
-                try await access.update { $0.digestThresholds = saved }
-                self?.saveFailed = false
+                try await access.update(change)
+                if let self { failed(self, false) }
             } catch {
-                self?.saveFailed = true
+                if let self { failed(self, true) }
             }
         }
     }

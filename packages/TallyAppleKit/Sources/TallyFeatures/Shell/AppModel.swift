@@ -152,7 +152,8 @@ public final class AppModel {
         }
         LaunchSignpost.enterPhase(LaunchSignpost.homeRender)
         lock.configure(with: resolution.lock)
-        let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime))
+        let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime),
+                             userState: accountUserState(account.accountKey, root: resolution.storeRoot))
         if let glance = resolution.glance { home.showGlance(glance) }
         self.home = home
         activeAccount = account
@@ -221,7 +222,7 @@ public final class AppModel {
         pendingSignIn = nil
         firstSync = nil
         activeAccount = record
-        completeSignIn(record.accountKey)
+        completeSignIn(record.accountKey, storeRoot: pending.storeRoot)
         let reloadWidgets = accountEnvironment?.reloadWidgets
         launchWork.replace(with: Task { [weak self] in
             await self?.attach(coordinator)
@@ -231,9 +232,24 @@ public final class AppModel {
 
     /// The root switch to `account`'s Home shell over its coordinator (`AccountHomeSource`).
     public func completeSignIn(_ account: AccountKey) {
+        completeSignIn(account, storeRoot: nil)
+    }
+
+    /// M3-A: with the store root the sign-in resolved, the Home's Settings read and write the
+    /// account's sealed `UserState`.
+    private func completeSignIn(_ account: AccountKey, storeRoot: URL?) {
         guard route == .welcome else { return }
-        home = HomeModel(source: AccountHomeSource(runtime: accountRuntime))
+        home = HomeModel(source: AccountHomeSource(runtime: accountRuntime),
+                         userState: accountUserState(account, root: storeRoot))
         route = .signedIn(account)
+    }
+
+    /// M3-A (Settings; M2-C1 O8): the signed-in Home's `UserState` access. The account's sealed
+    /// store when the root was resolved (off the main actor, by the launch or the sign-in); in
+    /// memory otherwise (tests and previews with no account environment). Construction only.
+    private func accountUserState(_ account: AccountKey, root: URL?) -> any UserStateAccess {
+        guard let root, let accountEnvironment else { return InMemoryUserStateAccess() }
+        return AccountUserStateAccess(account: account, root: root, environment: accountEnvironment, runtime: accountRuntime)
     }
 
     /// "Choose a Different School" after a failed first sync (perf-app-runtime.md §2.4: "calls
@@ -285,6 +301,7 @@ public final class AppModel {
             return nil
         }
         let (record, coordinator) = provisioned
+        let storeRoot = await environment.resolvedStoreRoot() // M3-A: before the check, never after it
         guard pendingSignIn?.id == id else {
             // Abandoned while provisioning: remove what it wrote.
             await AccountSignOut.purge(account: record, retired: coordinator, environment: environment)
@@ -292,6 +309,7 @@ public final class AppModel {
         }
         pendingSignIn?.record = record
         pendingSignIn?.coordinator = coordinator
+        pendingSignIn?.storeRoot = storeRoot
         await accountRuntime.install(coordinator)
         return coordinator
     }
@@ -392,4 +410,6 @@ nonisolated struct PendingSignIn: Sendable {
     let target: SignInTarget
     var record: AccountRecord?
     var coordinator: RefreshCoordinator?
+    /// The store root, resolved off the main actor once provisioned (M3-A: the Home's `UserState`).
+    var storeRoot: URL?
 }

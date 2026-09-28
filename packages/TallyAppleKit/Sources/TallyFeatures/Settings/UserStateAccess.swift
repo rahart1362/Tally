@@ -72,3 +72,32 @@ public actor AccountUserStateAccess: UserStateAccess {
         return state
     }
 }
+
+extension AccountUserStateAccess {
+    /// The signed-in Home's access (M2-C1 O8): the account's sealed `UserStateStore` under `root`,
+    /// which the launch (`LaunchResolution.storeRoot`) or the sign-in resolved off the main actor.
+    /// Construction only: no file is read until Settings loads.
+    init(account: AccountKey, root: URL, environment: AccountEnvironment, runtime: AccountRuntime) {
+        self.init(store: UserStateStore(root: root, accountKey: account, sealer: environment.sealer(for: account)),
+                  runtime: runtime)
+    }
+
+    /// What the account's coordinator starts from (`AccountSessionFactory`): the stored `UserState`,
+    /// or the defaults when there is none or it cannot be read. The defaults never show grades in
+    /// the glance (PMO R10).
+    @concurrent
+    static func stored(account: AccountKey, root: URL, environment: AccountEnvironment) async -> UserState {
+        let store = UserStateStore(root: root, accountKey: account, sealer: environment.sealer(for: account))
+        if case .loaded(let state) = await store.load() { return state }
+        return UserState()
+    }
+}
+
+extension AccountEnvironment {
+    /// The store root, resolved off the main actor (`storeRoot` asks the file system for the App
+    /// Group container); `nil` when there is none.
+    @concurrent
+    func resolvedStoreRoot() async -> URL? {
+        try? storeRoot()
+    }
+}

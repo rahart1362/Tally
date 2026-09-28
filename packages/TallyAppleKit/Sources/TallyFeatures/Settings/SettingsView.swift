@@ -13,6 +13,10 @@ nonisolated enum SettingsCopy {
         + "or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc."
     static let thresholdFooter = "A course's grade shows in \u{201C}What changed\u{201D} only when it moves at least "
         + "this much. Assignment grades always show."
+    /// M2-C2 OI5: the Standing widget's copy points here ("if you choose to show grades in widgets").
+    static let widgetGradesTitle = "Show Grades in Widgets"
+    static let widgetGradesFooter = "The Standing widget shows your average grade band. It is hidden while your "
+        + "iPhone is locked. A change reaches the widget the next time Tally starts and refreshes."
 }
 
 /// UX-WP-20: Settings as a `Form` (ux-ui.md §3.7.7), presented as one sheet from the tab roots.
@@ -23,6 +27,8 @@ nonisolated enum SettingsCopy {
 ///   mode has nothing to sign out of: it offers "Exit Sample Data" instead.
 /// - "What changed": "All" or points, globally and per course, written to `UserState.digestThresholds`
 ///   (owner decision DG-1) through `HomeModel.userState`.
+/// - Signed in only: App Lock over `AppModel.lock` (`AppLockSettingsModel`), and "Show Grades in
+///   Widgets" (`UserState.showGradesInGlance`, M2-C2 OI5). Sample mode has no lock and no widgets.
 ///
 /// The `AppModel` comes from the environment, where the composition root puts it; without one there
 /// is nothing to sign out of here, so the account actions are left out rather than shown dead.
@@ -32,6 +38,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var settings: SettingsModel?
+    @State private var lockSettings: AppLockSettingsModel?
     @State private var confirmsSignOut = false
     @State private var showsSampleFeedNote = false
     @State private var backgroundRefresh = BackgroundRefreshState.unknown
@@ -55,6 +62,7 @@ struct SettingsView: View {
             }
             .confirmationDialog(SettingsCopy.signOutTitle, isPresented: $confirmsSignOut, titleVisibility: .visible) {
                 Button("Sign Out & Erase", role: .destructive) {
+                    dismiss()
                     app?.signOut()
                 }
                 Button("Cancel", role: .cancel) {}
@@ -69,11 +77,23 @@ struct SettingsView: View {
         }
         .task {
             backgroundRefresh = BackgroundRefreshState(UIApplication.shared.backgroundRefreshStatus)
-            guard settings == nil else { return }
-            let model = SettingsModel(userState: home.userState)
-            settings = model
-            await model.load()
+            if settings == nil {
+                let model = SettingsModel(userState: home.userState)
+                settings = model
+                await model.load()
+            }
+            if lockSettings == nil, let app, case .signedIn = app.route {
+                let lock = AppLockSettingsModel(lock: app.lock)
+                lockSettings = lock
+                await lock.load()
+            }
         }
+    }
+
+    /// A signed-in account's Settings (not sample mode, not a preview without an `AppModel`).
+    private var isSignedIn: Bool {
+        guard let app, case .signedIn = app.route else { return false }
+        return true
     }
 
     // MARK: - Account
@@ -189,14 +209,36 @@ struct SettingsView: View {
 
     // MARK: - Privacy & Security, About
 
+    @ViewBuilder
     private var privacySection: some View {
         Section {
+            if let lockSettings, lockSettings.hasLoaded {
+                AppLockRows(model: lockSettings)
+            }
             NavigationLink("What Tally Stores") {
                 WhatTallyStoresView()
             }
             .accessibilityIdentifier("settings.whatTallyStores")
         } header: {
             Text("Privacy & Security")
+        } footer: {
+            if let lockSettings, lockSettings.hasLoaded {
+                Text(lockSettings.footer)
+            }
+        }
+        if isSignedIn, let settings {
+            Section {
+                Toggle(SettingsCopy.widgetGradesTitle, isOn: Binding(
+                    get: { settings.showGradesInWidgets },
+                    set: { settings.setShowGradesInWidgets($0) }))
+                    .accessibilityIdentifier("settings.widgetGrades")
+                if settings.widgetSaveFailed {
+                    Label("This setting couldn't be saved.", systemImage: "exclamationmark.triangle")
+                        .font(TallyTypography.footnote)
+                }
+            } footer: {
+                Text(SettingsCopy.widgetGradesFooter)
+            }
         }
     }
 
@@ -208,6 +250,28 @@ struct SettingsView: View {
             Text("About")
         } footer: {
             Text(SettingsCopy.disclaimer)
+        }
+    }
+}
+
+/// App Lock (ux-ui.md §3.7.7; SEC-07): the toggle, which snaps back when the lock did not change
+/// (`AppLockSettingsModel`), and, while it is on, how long Tally may stay in the background.
+struct AppLockRows: View {
+    let model: AppLockSettingsModel
+
+    var body: some View {
+        Toggle(model.title, isOn: Binding(get: { model.isOn }, set: { model.requestEnabled($0) }))
+            .disabled(!model.isToggleEnabled)
+            .accessibilityIdentifier("settings.appLock")
+        if model.isOn {
+            Picker("Require Unlock", selection: Binding(get: { model.gracePeriod }, set: { model.requestGracePeriod($0) })) {
+                ForEach(AppLockPolicy.GracePeriod.allCases, id: \.self) { period in
+                    Text(AppLockSettingsModel.label(for: period)).tag(period)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(model.isChanging)
+            .accessibilityIdentifier("settings.appLockGrace")
         }
     }
 }
