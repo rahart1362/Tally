@@ -40,6 +40,22 @@ public final class HomeModel {
     /// When the on-screen projection goes stale by itself; the shell re-projects then.
     public private(set) var validUntil: Date = .distantFuture
 
+    // MARK: M3-A screens (each its own property, so a screen re-renders only when its rows change)
+
+    /// The Courses tab, in the student's own order (`local.courseOrder`).
+    public private(set) var courseCards: [CourseCard] = []
+    public private(set) var courseDetails: [CanvasID<Course>: CourseDetailProjection] = [:]
+    public private(set) var toDoScreen: ToDoProjection = .empty
+    public private(set) var calendarScreen: CalendarProjection = .empty
+    public private(set) var insightsScreen: InsightsProjection = .empty
+    public private(set) var account: AccountProjection = .empty
+    /// The student's local course order and To-Do "done" marks (never written to Canvas, R16).
+    public let local: ScreenLocalState
+    /// Settings' access to `UserState` (the "What changed" thresholds).
+    public let userState: any UserStateAccess
+    /// Sample mode (ASC-14): links into a real Canvas and the calendar feed have nowhere to go.
+    public var isSampleData: Bool { source is SampleSession }
+
     /// Internal so lifecycle tests can hold weak references.
     let source: any HomeDataSource
     let projector: HomeProjector
@@ -57,17 +73,28 @@ public final class HomeModel {
     @ObservationIgnored private var installedGeneration: UInt64 = 0
     @ObservationIgnored private var hasStarted = false
 
+    /// - Parameters:
+    ///   - localStore: where the course order and "done" marks live; in memory by default (sample
+    ///     mode keeps nothing, ASC-14).
+    ///   - userState: Settings' `UserState`; in memory by default. A signed-in account passes an
+    ///     `AccountUserStateAccess` over its `UserStateStore` and `AccountRuntime`.
     public init(source: any HomeDataSource, projector: HomeProjector = HomeProjector(),
-                clock: any DateProviding = SystemDateProvider()) {
+                clock: any DateProviding = SystemDateProvider(),
+                localStore: any LocalScreenStateStoring = InMemoryLocalScreenStateStore(),
+                userState: any UserStateAccess = InMemoryUserStateAccess()) {
         self.source = source
         self.projector = projector
         self.clock = clock
+        self.local = ScreenLocalState(store: localStore)
+        self.userState = userState
     }
 
     /// Subscribes to the source, then loads. Runs once, from the shell's `.task`.
     public func start() async {
         guard !hasStarted else { return }
         hasStarted = true
+        // The course order first, so the first projection already shows the student's order.
+        await local.load()
         let updates = await source.updates()
         subscription.replace(with: Task { [weak self] in
             for await update in updates {
@@ -158,6 +185,15 @@ public final class HomeModel {
         await projectIfStale()
     }
 
+    /// Edit mode's move on the Courses tab (UX-WP-14): the list changes at once and the new order
+    /// is kept locally, so every later projection uses it.
+    public func moveCourses(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let order = CourseOrder.moving(courseCards.map(\.id), fromOffsets: source, toOffset: destination)
+        local.setCourseOrder(order)
+        let arranged = CourseOrder.arrange(courseCards, by: order)
+        if courseCards != arranged { courseCards = arranged }
+    }
+
     /// Ends the subscriptions, the source and the projector: the snapshot is released.
     public func end() async {
         subscription.cancel()
@@ -199,7 +235,19 @@ public final class HomeModel {
         if events != projection.events { events = projection.events }
         if toDo != projection.toDo { toDo = projection.toDo }
         if validUntil != projection.validUntil { validUntil = projection.validUntil }
+        applyScreens(projection.screens)
         if phase != .loaded { phase = .loaded }
+    }
+
+    /// M3-A: each screen's projection, assigned only when it changed.
+    private func applyScreens(_ screens: ScreenProjections) {
+        let cards = CourseOrder.arrange(screens.courseCards, by: local.courseOrder)
+        if courseCards != cards { courseCards = cards }
+        if courseDetails != screens.courseDetails { courseDetails = screens.courseDetails }
+        if toDoScreen != screens.toDo { toDoScreen = screens.toDo }
+        if calendarScreen != screens.calendar { calendarScreen = screens.calendar }
+        if insightsScreen != screens.insights { insightsScreen = screens.insights }
+        if account != screens.account { account = screens.account }
     }
 }
 
