@@ -58,6 +58,8 @@ jobs:
             echo "::error::HomeShellView constructed outside RootView.swift (lines above)"
             exit 1
           fi
+      - name: Perf budget checker self-test (scripts/ci/check_perf_budgets.py)
+        run: python3 scripts/ci/check_perf_budgets.py --self-test
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
@@ -154,31 +156,18 @@ jobs:
       - name: Pick an iOS 26 simulator (never a hard-coded device name)
         id: sim
         run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      # The test steps call the Makefile's ios-* targets (perf-app-runtime.md §6), so CI and a
+      # local Mac run the same commands. Each test target prints every xcresult failure in full
+      # (scripts/ci/print_xcresult_failures.py) whatever the result, then fails unless xcodebuild
+      # reported success. `ios-test` also sets a per-test hang limit (120 s default, 300 s max).
       - name: Build TallyAppTests + TallyUITests for testing
-        working-directory: apps/TallyiOS
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run TallyAppTests and TallyUITests (every failure printed in full)
+        # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **", not plain "TEST
+        # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
-          set -o pipefail
-          xcodebuild build-for-testing -project Tally.xcodeproj -scheme Tally \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            | tee "$RUNNER_TEMP/build-for-testing.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-for-testing.log"
-      - name: Run TallyAppTests and the TallyUITests launch smoke test
-        working-directory: apps/TallyiOS
-        run: |
-          set -o pipefail
-          xcodebuild test-without-building -project Tally.xcodeproj -scheme Tally \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/Tally.xcresult" \
-            -collect-test-diagnostics never \
-            | tee "$RUNNER_TEMP/test.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **",
-          # not plain "TEST SUCCEEDED" (that's what `xcodebuild test` uses,
-          # confirmed by the xcode-27 job's `xcodebuild test` step passing
-          # with the plain string on the same CI run this comment was added
-          # in: run 36330806691). Accept both.
-          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test.log"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         run: |
@@ -191,31 +180,31 @@ jobs:
       - name: TallyAppTests on the deployment-floor runtime (report-only for now)
         if: steps.floor.outputs.runtime != steps.sim.outputs.runtime
         continue-on-error: true
-        working-directory: apps/TallyiOS
         run: |
-          set -o pipefail
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
-          xcodebuild test-without-building -project Tally.xcodeproj -scheme Tally \
-            -destination "platform=iOS Simulator,id=${{ steps.floor.outputs.udid }}" \
-            -only-testing:TallyAppTests \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/Tally-floor.xcresult" \
-            -collect-test-diagnostics never \
-            | tee "$RUNNER_TEMP/test-floor.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          if [ -d "$RUNNER_TEMP/Tally-floor.xcresult" ]; then
-            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally-floor.xcresult" \
-              --compact --format json > "$RUNNER_TEMP/test-summary-floor.json" || true
-            python3 ../../scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary-floor.json"
-          fi
-          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test-floor.log"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyAppTests IOS_RESULT_NAME=Tally-floor
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
+        run: make ios-summary IOS_RESULT="$RUNNER_TEMP/ios/Tally.xcresult"
+      - name: Collect simulator crash reports
+        # perf-app-runtime.md §6: a crash (for example the DEBUG main-thread watchdog's
+        # deliberate one) leaves a Tally*.ips report; whether xcresult embeds it is UNVERIFIED.
+        if: always()
         run: |
-          if [ -d "$RUNNER_TEMP/Tally.xcresult" ]; then
-            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally.xcresult" \
-              --compact --format json > "$RUNNER_TEMP/test-summary.json" || true
-            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary.json"
-          fi
+          mkdir -p "$RUNNER_TEMP/ios/crash-reports"
+          find "$HOME/Library/Logs/DiagnosticReports" -name 'Tally*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
+            -exec cp {} "$RUNNER_TEMP/ios/crash-reports/" \; 2>/dev/null || true
+          ls -l "$RUNNER_TEMP/ios/crash-reports"
+      - name: Upload crash reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crash-reports
+          path: ${{ runner.temp }}/ios/crash-reports
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build for iOS device (Release, unsigned)
         working-directory: apps/TallyiOS
         run: |
@@ -237,9 +226,10 @@ jobs:
         with:
           name: build-logs
           path: |
-            ${{ runner.temp }}/build-*.log
-            ${{ runner.temp }}/test.log
-            ${{ runner.temp }}/Tally.xcresult
+            ${{ runner.temp }}/build-device.log
+            ${{ runner.temp }}/build-sim.log
+            ${{ runner.temp }}/ios/*.log
+            ${{ runner.temp }}/ios/*.xcresult
           retention-days: 7
 
   ios-xcode27-forward-compat:

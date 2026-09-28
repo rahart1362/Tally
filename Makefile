@@ -66,3 +66,105 @@ SWIFTLINT_IMAGE ?= ghcr.io/realm/swiftlint@sha256:1253e237c30010090484c50ae3ffe6
 lint: ## Lint TallyCore + TallyAppleKit shipping code (force_unwrapping/force_try/force_cast/IUO)
 	$(CONTAINER) run --rm --network none -v $(CURDIR):/repo:Z -w /repo $(SWIFTLINT_IMAGE) \
 		swiftlint lint --strict --config .swiftlint-crash-safety.yml
+
+# ------------------------------------------------------------------------------------------------
+# iOS targets (perf-app-runtime.md §6). macOS with Xcode only: the Linux host cannot run these, so
+# CI's macOS jobs call them. Result bundles and logs go to IOS_OUT (build/ios by default, ignored
+# by git). Every test target prints each xcresult failure in full afterwards, whatever the result
+# (scripts/ci/print_xcresult_failures.py: xcodebuild's console keeps only a failure's first line,
+# and for a UI test the lines it drops are the accessibility hierarchy), then fails unless
+# xcodebuild reported success.
+# ------------------------------------------------------------------------------------------------
+IOS_PROJECT_DIR := $(CURDIR)/apps/TallyiOS
+IOS_OUT         ?= $(CURDIR)/build/ios
+IOS_DERIVED     ?= $(IOS_OUT)/DerivedData
+# The simulator is picked by script, never a hard-coded device name (architecture.md §3.6).
+IOS_SIM_UDID    ?= $(shell python3 $(CURDIR)/scripts/ci/pick_ios_simulator.py 2>/dev/null | sed -n 's/^udid=//p')
+# Optional test scope, e.g. IOS_ONLY_TESTING=-only-testing:TallyAppTests.
+IOS_ONLY_TESTING ?=
+# Which result bundle and log a test target writes (the deployment-floor run uses its own).
+IOS_RESULT_NAME ?= Tally
+IOS_XCODEBUILD   = xcodebuild -project $(IOS_PROJECT_DIR)/Tally.xcodeproj -scheme Tally
+# A per-test hang limit (ios-ui-hang, folded into every test run): a hung test fails at 120 s
+# (300 s if a test raises its own allowance) instead of eating the job's timeout, and no
+# 600-second `simctl diagnose` runs after a failure.
+IOS_TEST_FLAGS   = -collect-test-diagnostics never -test-timeouts-enabled YES \
+                   -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
+IOS_TEST_SUCCESS = "\*\* TEST (EXECUTE )?SUCCEEDED \*\*"
+IOS_CONSOLE      = "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed"
+
+.PHONY: ios-project ios-build-for-testing ios-test ios-tsan ios-asan ios-perf ios-summary
+
+ios-project: ## Generate apps/TallyiOS/Tally.xcodeproj with XcodeGen
+	cd $(IOS_PROJECT_DIR) && xcodegen generate --spec project.yml
+
+ios-build-for-testing: ## Build the app, TallyAppTests and TallyUITests for the iOS simulator
+	@mkdir -p $(IOS_OUT)
+	$(IOS_XCODEBUILD) build-for-testing -destination 'generic/platform=iOS Simulator' -derivedDataPath $(IOS_DERIVED) \
+		| tee $(IOS_OUT)/build-for-testing.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+	grep -q "BUILD SUCCEEDED" $(IOS_OUT)/build-for-testing.log
+
+ios-test: ## Run the built tests on IOS_SIM_UDID with hang limits; print every failure in full
+	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
+	@mkdir -p $(IOS_OUT)
+	rm -rf $(IOS_OUT)/$(IOS_RESULT_NAME).xcresult
+	$(IOS_XCODEBUILD) test-without-building -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
+		-derivedDataPath $(IOS_DERIVED) $(IOS_ONLY_TESTING) \
+		-resultBundlePath $(IOS_OUT)/$(IOS_RESULT_NAME).xcresult $(IOS_TEST_FLAGS) \
+		| tee $(IOS_OUT)/$(IOS_RESULT_NAME)-test.log | grep -E $(IOS_CONSOLE) || true
+	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/$(IOS_RESULT_NAME).xcresult
+	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/$(IOS_RESULT_NAME)-test.log
+
+ios-tsan: ## TallyAppTests under ThreadSanitizer: fails on a test failure or any TSan report
+	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
+	@mkdir -p $(IOS_OUT)
+	rm -rf $(IOS_OUT)/Tally-tsan.xcresult
+	$(IOS_XCODEBUILD) test -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
+		-derivedDataPath $(IOS_OUT)/DerivedData-tsan -enableThreadSanitizer YES -only-testing:TallyAppTests \
+		-resultBundlePath $(IOS_OUT)/Tally-tsan.xcresult $(IOS_TEST_FLAGS) \
+		2>&1 | tee $(IOS_OUT)/tsan.log | grep -E $(IOS_CONSOLE)"|ThreadSanitizer" || true
+	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-tsan.xcresult
+	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/tsan.log
+	! grep -q "ThreadSanitizer:" $(IOS_OUT)/tsan.log
+
+ios-asan: ## App + UI tests under AddressSanitizer: fails on a test failure or any ASan report
+	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
+	@mkdir -p $(IOS_OUT)
+	rm -rf $(IOS_OUT)/Tally-asan.xcresult
+	$(IOS_XCODEBUILD) test -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
+		-derivedDataPath $(IOS_OUT)/DerivedData-asan -enableAddressSanitizer YES \
+		-resultBundlePath $(IOS_OUT)/Tally-asan.xcresult $(IOS_TEST_FLAGS) \
+		2>&1 | tee $(IOS_OUT)/asan.log | grep -E $(IOS_CONSOLE)"|AddressSanitizer" || true
+	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-asan.xcresult
+	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/asan.log
+	! grep -q "ERROR: AddressSanitizer" $(IOS_OUT)/asan.log
+
+# Release, like the charter's budgets; ENABLE_TESTABILITY lets the hosted tests `@testable import`.
+IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests
+
+ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
+	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
+	@mkdir -p $(IOS_OUT)
+	rm -rf $(IOS_OUT)/Tally-perf.xcresult
+	$(IOS_XCODEBUILD) build-for-testing -configuration Release ENABLE_TESTABILITY=YES \
+		-destination 'generic/platform=iOS Simulator' -derivedDataPath $(IOS_OUT)/DerivedData-perf \
+		| tee $(IOS_OUT)/build-perf.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+	grep -q "BUILD SUCCEEDED" $(IOS_OUT)/build-perf.log
+	$(IOS_XCODEBUILD) test-without-building -configuration Release \
+		-destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' -derivedDataPath $(IOS_OUT)/DerivedData-perf \
+		$(IOS_PERF_TESTS) -resultBundlePath $(IOS_OUT)/Tally-perf.xcresult $(IOS_TEST_FLAGS) \
+		| tee $(IOS_OUT)/perf.log | grep -E $(IOS_CONSOLE) || true
+	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-perf.xcresult
+	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/perf.log
+	xcrun xcresulttool get test-results metrics --path $(IOS_OUT)/Tally-perf.xcresult --compact \
+		> $(IOS_OUT)/perf-metrics.json
+	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json
+
+ios-summary: ## Print an xcresult's counts and every failure in full (IOS_RESULT=path)
+	@if [ -d "$(IOS_RESULT)" ]; then \
+		xcrun xcresulttool get test-results summary --path "$(IOS_RESULT)" --compact --format json \
+			> "$(IOS_RESULT).summary.json" || true; \
+		python3 $(CURDIR)/scripts/ci/print_xcresult_failures.py "$(IOS_RESULT).summary.json"; \
+	else \
+		echo "No result bundle at $(IOS_RESULT)"; \
+	fi
