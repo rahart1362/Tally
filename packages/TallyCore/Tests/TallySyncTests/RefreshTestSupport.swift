@@ -17,14 +17,19 @@ actor ScriptedGateway: CanvasGateway {
     }
 
     private let makeSnapshot: SnapshotFactory
+    private let honorsCancellation: Bool
     private var isHeld: Bool
     private(set) var calls = 0
     private(set) var cancellationsSeen = 0
     private(set) var lastCancellationSeenAt: ContinuousClock.Instant?
     private(set) var returned: [CanvasSnapshot] = []
 
-    init(holdUntilReleased: Bool = false, makeSnapshot: @escaping SnapshotFactory = ScriptedGateway.fixture) {
+    /// `honorsCancellation: false` notes a cancellation but keeps holding until `release()`, like
+    /// a network call that is slow to wind down.
+    init(holdUntilReleased: Bool = false, honorsCancellation: Bool = true,
+         makeSnapshot: @escaping SnapshotFactory = ScriptedGateway.fixture) {
         isHeld = holdUntilReleased
+        self.honorsCancellation = honorsCancellation
         self.makeSnapshot = makeSnapshot
     }
 
@@ -33,14 +38,17 @@ actor ScriptedGateway: CanvasGateway {
 
     func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
         calls += 1
-        do {
-            // `Task.sleep` throws as soon as the task is cancelled, so the poll interval never
-            // delays noticing a cancellation.
-            while isHeld { try await Task.sleep(for: .milliseconds(2)) }
-        } catch {
-            cancellationsSeen += 1
-            lastCancellationSeenAt = .now
-            throw error
+        var noticedCancellation = false
+        while isHeld {
+            if Task.isCancelled, !noticedCancellation {
+                noticedCancellation = true
+                cancellationsSeen += 1
+                lastCancellationSeenAt = .now
+                if honorsCancellation { throw CancellationError() }
+            }
+            // The sleep runs in its own unstructured task, which this fetch's cancellation does not
+            // reach, so a gateway scripted to ignore cancellation really does keep holding.
+            await Task { try? await Task.sleep(for: .milliseconds(1)) }.value
         }
         let snapshot = makeSnapshot(previous, now)
         returned.append(snapshot)
@@ -66,13 +74,15 @@ func drain(_ stream: AsyncStream<RefreshCoordinator.Event>, into inbox: EventInb
     return seen
 }
 
-/// `task`'s value if it finishes within `timeout`, else nil. On a timeout it cancels `task` (every
-/// task these tests time is a stream consumer or a `run` caller, and both end once cancelled), so
+/// `task`'s value if it finishes within `timeout`, else nil. On a timeout it cancels `task` and runs
+/// `unblock` (e.g. releasing a held gateway a regressed `run` would otherwise wait on forever), so
 /// a regression fails the test instead of hanging the whole run.
-func finished<T: Sendable>(_ task: Task<T, Never>, within timeout: Duration = .seconds(5)) async -> T? {
+func finished<T: Sendable>(_ task: Task<T, Never>, within timeout: Duration = .seconds(5),
+                           unblocking unblock: @escaping @Sendable () async -> Void = {}) async -> T? {
     let watchdog = Task {
         try await Task.sleep(for: timeout)
         task.cancel()
+        await unblock()
     }
     let value = await task.value
     watchdog.cancel()

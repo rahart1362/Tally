@@ -213,6 +213,26 @@ struct RefreshCoordinatorTests {
         #expect(stillFirst == firstSnapshot, "the cache must never be touched when reauth is required")
     }
 
+    // MARK: - SH-2: a caller leaving mid-fetch is not reported as offline
+
+    /// Over the live pipeline a cancelled request surfaces as `RefreshFailure.offline`
+    /// (`CanvasClient` maps every below-HTTP failure, cancellation included, to it). When the only
+    /// caller leaves, the abandoned run's outcome is discarded, so the state reverts instead of
+    /// telling the user they are offline.
+    @Test func aCallerLeavingMidFetchIsNotReportedAsOffline() async throws {
+        let harness = try makeHarness(liveRefreshBudget: .seconds(30), foregroundHardCeiling: .seconds(60), backgroundBudget: .seconds(60))
+        await harness.transport.inject(latency: .seconds(30), times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
+        let caller = Task { await harness.coordinator.run(trigger: .manual) }
+        #expect(await eventually { await harness.transport.requestCount == 1 }, "the first request is in flight")
+
+        caller.cancel()
+
+        #expect(await finished(caller) != nil)
+        #expect(await eventually { await harness.coordinator.currentState == .noCache },
+                "reverts to what it was; recording the cancellation would show .offline(showing: nil)")
+        guard case .absent = await harness.store.loadSnapshot() else { Issue.record("expected nothing to be committed"); return }
+    }
+
     // MARK: - CS-05: sign-out finishes `events()`, so a consumer's `for await` loop always ends
 
     /// Before the fix, `bumpEpochAndCancel()` never finished the event stream: a consumer

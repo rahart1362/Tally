@@ -55,12 +55,22 @@ public actor RefreshCoordinator {
     /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
     private var digestThresholds: DigestThresholds = .default
     private var epoch: UInt64 = 0
-    /// The task running this run's `perform`/`finish` sequence end to end (what single-flight
+    /// The task running this run's `supervise`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
     /// also reaches for, since a plain `Task { }` is not a structured child of its creator and so
     /// is not automatically cancelled by cancelling the outer one.
     private var inFlight: Task<Void, Never>?
     private var currentFetchTask: Task<CanvasSnapshot, any Error>?
+
+    /// SH-2: every caller suspended in `run` on the run in flight, keyed by an ID that is never
+    /// reused. Resumed with `true` when the run finishes, or `false` when that caller is cancelled
+    /// first. The count is the run's joiner count: its fetch is cancelled once it drops to zero.
+    private var runWaiters: [UInt64: CheckedContinuation<Bool, Never>] = [:]
+    private var nextWaiterID: UInt64 = 0
+    /// Set once every caller waiting on the run in flight has been cancelled. `finish` then
+    /// discards the run's outcome, and a caller arriving meanwhile waits the run out rather than
+    /// joining it. Reset when the next run starts.
+    private var runAbandoned = false
 
     /// One continuation per live `events()` subscriber, keyed by an ID that is never reused, so a
     /// subscriber's `onTermination` removes exactly its own entry and nobody else's.
@@ -190,55 +200,111 @@ public actor RefreshCoordinator {
     /// Whether a decoded snapshot is still held. Internal, for tests.
     var holdsDecodedSnapshot: Bool { previousSnapshot != nil }
 
+    /// Callers waiting on the run in flight. Internal, for tests.
+    var waiterCount: Int { runWaiters.count }
+
     /// Starts a refresh for `trigger`, or joins one already running (single-flight). Returns once
-    /// this call's own outcome is known: either the run it started, or the run it joined. After
-    /// `shutdown()`, returns `currentState` without fetching.
+    /// this call's own outcome is known: either the run it started, or the run it joined.
+    ///
+    /// **Cancellation (SH-2).** A cancelled caller stops waiting at once and returns
+    /// `currentState` (usually still `.refreshing`). The run keeps going while any caller is still
+    /// waiting on it; once every caller waiting on it has been cancelled, its fetch is cancelled
+    /// and its outcome discarded (see `finish`). A caller that is already cancelled neither starts
+    /// nor joins a run. One that arrives while an abandoned run winds down waits it out, then
+    /// decides afresh. After `shutdown()`, returns `currentState` without fetching.
     @discardableResult
     public func run(trigger: RefreshTrigger) async -> FreshnessState {
-        guard !isShutDown else { return currentState }
-        if let inFlight {
-            await inFlight.value
-            return currentState
+        while !isShutDown, !Task.isCancelled {
+            let runTask: Task<Void, Never>
+            if let inFlight {
+                runTask = inFlight
+            } else {
+                let now = clock.now()
+                guard FreshnessRules.shouldStart(trigger, record: record, now: now, minInterval: minAutoRefreshInterval) else {
+                    break
+                }
+                runTask = startRun(trigger: trigger, at: now)
+            }
+            // An abandoned run reports nothing, but it holds the single-flight slot until its
+            // fetch winds down: wait it out, then go round again.
+            let waitingOutAbandonedRun = runAbandoned
+            await waitForRun(runTask)
+            if !waitingOutAbandonedRun { break }
         }
-        let now = clock.now()
-        guard FreshnessRules.shouldStart(trigger, record: record, now: now, minInterval: minAutoRefreshInterval) else {
-            return currentState
-        }
-
-        let myEpoch = epoch
-        let attemptGeneration = committedGeneration + 1
-        record.began(trigger, at: now)
-        emit(.stateChanged(currentState))
-
-        let task = Task { [weak self] in
-            guard let self else { return }
-            await self.performAndFinish(trigger: trigger, myEpoch: myEpoch, attemptGeneration: attemptGeneration)
-        }
-        inFlight = task
-        await task.value
         return currentState
     }
 
     // MARK: - One run
 
-    private func performAndFinish(trigger: RefreshTrigger, myEpoch: UInt64, attemptGeneration: UInt64) async {
-        let outcome = await fetch(trigger: trigger)
-        await finish(myEpoch: myEpoch, attemptGeneration: attemptGeneration, outcome: outcome)
-        inFlight = nil
-        currentFetchTask = nil
-    }
+    /// Begins a run: records and publishes that it started, starts its fetch, and starts the task
+    /// that supervises the fetch to the end. The fetch starts here, synchronously, not inside the
+    /// supervising task, so it already exists by the time any caller waits on (or gives up on)
+    /// this run: `callerCancelled` can always reach it.
+    private func startRun(trigger: RefreshTrigger, at now: Date) -> Task<Void, Never> {
+        let myEpoch = epoch
+        let attemptGeneration = committedGeneration + 1
+        record.began(trigger, at: now)
+        emit(.stateChanged(currentState))
+        runAbandoned = false
 
-    /// Runs the gateway fetch, signalling `.delayed` at `liveRefreshBudget` **without** cancelling
-    /// it, and giving up (cancelling) only once the trigger's own ceiling elapses — background
-    /// triggers get `backgroundBudget` (≈25 s, inside the OS's ~30 s), everything else gets
-    /// `foregroundHardCeiling` (architecture §3.4).
-    private func fetch(trigger: RefreshTrigger) async -> Result<CanvasSnapshot, any Error> {
         let previous = previousSnapshot
         let fetchTask = Task<CanvasSnapshot, any Error> { [gateway, clock] in
             try await gateway.fetchSnapshot(previous: previous, now: clock.now())
         }
         currentFetchTask = fetchTask
+        let runTask = Task { [weak self] in
+            guard let self else { return }
+            await self.superviseAndFinish(fetchTask, trigger: trigger, myEpoch: myEpoch, attemptGeneration: attemptGeneration)
+        }
+        inFlight = runTask
+        return runTask
+    }
 
+    private func superviseAndFinish(_ fetchTask: Task<CanvasSnapshot, any Error>, trigger: RefreshTrigger,
+                                    myEpoch: UInt64, attemptGeneration: UInt64) async {
+        let outcome = await supervise(fetchTask, trigger: trigger)
+        await finish(myEpoch: myEpoch, attemptGeneration: attemptGeneration, outcome: outcome)
+        inFlight = nil
+        currentFetchTask = nil
+        let waiting = Array(runWaiters.values)
+        runWaiters.removeAll()
+        for continuation in waiting { continuation.resume(returning: true) }
+    }
+
+    /// Suspends until `runTask`'s run has finished or this caller is cancelled, whichever comes
+    /// first. The cancellation handler cannot touch actor state itself, so it hops back on.
+    private func waitForRun(_ runTask: Task<Void, Never>) async {
+        let id = nextWaiterID
+        nextWaiterID &+= 1
+        let runFinished = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                runWaiters[id] = continuation
+            }
+        } onCancel: {
+            Task { [weak self] in await self?.callerCancelled(id) }
+        }
+        // Resumed because the run finished: also let its task end, so that by the time `run`
+        // returns normally, nothing of that run still holds this coordinator.
+        if runFinished { await runTask.value }
+    }
+
+    /// A caller waiting on the run in flight was cancelled, so it stops waiting at once. If it
+    /// was the last caller still waiting, nobody wants this run any more: the run is abandoned
+    /// and its fetch cancelled. A run still shared with a caller that is waiting keeps going.
+    private func callerCancelled(_ id: UInt64) {
+        guard let continuation = runWaiters.removeValue(forKey: id) else { return } // the run already finished
+        continuation.resume(returning: false)
+        guard runWaiters.isEmpty else { return }
+        runAbandoned = true
+        currentFetchTask?.cancel()
+    }
+
+    /// Waits on the run's fetch, signalling `.delayed` at `liveRefreshBudget` **without**
+    /// cancelling it, and giving up (cancelling) only once the trigger's own ceiling elapses —
+    /// background triggers get `backgroundBudget` (≈25 s, inside the OS's ~30 s), everything else
+    /// gets `foregroundHardCeiling` (architecture §3.4).
+    private func supervise(_ fetchTask: Task<CanvasSnapshot, any Error>, trigger: RefreshTrigger)
+        async -> Result<CanvasSnapshot, any Error> {
         if await timedOut(waitingFor: fetchTask, timeout: liveRefreshBudget) {
             emit(.stateChanged(.delayed(showing: record.lastSuccessAt)))
             let ceiling = trigger == .background ? backgroundBudget : foregroundHardCeiling
@@ -271,6 +337,21 @@ public actor RefreshCoordinator {
         // A sign-out landed while this run was in flight: `bumpEpochAndCancel` already reset
         // `record` and published `.noCache`, so there is nothing left to do with this result.
         guard myEpoch == epoch else { return }
+
+        // SH-2: every caller gave up on this run before it finished. Discard the outcome rather
+        // than record it as a failure: under the existing mapping a cancelled fetch reports
+        // `.offline` (CanvasClient maps every below-HTTP failure, cancellation included, to it)
+        // or `.unknown`, and `FreshnessRules.state` would then tell the user they are offline,
+        // or that refreshing failed, when all that happened is that they left. The record already
+        // has a transition for a run that ended without an outcome, `restoredAfterLaunch()`: the
+        // state reverts to the last real outcome, and `lastAttemptAt` stays, so
+        // `FreshnessRules.shouldStart` still throttles automatic triggers by this attempt. A
+        // success that beat the cancellation is discarded too: no caller is waiting for it.
+        guard !runAbandoned else {
+            record = record.restoredAfterLaunch()
+            emit(.stateChanged(currentState))
+            return
+        }
 
         switch outcome {
         case .failure(let error):
