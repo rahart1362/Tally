@@ -1,7 +1,7 @@
 # App-core iteration 3 report: Iteration A (plan 06 steps 0–7b)
 
 - **Author:** App-Core Integration Engineer (continuing the Iteration A engineer's work, which stopped after step 7b at a usage limit).
-- **Branch:** `m2/app-core`, pushed to `origin`. Final code commit: `f86d7fd`, CI run 36406525219 (§2). This report and the last journal entry are committed on top of it, docs only; that commit's own CI run is given in the reply to the PMO.
+- **Branch:** `m2/app-core`, pushed to `origin`. The final code state is `5c90f32`. It differs from `f86d7fd` only by test waits, which were made sanitizer-proof after run 36410352867; CI run 36406525219 found `f86d7fd` green on every job (§2). This report and the last journal entry are committed on top of `5c90f32`, docs only. That commit's own CI run is given in the reply to the PMO.
 - **Plan:** `docs/pmo/06-app-core-iteration-plan.md` §3 (steps 0–7b, A1–A8); `perf-app-runtime.md` §7 (on `m2/perf-review`).
 - **Stopped at the checkpoint.** Iteration B (steps 8–11) was not started.
 
@@ -9,7 +9,7 @@ Every number below comes from a CI log or xcresult summary I read, or a local ru
 
 ## 1. Summary
 
-- **Iteration A is complete: steps 0–7, and 7b's A1–A8.** The final code commit `f86d7fd` is green on every required job in run 36406525219 (`hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`) and on every report-only job too. That run's floor on iOS 26.2 is green, and so are `ios-tsan` and `ios-asan`. The latest `origin/pmo/assessment` (`b04b791`, CS-08 resilience) is merged.
+- **Iteration A is complete: steps 0–7, and 7b's A1–A8.** Code commit `f86d7fd` is green on every required job in run 36406525219 (`hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`) and on every report-only job too. That run's floor on iOS 26.2 is green, and so are `ios-tsan` and `ios-asan`. The next run (36410352867) showed one timing flake in each sanitizer job, with 0 sanitizer reports. `5c90f32` fixes both; it changes test code only. The latest `origin/pmo/assessment` (`b04b791`, CS-08 resilience) is merged.
 - **Step 7's red test was a test-timing error, not an app bug (§3).** XCUITest blocked the pull-to-refresh gesture for 11.4 s while the spinner ran, and the test started its clock after that. The run's screen recording shows the breadcrumb about 10 s after the refresh began, as designed. The UI tests are rebuilt around that fact. A new test checks plan 06 row 7's rule against a real `RefreshCoordinator`: a cancelled pull still commits.
 - **The deployment-floor abort was swiftlang/swift#88036, caused by our own implicit isolated deinits (§4).** A2's `nm` gate proved plan 06's premise wrong: explicit `@MainActor` does not make an implicit deinit nonisolated in a default-`MainActor` module. Six classes now declare `nonisolated deinit {}`, and the sample fixtures moved out of TallyFeatures. The iOS 26.2 floor run is green: 151 total, 150 passed, 1 expected, 0 failed (run 36394287625).
 - **7b needed three fixes before it could run green on iOS.** A test-only Swift 6 compile error (`9e70f80`); a racy test (`e062b06`); and the A2 deinits (`b02c05a`). Both sanitizer jobs report 0 races and 0 memory errors, and the Xcode 27 job is green for the first time, which meets A4's acceptance.
@@ -37,6 +37,7 @@ Required jobs: `hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`. 
 | CI and test follow-ups | `846beed` (drop the floor diagnosis run; ios-build 60 min), `22fab8c` (the pull-at-budget test polls for the projection) | covered by the final runs below | | | | | Local P2 (`6b01ae7f…`) |
 | Mutation runs | `629b08d`/`40fc861`, `2b83204`/`3de988e` | 36399292758, 36403288465 | red by design (§5) | | | | §5 |
 | **Final code** | `f86d7fd` (code identical to `22fab8c`) | **36406525219** | **all success** (core-linux 607 tests; core-sanitizers TSan and ASan 607 each, `rateLimitedRetriesThenSucceeds` passed at 93.9 s) | **all success**: ios-tsan 148 total, 147 passed, 1 expected, 0 TSan reports; ios-asan 158 total, 157 passed, 1 expected, 0 ASan reports; Xcode 27 161 total, 160 passed, 1 expected; ios-perf 0.0573 s ≤ 0.150 s; core-perf (`dashboardBuild/stress` 8.25 ms) and core-perf-apple (29.17 ms) success | **161 total (150 Swift Testing + 1 XCTest + 10 UI): 160 passed, 1 expected, 0 failed** | TallyCore on Xcode 607 (4 known). Smallest iPhone (iPhone 16e, iOS 26.2) 2/2. **Floor (iOS 26.2): 151 total, 150 passed, 1 expected, 0 failed.** Link map TallyTestSupport 0 lines; no isolated deinit in 38 Mach-O files; bundle id `dev.tally-app.tally`. ios-build took 35 min 42 s. Watchdog (`report:250`): 14 launch-phase stalls (max 2618 ms), 94 interactive (max 1887 ms) | §5 |
+| Report commit + sanitizer test waits | `3a82ca1` (this report, first version), `5c90f32` (test waits) | 36410352867 on `3a82ca1`, superseded by the next push while its ios-build ran | hygiene, core-linux, lint, core-sanitizers success; ios-build did not finish | Xcode 27, ios-perf, core-perf, core-perf-apple success. **ios-tsan: 1 failure**, `FirstSyncViewModelTests.phasesCompleteInOrder` (a fixed 100 ms wait; 0 TSan reports). **ios-asan: 1 failure**, `AccountHomeSourceTests.committedSnapshotReachesTheHome` (a 5 s wait; 0 ASan reports). Both fixed in `5c90f32` | — | — | Local F1 (duplicate phases counted) fails the reworked duplicate test; restored (`FirstSyncViewModel.swift` `552956fa…`) |
 
 ## 3. Step 7: the slow-refresh UI failure
 
@@ -115,6 +116,7 @@ Earlier local mutations, each restored byte-identical:
 - **P1**, the pull's cancellation forwarded to the model-owned run: `HomeModel.swift` `f59fd4bd…`, caught by 2 tests.
 - **A2L**, HomeModel without its explicit deinit: the object references `swift_task_deinitOnExecutor` again. `6b01ae7f…`.
 - **P2**, only the first generation projected: caught by the polled `pullToRefreshReturnsAtTheBudget`. `6b01ae7f…`.
+- **F1**, duplicate first-sync phases counted: caught by the reworked `duplicatePhaseIsIgnored`. `FirstSyncViewModel.swift` `552956fa…`.
 
 | ID | Step | Mutation | File (pre-mutation sha256, restored) | Caught by (CI run 36399292758 unless noted) |
 |---|---|---|---|---|
@@ -201,7 +203,7 @@ Every callback-based Apple API in `packages/TallyAppleKit/Sources`, `apps/Tallyi
 
 | # | Item | Owner | Notes |
 |---|---|---|---|
-| O1 | Make `ios-tsan`, `ios-asan` and the floor run required once first green (plan 06 A2, A7) | PMO | Their status in the final run is in §2 |
+| O1 | Make `ios-tsan`, `ios-asan` and the floor run required: each is now green (plan 06 A2, A7) | PMO | All three were green in runs 36394287625 and 36406525219. Run 36410352867 had one timing flake in each sanitizer job, fixed in `5c90f32`. The final run is in the reply |
 | O2 | The UI-test watchdog threshold (D1) | PMO decision | `report:250` today; the hosted stall-budget test is the gate |
 | O3 | D-P2, the deployment target | Owner/PMO | Not raised (brief). The A2 gate keeps isolated deinit out of the shipping binaries |
 | O4 | `GradeWork` has no app caller yet | Iteration B | The What-if and goal-seek screens must call it; the hygiene gate enforces that |
