@@ -530,7 +530,7 @@ jobs:
         # BUS", which the old count of warnings alone reported as 0).
         if: always()
         run: |
-          echo "ThreadSanitizer warnings: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0); errors: $(grep -c 'ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
+          echo "ThreadSanitizer warnings: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || true); errors: $(grep -c 'ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || true)"
           grep -n -A40 -m1 -E 'WARNING: ThreadSanitizer|ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
       - name: Collect simulator crash reports (on failure)
         if: failure()
@@ -585,7 +585,7 @@ jobs:
       - name: AddressSanitizer reports (count, then the first in full)
         if: always()
         run: |
-          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || true)"
           grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
 
   ios-asan-ui:
@@ -620,17 +620,18 @@ jobs:
       - name: AddressSanitizer reports (count, then the first in full)
         if: always()
         run: |
-          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || true)"
           grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
 
   ios-perf:
-    name: iOS perf budgets (Release, non-blocking)
+    name: iOS perf budgets (Release, CI simulator)
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 45
-    # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
-    # Release build, medians of 5 iterations, compared with perf/budgets.json.
-    continue-on-error: true
+    # Required from the M2 exit (owner decision on O10, 2026-09-28): perf/budgets.json holds budgets
+    # calibrated on this CI simulator; the on-device targets stay in each budget's device_target
+    # until the device calibration (D-P3). Release build, medians of 5 iterations. Only the budgets
+    # gate: a failed diagnostic perf test is reported, not gating (check_perf_budgets.py --log).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
