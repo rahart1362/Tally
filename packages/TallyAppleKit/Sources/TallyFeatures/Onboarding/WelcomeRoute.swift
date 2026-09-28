@@ -15,12 +15,10 @@ nonisolated enum WelcomeRoute: Hashable, Sendable {
     case schoolNotEnabled(school: String)
     /// A chosen school is enabled: on to the sign-in hand-off (UX-WP-09).
     case signIn(host: String, clientID: String, schoolDisplayName: String)
-    /// A real `CanvasCredential` was obtained: on to the first-sync skeleton (UX-WP-10).
+    /// A real `CanvasCredential` was obtained: on to the first-sync skeleton (UX-WP-10). Its
+    /// `.finished` is a root switch to the signed-in Home (`AppModel.finishFirstSync()`), never
+    /// another page in this stack.
     case firstSync(schoolDisplayName: String)
-    /// The skeleton's publisher reported `.finished`. The root switch to the signed-in Home
-    /// (`AppModel.completeSignIn(_:)`) needs the account session from sign-in's first sync
-    /// (perf-app-runtime.md §7 step 9), so this plain page is as far as onboarding goes today.
-    case signedIn(schoolDisplayName: String)
 }
 
 /// The onboarding stack's path edits, as pure functions (plan 06 A8; crash-safety-2.md §8 A4/A5).

@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import TallyCanvasAPI
 import TallyDomain
 import TallyStore
@@ -323,17 +324,26 @@ public actor RefreshCoordinator {
         catch { return .failure(error) }
     }
 
-    /// True if `timeout` elapsed before `task` finished. Never cancels `task` itself: only the
-    /// losing side of the race — the timer, or the "wait for task" competitor — is cancelled, per
-    /// `withTaskGroup`'s structured cancellation, which does not reach outside the group.
+    /// True if `timeout` elapsed before `task` finished. Never cancels `task` itself.
+    ///
+    /// O9 (m2-lifecycle-report §8): this must not be a task group. A group returns only once every
+    /// child has ended, and a child waiting on `task.value` cannot be cancelled, so on a fetch that
+    /// never ends the group never returned even after the timer won: no `.delayed` at the budget,
+    /// and the ceiling never cancelled the fetch. Both sides are unstructured tasks here, and the
+    /// first to finish answers; the timer is cancelled if the fetch wins, and the waiter ends when
+    /// the fetch does (which the ceiling guarantees for any gateway that honours cancellation).
     private func timedOut<T: Sendable>(waitingFor task: Task<T, any Error>, timeout: Duration) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask { _ = try? await task.value; return false }
-            group.addTask { try? await Task.sleep(for: timeout); return true }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
+        let race = FirstAnswer<Bool>()
+        let timer = Task {
+            do { try await Task.sleep(for: timeout) } catch { return }
+            race.answer(true)
         }
+        Task {
+            _ = try? await task.value
+            timer.cancel()
+            race.answer(false)
+        }
+        return await withCheckedContinuation { race.wait(with: $0) }
     }
 
     private func finish(myEpoch: UInt64, attemptGeneration: UInt64, outcome: Result<CanvasSnapshot, any Error>) async {
@@ -414,5 +424,36 @@ public actor RefreshCoordinator {
     /// per-subscriber buffering bound directly.
     func emit(_ event: Event) {
         for continuation in subscribers.values { continuation.yield(event) }
+    }
+}
+
+/// A one-shot answer for `RefreshCoordinator.timedOut`'s race: the first `answer` wins and reaches
+/// the waiting continuation whether it arrives before or after `wait(with:)`; later answers are
+/// ignored, so the continuation is resumed exactly once.
+private final class FirstAnswer<Value: Sendable>: Sendable {
+    private struct State {
+        var waiter: CheckedContinuation<Value, Never>?
+        var winner: Value?
+    }
+
+    private let state = Mutex(State())
+
+    func wait(with continuation: CheckedContinuation<Value, Never>) {
+        let early: Value? = state.withLock { state in
+            if let winner = state.winner { return winner }
+            state.waiter = continuation
+            return nil
+        }
+        if let early { continuation.resume(returning: early) }
+    }
+
+    func answer(_ value: Value) {
+        let waiter: CheckedContinuation<Value, Never>? = state.withLock { state in
+            guard state.winner == nil else { return nil }
+            state.winner = value
+            defer { state.waiter = nil }
+            return state.waiter
+        }
+        waiter?.resume(returning: value)
     }
 }

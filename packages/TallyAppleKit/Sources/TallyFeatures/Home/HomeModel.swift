@@ -24,6 +24,9 @@ public final class HomeModel {
     public enum Phase: Equatable, Sendable {
         /// Waiting for the first projection: the shell shows skeletons.
         case loading
+        /// A signed-in launch's first paint (perf-app-runtime.md §2.4 L4): the sealed glance's
+        /// hero count and due-soon rows, until the full projection replaces it (L8).
+        case glance
         case loaded
         /// The first load failed with nothing to show.
         case failed
@@ -72,6 +75,9 @@ public final class HomeModel {
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private var installedGeneration: UInt64 = 0
     @ObservationIgnored private var hasStarted = false
+    /// The subscription and its first update (`prepare()`); shared by every caller.
+    @ObservationIgnored private var preparation: Task<Void, Never>?
+    @ObservationIgnored private var hasEnded = false
 
     /// - Parameters:
     ///   - localStore: where the course order and "done" marks live; in memory by default (sample
@@ -90,18 +96,63 @@ public final class HomeModel {
     }
 
     /// Subscribes to the source, then loads. Runs once, from the shell's `.task`.
+    ///
+    /// The launch refresh (perf-app-runtime.md §2.4 L9, the handshake) starts only once the
+    /// source's first update has been handled (`prepare()`): with a cached snapshot, that update
+    /// is projected and applied (L7–L8) first, so the network never runs ahead of the cached paint.
     public func start() async {
         guard !hasStarted else { return }
         hasStarted = true
-        // The course order first, so the first projection already shows the student's order.
+        await prepare()
+        guard !hasEnded else { return }
+        await source.refresh(.launch)
+    }
+
+    /// Subscribes to the source and handles its first update: the current state, which for a
+    /// signed-in launch carries the cached snapshot (L5–L8). Idempotent: `AppModel` calls it at
+    /// launch, so the projection proceeds while the app lock is still up, and `start()` awaits the
+    /// same work.
+    public func prepare() async {
+        if let preparation {
+            await preparation.value
+            return
+        }
+        let preparing = Task { [weak self] in
+            guard let self else { return }
+            await self.subscribeAndHandleFirstUpdate()
+        }
+        preparation = preparing
+        await preparing.value
+    }
+
+    /// perf-app-runtime.md §2.4 L4: the first paint, from the sealed glance, before the snapshot is
+    /// decoded. Only before any projection: a full projection is never replaced by a glance.
+    public func showGlance(_ glance: HomeGlance) {
+        guard phase == .loading else { return }
+        dashboard = glance.dashboard
+        freshness = glance.freshness
+        phase = .glance
+    }
+
+    private func subscribeAndHandleFirstUpdate() async {
+        // M3-A: the course order first, so the first projection (at launch, `prepare()` runs
+        // before `start()`) already shows the student's order.
         await local.load()
         let updates = await source.updates()
-        subscription.replace(with: Task { [weak self] in
-            for await update in updates {
-                await self?.receive(update)
-            }
-        })
-        await source.refresh(.launch)
+        guard !hasEnded else { return }
+        await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
+            subscription.replace(with: Task { [weak self] in
+                var signalled = false
+                for await update in updates {
+                    await self?.receive(update)
+                    if !signalled {
+                        signalled = true
+                        firstHandled.resume()
+                    }
+                }
+                if !signalled { firstHandled.resume() }
+            })
+        }
     }
 
     /// The day, the wall clock or the time zone changed (the shell forwards the system
@@ -196,6 +247,8 @@ public final class HomeModel {
 
     /// Ends the subscriptions, the source and the projector: the snapshot is released.
     public func end() async {
+        hasEnded = true
+        preparation?.cancel()
         subscription.cancel()
         timeChanges.cancel()
         manualRunOwner.cancel()
@@ -207,7 +260,11 @@ public final class HomeModel {
     /// Freshness-only updates (`.refreshing`, `.delayed`, …) touch `freshness` alone; only a new
     /// snapshot generation is installed and projected.
     private func receive(_ update: HomeUpdate) async {
-        if freshness != update.freshness { freshness = update.freshness }
+        // A glance on screen keeps its "Updated <time>" until the coordinator knows better than
+        // `.noCache` (its first event before the cached snapshot is installed).
+        if freshness != update.freshness, !(phase == .glance && update.freshness == .noCache) {
+            freshness = update.freshness
+        }
         guard update.snapshot != nil else {
             if case .failed = update.freshness, phase == .loading { phase = .failed }
             return

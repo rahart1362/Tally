@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "TallyPlatform", targets: ["TallyPlatform"]),
         .library(name: "TallyFeatures", targets: ["TallyFeatures"]),
         .library(name: "TallyIntents", targets: ["TallyIntents"]),
+        .library(name: "TallyGlance", targets: ["TallyGlance"]),
     ],
     dependencies: [
         .package(path: "../TallyCore"),
@@ -101,6 +102,22 @@ let package = Package(
         .target(
             name: "TallySampleFixtures",
             resources: [.copy("CanvasFixtures")]
+        ),
+
+        // Plan 06 step 11 (M2-C2): the widgets' glance reader, timeline and views. It reads
+        // `glance.v1.sealed` and nothing else, through TallyStore, with a widget-audience key it
+        // may not create (perf-app-runtime.md §2.4 W1-W3). Deliberately none of TallyFeatures,
+        // TallyPlatform, TallySync, TallyCanvasAPI or TallyIntents: nothing here can decode the
+        // snapshot, fetch, refresh or read a credential. CI checks the Release widget's link map
+        // and the Debug widget's load commands (scripts/ci/check_widget_isolation.py). Default
+        // isolation (nonisolated): WidgetKit calls the provider off the main thread.
+        .target(
+            name: "TallyGlance",
+            dependencies: [
+                "TallyDesignSystem",
+                .product(name: "TallyDomain", package: "TallyCore"),
+                .product(name: "TallyStore", package: "TallyCore"),
+            ]
         ),
 
         // AppIntents + AppEntity types, shared by the app and the widget.
