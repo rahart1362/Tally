@@ -7,36 +7,39 @@ import UserNotifications
 
 /// A `NotificationCenterClient` a test drives: a fixed authorisation status, an optional add
 /// failure, and a record of every call.
-final class FakeNotificationCenterClient: NotificationCenterClient {
-    private struct State {
-        var added: [UNNotificationRequest] = []
-        var removed: [[String]] = []
-        var removedAll = 0
-        var categories: Set<UNNotificationCategory> = []
-    }
-
+///
+/// An `NSLock`, not a `Mutex`: `UNNotificationRequest` and `UNNotificationCategory` are not
+/// `Sendable`, and `Mutex.withLock` only accepts values from a disconnected region, which a
+/// method's own parameters are not (Swift 6 rejects `state.withLock { $0.added.append(request) }`
+/// with "'inout sending' parameter '$0' cannot be task-isolated", CI run 36389673529).
+/// `@unchecked Sendable`: every stored `var` is read and written only under `lock`.
+final class FakeNotificationCenterClient: NotificationCenterClient, @unchecked Sendable {
     private let status: UNAuthorizationStatus
     private let addError: (any Error)?
-    private let state = Mutex(State())
+    private let lock = NSLock()
+    private var addedRequests: [UNNotificationRequest] = []
+    private var removedIDs: [[String]] = []
+    private var removedAllCount = 0
+    private var registeredCategories: Set<UNNotificationCategory> = []
 
     init(status: UNAuthorizationStatus, addError: (any Error)? = nil) {
         self.status = status
         self.addError = addError
     }
 
-    var added: [UNNotificationRequest] { state.withLock { $0.added } }
-    var removed: [[String]] { state.withLock { $0.removed } }
-    var categories: Set<UNNotificationCategory> { state.withLock { $0.categories } }
+    var added: [UNNotificationRequest] { lock.withLock { addedRequests } }
+    var removed: [[String]] { lock.withLock { removedIDs } }
+    var categories: Set<UNNotificationCategory> { lock.withLock { registeredCategories } }
 
     func authorizationStatus() async -> UNAuthorizationStatus { status }
     func add(_ request: UNNotificationRequest) async throws {
         if let addError { throw addError }
-        state.withLock { $0.added.append(request) }
+        lock.withLock { addedRequests.append(request) }
     }
-    func pendingIdentifiers() async -> Set<String> { Set(state.withLock { $0.added.map(\.identifier) }) }
-    func removeRequests(ids: [String]) { state.withLock { $0.removed.append(ids) } }
-    func removeAllRequests() { state.withLock { $0.removedAll += 1 } }
-    func setCategories(_ categories: Set<UNNotificationCategory>) { state.withLock { $0.categories = categories } }
+    func pendingIdentifiers() async -> Set<String> { lock.withLock { Set(addedRequests.map(\.identifier)) } }
+    func removeRequests(ids: [String]) { lock.withLock { removedIDs.append(ids) } }
+    func removeAllRequests() { lock.withLock { removedAllCount += 1 } }
+    func setCategories(_ categories: Set<UNNotificationCategory>) { lock.withLock { registeredCategories = categories } }
 }
 
 /// A `TallyPlatformLogger` that keeps every event's name, for assertions.
