@@ -18,11 +18,16 @@ import XCTest
 ///   the whole slow refresh;
 /// - the pull-to-refresh test measures how long the pull blocked, which is when the spinner
 ///   stopped, and uses a refresh slower than the budget by a wide margin, so "stopped at the
-///   budget" and "stopped when the refresh landed" are far apart.
+///   budget" and "stopped when the refresh landed" are far apart. It also checks that the
+///   breadcrumb is already up when the pull returns (app-core report O8).
 final class SlowRefreshUITests: TallyUITestCase {
     private static let breadcrumbPrefix = "Live refresh is taking longer than expected"
     /// `TallyConfig.liveRefreshBudget` (this bundle does not link TallyCore).
     private static let liveRefreshBudget: TimeInterval = 10
+    /// O8: how soon after the pull returns the breadcrumb must be up. In every correct run it was
+    /// already up at the first check (run 36390172728), because the spinner and the breadcrumb
+    /// both wait for the live budget; one second allows for a slow accessibility query.
+    private static let breadcrumbAfterPullWindow: TimeInterval = 1
 
     /// The M2 exit criterion itself: a 12 s slow refresh. The breadcrumb appears once the live
     /// budget has passed, never before, while the refresh is still running, then clears by itself.
@@ -73,18 +78,30 @@ final class SlowRefreshUITests: TallyUITestCase {
         let pulled = Date()
         // Returns once the app is idle: once the refresh control's spinner has stopped.
         top.press(forDuration: 0.1, thenDragTo: top.withOffset(CGVector(dx: 0, dy: 400)))
-        let spinnerStoppedWithin = Date().timeIntervalSince(pulled)
+        let pullReturned = Date()
+        let spinnerStoppedWithin = pullReturned.timeIntervalSince(pulled)
 
+        // Two independent signals that the spinner waited for the live budget; both are recorded
+        // in one run. (1), checked first because it is the time-critical one: the breadcrumb is
+        // already up when the pull returns (O8). A spinner that stops at once (mutation MS3)
+        // returns about 10 s before the breadcrumb exists, so this does not depend on how long
+        // the gesture itself took; it could only miss MS3 if XCUITest's idle wait after a stopped
+        // spinner took about 9 s. (2) The pull blocked for at least the budget: MS3 was caught by
+        // this alone with 0.28 s to spare on a slow runner (run 36403288465, 8.72 s).
+        let breadcrumbUp = sample(breadcrumb, until: true, timeout: Self.breadcrumbAfterPullWindow)
+        let checkedFor = Date().timeIntervalSince(pullReturned)
+        continueAfterFailure = true
+        XCTAssertTrue(breadcrumbUp, "the breadcrumb was not up within \(Self.breadcrumbAfterPullWindow) s of the pull "
+                      + "returning (checked for \(checkedFor) s; the pull blocked \(spinnerStoppedWithin) s): the spinner "
+                      + "stopped before the live budget. Hierarchy: \(app.debugDescription)")
         XCTAssertGreaterThanOrEqual(spinnerStoppedWithin, Self.liveRefreshBudget - 1,
                                     "the spinner stopped \(spinnerStoppedWithin) s after the pull, before the live budget")
+        continueAfterFailure = false
         XCTAssertLessThan(spinnerStoppedWithin, latency,
                           "the spinner ran until the \(latency) s refresh landed, not until the live budget")
-        // The refresh is still running: the footer does not say "Updated just now" yet, and the
-        // breadcrumb is up.
+        // The refresh is still running: the footer does not say "Updated just now" yet.
         XCTAssertFalse(app.staticTexts["Updated just now"].exists,
                        "the slow refresh had already landed when the spinner stopped. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(sample(breadcrumb, until: true, timeout: 5),
-                      "no breadcrumb after the spinner stopped. Hierarchy: \(app.debugDescription)")
 
         // Self-heal, with no interaction.
         XCTAssertTrue(sample(breadcrumb, until: false, timeout: latency + 10),
