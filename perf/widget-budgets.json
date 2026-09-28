@@ -1,0 +1,14 @@
+{
+  "$comment": "The widget's memory gate (plan 06 step 11; M2-C2), checked by scripts/ci/check_perf_budgets.py in ios-build after the main (Debug) test run, against that run's xcresult metrics. WidgetGlanceTests (TallyAppTests, hosted) measures, per iteration, what the widget process does for one timeline: read the glance through the widget's reader, plan the timeline, and render both widgets for its first entry. XCTMemoryMetric's 'Memory Physical' is the change in the test host's physical memory over an iteration; 'Memory Peak Physical' is the whole host process's peak, so it is reported, not budgeted. XCTest's kB is 1,000 bytes: its measurements come in multiples of 16.384 kB, one 16 KiB page (ios-perf, run 36422438707).",
+  "budgets": [
+    {
+      "name": "Widget glance read, timeline and render: memory delta",
+      "test": "WidgetGlanceTests/testGlanceTimelineMemory",
+      "metric": ["com.apple.dt.XCTMetric_Memory.physical", "Memory Physical"],
+      "unit": "kB",
+      "median_max": 5000,
+      "device_target": "the widget process peaks at <= 15 MB (perf-app-runtime.md §2.2 item 6: 50% of the ~30 MB widget limit seen in field crash reports)",
+      "source": "M2-C2 brief W-1: a hosted WidgetGlanceTests with an XCTMemoryMetric delta of <= 5 MB"
+    }
+  ]
+}
