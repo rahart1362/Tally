@@ -287,3 +287,32 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - `PriorityScore.weight` re-filters the whole course or group for each item, which is O(n²·p) per course.
 - The scaling gate only scales the number of courses, so it cannot see per-course quadratic cost.
 - The PMO baseline entry above claimed PERF-03 would replace the `CanvasDate` regex. It did not, and the regex is still on the refresh hot path. That work moves to PERF-05 PA-6, with a differential test.
+
+## 2026-09-27 | Perf/crash program merge: m2/sync-hardening (sync hardening engineer; PMO verified)
+**Merged**:
+- SH-1: per-subscriber `RefreshCoordinator.events()` with `.bufferingNewest(8)`; a new subscriber gets the current state first.
+- SH-1: `shutdown()` finishes every stream, refuses later runs and releases the snapshot. `bumpEpochAndCancel()` calls it.
+- SH-2: caller cancellation. When every waiting caller is cancelled, the fetch is cancelled and its result discarded, so the user is not told "offline" for leaving. A run shared with a caller who is still waiting keeps going.
+- SH-3: `committedSnapshot`, the committed value itself and never re-decoded.
+- SH-4: `SnapshotStore` and `TokenCoordinator` lifecycle tests; neither leaks.
+- SH-5: a test that `RefreshCoordinator.finish` applies `SnapshotBudget`. It closes the PMO's M2 gap.
+
+**API change for the app**: `events` (property) becomes `events()` (async method). `RefreshStatusModel` on `m2/app-core` must migrate; `sync-hardening.md` §1 has the code. `pmo/assessment`'s own app code does not use it (checked with `git grep`).
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 509 tests (Sync 35, Store 61, Perf 5, Domain 245 with the 4 known issues, CanvasAPI 163), 0 failures.
+- `make lint`: 0 violations.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 509 tests each.
+
+**PMO independent mutations** (run in the finished worktree, under a hard timeout, each restored byte-identical to sha256 `f7f7d92f…`). All five were caught cleanly, with no hangs:
+- S1, no initial state on subscribe;
+- S2, emit reaches only one subscriber;
+- S3, the last cancelled caller no longer cancels the fetch;
+- S4, any cancelled caller cancels a shared run;
+- S5, shutdown keeps the snapshot.
+
+**Plan update (06, step 7)**:
+- An abandoned run keeps automatic refreshes throttled for 5 minutes. So pull-to-refresh must not tie the run to the view's `.refreshable` task: `HomeModel` owns it.
+- Also noted: `SnapshotBudget` can leave a snapshot over its item limit when course and assignment data alone exceed it. The grade data is never trimmed, by design.
+
+**PMO CI evidence (run 36361080347, head 875d445)**: `lint`, `core-sanitizers`, `core-perf`, `hygiene` and `core-linux` are green on their first run. `ios-build` was still running at the time of writing.
