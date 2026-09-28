@@ -9,7 +9,7 @@ import TallyTestSupport
 /// is cancelled only once every caller waiting on it has been cancelled; a run still shared with a
 /// waiting caller keeps going; a cancelled caller stops waiting at once; and an abandoned run's
 /// outcome is discarded rather than recorded as a failure.
-@Suite("RefreshCoordinator.run: caller cancellation reaches the fetch (SH-2)")
+@Suite("RefreshCoordinator.run: caller cancellation reaches the fetch (SH-2)", .timeLimit(.minutes(1)))
 struct RefreshCoordinatorCancellationTests {
     private typealias Event = RefreshCoordinator.Event
 

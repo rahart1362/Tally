@@ -7,7 +7,7 @@ import TallyTestSupport
 
 /// SH-3 (sync-hardening.md): `committedSnapshot` is the very value the coordinator committed (or
 /// was initialised with), shared rather than re-decoded, and `shutdown()` releases it.
-@Suite("RefreshCoordinator.committedSnapshot: the committed value, shared, released on shutdown (SH-3)")
+@Suite("RefreshCoordinator.committedSnapshot: the committed value, shared, released on shutdown (SH-3)", .timeLimit(.minutes(1)))
 struct RefreshCoordinatorSnapshotTests {
     /// Where an array keeps its elements. Arrays that share storage report the same address; a copy
     /// decoded from disk reports another. Only ever compared, never dereferenced.

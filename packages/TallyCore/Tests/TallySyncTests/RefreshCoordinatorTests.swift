@@ -11,7 +11,7 @@ import TallyTestSupport
 /// signal, partial-failure and 401 handling. Timing assertions use real (short) `Duration`
 /// budgets injected into the coordinator, the same way `CanvasGatewayTests` speeds up
 /// `BackoffPolicy`; `TestClock` supplies the domain-facing "now" that ends up in `RefreshRecord`.
-@Suite("RefreshCoordinator: single-flight, generations, epochs, and failure handling")
+@Suite("RefreshCoordinator: single-flight, generations, epochs, and failure handling", .timeLimit(.minutes(1)))
 struct RefreshCoordinatorTests {
     private let host = "canvas.northfield.example"
     private let userID = "4820117"

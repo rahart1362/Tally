@@ -9,7 +9,7 @@ import TallyTestSupport
 /// with the current state; `onTermination` removes only its own subscriber; `shutdown()` retires
 /// the coordinator (finishes every stream, refuses new runs and new subscribers, discards the run
 /// in flight, releases the decoded snapshot); and no stream keeps the coordinator alive.
-@Suite("RefreshCoordinator.events(): per-subscriber streams and shutdown (SH-1)")
+@Suite("RefreshCoordinator.events(): per-subscriber streams and shutdown (SH-1)", .timeLimit(.minutes(1)))
 struct RefreshCoordinatorEventsTests {
     private typealias Event = RefreshCoordinator.Event
 
