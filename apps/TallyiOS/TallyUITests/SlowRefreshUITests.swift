@@ -98,7 +98,8 @@ final class SlowRefreshUITests: TallyUITestCase {
     @MainActor
     private func launchSampleDashboard(refreshLatency seconds: Int) -> XCUIApplication {
         let app = launchApp(arguments: ["-TallyDebugSampleRefreshLatency", "\(seconds)"])
-        tapWhenHittable(app.buttons["Explore with Sample Data"], in: app)
+        // The SAMPLE DATA banner is the sample root's first frame (O9: re-tap once if it is not).
+        tap(app.buttons["Explore with Sample Data"], expecting: app.staticTexts["SAMPLE DATA"], in: app)
         XCTAssertTrue(app.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30),
                       "Hierarchy: \(app.debugDescription)")
         return app

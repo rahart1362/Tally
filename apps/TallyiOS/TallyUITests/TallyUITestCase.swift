@@ -13,6 +13,8 @@ import XCTest
 /// - `tapWhenHittable(_:)` taps a control only once it is actually hittable. A control that exists
 ///   but is covered or off screen fails the test at the call site, with the hierarchy, instead of
 ///   XCUITest tapping whatever lies on top of it.
+/// - `tap(_:expecting:)` is for a tap that must lead to another screen: it re-taps once if the
+///   screen did not change (app-core report O9).
 class TallyUITestCase: XCTestCase {
     /// `MainThreadWatchdog.Mode.environmentKey` and its mode (this bundle does not link TallyCore).
     static let watchdogEnvironment = ["TALLY_MAIN_THREAD_WATCHDOG": "report:250"]
@@ -47,6 +49,34 @@ class TallyUITestCase: XCTestCase {
     ) {
         waitUntilHittable(element, in: app, timeout: timeout, file: file, line: line)
         element.tap()
+    }
+
+    /// Taps `element` once it is hittable, then waits up to `timeout` for `expected`, the first
+    /// element of the screen the tap leads to. If `expected` has not appeared and `element` is
+    /// still there and hittable, so the screen did not change, it taps once more and waits again;
+    /// then it asserts `expected` appeared, with the hierarchy.
+    ///
+    /// App-core report O9: on a starved CI simulator (mutation run 36403288465: a 28 s launch, a
+    /// 12 s query) a tap on a hittable "Explore with Sample Data" did not take, and Welcome was
+    /// still showing 30 s later. The second tap happens only while the tapped control is still
+    /// hittable, that is, on the same screen, so it can never land on whatever the first tap
+    /// opened. It is recorded as an activity ("Re-tap once: …"), so a run's log shows how often
+    /// it was needed.
+    @MainActor
+    func tap(
+        _ element: XCUIElement, expecting expected: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 15,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        tapWhenHittable(element, in: app, file: file, line: line)
+        if expected.waitForExistence(timeout: timeout) { return }
+        if element.exists, element.isHittable {
+            XCTContext.runActivity(named: "Re-tap once: \(expected) did not follow the tap on \(element)") { _ in
+                element.tap()
+            }
+        }
+        XCTAssertTrue(expected.waitForExistence(timeout: timeout),
+                      "\(expected) never appeared after tapping \(element). Hierarchy: \(app.debugDescription)",
+                      file: file, line: line)
     }
 
     /// Waits up to `timeout` for `element` to exist and become hittable, and asserts it did. A
