@@ -258,10 +258,30 @@ public nonisolated enum DashboardBuilder {
                           "Several items are due close together"))
         }
 
-        return alerts.sorted { $0.0.rank > $1.0.rank }.prefix(3)
+        return uniqueByDedupeKey(alerts).sorted { $0.0.rank > $1.0.rank }.prefix(3)
             .map { alert, title, subtitle in
                 DashboardProjection.AttentionItem(id: alert.dedupeKey, severity: alert.severity, title: title, subtitle: subtitle)
             }
+    }
+
+    /// R-3 (resilience.md): one row per `dedupeKey`, which is each row's `id`, so the list never
+    /// repeats an ID (SwiftUI's `ForEach` needs unique IDs). Valid data repeats a key: A2 groups
+    /// closed missing work per course (`missingClosed:<course>`), so two closed missing
+    /// assignments in one course raised two alerts with one key. The row kept for a key has the
+    /// highest severity, then comes first; it takes the place of the key's first alert.
+    private static func uniqueByDedupeKey(_ alerts: [(Alert, String, String?)]) -> [(Alert, String, String?)] {
+        var unique: [(Alert, String, String?)] = []
+        var position: [String: Int] = [:]
+        for entry in alerts {
+            let key = entry.0.dedupeKey
+            guard let index = position[key] else {
+                position[key] = unique.count
+                unique.append(entry)
+                continue
+            }
+            if entry.0.severity > unique[index].0.severity { unique[index] = entry }
+        }
+        return unique
     }
 
     private static func rendered(_ alert: Alert, assignment: Assignment, course: Course) -> (Alert, String, String?) {

@@ -55,9 +55,13 @@ public enum ReminderPlanner {
             .filter { $0.fireDate > now && $0.fireDate <= horizonEnd }
             .sorted(by: bySoonestThenID)
 
-        let itemBudget = max(0, cap - reserved.count)
-        let kept = Array(itemReminders.prefix(itemBudget))
-        return (reserved + kept).sorted(by: bySoonestThenID)
+        // R-4 (resilience.md, crash-safety-2.md F-8): a negative cap is 0, and the plan never exceeds
+        // it, reserved reminders included. With a cap below the reserved count they used to come back
+        // anyway (3 reminders for a cap of 0 or -5); they keep their priority order.
+        let cap = max(0, cap)
+        let keptReserved = Array(reserved.prefix(cap))
+        let kept = Array(itemReminders.prefix(cap - keptReserved.count))
+        return (keptReserved + kept).sorted(by: bySoonestThenID)
     }
 
     private static func bySoonestThenID(_ a: PendingReminder, _ b: PendingReminder) -> Bool {

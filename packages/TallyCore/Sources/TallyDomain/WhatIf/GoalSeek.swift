@@ -60,14 +60,35 @@ public enum GoalSeek {
         branch: Branch = .current,
         precision: Double = 0.01
     ) -> Result {
+        solveCountingNudges(assignmentID: assignmentID, targetPercent: targetPercent, in: input, branch: branch,
+                            precision: precision).result
+    }
+
+    /// R-5 (resilience.md): the bisection's fixed number of halvings of `0...pointsPossible`.
+    static let bisectionSteps = 60
+
+    /// R-5 (resilience.md): the most nudges `solve` makes after its bisection, each one
+    /// `GradeEngine` call. The bisection leaves `high` reaching the target, and the answer rounded
+    /// up to `precision` sits at most an ulp below it, so `solve` makes zero or one nudge in
+    /// practice. The loop's own exits (the target met, or the progress guard) always come first;
+    /// this cap ends it if neither ever does. It is there because `.timeLimit` cannot interrupt
+    /// synchronous code: without the progress guard `GoalSeekTerminationTests` did not fail at its
+    /// one-minute limit but hung until killed (CS-07 F-4; resilience.md §R-5).
+    static let maxNudgeSteps = 64
+
+    /// `solve`, and how many nudges its last step made. Internal, for tests: a stalled nudge must be
+    /// ended by the progress guard, never by `maxNudgeSteps`.
+    static func solveCountingNudges(
+        assignmentID: CanvasID<Assignment>, targetPercent: Double, in input: GradeInput, branch: Branch, precision: Double
+    ) -> (result: Result, nudges: Int) {
         guard let item = input.items.first(where: { $0.id == assignmentID }) else {
-            return Result(outcome: .impossible(.assignmentNotFound))
+            return (Result(outcome: .impossible(.assignmentNotFound)), 0)
         }
         guard item.published, item.isGradeable, !item.omitFromFinalGrade else {
-            return Result(outcome: .impossible(.assignmentExcludedFromGrade))
+            return (Result(outcome: .impossible(.assignmentExcludedFromGrade)), 0)
         }
         guard let possible = item.pointsPossible, possible > 0 else {
-            return Result(outcome: .impossible(.noPointsPossible))
+            return (Result(outcome: .impossible(.noPointsPossible)), 0)
         }
 
         func percent(at score: Double) -> Double? {
@@ -79,16 +100,16 @@ public enum GoalSeek {
         // A course that hides totals, or has no counted work at all, has no
         // percentage to solve against.
         guard let atZero = percent(at: 0) else {
-            return Result(outcome: .impossible(.noPointsPossible))
+            return (Result(outcome: .impossible(.noPointsPossible)), 0)
         }
-        if atZero >= targetPercent { return Result(outcome: .reachable(minimumScore: 0)) }
+        if atZero >= targetPercent { return (Result(outcome: .reachable(minimumScore: 0)), 0) }
         guard let atMax = percent(at: possible), atMax >= targetPercent else {
-            return Result(outcome: .impossible(.unreachableEvenAtMaxScore))
+            return (Result(outcome: .impossible(.unreachableEvenAtMaxScore)), 0)
         }
 
         var low = 0.0
         var high = possible
-        for _ in 0..<60 {
+        for _ in 0..<bisectionSteps {
             let mid = (low + high) / 2
             if let p = percent(at: mid), p >= targetPercent {
                 high = mid
@@ -101,18 +122,32 @@ public enum GoalSeek {
         // bisection-converged value just under the target), then nudge
         // upward in `precision` steps until the target is actually met.
         let scale = 1 / precision
-        var candidate = min((high * scale).rounded(.up) / scale, possible)
-        while candidate < possible, let p = percent(at: candidate), p < targetPercent {
-            let next = min(candidate + precision, possible)
-            // CS-07: past about 1.4e14 points, `precision` (0.01) is below half an ulp of
-            // `candidate`, so adding it changes nothing and this loop never ended; a negative
-            // `precision` never ended either. `high` reaches the target by construction.
-            guard next > candidate else {
-                candidate = high
-                break
-            }
-            candidate = next
+        let (score, nudges) = nudge(from: min((high * scale).rounded(.up) / scale, possible), by: precision, upTo: possible,
+                                    orElse: high) { candidate in
+            percent(at: candidate).map { $0 < targetPercent } ?? false
         }
-        return Result(outcome: .reachable(minimumScore: candidate))
+        return (Result(outcome: .reachable(minimumScore: score)), nudges)
+    }
+
+    /// `solve`'s last step: steps `start` up by `precision` (never past `possible`) while
+    /// `needsMore` says the target is not yet met, and returns where it stopped and how many
+    /// steps it took. Pure, so tests can drive both of its exits that end on `fallback`:
+    /// - the progress guard (CS-07): past about 1.4e14 points, `precision` (0.01) is below half an
+    ///   ulp of the candidate, so a step changes nothing and the loop never ended; a negative
+    ///   `precision` never ended either;
+    /// - R-5's `maxNudgeSteps`, if a step always moves but the target is never met.
+    /// `fallback` is the bisection's `high`, which reaches the target by construction.
+    static func nudge(from start: Double, by precision: Double, upTo possible: Double, orElse fallback: Double,
+                      needsMore: (Double) -> Bool) -> (score: Double, steps: Int) {
+        var candidate = start
+        var steps = 0
+        while candidate < possible, needsMore(candidate) {
+            guard steps < maxNudgeSteps else { return (fallback, steps) }
+            let next = min(candidate + precision, possible)
+            guard next > candidate else { return (fallback, steps + 1) }
+            candidate = next
+            steps += 1
+        }
+        return (candidate, steps)
     }
 }

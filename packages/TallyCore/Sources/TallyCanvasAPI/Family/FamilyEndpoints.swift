@@ -29,6 +29,13 @@ enum FamilyEndpoints {
 
     /// S1 and O1 share this query (both return the same "User" shape, §6.1).
     static let observedUsersQuery: [(String, String)] = [("include[]", "avatar_url"), ("per_page", "100")]
+
+    /// R-1 (resilience.md): the budget every family-linking request gets. No refresh coordinator
+    /// sits above these calls to cancel a runaway retry, so this budget is their ceiling:
+    /// `CanvasClient` measures it on its clock, never backs off past it, retries a rate limit at
+    /// most `CanvasClient.maxRateLimitRetries` times, and ends a persistent 429 as
+    /// `.network(.rateLimited)`. 10 s, like a live refresh: each call is a tap the user waits on.
+    static let requestBudget: Duration = .seconds(10)
 }
 
 /// `application/x-www-form-urlencoded` body encoding. W2 sends `pairing_code` in the

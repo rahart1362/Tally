@@ -147,8 +147,10 @@ public enum GradeEngine {
                 score += RubyNumerics.decimal(candidates[i].score)
                 possible += RubyNumerics.decimal(candidates[i].total)
             }
+            // R-2 (resilience.md): the weight is sanitized here, once, like the points and scores
+            // above, so `total` sees the value it uses in both its numerator and its denominator.
             return GroupScore(
-                groupID: group.id, score: score, possible: possible, weight: group.weight,
+                groupID: group.id, score: score, possible: possible, weight: GradeSanitizing.saneWeightOrZero(group.weight),
                 grade: possible > 0 ? percent(score, of: possible) : nil,
                 droppedSubmissionIDs: rows.indices.filter { !keptSet.contains($0) }.compactMap { rows[$0].submissionID },
                 keptAssignmentIDs: kept.map { candidates[$0].assignmentID })
@@ -170,6 +172,8 @@ public enum GradeEngine {
             var final = Decimal(0)
             for g in relevant { final += (g.score / g.possible) * RubyNumerics.decimal(GradeSanitizing.saneWeightOrZero(g.weight)) }
             var fullWeight = 0.0
+            // R-2: `g.weight` is already sanitized (`groupSums`), so an invalid weight that counts
+            // as 0 above leaves this denominator too.
             for g in relevant { fullWeight += g.weight }
             let grade: Decimal
             if fullWeight == 0 { return nil }

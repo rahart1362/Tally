@@ -457,3 +457,37 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 **Root cause (the test's clock, not the app)**: xcodebuild's activity log shows the pull's "Synthesize event" from t=8.96 s, "Wait for dev.tally-app.tally to idle" at t=10.86 s and the next activity at t=22.26 s. XCUITest returns from a gesture only once the app is idle, and the refresh control's spinner animates until `.refreshable` returns at the 10 s budget, so the drag call blocked 11.4 s; the test read `released = Date()` after it. The run's screen recording (xcresult attachment, decoded at 10 fps on Linux with GStreamer) shows the spinner from about 10.1 s to 20.8 s with "Updated 4:39 AM · Refreshing…", and the breadcrumb first at 20.9 s, as the spinner stops: about 10 s after the refresh began. Refuted: an early `.delayed`/stale derivation in sample mode (the frames show `.refreshing` until the budget), and `refreshUntilSettledOrDelayed` returning early (the spinner ran the full budget).
 **Fix d42818a**: the 12 s criterion (M2; ux-ui A11Y-05) is timed from a tap on the hero's Refresh button (same model-owned manual refresh, no spinner, so the test watches all of it): "Refreshing…" and no breadcrumb within the budget, the breadcrumb not before 9 s after the tap, then it clears and "Updated just now" shows. A second UI test pulls to refresh with a 25 s refresh: the pull must block for at least 9 s and less than 25 s, the refresh must not have landed and the breadcrumb must be up; then it self-heals. `TallyUITestCase.waitUntilHittable`. New hosted test over a real `RefreshCoordinator`: cancelling the pull's task returns within 1 s and the refresh still commits generation 2 with no cancelled fetch (plan 06 row 7, SH-2). ci.yml: the report-only floor steps also run after a red test. Local: Linux harness 97 tests pass; mutation P1 (the pull's cancellation forwarded to the model-owned run) fails the new test and `cancellingThePullDoesNotCancelTheRefresh`, restored byte-identical (HomeModel.swift sha256 f59fd4bd…0d1aba); `make lint` 0 violations in 147 files; hygiene passes.
 **7b on iOS (run 36389673529 on d42818a, cancelled once its answer was in)**: the app and packages built in Debug and Release; the test bundle did not: `UNNotificationSchedulerTests.swift:34:51` and `:39:113`, "'inout sending' parameter '$0' cannot be task-isolated at end of function" (the fake center put non-`Sendable` `UNNotificationRequest`/`UNNotificationCategory` values into a `Mutex`). Fix 9e70f80: the fake keeps them behind an `NSLock` (`@unchecked Sendable`). Run 36390172728 on 9e70f80: in progress at the time of writing; its result is in the next entry.
+
+## 2026-09-28 | Perf/crash program merge: m2/resilience, CS-08 (resilience engineer; PMO verified)
+**Merged**:
+- **R-1, rate limits.** A persistent 429 is a bounded retry. It stops after `CanvasClient.maxRateLimitRetries` = 4, obeys `Retry-After` (seconds and HTTP-date), backs off exponentially from a floor, and never waits past the budget. Family-link calls have a 10 s budget. Before the fix: 1,501 requests in 4 s. After: 4-5 requests.
+- **R-2, grade inputs bounded** (D2a). A non-zero magnitude above 1e50 is invalid; one below 1e-6 becomes 0.
+- **R-2b, drop-rule search.** It finds the root q* first (Dinkelbach), steps through the same midpoints and evaluates big_f once. The worst bounded cases went from 43-170 ms to 2-6 ms in release, and `gradeEngineAllCourses/stress` from 71.4 to 41.4 ms.
+- **R-3.** One "Needs attention" row per ID.
+- **R-4.** Hardened entry points (clamps, negative caps). `ChangeDigest` keeps the first occurrence.
+- **R-5.** Named step caps on the `GoalSeek` and drop-rule loops. A lost progress guard now fails in 0.031 s instead of hanging.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 607 tests (Sync 40, Store 71, Perf 8, Domain 293 with the 4 known issues, CanvasAPI 195), 0 failures.
+- `make lint`: 0 violations in 123 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 607 tests each.
+- `make core-perf`: 39 tests pass.
+  - The bounded worst-case gate: medians 2.21-6.34 ms against a 50 ms ceiling.
+  - `gradeEngineAllCourses/stress` 41.4 ms; `DropRuleSelection` share 58%, down from 74%.
+  - `dashboardBuild/stress` 5.03 ms.
+
+**PMO mutations** (each restored byte-identical):
+- Q1, the root comparison's tie rule flipped: caught by `aMidpointExactlyOnTheRootGoesTheSameWay` against the verbatim legacy code.
+- Q2, the rate-limit cap raised to 1000: caught by `theF6ReproductionNowMakesAtMostTheCapsRequests` and others.
+- Q3, attention de-duplication removed: caught by `AttentionUniquenessTests`.
+
+**PMO ruling**: R-2b is **accepted**. It keeps the exact legacy midpoints and final evaluation. The differential test compares it index for index with the legacy code over every fixture group, 3,000 seeded groups, boundary groups, ties and root-midpoint cases. `GradeParityTests`, `GradeEngineTests` and `GoalSeekTests` are unchanged and pass. It falls back to per-step evaluation when a total is negative or there is no convergence in 64 rounds.
+**Smaller rulings accepted**:
+- `ReminderPlanner` never returns more than its cap, including the reserved slots.
+- R-3's "then the earliest" means first in order.
+
+**Still open**:
+- D2b (app layer): even within the bounds, a worst-case `GoalSeek` takes 144-268 ms in release. It must run off the main actor and be cancellable; the app-core A8 `GradeWork` does this.
+- Rows of equal rank from different courses change order between launches.
+- Grading-period weights are not sanitized.
+- Transport timeouts sit in the app layer.

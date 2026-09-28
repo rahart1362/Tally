@@ -56,19 +56,30 @@ public enum AlertEngine {
         let hours = due.timeIntervalSince(now) / 3600
         guard hours >= 0 else { return nil } // overdue is A1/A2, not A3
 
+        let priority = alertPriority(priorityScore)
         if hours < InsightsConfig.dueSoonCriticalWindowHours, priorityScore >= InsightsConfig.dueSoonCriticalMinPriority {
             return Alert(kind: .dueSoon(assignmentID: assignment.id), severity: .critical, courseID: assignment.courseID,
-                        priority: Int(priorityScore))
+                        priority: priority)
         }
         if hours < InsightsConfig.dueSoonHighWindowHours {
             return Alert(kind: .dueSoon(assignmentID: assignment.id), severity: .high, courseID: assignment.courseID,
-                        priority: Int(priorityScore))
+                        priority: priority)
         }
         if hours < InsightsConfig.dueSoonMediumWindowHours, weight >= InsightsConfig.dueSoonMediumMinWeight {
             return Alert(kind: .dueSoon(assignmentID: assignment.id), severity: .medium, courseID: assignment.courseID,
-                        priority: Int(priorityScore))
+                        priority: priority)
         }
         return nil
+    }
+
+    /// R-4 (resilience.md, crash-safety-2.md F-8): `priorityScore` as an `Alert` priority, clamped
+    /// to the 0...99 `Alert.init` keeps anyway, before the conversion. `Int(priorityScore)`
+    /// trapped on NaN, on an infinity and on a magnitude past `Int`'s range. Every caller in
+    /// TallyCore passes `PriorityScore.score`, which is already in [0, 100], but this is a public
+    /// `Double` parameter. NaN counts as no priority.
+    static func alertPriority(_ priorityScore: Double) -> Int {
+        guard !priorityScore.isNaN else { return 0 }
+        return Int(min(99, max(0, priorityScore)))
     }
 
     // MARK: - A4: grade posted

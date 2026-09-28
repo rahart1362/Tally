@@ -24,7 +24,9 @@ public enum NotificationReconciler {
         desired: [PendingReminder], ledger: SyncLedger, platform: any NotificationScheduling,
         cap: Int = TallyConfig.pendingNotificationCap
     ) async -> SyncLedger {
-        let capped = Array(desired.sorted(by: bySoonestThenID).prefix(cap))
+        // R-4 (resilience.md, crash-safety-2.md F-8): a negative cap is 0. `prefix` traps on a
+        // negative length ("Can't take a prefix of negative length").
+        let capped = Array(desired.sorted(by: bySoonestThenID).prefix(max(0, cap)))
         // CS-07: `desired` can repeat an ID. `ReminderPlanner.plan` emits reminders per candidate,
         // so a candidate list that repeats an assignment repeats its reminder IDs, and
         // `Dictionary(uniqueKeysWithValues:)` trapped on that. The first occurrence in the
