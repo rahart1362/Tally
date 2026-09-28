@@ -562,7 +562,7 @@ def flow_checks(results_by_configuration: dict[str, dict[str, str]], only_given:
                                 f"no {flow.configuration} test results were given"))
             continue
         outcome = {test: _lookup(results, test) for test in flow.tests}
-        ok = all(result == "Passed" for result in outcome.values())
+        ok = all(result.lower() == "passed" for result in outcome.values())
         checks.append(Check(flow.id, f"{flow.title} ({flow.configuration})", "ERROR", flow.due, ok,
                             "; ".join(f"{test}: {result}" for test, result in outcome.items())))
         if flow.configuration == "Debug":
@@ -692,7 +692,13 @@ def main(argv: list[str]) -> int:
             results = {}
             for item in options["--flows"].split():
                 configuration, _, path = item.partition("=")
-                results[configuration] = test_results(json.loads(pathlib.Path(path).read_text(encoding="utf-8")))
+                raw = pathlib.Path(path).read_text(encoding="utf-8")
+                results[configuration] = test_results(json.loads(raw))
+                print(f"RELEASE | flows | {configuration}: {len(results[configuration])} test cases in {path}")
+                if not results[configuration]:
+                    # Every mapped test then reads "missing": show what the file held instead.
+                    print(f"RELEASE | flows | no test case parsed from {path}; its first 3,000 characters:")
+                    print(raw[:3000])
             label = options.get("--label")
             checks = flow_checks(results, only_given="--only-given" in options)
             if label:
