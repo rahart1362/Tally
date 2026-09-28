@@ -14,6 +14,13 @@ import TallyDomain
 @MainActor
 @Observable
 public final class HomeModel {
+    /// Explicit and nonisolated (plan 06 A2). In this default-`MainActor` module the compiler makes an
+    /// implicit deinit main-actor isolated, `@MainActor` on the class or not, and an isolated deinit
+    /// (`swift_task_deinitOnExecutor`) aborts iOS 26.0-26.3 runtimes when it runs nested or in a
+    /// task-local scope (swiftlang/swift#88036; the floor abort in CI run 36390172728). CI's `nm`
+    /// gate keeps isolated deinits out of every shipping binary.
+    nonisolated deinit {}
+
     public enum Phase: Equatable, Sendable {
         /// Waiting for the first projection: the shell shows skeletons.
         case loading

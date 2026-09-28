@@ -32,12 +32,17 @@ public enum SchoolSelectionOutcome: Equatable, Sendable {
 /// §3.1), so this type — like every other type in the module — is
 /// main-actor isolated by default; the `Task` started in `queryChanged()`
 /// inherits that isolation, so its body can update `state` directly.
-/// Explicitly `@MainActor` (plan 06 A2): a class that only inherits the module's default
-/// isolation took the isolated-deinit path that crashes iOS 26.0-26.3 runtimes
-/// (swiftlang/swift#88036); the explicit annotation keeps `deinit` nonisolated.
+/// Explicitly `@MainActor`, with an explicit `nonisolated deinit` (plan 06 A2): see that deinit.
 @MainActor
 @Observable
 public final class SchoolSearchViewModel {
+    /// Explicit and nonisolated (plan 06 A2). In this default-`MainActor` module the compiler makes an
+    /// implicit deinit main-actor isolated, `@MainActor` on the class or not, and an isolated deinit
+    /// (`swift_task_deinitOnExecutor`) aborts iOS 26.0-26.3 runtimes when it runs nested or in a
+    /// task-local scope (swiftlang/swift#88036; the floor abort in CI run 36390172728). CI's `nm`
+    /// gate keeps isolated deinits out of every shipping binary.
+    nonisolated deinit {}
+
     /// Debounce and minimum length per ux-ui.md §3.2.1: "debounce 300 ms, minimum 2 characters".
     public static let debounceDefault: Duration = .milliseconds(300)
     static let minimumCharacters = 2

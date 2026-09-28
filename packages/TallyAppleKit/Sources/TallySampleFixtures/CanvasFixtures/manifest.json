@@ -1,5 +1,5 @@
 {
-  "$comment": "Derived from fixtures/canvas/manifest.json personas.flagship.routes (13 routes) for ASC-14 sample mode (packages/TallyAppleKit/Sources/TallyFeatures/SampleDataGateway.swift). Regenerate: python3 -c \"import json; m=json.load(open('fixtures/canvas/manifest.json')); f=m['personas']['flagship']; json.dump({'anchor': m['anchor'], 'time_zone': f['time_zone'], 'host': f['host'], 'routes': f['routes']}, open('packages/TallyAppleKit/Sources/TallyFeatures/CanvasFixtures/manifest.json', 'w'), indent=2)\"",
+  "$comment": "Derived from fixtures/canvas/manifest.json personas.flagship.routes (13 routes) for ASC-14 sample mode (packages/TallyAppleKit/Sources/TallyFeatures/SampleData/SampleDataGateway.swift). Regenerate: python3 -c \"import json; m=json.load(open('fixtures/canvas/manifest.json')); f=m['personas']['flagship']; json.dump({'anchor': m['anchor'], 'time_zone': f['time_zone'], 'host': f['host'], 'routes': f['routes']}, open('packages/TallyAppleKit/Sources/TallySampleFixtures/CanvasFixtures/manifest.json', 'w'), indent=2)\"",
   "anchor": "2026-09-28T13:00:00Z",
   "time_zone": "America/Chicago",
   "host": "canvas.northfield.example",

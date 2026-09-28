@@ -61,10 +61,10 @@ let package = Package(
         //
         // TallyReplay (plan 06 A1): "Explore with Sample Data" (ASC-14) needs a replay-backed
         // CanvasGateway over the bundled flagship persona. `TallyReplay.ReplayTransport` is that
-        // transport and nothing more: routes plus a root URL, which the sample-data code resolves
-        // through `Bundle.module` from this target's own `CanvasFixtures` resource (below). It
-        // replaced the TallyTestSupport dependency, so no test code (fixture loaders, `try!`,
-        // `#filePath`, fakes) links into the shipping app; CI's link-map gate checks that.
+        // transport and nothing more: routes plus a root URL, which the sample-data code gets from
+        // `TallySampleFixtures` (below). It replaced the TallyTestSupport dependency, so no test
+        // code (fixture loaders, `try!`, `#filePath`, fakes) links into the shipping app; CI's
+        // link-map gate checks that.
         .target(
             name: "TallyFeatures",
             dependencies: [
@@ -79,18 +79,28 @@ let package = Package(
                 .product(name: "TallyStore", package: "TallyCore"),
                 .product(name: "TallySync", package: "TallyCore"),
                 .product(name: "TallyReplay", package: "TallyCore"),
+                "TallySampleFixtures",
                 // perf-app-runtime.md §7 step 1: `AppModel` sets and clears
                 // `RefreshIntentBridge` when it attaches to or detaches from an account's
                 // coordinator, instead of `TallyApp.body` doing it as a side effect. The widget
                 // links TallyIntents only, so this edge never pulls TallyFeatures into it.
                 "TallyIntents",
             ],
-            // A single top-level directory under this target's source root, deliberately —
-            // `.copy(_:)` places a resource "as-is... at the top level of the resulting bundle"
-            // (Apple's package-resources documentation), so naming it one level deep here avoids
-            // any ambiguity about whether an intermediate path prefix survives into the bundle.
-            resources: [.copy("CanvasFixtures")],
+            // No resources here (plan 06 A2): the accessor SwiftPM and Xcode generate for a target
+            // with resources declares a class, which this module's default isolation turned into
+            // an isolated deinit (`swift_task_deinitOnExecutor`, CI run 36390172728). The sample
+            // fixtures live in `TallySampleFixtures` instead.
             swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+
+        // ASC-14's bundled sample fixtures (the flagship persona and the 404 fallback) and the
+        // one function that finds them. Swift's default isolation (nonisolated), deliberately: see
+        // the note on TallyFeatures above. `CanvasFixtures` is one top-level directory, because
+        // `.copy(_:)` places a resource "as-is... at the top level of the resulting bundle"
+        // (Apple's package-resources documentation), so no intermediate path prefix is in doubt.
+        .target(
+            name: "TallySampleFixtures",
+            resources: [.copy("CanvasFixtures")]
         ),
 
         // AppIntents + AppEntity types, shared by the app and the widget.

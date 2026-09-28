@@ -3,6 +3,7 @@ import Synchronization
 import TallyCanvasAPI
 import TallyDomain
 import TallyReplay
+import TallySampleFixtures
 
 /// ASC-14 "Explore with Sample Data": errors this module raises itself, as opposed to whatever
 /// `CanvasGateway`/`RefreshFailure` reports once the replay is running.
@@ -11,19 +12,16 @@ nonisolated enum SampleDataError: Error {
     case manifestMalformed
 }
 
-/// The bundled subset of `fixtures/canvas` this target ships (Package.swift: `resources:
-/// [.copy("CanvasFixtures")]`) — only the flagship persona plus the 404 fallback (implementation
-/// brief: "only the personas the sample mode needs, e.g. flagship"). `CanvasFixtures` is a single
-/// top-level directory directly under this target's `Sources/TallyFeatures/` root, deliberately:
-/// SwiftPM's `.copy(_:)` places a resource "at the top level of the resulting bundle" (Apple's
-/// package-resources documentation), so naming it one level deep here removes any ambiguity about
-/// whether an intermediate path prefix would survive into the bundle. Resolves through
-/// `Bundle.module`, never `Bundle.main`: `TallyFeatures` is a library target, and `Bundle.module`
-/// is the one path that is correct both hosted inside `Tally.app` (TallyAppTests) and inside a
-/// plain SwiftPM test run, whereas `Fixtures.root()` (`TallyTestSupport`, keyed off `#filePath`)
-/// resolves a source-tree path that does not exist on a device or in the shipped app.
+/// The bundled subset of `fixtures/canvas` sample mode replays — only the flagship persona plus the
+/// 404 fallback (implementation brief: "only the personas the sample mode needs, e.g. flagship").
+/// It is the `CanvasFixtures` resource of the `TallySampleFixtures` target (plan 06 A2 moved it out
+/// of this default-`MainActor` module; see `SampleFixtures`), found through that target's
+/// `Bundle.module`, never `Bundle.main`: that is the one path that is correct both hosted inside
+/// `Tally.app` (TallyAppTests) and in a plain SwiftPM test run, whereas `Fixtures.root()`
+/// (`TallyTestSupport`, keyed off `#filePath`) resolves a source-tree path that does not exist on a
+/// device or in the shipped app.
 nonisolated enum SampleDataFixtureBundle {
-    static let root = "CanvasFixtures"
+    static let root = SampleFixtures.folderName
 
     /// Trimmed `manifest.json` shape (see `CanvasFixtures/manifest.json`'s own `$comment` for
     /// provenance/regeneration): just the flagship persona's routes, anchor and time zone, decoded
@@ -36,24 +34,10 @@ nonisolated enum SampleDataFixtureBundle {
         let routes: [RouteFixture]
     }
 
-    /// CI (run 36336754587) proved via the actual `CpResource` build log line that `.copy(_:)`
-    /// places the whole folder, by name, at the bundle's top level:
-    /// `.../TallyAppleKit_TallyFeatures.bundle/CanvasFixtures`. The right way to ask Foundation
-    /// for a *folder's own* URL is to treat the folder's name as the resource itself
-    /// (`forResource: "CanvasFixtures", withExtension: nil`) — `url(forResource: nil,
-    /// withExtension: nil, subdirectory:)`, tried first, asks a different question ("what's
-    /// *inside* this subdirectory") and returned nil here. Falls back to manually joining
-    /// `Bundle.module.resourceURL`, in case a future SwiftPM/Xcode version lays this out
-    /// differently again — checked against the actual filesystem rather than assumed.
+    /// The bundled fixtures folder (`SampleFixtures.folderURL()`), or `bundleResourceMissing`.
     static func resourceRoot() throws -> URL {
-        if let url = Bundle.module.url(forResource: root, withExtension: nil) {
-            return url
-        }
-        if let base = Bundle.module.resourceURL {
-            let candidate = base.appendingPathComponent(root)
-            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-        }
-        throw SampleDataError.bundleResourceMissing(root)
+        guard let url = SampleFixtures.folderURL() else { throw SampleDataError.bundleResourceMissing(root) }
+        return url
     }
 
     nonisolated struct Manifest {

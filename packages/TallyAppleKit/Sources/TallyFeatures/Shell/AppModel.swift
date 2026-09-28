@@ -42,6 +42,13 @@ public nonisolated enum RootRoute: Equatable, Sendable {
 @MainActor
 @Observable
 public final class AppModel {
+    /// Explicit and nonisolated (plan 06 A2). In this default-`MainActor` module the compiler makes an
+    /// implicit deinit main-actor isolated, `@MainActor` on the class or not, and an isolated deinit
+    /// (`swift_task_deinitOnExecutor`) aborts iOS 26.0-26.3 runtimes when it runs nested or in a
+    /// task-local scope (swiftlang/swift#88036; the floor abort in CI run 36390172728). CI's `nm`
+    /// gate keeps isolated deinits out of every shipping binary.
+    nonisolated deinit {}
+
     public private(set) var route: RootRoute = .launching
     /// Whether the next Welcome appearance plays the brand moment. ux-ui.md §3.2 stage 1: it plays
     /// on "first run and after sign-out only", so it is `true` at launch and after `signOut()`,
