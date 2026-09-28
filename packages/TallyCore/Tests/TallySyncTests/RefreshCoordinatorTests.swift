@@ -250,7 +250,7 @@ struct RefreshCoordinatorTests {
         await harness.coordinator.bumpEpochAndCancel()
 
         // `finished` cancels the consumer after 2 s, so a regression fails here instead of hanging.
-        let seen = await finished(consumer, within: .seconds(2))
+        let seen = await finished(consumer, within: TestTimeBudget.seconds(2))
         #expect(seen != nil, "the consumer's for-await loop must end on its own within 2s, not hang forever")
         #expect(seen?.last == .stateChanged(.noCache))
     }

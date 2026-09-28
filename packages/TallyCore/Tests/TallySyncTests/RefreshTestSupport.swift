@@ -77,7 +77,7 @@ func drain(_ stream: AsyncStream<RefreshCoordinator.Event>, into inbox: EventInb
 /// `task`'s value if it finishes within `timeout`, else nil. On a timeout it cancels `task` and runs
 /// `unblock` (e.g. releasing a held gateway a regressed `run` would otherwise wait on forever), so
 /// a regression fails the test instead of hanging the whole run.
-func finished<T: Sendable>(_ task: Task<T, Never>, within timeout: Duration = .seconds(5),
+func finished<T: Sendable>(_ task: Task<T, Never>, within timeout: Duration = TestTimeBudget.seconds(5),
                            unblocking unblock: @escaping @Sendable () async -> Void = {}) async -> T? {
     let watchdog = Task {
         try await Task.sleep(for: timeout)
@@ -90,9 +90,12 @@ func finished<T: Sendable>(_ task: Task<T, Never>, within timeout: Duration = .s
     return value
 }
 
+/// Both helpers' default windows scale with `TALLY_TEST_TIME_SCALE` (`TestTimeBudget`). A fixed 5 s window
+/// was missed once on the macOS runner's TallyCore step (app-core report O10), where these tests take 12-18 s.
+///
 /// Polls `condition` until it holds or `timeout` passes. Only for things with no completion
 /// signal of their own, e.g. `onTermination`'s hop back onto the coordinator.
-func eventually(within timeout: Duration = .seconds(5), _ condition: () async -> Bool) async -> Bool {
+func eventually(within timeout: Duration = TestTimeBudget.seconds(5), _ condition: () async -> Bool) async -> Bool {
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
         if await condition() { return true }
