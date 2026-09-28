@@ -34,10 +34,13 @@ public final class WebAuthPresenter: NSObject, WebAuthPresenting {
         // call from it regardless (that is exactly what `CheckedContinuation` is for).
         currentSession = nil
         return try await withCheckedThrowingContinuation { continuation in
+            // `@Sendable` (plan 06 A3): formed in this main-actor method, an unannotated closure
+            // would be main-actor isolated, and Swift 6's dynamic isolation check (SE-0423) traps
+            // if the system delivers it on another queue. It touches only the continuation.
             let session = ASWebAuthenticationSession(
                 url: url,
                 callback: .https(host: callbackHost, path: callbackPath)
-            ) { callbackURL, error in
+            ) { @Sendable callbackURL, error in
                 if let error {
                     if let authError = error as? ASWebAuthenticationSessionError, authError.code == .canceledLogin {
                         continuation.resume(throwing: WebAuthError.cancelled)

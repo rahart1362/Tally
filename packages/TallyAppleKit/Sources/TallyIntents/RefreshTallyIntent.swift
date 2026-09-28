@@ -1,30 +1,32 @@
 import AppIntents
+import TallyDomain
 
 /// "Refresh Tally" (architecture.md §3.1 App Intents list). Intents run in
 /// the app process — never the widget — because public-client refresh
 /// tokens rotate on every use (ARC-03), so only the app may hold and rotate
 /// them.
 ///
-/// The body is intentionally a no-op: `TallySync.RefreshCoordinator` (the
-/// actor that would actually run a refresh) does not exist yet — it is a
-/// later milestone's work package. Wiring this intent to a coordinator that
-/// isn't implemented would mean fabricating a result, which the
-/// implementation brief forbids ("Never write mock data into shipping code
-/// paths"). This intent exists so the shortcut and Siri phrase are in place
-/// and testable now; `perform()` gets a real body in the sync work package.
+/// E04: wired to `RefreshIntentBridge.coordinator` (see that type's doc
+/// comment for why a bridge rather than `AppDependencyManager`/`@Dependency`
+/// — full `AppIntentsPackage` wiring is deferred to E06). There is still no
+/// signed-in account in this branch, so the bridge holds `nil` today and
+/// this is a genuine no-op — real wiring around a currently-empty value, not
+/// a fabricated result (implementation brief: "Never write mock data into
+/// shipping code paths").
 public struct RefreshTallyIntent: AppIntent {
     // `let`, not `var`: the compiler flags a nonisolated `static var` as
     // unsafe shared mutable state under strict concurrency checking, even
     // though `AppIntent`'s requirements are get-only.
     public static let title: LocalizedStringResource = "Refresh Tally"
     public static let description = IntentDescription(
-        "Refreshes Tally's saved Canvas data. Not yet wired to a live refresh."
+        "Refreshes Tally's saved Canvas data."
     )
 
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        .result()
+        await RefreshIntentBridge.coordinator?.run(trigger: .intent)
+        return .result()
     }
 }
 

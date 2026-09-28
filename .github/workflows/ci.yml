@@ -47,6 +47,56 @@ jobs:
             echo "::error::Banned pattern in shipping code (lines above)"
             exit 1
           fi
+      - name: LAContext is used only through its async API (PL-03)
+        # Plan 06 A3: a callback-style evaluatePolicy/evaluateAccessControl reply closure formed
+        # in main-actor code is main-actor isolated, and SE-0423's dynamic check traps when
+        # LocalAuthentication calls it on its own queue. Every call must be `try await`.
+        run: |
+          if git grep -nE '\bevaluate(Policy|AccessControl)\(' -- packages apps ':!*Tests/*' | grep -v 'await '; then
+            echo "::error::LAContext callback API in app code (lines above); use try await"
+            exit 1
+          fi
+      - name: Grade math runs only through GradeWork (off the main actor, cancellable)
+        # Plan 06 A8, crash-safety-2.md decision D2(b): GradeEngine/GoalSeek/WhatIfSimulator can
+        # take seconds to minutes on extreme inputs, so app code calls them only via GradeWork.
+        run: |
+          if git grep -nE '\b(GradeEngine\.scores|WhatIfSimulator\.scores|GoalSeek\.solve)\(' -- \
+              packages/TallyAppleKit/Sources apps/TallyiOS/Tally apps/TallyiOS/TallyWidgets \
+              ':!packages/TallyAppleKit/Sources/TallyFeatures/Grades/GradeWork.swift'; then
+            echo "::error::Grade math called directly in app code (lines above); use GradeWork"
+            exit 1
+          fi
+      - name: No nonisolated(unsafe) in TallyAppleKit
+        # perf-app-runtime.md section 7 step 7: TaskBox (a Mutex-backed Sendable box) replaced
+        # the last unchecked stored task, so the compiler checks all of TallyAppleKit's state.
+        run: |
+          if git grep -n "nonisolated(unsafe)" -- packages/TallyAppleKit; then
+            echo "::error::nonisolated(unsafe) in TallyAppleKit (lines above)"
+            exit 1
+          fi
+      - name: The Home shell (a TabView) is built only in RootView.swift, as a root route
+        # perf-app-runtime.md section 3 item 2. A TabView or NavigationStack pushed as a
+        # navigationDestination never renders (2d3131f bisect), so the Home shell may be
+        # constructed only by RootView's route switch. The TallyUITests root-switch
+        # assertions cover a push written inside RootView.swift itself.
+        run: |
+          if git grep -n "HomeShellView(" -- packages apps/TallyiOS/Tally apps/TallyiOS/TallyWidgets \
+              ':!packages/TallyAppleKit/Sources/TallyFeatures/RootView.swift'; then
+            echo "::error::HomeShellView constructed outside RootView.swift (lines above)"
+            exit 1
+          fi
+      - name: Perf budget checker self-test (scripts/ci/check_perf_budgets.py)
+        run: python3 scripts/ci/check_perf_budgets.py --self-test
+      - name: View bodies only read and format (no clock, calendar, sorting, filtering or build calls)
+        # perf-app-runtime.md section 3 item 4 and section 7 step 6: projection happens off the
+        # main actor (HomeProjector); a body only reads projections and formats them.
+        run: |
+          python3 scripts/ci/check_view_bodies.py --self-test
+          python3 scripts/ci/check_view_bodies.py .
+          if git grep -n "\.build(" -- 'packages/TallyAppleKit/Sources/**/*View.swift'; then
+            echo "::error::A *View.swift file calls .build( (projection belongs in HomeProjector)"
+            exit 1
+          fi
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
@@ -135,7 +185,9 @@ jobs:
   ios-build:
     name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
-    timeout-minutes: 45
+    # 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
+    # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -171,33 +223,39 @@ jobs:
       - name: Pick an iOS 26 simulator (never a hard-coded device name)
         id: sim
         run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      # The test steps call the Makefile's ios-* targets (perf-app-runtime.md §6), so CI and a
+      # local Mac run the same commands. Each test target prints every xcresult failure in full
+      # (scripts/ci/print_xcresult_failures.py) whatever the result, then fails unless xcodebuild
+      # reported success. `ios-test` also sets a per-test hang limit (120 s default, 300 s max).
       - name: Build TallyAppTests + TallyUITests for testing
-        working-directory: apps/TallyiOS
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run TallyAppTests and TallyUITests (every failure printed in full)
+        # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **", not plain "TEST
+        # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
-          set -o pipefail
-          xcodebuild build-for-testing -project Tally.xcodeproj -scheme Tally \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            | tee "$RUNNER_TEMP/build-for-testing.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-for-testing.log"
-      - name: Run TallyAppTests and the TallyUITests launch smoke test
-        working-directory: apps/TallyiOS
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Main-thread watchdog stalls during the UI tests (phase, length)
+        # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
+        # it becomes required): every stall past 250 ms, launch-phase ones included.
+        if: always()
+        run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Pick the smallest iOS 26 iPhone simulator
+        id: small
+        run: python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"
+      - name: Welcome CTAs on the smallest iPhone (hittable at launch and at AX XXXL)
+        # perf-app-runtime.md §7 step 3: both pinned CTAs are hittable right after launch on
+        # the smallest available iPhone, at the default size and at the largest text size.
         run: |
-          set -o pipefail
-          xcodebuild test-without-building -project Tally.xcodeproj -scheme Tally \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/Tally.xcresult" \
-            -collect-test-diagnostics never \
-            | tee "$RUNNER_TEMP/test.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **",
-          # not plain "TEST SUCCEEDED" (that's what `xcodebuild test` uses,
-          # confirmed by the xcode-27 job's `xcodebuild test` step passing
-          # with the plain string on the same CI run this comment was added
-          # in: run 36330806691). Accept both.
-          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test.log"
+          echo "Smallest iPhone: ${{ steps.small.outputs.name }} on ${{ steps.small.outputs.runtime }}"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
+        # The report-only floor runs below run even after a red test above, so a failure there
+        # never hides the floor's own result (run 36378109668 skipped them).
+        if: ${{ !cancelled() }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -206,42 +264,102 @@ jobs:
       # fixed in 26.4), so the hosted tests also run on the lowest 26.x here.
       # Report-only until its first green runs (PMO), then it becomes required.
       - name: TallyAppTests on the deployment-floor runtime (report-only for now)
-        if: steps.floor.outputs.runtime != steps.sim.outputs.runtime
+        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
         continue-on-error: true
-        working-directory: apps/TallyiOS
         run: |
-          set -o pipefail
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
-          xcodebuild test-without-building -project Tally.xcodeproj -scheme Tally \
-            -destination "platform=iOS Simulator,id=${{ steps.floor.outputs.udid }}" \
-            -only-testing:TallyAppTests \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/Tally-floor.xcresult" \
-            -collect-test-diagnostics never \
-            | tee "$RUNNER_TEMP/test-floor.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          if [ -d "$RUNNER_TEMP/Tally-floor.xcresult" ]; then
-            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally-floor.xcresult" \
-              --compact --format json > "$RUNNER_TEMP/test-summary-floor.json" || true
-            python3 ../../scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary-floor.json"
-          fi
-          grep -qE "\*\* TEST (EXECUTE )?SUCCEEDED \*\*" "$RUNNER_TEMP/test-floor.log"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyAppTests IOS_RESULT_NAME=Tally-floor
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
+        run: make ios-summary IOS_RESULT="$RUNNER_TEMP/ios/Tally.xcresult"
+      - name: Collect simulator crash reports
+        # perf-app-runtime.md §6: a crash (for example the DEBUG main-thread watchdog's
+        # deliberate one) leaves an .ips report. ReportCrash writes it a few seconds after the
+        # process dies, and a hosted test process may not be named Tally, so wait once and keep
+        # every report written during this job; print the head of each.
+        if: always()
         run: |
-          if [ -d "$RUNNER_TEMP/Tally.xcresult" ]; then
-            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally.xcresult" \
-              --compact --format json > "$RUNNER_TEMP/test-summary.json" || true
-            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary.json"
-          fi
+          mkdir -p "$RUNNER_TEMP/ios/crash-reports"
+          sleep 20
+          find "$HOME/Library/Logs/DiagnosticReports" -name '*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
+            -exec cp {} "$RUNNER_TEMP/ios/crash-reports/" \; 2>/dev/null || true
+          ls -l "$RUNNER_TEMP/ios/crash-reports"
+          for f in "$RUNNER_TEMP"/ios/crash-reports/*.ips; do
+            [ -e "$f" ] || continue
+            echo "===== $f"
+            head -c 4000 "$f"
+            echo
+          done
+      - name: Upload crash reports and the floor xcresults
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crash-reports
+          path: |
+            ${{ runner.temp }}/ios/crash-reports
+            ${{ runner.temp }}/ios/Tally-floor*.xcresult
+            ${{ runner.temp }}/ios/Tally-floor*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build for iOS device (Release, unsigned)
+        # Also after a test failure, so a red test never hides a link or nm regression below.
+        if: ${{ !cancelled() }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
           xcodebuild build -project Tally.xcodeproj -scheme Tally \
             -destination 'generic/platform=iOS' -configuration Release \
-            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO LD_GENERATE_MAP_FILE=YES \
             | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-device.log"
+      - name: Shipping binaries link no test code and no isolated deinit (plan 06 A1, A2)
+        if: ${{ !cancelled() }}
+        # A1: TallyTestSupport (fixture loaders, try!, #filePath, fakes) must not be linked into
+        # the Release app; sample mode uses TallyReplay. A2: no binary may reference
+        # swift_task_deinitOnExecutor (isolated deinit), which crashes iOS 26.0-26.3 runtimes
+        # (swiftlang/swift#88036, fixed in 26.4).
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/dd/Build/Products"
+          fail=0
+          map="$(find "$RUNNER_TEMP/dd/Build/Intermediates.noindex" -name 'Tally-LinkMap-*-arm64.txt' | head -1)"
+          if [ -z "$map" ]; then echo "::error::no link map for the Release app"; exit 1; fi
+          replay="$(grep -c 'TallyReplay' "$map" || true)"
+          support="$(grep -c 'TallyTestSupport' "$map" || true)"
+          echo "Release app link map: $map ($(wc -l < "$map") lines; TallyReplay lines: $replay; TallyTestSupport lines: $support)"
+          if [ "$support" != "0" ]; then
+            grep -n 'TallyTestSupport' "$map" > "$RUNNER_TEMP/support-hits.txt" || true
+            head -5 "$RUNNER_TEMP/support-hits.txt"
+            echo "::error::TallyTestSupport is linked into the Release app (lines above)"; fail=1
+          fi
+          app="$products/Release-iphoneos/Tally.app"
+          otool -L "$app/Tally" > "$RUNNER_TEMP/otool-L.txt"
+          cat "$RUNNER_TEMP/otool-L.txt"
+          if grep -q TallyTestSupport "$RUNNER_TEMP/otool-L.txt"; then
+            echo "::error::the Release app loads TallyTestSupport"; fail=1
+          fi
+          checked=0
+          for bundle in "$app" "$products/Debug-iphonesimulator/Tally.app"; do
+            while IFS= read -r binary; do
+              if xcrun nm -u "$binary" > "$RUNNER_TEMP/nm.txt" 2>/dev/null; then
+                checked=$((checked + 1))
+                if grep -q swift_task_deinitOnExecutor "$RUNNER_TEMP/nm.txt"; then
+                  echo "::error::$binary references swift_task_deinitOnExecutor (isolated deinit)"; fail=1
+                  # Name the functions that call it (a type's __deallocating_deinit), so the
+                  # failure says which deinit to make explicit and nonisolated.
+                  xcrun otool -tV "$binary" 2>/dev/null \
+                    | awk '/^[^[:space:]].*:$/ { fn = $0 } /swift_task_deinitOnExecutor/ { print fn }' \
+                    | sed 's/:$//' | sort -u | head -20 | xcrun swift-demangle --simplified \
+                    | sed 's/^/    called from: /' || true
+                fi
+              fi
+            done < <(find "$bundle" -type f \( -perm -u+x -o -name '*.dylib' \))
+          done
+          echo "Mach-O binaries checked for swift_task_deinitOnExecutor: $checked (Release and Debug apps, their extensions and debug dylibs)"
+          if [ "$checked" -lt 2 ]; then echo "::error::fewer binaries than expected were checked"; fail=1; fi
+          exit $fail
       - name: Verify built app identity
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
@@ -254,10 +372,108 @@ jobs:
         with:
           name: build-logs
           path: |
-            ${{ runner.temp }}/build-*.log
-            ${{ runner.temp }}/test.log
-            ${{ runner.temp }}/Tally.xcresult
+            ${{ runner.temp }}/build-device.log
+            ${{ runner.temp }}/build-sim.log
+            ${{ runner.temp }}/ios/*.log
+            ${{ runner.temp }}/ios/*.xcresult
           retention-days: 7
+
+  ios-tsan:
+    name: iOS ThreadSanitizer (TallyAppTests; report-only until first green)
+    runs-on: macos-26
+    timeout-minutes: 60
+    # Plan 06 A7: required once it is first green (PMO).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-tsan (fails on a test failure or any ThreadSanitizer report)
+        run: make ios-tsan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: ThreadSanitizer reports (count, then the first in full)
+        if: always()
+        run: |
+          echo "ThreadSanitizer reports: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
+          grep -n -A40 -m1 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+
+  ios-asan:
+    name: iOS AddressSanitizer (app + UI tests; report-only until first green)
+    runs-on: macos-26
+    timeout-minutes: 75
+    # Plan 06 A7: required once it is first green (PMO).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-asan (fails on a test failure or any AddressSanitizer report)
+        run: make ios-asan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: AddressSanitizer reports (count, then the first in full)
+        if: always()
+        run: |
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
+
+  ios-perf:
+    name: iOS perf budgets (Release, non-blocking)
+    runs-on: macos-26
+    timeout-minutes: 45
+    # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
+    # Release build, medians of 5 iterations, compared with perf/budgets.json.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        run: make ios-project
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-perf (Release; sample entry budget, Release main-actor stall budget)
+        run: make ios-perf IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Print the raw metrics JSON (its schema is what check_perf_budgets.py reads)
+        if: always()
+        run: cat "$RUNNER_TEMP/ios/perf-metrics.json" 2>/dev/null || echo "no metrics JSON"
 
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)

@@ -6,8 +6,11 @@ import TallyPlatform
 /// Hosted unit tests for the composition root (implementation brief: "Swift
 /// Testing, @Suite"). These run on the iOS 26 simulator (WP-E02); TallyCore's
 /// own suites already cover the Linux-testable logic.
-@MainActor
+///
+/// `@MainActor`: `AppEnvironment.live()` is main-actor-isolated (it builds the
+/// main-actor `WebAuthPresenter` and the `@MainActor @Observable` `AppModel`).
 @Suite("Composition root")
+@MainActor
 struct AppEnvironmentTests {
     @Test("live() builds synchronously, with no thrown error")
     func liveConstruction() {

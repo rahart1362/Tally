@@ -1,0 +1,14 @@
+{
+  "$comment": "Performance budgets checked by scripts/ci/check_perf_budgets.py after `make ios-perf` (perf-app-runtime.md §5.2 and §6). Each gate is the median of the XCTest iterations of a Release build on the CI simulator. XcodeGen regenerates the .xcodeproj, so Xcode's own baselines cannot persist; budgets live here instead. The simulator-to-A13 speed factor is UNVERIFIED until the owner's device calibration (decision D-P3), so each CI gate sits below its device target by the stated margin. `test` matches a substring of the xcresult test identifier; `metric` matches a metric's identifier or display name; `median_max` is in the metric's own unit.",
+  "budgets": [
+    {
+      "name": "Sample entry to full projection (flagship)",
+      "test": "SampleLoadPerformanceTests/testSampleEntryToFullProjection",
+      "metric": ["com.apple.dt.XCTMetric_Clock.time.monotonic", "Clock Monotonic Time"],
+      "unit": "s",
+      "median_max": 0.150,
+      "device_target": "tap to full dashboard <= 300 ms on the oldest supported device",
+      "source": "perf-app-runtime.md §5.2: CI gate <= 150 ms, a 2x margin under the device target"
+    }
+  ]
+}

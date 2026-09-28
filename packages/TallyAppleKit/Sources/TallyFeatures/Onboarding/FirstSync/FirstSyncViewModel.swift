@@ -7,8 +7,17 @@ import TallyDomain
 /// turns its events into what the skeleton view needs: which phases are
 /// done, whether it's finished or failed, and whether the "large course
 /// loads" notice should show.
+/// Explicitly `@MainActor`, with an explicit `nonisolated deinit` (plan 06 A2): see that deinit.
+@MainActor
 @Observable
 public final class FirstSyncViewModel {
+    /// Explicit and nonisolated (plan 06 A2). In this default-`MainActor` module the compiler makes an
+    /// implicit deinit main-actor isolated, `@MainActor` on the class or not, and an isolated deinit
+    /// (`swift_task_deinitOnExecutor`) aborts iOS 26.0-26.3 runtimes when it runs nested or in a
+    /// task-local scope (swiftlang/swift#88036; the floor abort in CI run 36390172728). CI's `nm`
+    /// gate keeps isolated deinits out of every shipping binary.
+    nonisolated deinit {}
+
     public static let allPhases = FirstSyncPhase.allCases
 
     public let schoolDisplayName: String

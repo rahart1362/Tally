@@ -8,6 +8,8 @@ DerivedData/
 apps/TallyiOS/*.xcodeproj/
 apps/TallyiOS/build/
 apps/TallyiOS/*/Generated/
+# `make ios-*` result bundles, logs and derived data (Makefile IOS_OUT)
+build/ios/
 # SwiftPM (.build-*/ holds the sanitizer and perf scratch paths the Makefile uses)
 .build/
 .build-*/

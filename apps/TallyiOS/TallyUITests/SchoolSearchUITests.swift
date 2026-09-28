@@ -8,16 +8,12 @@ import XCTest
 /// deterministically reaches the `searchFailed` state — which is itself
 /// worth covering, since it's the same state a genuine network failure
 /// produces.
-final class SchoolSearchUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
+final class SchoolSearchUITests: TallyUITestCase {
+    @MainActor
     func testFindMySchoolNavigatesToSearchWithIdleHelperText() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
-        app.buttons["Find My School"].tap()
+        tapWhenHittable(app.buttons["Find My School"], in: app)
 
         // Not asserting on `app.navigationBars["Find your school"]` here: paired with
         // `.searchable`, CI (run 36335202947) showed that lookup taking ~60 s before
@@ -27,14 +23,13 @@ final class SchoolSearchUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Type at least 2 letters of your school's name."].waitForExistence(timeout: 10))
     }
 
+    @MainActor
     func testTypingAQueryEventuallyReportsASearchFailure() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
-        app.buttons["Find My School"].tap()
+        tapWhenHittable(app.buttons["Find My School"], in: app)
         let searchField = app.searchFields.firstMatch
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
-        searchField.tap()
+        tapWhenHittable(searchField, in: app, timeout: 5)
         searchField.typeText("northfield")
 
         // No live search transport is wired in yet (see the type's doc comment),

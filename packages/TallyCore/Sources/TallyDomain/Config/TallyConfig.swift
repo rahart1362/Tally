@@ -45,6 +45,28 @@ public enum TallyConfig {
     /// while still bounding worst-case memory from a corrupt or adversarial account.
     public static let maxSnapshotItems = 20_000
 
+    // Main-thread responsiveness (perf-app-runtime.md §5, 05-perf-crash-charter.md budgets)
+    /// Apple's tools start reporting a hang once the main run loop has been unresponsive for
+    /// 250 ms ("Understanding hangs in your app"). The DEBUG main-thread watchdog's threshold.
+    public static let mainThreadHangThreshold: Duration = .milliseconds(250)
+    /// While the app is still launching, the watchdog logs stalls longer than this as launch hangs
+    /// but never treats them as fatal: one-time launch work (loading, the first render) is not an
+    /// interaction hang, and a Debug launch on the CI simulator stalls for 1.0-1.65 s (CI run
+    /// 36368473854). Launch speed has its own budget, `warmStartBudget`.
+    public static let launchHangThreshold: Duration = .milliseconds(1000)
+    /// Launch ends, for the watchdog, once the first root view's `.task` has run and the main
+    /// thread has then stayed responsive for this long. CI run 36367196647 showed launch-phase
+    /// stalls past 250 ms up to 3.9 s after launch in Debug UI tests (the first render's type
+    /// resolution, XCUITest attaching its accessibility client), after that first `.task`.
+    public static let launchSettleWindow: Duration = .seconds(2)
+    /// The longest synchronous main-actor stretch allowed anywhere in the launch, load and render
+    /// paths (charter: "No synchronous main-actor work ≥ 50 ms"). Hosted tests hold a Debug build
+    /// to this budget and a Release build to half of it.
+    public static let mainActorStallBudget: Duration = .milliseconds(50)
+    /// The longest a dashboard projection may stay on screen without being recomputed, whatever
+    /// else changes (perf-app-runtime.md §2.3: one term of `validUntil`).
+    public static let dashboardMaxStaleness: Duration = .seconds(900)
+
     // Notifications
     public static let pendingNotificationCap = 60 // headroom under iOS's ~64 (UNVERIFIED)
 

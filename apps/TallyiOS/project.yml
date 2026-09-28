@@ -82,6 +82,14 @@ targets:
         product: TallyFeatures
       - package: TallyAppleKit
         product: TallyIntents
+      # The composition root (`TallyApp.swift`, `AppEnvironment.swift`) imports
+      # TallyDomain and TallySync directly; since perf-app-runtime.md §7 step 7
+      # `.backgroundTask` reaches the account's coordinator through
+      # `AccountRuntime` (TallyFeatures) rather than holding one itself.
+      - package: TallyCore
+        product: TallyDomain
+      - package: TallyCore
+        product: TallySync
       - target: TallyWidgets
         embed: true
 
@@ -130,15 +138,14 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        # Needed once TallyPlatform gained a WidgetKit import (WidgetReloader,
-        # M2 platform-adapters batch): WidgetKit auto-links AppIntents, so
-        # Xcode's App Intents metadata/SSU-training build phases now actually
-        # run for this bundle instead of skipping ("No AppIntents.framework
-        # dependency found"). Without an explicit bundle id, AppIntentsSSUTraining
-        # invokes with a blank `--bundle-id` and fails with "Unable to parse
-        # Info.plist" (confirmed on CI run 36334863817). TallyUITests doesn't
-        # need this: it never links TallyPlatform, so its own extraction step
-        # still skips.
+        # This bundle links AppIntents-containing code two ways: TallyIntents
+        # (RefreshIntentBridge, E04) and TallyPlatform's WidgetKit import
+        # (WidgetReloader, M2 platform-adapters batch; WidgetKit auto-links
+        # AppIntents). Xcode's App Intents metadata/SSU-training build phases
+        # therefore run for it, and without an explicit bundle id
+        # AppIntentsSSUTraining invokes with a blank `--bundle-id` and fails
+        # with "Unable to parse Info.plist" (confirmed on CI run 36334863817).
+        # TallyUITests doesn't need this: it links neither.
         PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.tests
     dependencies:
       - target: Tally
@@ -146,18 +153,23 @@ targets:
         product: TallyPlatform
       - package: TallyAppleKit
         product: TallyFeatures
-      # TallyPlatform depends on these internally, but SwiftPM/Xcode does not
-      # re-export a target's own dependencies to *its* clients: a test file
-      # that imports TallyCanvasAPI/TallyStore/TallyDomain/TallyTestSupport
-      # directly (to build HTTPRequest fixtures, KeyScope, etc.) needs them
+      # TallyPlatform/TallyFeatures depend on these internally, but SwiftPM/Xcode
+      # does not re-export a target's own dependencies to *its* clients: a test
+      # file that imports TallyCanvasAPI/TallyStore/TallyDomain/TallySync/
+      # TallyTestSupport/TallyIntents directly (to build HTTPRequest fixtures,
+      # KeyScope, RefreshCoordinator, RefreshIntentBridge, etc.) needs them
       # linked into TallyAppTests too, or the compile succeeds but the link
       # fails with "Undefined symbols" (confirmed on CI run 36332912599).
+      - package: TallyAppleKit
+        product: TallyIntents
+      - package: TallyCore
+        product: TallyDomain
       - package: TallyCore
         product: TallyCanvasAPI
       - package: TallyCore
         product: TallyStore
       - package: TallyCore
-        product: TallyDomain
+        product: TallySync
       - package: TallyCore
         product: TallyTestSupport
 
