@@ -34,14 +34,45 @@ observed is marked UNVERIFIED.
   with a hosted regression test and a corrected source check.
 - **W-4: O5, O8, O9, O11 and O12 done.** O12's test now asserts on the transport, with a 30 s
   margin and deterministic delegate tests; the old race also failed PR #2's *required* ASan job.
-  **`ios-tsan` is required** from `<TSAN_COMMIT>`, after green full runs 36457770542 and
+  **`ios-tsan` is required** from `d0a94f9`, after green full runs 36457770542 and
   36488159412 (§6).
-- **Hand-off:** code `<HANDOFF_COMMIT>`, full run `<HANDOFF_RUN>` (§2).
+- **Hand-off:** the code is final at `d0a94f9`; this report and the journal are committed on top
+  (docs only). The full hand-off run is on the report's own commit, so its ID and results are in
+  the reply to the PMO, not here.
 - **Mutations:** 13 local and 12 on CI (MR1, run 36465596888, plus MR2 for O11), each caught by the
-  test or gate meant for it; every file restored byte-identical (§5).
+  test or gate meant for it; every file restored byte-identical (§7).
 
 
-## W-1: the widget (plan 06 step 11)
+## 2. Per-package evidence
+
+Required jobs: `hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`, and the ASan job
+(since PR #2, "iOS AddressSanitizer (app tests)"); from `d0a94f9` also `ios-tsan`. Quick runs
+(`-f scope=quick`) run the Linux jobs and ios-build only. "Main" is ios-build's xcresult on the
+newest iOS 26 simulator; "floor" is TallyAppTests on iOS 26.2.
+
+| Package | Commits | CI runs | Job results | Test counts | Mutation checks |
+|---|---|---|---|---|---|
+| W-1 widget | `2a78c1c`, `4012d88`, `43c474f`, `d2dfe76`, `c606b33`, `bfc77a3` | Q2 36442668566; F1 36453374066; F2 36457770542; F3 36488159412; hand-off | Widget link gate and memory budget PASS in all four; F1 ios-tsan aborted in the metric test (§3, "The TSan abort"), fixed by `bfc77a3` | 31 new tests (reader 10, timeline 9, Keychain 6 + `iPhoneOnly`, views 6, memory 1); Linux harness 19 × 3 runs + TSan | Local MWT1-3, MWR1-2, MWS1-2; CI MW1-MW5 (§7) |
+| W-2 ASC-03 | `03b629f` | Q1 36437746888 and every run since | hygiene green; 11 checks PASS | Self-test 17 checks | Local W2; CI W2 (MR1) |
+| W-3 ASC-10 | `06da76c`, `6924e1e`, `0568daa`, `1f39c3e`, `3c8a273`; trigger `82f970e` (removed) | Release gate 36465775989 | Ran to completion: 75 PASS, 18 PENDING, 3 FAIL (§5) | Self-test 16 checks; source 25 PASS, 5 PENDING | Local RM1-RM4 |
+| ASC-F07 fix | `57afb5a` | F3 36488159412 | `iPhoneOnly` passed on iOS 26.5, 26.2 (floor), under TSan and ASan, and on iOS 27 | +1 test | Local RM4 |
+| O5 timeouts | `6b42ec6` | Q1 and every run since | Green | `timeouts` | CI MO5 |
+| O12 TSan race | `92b92f9` | F1, F2, F3 (ios-tsan) | The O12 test passed in every run (0.005 to 1.299 s; its margin is 30 s) | 3 new tests | CI MA5a |
+| O8 second signal | `70daf8a` | Q1 and every run since | The pull test passed in Q1, Q2, F1, F2; F3 failed its old upper bound once (§6) | — | CI MS3 |
+| O9 re-tap, sanitizer waits | `a6e67ca`, `94f5cf9` | F1, F2, F3 | UI tests under ASan: F1 192/192 (app + UI), F2 and F3 `ios-asan-ui` 10/10, 0 ASan reports | — | A helper; its evidence is PR #2's two failures (§6) |
+| O11 step conditions | `3d64bd9` | MR2 36490284006 | The after-failure steps skipped | — | CI MR2 |
+| ios-tsan required | `d0a94f9` | Hand-off | — | — | — |
+
+**The full runs.**
+
+| Run | Head | Required jobs | ios-tsan | Main | Floor | Report-only |
+|---|---|---|---|---|---|---|
+| F1 36453374066 | `b9ddab5` | All green | **Failed**: the metric test aborted under TSan, 0 warnings | 195 total, 193 passed, 2 expected | 185, 183 passed, 2 expected | Xcode 27 195/193; ios-perf 0.0270 s |
+| F2 36457770542 | `8704644` (with `main` @ `fe390ce`) | All green | **Green**: 183 total, 180 passed, 1 skipped, 2 expected; 0 TSan warnings and errors | 196, 194 passed, 2 expected | 186, 184 passed, 2 expected | ASan UI 10/10; Xcode 27 failed once (OI11); ios-perf 0.0417 s |
+| F3 36488159412 | `57afb5a` | ios-build **failed** 1 UI test (the pull test's upper bound, §6); all others green | **Green**: 184 total, 181 passed, 1 skipped, 2 expected; 0 TSan warnings | 197, 194 passed, 1 failed, 2 expected | 187, 185 passed, 2 expected | ASan UI 10/10; Xcode 27 197/195 |
+| Hand-off | this report's commit | In the reply to the PMO | | | | |
+
+## 3. W-1: the widget (plan 06 step 11)
 
 ### What the widget does
 
@@ -146,7 +177,7 @@ TSan's allocator exposes. Three changes followed:
 - `8704644`: ios-tsan now counts TSan errors as well as warnings (this deadly signal printed as
   "reports: 0") and uploads the full log, the xcresult and any crash reports on failure.
 
-## W-2: ASC-03, the privacy-manifest cross-check
+## 4. W-2: ASC-03, the privacy-manifest cross-check
 
 `scripts/ci/check_privacy_manifest.py` runs in the hygiene job (`--self-test`, then the check):
 
@@ -177,7 +208,7 @@ sha256 of the `nsprivacyaccessedapitype` JSON: `19546c6d…a6cf5`).
 `SampleSession.swift:146`, inside `#if DEBUG` (the UI tests' refresh-latency hook), so both
 manifests correctly declare nothing.
 
-## W-3: ASC-10, `release-gate.yml`
+## 5. W-3: ASC-10, `release-gate.yml`
 
 `workflow_dispatch` only (plan 07 §1). Each job writes its results as compliance checks with
 `scripts/ci/check_release.py`; each check has a level and the milestone it is due by. A check due
@@ -221,7 +252,7 @@ Every job ran to completion. The merged `compliance.json` (artifact `compliance`
 | PENDING (M3) | Flows 7, 8, 10, 11, 12, 13 (notifications, permissions, the privacy link, sign-out and erase), each with its owner |
 | PENDING (M5) | Flow 1 (first login with a mock server), flow 4, the Release variants of flows 5 and 6; version variables; owner values (GL-02), counsel (GL-03), the unlinked legacy packages; store metadata; the accessibility audit, the launch metric and screenshots (stubs) |
 
-## W-4: carried-over items
+## 6. W-4: carried-over items
 
 - **O5, transport timeouts (`6b42ec6`).** `URLSessionTransport` now sets
   `timeoutIntervalForRequest` to `TallyConfig.transportRequestTimeout` (30 s without data) and
@@ -253,12 +284,30 @@ Every job ran to completion. The merged `compliance.json` (artifact `compliance`
   for the first element of the next screen, and if it has not appeared while the tapped control is
   still hittable (the same screen) taps once more, recorded as a "Re-tap once: …" activity. The
   slow-refresh tests' sample entry uses it, expecting the SAMPLE DATA banner.
+- **O12, then `ios-tsan` required (`d0a94f9`).** With the fix, ios-tsan was green in two full runs
+  (F2, F3; F1's failure was the separate metric-test abort), so the job is renamed "iOS
+  ThreadSanitizer (TallyAppTests)" and loses `continue-on-error`. The PMO must add the new name to
+  `main`'s required checks (OI9). The old race also failed PR #2's **required** ASan job (run
+  36441939407, job 108994385146: `deliveredChunks` 26, 0 ASan reports): the fix matters for that
+  gate too.
+- **O8 in F3.** The pull test failed its original upper bound once (F3): the pull blocked 33.35 s
+  against 25 s. The new second signal, checked first, passed: the breadcrumb was up when the pull
+  returned, so the 25 s refresh had not landed and the spinner had stopped at the budget; the extra
+  time was XCUITest's gesture synthesis and idle wait on a loaded simulator. It passed in Q1, Q2,
+  F1 and F2. Treated as a UI-timing false error (the owner's triage guidance); the hand-off run is
+  its one re-run.
+- **O9 in practice.** PR #2's run 36434300284 showed both symptoms outside a mutation run: under
+  ASan, "SearchField exists but is not hittable" after 10 s; on Xcode 27, the 12 s test's Refresh
+  tap not taken. `94f5cf9` scales the helpers' waits 3× when a sanitizer runtime is loaded and
+  re-taps the 12 s test's Refresh once. Since then the UI tests passed under ASan in F1 (the
+  pre-split job) and in F2 and F3 (`ios-asan-ui`, 10/10). MR1 shows the symptom once in
+  `SampleDataUITests` (it does not use the re-tap helper; OI13).
 - **O11, step conditions (`3d64bd9`).** ios-build's after-failure steps now need their inputs: the
   floor pick and run need `build_for_testing` to have succeeded (they still run after a red test,
   D8), the Release device build needs a generated project, the binary gates need the device build,
   and the watchdog log needs the picked simulator.
 
-## 5. Mutation checks
+## 7. Mutation checks
 
 Every mutated file was restored byte-identical; the sha256 is the file's pre-mutation value,
 checked again after the restore.
@@ -299,9 +348,16 @@ One more failure in MR1 is not a mutation's: `SampleDataUITests.testWelcomeToSam
 the SAMPLE DATA banner not up 10 s after the sample-entry tap (the O9 symptom in a suite that does
 not use the re-tap helper; recorded, not debugged). The floor run failed the same 8 hosted tests.
 
-**CI, MR2 (O11):** `<MR2_RESULT>`
+**CI, MR2 (O11)** (run 36490284006 on `676a47a`, quick; reverted in `6d97a8c`, `ci.yml` sha256
+`95fdb7d4…335cf` before and after): ios-build's TallyCore step exits 1 at once, a failure before
+the project is generated. Every step that needs the project or the built tests was **skipped**:
+XcodeGen, the builds, the tests, the watchdog log, the floor pick and run, the device build, the
+binary gates, the widget gates and the identity check. Only the always-on summary ("no result
+bundle"), crash-report and upload steps ran. Before O11 (run 36411999390, attempt 1) the floor step
+reported success with nothing built and the device build and binary gate failed for lack of a
+project.
 
-## Shared files I edited (all additive)
+## 8. Shared files I edited (all additive)
 
 | File | Change | Why |
 |---|---|---|
@@ -314,7 +370,7 @@ not use the re-tap helper; recorded, not debugged). The floor run failed the sam
 `DashboardView.swift` (TallyFeatures) was changed only inside the mutation run, and restored
 byte-identical.
 
-## Deviations, with reasons
+## 9. Deviations, with reasons
 
 | # | Brief or plan says | Done instead | Why |
 |---|---|---|---|
@@ -329,7 +385,7 @@ byte-identical.
 | D9 | "Dispatch it once" | Run once through a **temporary** `push` trigger on this branch (`82f970e`), removed in the next commit (`release-gate.yml` is dispatch-only again, identical to `3261c32`) | GitHub refuses to dispatch a workflow that is not on the default branch (HTTP 404, "workflow release-gate.yml not found on the default branch"). After the merge it can be dispatched from `main` |
 | D10 | The memory gate on every run of TallyAppTests | The metric test skips under a sanitizer; `oneTimelineEndToEnd` runs the same work there | Sanitizer allocators make memory metrics meaningless; the TSan abort (above). The gate reads the main run |
 
-## Open items
+## 10. Open items
 
 | # | Item | Owner | Notes |
 |---|---|---|---|
@@ -341,12 +397,14 @@ byte-identical.
 | OI6 | An interactive widget (M3-D) needs an intents target that does not link TallySync: the isolation gates forbid TallyIntents in the widget | M3-D / PMO | |
 | OI7 | Release gate flow 2 (launch with a cache): map M2-C1's `LaunchFromCacheUITests.testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity` and run it in the gate when it merges | PMO / M2-C1 | It is FAIL on this branch by design (due M2, not merged) |
 | OI8 | Release-gate PENDING items: version variables (R19), store metadata, owner values (GL-02), counsel (GL-03), the unlinked pre-rewrite packages and the legacy-cleanup test (they keep `find-placeholders.sh` red), the accessibility audit, the launch metric, screenshots | Owner / PMO / M5 | Stubs, not iterated on (owner guidance) |
-| OI9 | **Add "iOS ThreadSanitizer (TallyAppTests)" to `main`'s required checks** | PMO | §6 |
+| OI9 | **Add "iOS ThreadSanitizer (TallyAppTests)" to `main`'s required checks** | PMO | §6 (O12) |
 | OI10 | **The `ci.yml` merge with M2-C1**: both streams add ios-build steps just before "Verify built app identity", a textual conflict. M2-C1's new UI-test-hooks check uses `!cancelled()` alone; under O11 it should also need `steps.device_build.outcome == 'success'` | Whoever merges second | |
 | OI11 | The Xcode 27 job (report-only) failed `testSlowRefreshShowsTheBreadcrumbThenSelfHeals` once (F2, run 36457770542): the refresh landed ("Updated just now") but the breadcrumb's ~2 s window fell between two slow accessibility queries on the preview simulator. It passed in F1's Xcode 27 run and in every required run | Recorded, not debugged (owner guidance: a UI-timing flake on a report-only job) | |
 | OI12 | The smallest-iPhone step's app launch timed out once on a freshly booted iPhone 16e (Q2, run 36442668566); it passed in every other run | Recorded, not debugged | |
+| OI13 | `SampleDataUITests` and other suites can adopt `tap(_:expecting:)` for their sample-entry and Exit taps (MR1 showed the O9 symptom once in `testWelcomeToSampleDataDashboard`) | The suites' owners | One line per call site |
+| OI14 | The pull test's upper bound (≥ 9 s and < 25 s, from before the pull) includes XCUITest's gesture synthesis; on a loaded simulator it can exceed 25 s while the app behaves (F3). If it recurs, measure the upper bound from the gesture's release, or lengthen the scripted refresh | PMO / app-core | Once in five full or quick runs |
 
-## UNVERIFIED
+## 11. UNVERIFIED
 
 - **The widget process's own peak memory** against its 15 MB design budget. CI measures the hosted
   delta (the test host's absolute peak, 68 MB, is the whole app). It needs a device (Instruments
@@ -366,7 +424,7 @@ byte-identical.
 - **Whether the sanitizer wait scale (3×) ends the ASan UI flakes** seen on PR #2: the UI tests
   under ASan passed in F1 and F2; two runs are two samples.
 
-## Lessons, for the PMO to distill
+## 12. Lessons, for the PMO to distill
 
 I did not run `agent-ecosystem distill`: it commits and pushes outside this worktree, which the
 brief rules out.
