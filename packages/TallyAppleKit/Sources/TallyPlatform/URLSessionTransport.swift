@@ -66,7 +66,7 @@ public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         configuration.timeoutIntervalForRequest = TallyConfig.transportRequestTimeout.timeInterval
-        configuration.timeoutIntervalForResource = TallyConfig.transportResourceTimeout.timeInterval
+        // MUTATION MO5: the resource timeout is not set.
         if let protocolClasses {
             configuration.protocolClasses = protocolClasses + (configuration.protocolClasses ?? [])
         }
@@ -174,7 +174,7 @@ final class TransportTaskDelegate: NSObject, URLSessionDataDelegate, Sendable {
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let http = response as? HTTPURLResponse, response.expectedContentLength <= Int64(maxBodyBytes) else {
+        guard let http = response as? HTTPURLResponse else { // MUTATION MA5a
             state.withLock { $0.refusal = .other }
             completionHandler(.cancel)
             return

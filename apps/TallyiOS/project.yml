@@ -135,6 +135,9 @@ targets:
       # the widget reads the glance only (CI's widget isolation gates).
       - package: TallyAppleKit
         product: TallyGlance
+      # MUTATION MW1: the widget links TallyFeatures.
+      - package: TallyAppleKit
+        product: TallyFeatures
 
   TallyAppTests:
     type: bundle.unit-test

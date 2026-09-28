@@ -32,8 +32,8 @@ public struct WidgetVaultKeyReader: VaultKeyStore {
     }
 
     public func keyIDs(for scope: KeyScope) throws -> [UInt32] {
-        guard scope.audience == .widget else { return [] }
-        var query = baseQuery()
+        var query = baseQuery() // MUTATION MW4: no audience guard, and the service follows the scope
+        query[kSecAttrService as String] = service.replacingOccurrences(of: ".vault.widget", with: ".vault.\(scope.audience.rawValue)")
         query[kSecMatchLimit as String] = kSecMatchLimitAll
         query[kSecReturnAttributes as String] = true
         var result: CFTypeRef?
@@ -49,8 +49,8 @@ public struct WidgetVaultKeyReader: VaultKeyStore {
     }
 
     public func key(id: UInt32, for scope: KeyScope) throws -> SymmetricKey? {
-        guard scope.audience == .widget else { return nil }
-        var query = baseQuery()
+        var query = baseQuery() // MUTATION MW4
+        query[kSecAttrService as String] = service.replacingOccurrences(of: ".vault.widget", with: ".vault.\(scope.audience.rawValue)")
         query[kSecAttrAccount as String] = "\(scope.account).\(id)"
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         query[kSecReturnData as String] = true

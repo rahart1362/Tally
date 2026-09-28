@@ -75,19 +75,12 @@ struct GradeBandBadge: View {
     @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
-        Group {
-            if redactionReasons.contains(.privacy) {
-                Label("Hidden while locked", systemImage: "lock.fill")
-                    .font(TallyTypography.subheadline.weight(.semibold))
-            } else {
-                Text(GlanceText.bandLabel(band))
-                    .font(TallyTypography.screenTitle)
-                    .minimumScaleFactor(GlanceMetrics.bandMinimumScale)
-                    .lineLimit(1)
-                    .privacySensitive()
-            }
-        }
-        .foregroundStyle(TallyColor.textOnHero)
+        // MUTATION MW3: no privacy branch and no .privacySensitive().
+        Text(GlanceText.bandLabel(band))
+            .font(TallyTypography.screenTitle)
+            .minimumScaleFactor(GlanceMetrics.bandMinimumScale)
+            .lineLimit(1)
+            .foregroundStyle(TallyColor.textOnHero)
     }
 }
 
