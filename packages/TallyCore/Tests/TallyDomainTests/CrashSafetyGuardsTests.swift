@@ -10,7 +10,10 @@ import TallyTestSupport
 struct CrashSafetyGuardsTests {
     // MARK: - GradeSanitizing
 
-    @Test func sanePointsRejectsNonFiniteAndNegativeButNotMerelyHuge() {
+    /// R-2 (resilience.md, PMO ruling D2(a)) replaced CS-02's "finite is finite" rule, which this
+    /// test used to pin with `sanePoints(.greatestFiniteMagnitude) == .greatestFiniteMagnitude`:
+    /// a magnitude past 1e50 is now invalid (`BoundedGradeInputTests`).
+    @Test func sanePointsRejectsNonFiniteNegativeAndPastTheCeiling() {
         #expect(GradeSanitizing.sanePoints(100) == 100)
         #expect(GradeSanitizing.sanePoints(0) == 0)
         #expect(GradeSanitizing.sanePoints(nil) == nil)
@@ -18,11 +21,11 @@ struct CrashSafetyGuardsTests {
         #expect(GradeSanitizing.sanePoints(-.infinity) == nil)
         #expect(GradeSanitizing.sanePoints(.nan) == nil)
         #expect(GradeSanitizing.sanePoints(-1) == nil, "points_possible is never negative")
-        // Deliberately NOT rejected: canvas-lms's own "ridiculous circumstances" JS spec uses a
-        // real 1e50-point assignment and expects a *correct* answer, not a dropped one (see
-        // GradeEngineTests.tiesAndUnpointedAndRidiculousTotals). Finite is finite.
+        // Still accepted: canvas-lms's own "ridiculous circumstances" JS spec uses a real
+        // 1e50-point assignment and expects a *correct* answer, not a dropped one (see
+        // GradeEngineTests.tiesAndUnpointedAndRidiculousTotals).
         #expect(GradeSanitizing.sanePoints(1e50) == 1e50)
-        #expect(GradeSanitizing.sanePoints(.greatestFiniteMagnitude) == .greatestFiniteMagnitude)
+        #expect(GradeSanitizing.sanePoints(.greatestFiniteMagnitude) == nil)
     }
 
     @Test func saneScoreAllowsSmallNegativeButRejectsNonFiniteAndAbsurd() {

@@ -47,7 +47,7 @@ public struct LinkedUsersUseCase: Sendable {
 
     private func fetch(path: String) async throws(LinkManagementError) -> [ObservedUser] {
         let data: Data
-        do { data = try await client.fetchOne(path: path, query: FamilyEndpoints.observedUsersQuery) }
+        do { data = try await client.fetchOne(path: path, query: FamilyEndpoints.observedUsersQuery, budget: FamilyEndpoints.requestBudget) }
         catch { throw .network(error) }
         do { return try ObservedUserMapper.map(data) } catch { throw .network(.contract) }
     }
@@ -77,7 +77,7 @@ public struct CreateInviteUseCase: Sendable {
         }
 
         let response: HTTPResponse
-        do { response = try await client.perform(method: .post, path: FamilyEndpoints.pairingCodesPath) }
+        do { response = try await client.perform(method: .post, path: FamilyEndpoints.pairingCodesPath, budget: FamilyEndpoints.requestBudget) }
         catch { throw .network(error) }
 
         guard (200..<300).contains(response.status) else {
@@ -112,7 +112,7 @@ public struct AddStudentByCodeUseCase: Sendable {
         let response: HTTPResponse
         do {
             response = try await client.perform(method: .post, path: FamilyEndpoints.observeesPath,
-                                                body: body, contentType: FormBody.contentType)
+                                                body: body, contentType: FormBody.contentType, budget: FamilyEndpoints.requestBudget)
         } catch { throw .network(error) }
 
         guard (200..<300).contains(response.status) else {
@@ -142,7 +142,8 @@ public struct UnlinkStudentUseCase: Sendable {
         guard familyCapable else { throw .scopeMissing }
         let response: HTTPResponse
         do {
-            response = try await client.perform(method: .delete, path: FamilyEndpoints.observeePath(observeeCanvasUserID))
+            response = try await client.perform(method: .delete, path: FamilyEndpoints.observeePath(observeeCanvasUserID),
+                                                budget: FamilyEndpoints.requestBudget)
         } catch { throw .network(error) }
         guard (200..<300).contains(response.status) || response.status == 404 else {
             if response.status == 401 { throw .scopeMissing }

@@ -420,3 +420,37 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - `DashboardViewState.swift:84/125/142` has the same traps; it is deleted in step 6.
 - `WelcomeFlowView.swift:98/107`: `path.removeLast()` traps on an empty path.
 - Bridge the logger into `OSLogPlatformLogger`.
+
+## 2026-09-28 | Perf/crash program merge: m2/resilience, CS-08 (resilience engineer; PMO verified)
+**Merged**:
+- **R-1, rate limits.** A persistent 429 is a bounded retry. It stops after `CanvasClient.maxRateLimitRetries` = 4, obeys `Retry-After` (seconds and HTTP-date), backs off exponentially from a floor, and never waits past the budget. Family-link calls have a 10 s budget. Before the fix: 1,501 requests in 4 s. After: 4-5 requests.
+- **R-2, grade inputs bounded** (D2a). A non-zero magnitude above 1e50 is invalid; one below 1e-6 becomes 0.
+- **R-2b, drop-rule search.** It finds the root q* first (Dinkelbach), steps through the same midpoints and evaluates big_f once. The worst bounded cases went from 43-170 ms to 2-6 ms in release, and `gradeEngineAllCourses/stress` from 71.4 to 41.4 ms.
+- **R-3.** One "Needs attention" row per ID.
+- **R-4.** Hardened entry points (clamps, negative caps). `ChangeDigest` keeps the first occurrence.
+- **R-5.** Named step caps on the `GoalSeek` and drop-rule loops. A lost progress guard now fails in 0.031 s instead of hanging.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 607 tests (Sync 40, Store 71, Perf 8, Domain 293 with the 4 known issues, CanvasAPI 195), 0 failures.
+- `make lint`: 0 violations in 123 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 607 tests each.
+- `make core-perf`: 39 tests pass.
+  - The bounded worst-case gate: medians 2.21-6.34 ms against a 50 ms ceiling.
+  - `gradeEngineAllCourses/stress` 41.4 ms; `DropRuleSelection` share 58%, down from 74%.
+  - `dashboardBuild/stress` 5.03 ms.
+
+**PMO mutations** (each restored byte-identical):
+- Q1, the root comparison's tie rule flipped: caught by `aMidpointExactlyOnTheRootGoesTheSameWay` against the verbatim legacy code.
+- Q2, the rate-limit cap raised to 1000: caught by `theF6ReproductionNowMakesAtMostTheCapsRequests` and others.
+- Q3, attention de-duplication removed: caught by `AttentionUniquenessTests`.
+
+**PMO ruling**: R-2b is **accepted**. It keeps the exact legacy midpoints and final evaluation. The differential test compares it index for index with the legacy code over every fixture group, 3,000 seeded groups, boundary groups, ties and root-midpoint cases. `GradeParityTests`, `GradeEngineTests` and `GoalSeekTests` are unchanged and pass. It falls back to per-step evaluation when a total is negative or there is no convergence in 64 rounds.
+**Smaller rulings accepted**:
+- `ReminderPlanner` never returns more than its cap, including the reserved slots.
+- R-3's "then the earliest" means first in order.
+
+**Still open**:
+- D2b (app layer): even within the bounds, a worst-case `GoalSeek` takes 144-268 ms in release. It must run off the main actor and be cancellable; the app-core A8 `GradeWork` does this.
+- Rows of equal rank from different courses change order between launches.
+- Grading-period weights are not sanitized.
+- Transport timeouts sit in the app layer.

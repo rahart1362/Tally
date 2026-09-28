@@ -84,12 +84,14 @@ struct CanvasClientTests {
         #expect(refresher.callCount == 0)
     }
 
+    /// R-1: the budget is now measured on the real clock here, so it goes through `TestTimeBudget`
+    /// (a sanitizer lane can starve this test for seconds; the default is the same 10 s).
     @Test func serverErrorRetriesTwiceThenSucceeds() async throws {
         let transport = try ReplayTransport.persona("flagship")
         await transport.inject(response: try ReplayTransport.errorResponse("500-internal-server-error"), times: 2,
                                matching: { $0.url.path == "/api/v1/users/self/profile" })
         let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff())
-        let data = try await client.fetchOne(path: "/api/v1/users/self/profile")
+        let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: TestTimeBudget.seconds(10))
         #expect(!data.isEmpty)
     }
 
@@ -103,12 +105,14 @@ struct CanvasClientTests {
         }
     }
 
+    /// R-1: as above, the real-clock budget goes through `TestTimeBudget`. Before R-1 the budget
+    /// was never measured, and under `make core-tsan` this test once took 9.5 s.
     @Test func rateLimitedRetriesThenSucceeds() async throws {
         let transport = try ReplayTransport.persona("flagship")
         await transport.inject(response: try ReplayTransport.errorResponse("429-rate-limit-exceeded"), times: 2,
                                matching: { $0.url.path == "/api/v1/users/self/profile" })
         let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff())
-        let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: .seconds(5))
+        let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: TestTimeBudget.seconds(5))
         #expect(!data.isEmpty)
     }
 
