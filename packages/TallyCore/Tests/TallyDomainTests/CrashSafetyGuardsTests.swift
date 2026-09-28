@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TallyTestSupport
 @testable import TallyDomain
 
 /// CS-02 (crash-safety.md): a focused regression test per must-fix, each of which is a
@@ -88,7 +89,7 @@ struct CrashSafetyGuardsTests {
         // instrumentation overhead (CS-04) while still catching a genuine hang, which this
         // bisection would turn into if the ~340-step count instead scaled with the point
         // value's *square* without a cap.
-        #expect(elapsed < .seconds(30), "a single corrupt points_possible must never turn into a hang")
+        #expect(elapsed < TestTimeBudget.seconds(30), "a single corrupt points_possible must never turn into a hang")
     }
 
     // MARK: - PriorityScore.reasonText: Int(Double) on a non-finite hour/weight value

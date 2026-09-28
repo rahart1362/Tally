@@ -354,3 +354,11 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - `GradeEngine` stress is 70 ms, 74% of it `DropRuleSelection`, which is parity-critical and left unchanged.
 
 **New crash risk (PERF-05 finding, PMO confirmed by grep)**: `Dictionary(uniqueKeysWithValues:)` over Canvas-derived collections traps on a duplicate ID. It appears in `GlanceProjection`, `DashboardProjection` (3 sites), `ChangeDigest` and `NotificationReconciler`, and on `m2/app-core` in `DashboardViewState` (3 sites). This is dispatched as CS-07 (`m2/crash-safety-2`).
+
+## 2026-09-27 | PMO: CI red on 57ce02e, a hang-detector timing flake (fixed)
+**Symptom**: run 36368653168 failed `ios-build` (TallyCore tests on Xcode 26.6) and `core-sanitizers` (TSan). Both came from the same assertion: `gradeEngineAndDropRuleSelectionNeverCrashOnPoisonValues`, case 3 (`.greatestFiniteMagnitude`). It took 47.8 s on the macOS runner against a 45 s budget. It had already taken 43.98 s in the previous green run, so it was not caused by the PERF-05 merge. TSan on the 2-vCPU Linux runner exceeded 45 s as well.
+**PMO measurements (Linux, pinned 6.4)**: the same test takes 2.48 s for all 8 cases in debug and 0.174 s in release. The macOS debug build is about 20x slower. A release timing on Apple silicon is now collected by the new non-blocking job `core-perf-apple`, to rule out a production cost.
+**Fix**:
+- `TallyTestSupport/TestTimeBudget` scales every crash-safety hang budget by `TALLY_TEST_TIME_SCALE`: 1 by default; 10 in the Makefile sanitizer targets; 4 in CI's macOS TallyCore step. Values below 1, or unparsable ones, are ignored, so a budget can never be tightened. A probe test checked that: empty→1, 4→180 s, 10→450 s, 0.5→1, abc→1.
+- The budgets stay as they were written for local and Linux runs.
+**Evidence**: `make core-test` 523 tests, 0 failures; `make lint` 0 violations.

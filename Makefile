@@ -34,7 +34,10 @@ core-perf: core-deps ## PERF-01: run TallyPerfTests in release mode (real number
 # --network none, --rm container; core-build/core-test/core-deps are unaffected.
 TSAN_SCRATCH := /repo/packages/TallyCore/.build-tsan
 ASAN_SCRATCH := /repo/packages/TallyCore/.build-asan
-RUN_SANITIZED = $(CONTAINER) run --rm --network none --security-opt seccomp=unconfined -v $(CURDIR):/repo:Z -w /repo/packages/TallyCore $(SWIFT_IMAGE)
+# Sanitized builds run 5-15x slower, so the tests' hang-detector budgets are scaled up
+# (TallyTestSupport/TestTimeBudget.swift).
+SANITIZER_TIME_SCALE ?= 10
+RUN_SANITIZED = $(CONTAINER) run --rm --network none --security-opt seccomp=unconfined -e TALLY_TEST_TIME_SCALE=$(SANITIZER_TIME_SCALE) -v $(CURDIR):/repo:Z -w /repo/packages/TallyCore $(SWIFT_IMAGE)
 
 .PHONY: core-tsan core-asan core-tsan-deps core-asan-deps
 
@@ -50,6 +53,7 @@ core-tsan: core-tsan-deps ## Run every TallyCore test under ThreadSanitizer
 core-asan: core-asan-deps ## Run every TallyCore test under AddressSanitizer + LeakSanitizer
 	$(CONTAINER) run --rm --network none --security-opt seccomp=unconfined \
 		-e LSAN_OPTIONS=suppressions=/repo/packages/TallyCore/lsan-suppressions.txt \
+		-e TALLY_TEST_TIME_SCALE=$(SANITIZER_TIME_SCALE) \
 		-v $(CURDIR):/repo:Z -w /repo/packages/TallyCore $(SWIFT_IMAGE) \
 		bash -c 'setarch $$(uname -m) -R swift test --sanitize=address --scratch-path $(ASAN_SCRATCH)'
 
