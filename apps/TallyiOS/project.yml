@@ -82,11 +82,10 @@ targets:
         product: TallyFeatures
       - package: TallyAppleKit
         product: TallyIntents
-      # E04: the composition root wires `.backgroundTask`/`RefreshTallyIntent`
-      # to `AppModel.refreshCoordinator` directly (`TallyApp.swift`), which
-      # means this target needs `RefreshTrigger` (TallyDomain) and
-      # `RefreshCoordinator` (TallySync) in scope, not just transitively
-      # through `TallyFeatures`.
+      # The composition root (`TallyApp.swift`, `AppEnvironment.swift`) imports
+      # TallyDomain and TallySync directly; since perf-app-runtime.md §7 step 7
+      # `.backgroundTask` reaches the account's coordinator through
+      # `AccountRuntime` (TallyFeatures) rather than holding one itself.
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore

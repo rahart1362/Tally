@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TallyCanvasAPI
+import TallyDomain
 @testable import TallyPlatform
 
 /// E03b: OSLogLogger (typed events, extended in this batch), ProtectionState,
@@ -25,6 +26,25 @@ struct PlatformAdaptersTests {
         logger.log(.notificationCategoriesRegistered(count: 1))
         logger.log(.protectedDataDidBecomeAvailable)
         logger.log(.protectedDataDidBecomeUnavailable)
+        logger.log(.notificationsNotAuthorized)
+        logger.log(.duplicateIDsDropped(collection: .assignments, count: 2))
+    }
+
+    /// Plan 06 A8: TallyCore's logging port (CS-07 D1) reaches the unified log through this
+    /// adapter; each `LogEvent` maps to its platform event with the same collection and count.
+    @Test("TallyCore's LogEvent maps onto PlatformLogEvent, and the adapter logs it as a TallyLogger")
+    func tallyLoggerBridge() {
+        let logger: any TallyLogger = OSLogPlatformLogger()
+        for collection in SnapshotCollection.allCases {
+            let event = LogEvent.duplicateIDsDropped(collection, count: 3)
+            guard case .duplicateIDsDropped(let mappedCollection, let mappedCount) = PlatformLogEvent(event) else {
+                Issue.record("\(event) mapped to another platform event")
+                continue
+            }
+            #expect(mappedCollection == collection)
+            #expect(mappedCount == 3)
+            logger.log(event)
+        }
     }
 
     @Test("TransportError -> category string mapping is total and stable (mutation-guarded)")

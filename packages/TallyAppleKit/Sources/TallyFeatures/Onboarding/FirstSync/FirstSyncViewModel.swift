@@ -7,6 +7,10 @@ import TallyDomain
 /// turns its events into what the skeleton view needs: which phases are
 /// done, whether it's finished or failed, and whether the "large course
 /// loads" notice should show.
+/// Explicitly `@MainActor` (plan 06 A2): a class that only inherits the module's default
+/// isolation took the isolated-deinit path that crashes iOS 26.0-26.3 runtimes
+/// (swiftlang/swift#88036); the explicit annotation keeps `deinit` nonisolated.
+@MainActor
 @Observable
 public final class FirstSyncViewModel {
     public static let allPhases = FirstSyncPhase.allCases

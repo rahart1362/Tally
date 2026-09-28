@@ -41,6 +41,10 @@ let package = Package(
                 .product(name: "TallyDomain", package: "TallyCore"),
                 .product(name: "TallyCanvasAPI", package: "TallyCore"),
                 .product(name: "TallyStore", package: "TallyCore"),
+                // Plan 06 A4: `UNNotificationScheduler` conforms to TallySync's
+                // `NotificationScheduling`, the port `NotificationReconciler` drives
+                // (architecture.md §3.1: TallySync <- TallyPlatform is an expected edge).
+                .product(name: "TallySync", package: "TallyCore"),
                 "TallyFeatures",
             ]
         ),
@@ -55,18 +59,12 @@ let package = Package(
         // TallyPlatform/TallyFeatures/TallyIntents" — TallyCanvasAPI, TallyStore
         // and TallySync are therefore expected edges, not a deviation.
         //
-        // TallyTestSupport is the one addition beyond that graph (disclosed,
-        // WP ASC-14): "Explore with Sample Data" needs a replay-backed
-        // CanvasGateway over the bundled flagship persona, and
-        // `TallyTestSupport.ReplayTransport`/`RouteFixture` are the already-
-        // merged, already-tested pieces that do exactly that (architecture.md
-        // §3.1 lists `ReplayTransport` under `TallyTestSupport` precisely for
-        // Linux/demo replay). The app never ships `TallyTestSupport`'s fixture
-        // *loader* (`Fixtures.root()`, which resolves a source-tree path that
-        // does not exist on a device) — only `ReplayTransport` itself, driven
-        // by routes and a root URL the sample-data code resolves via
-        // `Bundle.module` from this target's own `CanvasFixtures` resource
-        // (below), not the app's `project.yml`.
+        // TallyReplay (plan 06 A1): "Explore with Sample Data" (ASC-14) needs a replay-backed
+        // CanvasGateway over the bundled flagship persona. `TallyReplay.ReplayTransport` is that
+        // transport and nothing more: routes plus a root URL, which the sample-data code resolves
+        // through `Bundle.module` from this target's own `CanvasFixtures` resource (below). It
+        // replaced the TallyTestSupport dependency, so no test code (fixture loaders, `try!`,
+        // `#filePath`, fakes) links into the shipping app; CI's link-map gate checks that.
         .target(
             name: "TallyFeatures",
             dependencies: [
@@ -80,7 +78,7 @@ let package = Package(
                 .product(name: "TallyCanvasAPI", package: "TallyCore"),
                 .product(name: "TallyStore", package: "TallyCore"),
                 .product(name: "TallySync", package: "TallyCore"),
-                .product(name: "TallyTestSupport", package: "TallyCore"),
+                .product(name: "TallyReplay", package: "TallyCore"),
                 // perf-app-runtime.md §7 step 1: `AppModel` sets and clears
                 // `RefreshIntentBridge` when it attaches to or detaches from an account's
                 // coordinator, instead of `TallyApp.body` doing it as a side effect. The widget

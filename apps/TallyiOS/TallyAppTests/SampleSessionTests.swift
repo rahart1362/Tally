@@ -56,8 +56,10 @@ struct SampleSessionTests {
           .timeLimit(.minutes(1)))
     func slowRefreshTurnsDelayedThenFresh() async throws {
         let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Date())
+        // Wide margins, so a busy CI machine cannot blur the order: the budget passes at 200 ms,
+        // the refresh lands at 1.5 s.
         let session = SampleSession(clock: SystemDateProvider(), liveRefreshBudget: .milliseconds(200)) {
-            CountingGateway(snapshot: snapshot, latency: .milliseconds(700))
+            CountingGateway(snapshot: snapshot, latency: .milliseconds(1_500))
         }
         let updates = await session.updates()
         let started = ContinuousClock.now
@@ -80,7 +82,7 @@ struct SampleSessionTests {
         await refresh.value
         #expect(sequence == ["noCache", "refreshing", "delayed", "fresh"], "\(sequence)")
         let after = try #require(delayedAfter)
-        #expect(after >= .milliseconds(190) && after < .milliseconds(650), "delayed after \(after)")
+        #expect(after >= .milliseconds(190) && after < .milliseconds(1_200), "delayed after \(after)")
         await session.end()
     }
 

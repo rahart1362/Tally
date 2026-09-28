@@ -13,10 +13,14 @@ only_rules:
   - force_try
   - force_cast
   - implicitly_unwrapped_optional
+  - custom_rules
 
+# Plan 06 A6: the app targets are shipping code too (their test targets are not).
 included:
   - packages/TallyCore/Sources
   - packages/TallyAppleKit/Sources
+  - apps/TallyiOS/Tally
+  - apps/TallyiOS/TallyWidgets
 
 excluded:
   # Test support code (fixture/fake infrastructure only test targets link against), not
@@ -24,3 +28,16 @@ excluded:
   # Its one `try!` (loading a bundled test fixture) is documented and intentional: see
   # docs/pmo/reviews/crash-safety.md's CS-01 findings table.
   - packages/TallyCore/Sources/TallyTestSupport
+
+# Plan 06 A6: shipping code never traps on purpose. The one exception is the DEBUG-only
+# main-thread watchdog (perf-app-runtime.md §5.1), whose `fatalError` is its whole job and which
+# is compiled only under `#if DEBUG`. `match_kinds: identifier` skips comments and strings.
+custom_rules:
+  no_fatal_error:
+    name: "No fatalError in shipping code"
+    regex: '\bfatalError\s*\('
+    match_kinds:
+      - identifier
+    excluded: 'TallyPlatform/MainThreadWatchdog\.swift$'
+    message: "Shipping code must not trap: return an error or a safe default (plan 06 A6). Only the DEBUG main-thread watchdog may call fatalError."
+    severity: error

@@ -28,9 +28,10 @@ public actor SampleSession: HomeDataSource {
     private var nextSubscriberID: UInt64 = 0
     private var hasEnded = false
 
-    /// The production sample session: the bundled flagship persona, never the network.
-    public init(clock: any DateProviding = SystemDateProvider()) {
-        self.init(clock: clock, makeGateway: { try await SampleDataCanvasGateway.make(dateProvider: clock) })
+    /// The production sample session: the bundled flagship persona, never the network. `logger`
+    /// receives the gateway's privacy-safe events (plan 06 A8).
+    public init(clock: any DateProviding = SystemDateProvider(), logger: any TallyLogger = NoOpLogger()) {
+        self.init(clock: clock, makeGateway: { try await SampleDataCanvasGateway.make(dateProvider: clock, logger: logger) })
     }
 
     /// Tests inject the gateway factory and the live-refresh budget.

@@ -2,29 +2,6 @@ import SwiftUI
 import TallyCanvasAPI
 import TallyDesignSystem
 
-/// Every place the onboarding flow can lead *inside* the welcome `NavigationStack`: plain pushed
-/// pages only. Associated values are primitives (never the full `InstitutionMatch`/
-/// `ClientRegistration`), so the route stays trivially `Hashable` without asking those
-/// `TallyCanvasAPI` types to conform.
-///
-/// ASC-14's "Explore with Sample Data" is deliberately **not** a case here: sample data is a root
-/// route (`RootRoute.sample`), because the Home shell is a `TabView` and a pushed `TabView` does
-/// not render (see `HomeShellView`).
-enum WelcomeRoute: Hashable {
-    case findSchool
-    /// A search result or typed address had no `ClientRegistry` entry
-    /// (UX-WP-08; ux-ui.md §3.2.1's "not enabled" row).
-    case schoolNotEnabled(school: String)
-    /// A chosen school is enabled: on to the sign-in hand-off (UX-WP-09).
-    case signIn(host: String, clientID: String, schoolDisplayName: String)
-    /// A real `CanvasCredential` was obtained: on to the first-sync skeleton (UX-WP-10).
-    case firstSync(schoolDisplayName: String)
-    /// The skeleton's publisher reported `.finished`. The root switch to the signed-in Home
-    /// (`AppModel.completeSignIn(_:)`) needs the account session from sign-in's first sync
-    /// (perf-app-runtime.md §7 step 9), so this plain page is as far as onboarding goes today.
-    case signedIn(schoolDisplayName: String)
-}
-
 /// `RootRoute.welcome`: onboarding's `NavigationStack` (Welcome, school search, sign-in hand-off,
 /// first sync), per the iOS 26 navigation shell in ux-ui.md §3.4. `RootView` creates a new
 /// instance each time the route becomes `.welcome`, so the stack's path always starts empty.
@@ -95,7 +72,8 @@ struct WelcomeFlowView: View {
                         path.append(.firstSync(schoolDisplayName: schoolDisplayName))
                     }
                 ),
-                onChooseDifferentSchool: { path.removeLast() }
+                // Only while this page is on top (plan 06 A8): never traps on an empty path.
+                onChooseDifferentSchool: { WelcomePath.pop(route, from: &path) }
             )
         case .firstSync(let schoolDisplayName):
             FirstSyncSkeletonView(
@@ -103,10 +81,7 @@ struct WelcomeFlowView: View {
                     schoolDisplayName: schoolDisplayName,
                     publisher: UnavailableFirstSyncPublisher()
                 ),
-                onRetry: {
-                    path.removeLast()
-                    path.append(.firstSync(schoolDisplayName: schoolDisplayName))
-                },
+                onRetry: { WelcomePath.restart(route, in: &path) },
                 onFinished: {
                     path.append(.signedIn(schoolDisplayName: schoolDisplayName))
                 }

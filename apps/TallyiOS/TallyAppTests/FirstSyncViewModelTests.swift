@@ -37,9 +37,11 @@ struct FirstSyncViewModelTests {
     @Test("A failure is reported and never overwritten by a later slow-load notice")
     func failureIsReported() async {
         let publisher = FakeFirstSyncPublisher(events: [.failed(.offline)])
+        // The event is delivered at once; the threshold is far enough out that a busy main actor
+        // cannot let the timer win (a 20 ms threshold flaked under parallel load).
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
-                                           slowLoadThreshold: .milliseconds(20))
-        try? await Task.sleep(for: .milliseconds(80))
+                                           slowLoadThreshold: .milliseconds(500))
+        try? await Task.sleep(for: .milliseconds(800))
         #expect(viewModel.failure == .offline)
         #expect(!viewModel.showsSlowLoadNotice)
     }
@@ -50,7 +52,7 @@ struct FirstSyncViewModelTests {
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
                                            slowLoadThreshold: .milliseconds(20))
         #expect(!viewModel.showsSlowLoadNotice)
-        try? await Task.sleep(for: .milliseconds(80))
+        try? await Task.sleep(for: .milliseconds(500)) // well past the 20 ms threshold
         #expect(viewModel.showsSlowLoadNotice)
     }
 
@@ -60,9 +62,11 @@ struct FirstSyncViewModelTests {
             .phaseCompleted(.profileAndCourses), .phaseCompleted(.grades),
             .phaseCompleted(.dueItems), .phaseCompleted(.calendar), .finished,
         ])
+        // As above: the finish arrives at once, far ahead of the threshold (30 ms flaked 3 in 5
+        // under parallel load on the Linux harness).
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
-                                           slowLoadThreshold: .milliseconds(30))
-        try? await Task.sleep(for: .milliseconds(100))
+                                           slowLoadThreshold: .milliseconds(500))
+        try? await Task.sleep(for: .milliseconds(800))
         #expect(viewModel.isFinished)
         #expect(!viewModel.showsSlowLoadNotice)
     }

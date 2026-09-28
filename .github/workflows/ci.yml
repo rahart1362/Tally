@@ -47,6 +47,25 @@ jobs:
             echo "::error::Banned pattern in shipping code (lines above)"
             exit 1
           fi
+      - name: LAContext is used only through its async API (PL-03)
+        # Plan 06 A3: a callback-style evaluatePolicy/evaluateAccessControl reply closure formed
+        # in main-actor code is main-actor isolated, and SE-0423's dynamic check traps when
+        # LocalAuthentication calls it on its own queue. Every call must be `try await`.
+        run: |
+          if git grep -nE '\bevaluate(Policy|AccessControl)\(' -- packages apps ':!*Tests/*' | grep -v 'await '; then
+            echo "::error::LAContext callback API in app code (lines above); use try await"
+            exit 1
+          fi
+      - name: Grade math runs only through GradeWork (off the main actor, cancellable)
+        # Plan 06 A8, crash-safety-2.md decision D2(b): GradeEngine/GoalSeek/WhatIfSimulator can
+        # take seconds to minutes on extreme inputs, so app code calls them only via GradeWork.
+        run: |
+          if git grep -nE '\b(GradeEngine\.scores|WhatIfSimulator\.scores|GoalSeek\.solve)\(' -- \
+              packages/TallyAppleKit/Sources apps/TallyiOS/Tally apps/TallyiOS/TallyWidgets \
+              ':!packages/TallyAppleKit/Sources/TallyFeatures/Grades/GradeWork.swift'; then
+            echo "::error::Grade math called directly in app code (lines above); use GradeWork"
+            exit 1
+          fi
       - name: No nonisolated(unsafe) in TallyAppleKit
         # perf-app-runtime.md section 7 step 7: TaskBox (a Mutex-backed Sendable box) replaced
         # the last unchecked stored task, so the compiler checks all of TallyAppleKit's state.
@@ -291,14 +310,56 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Build for iOS device (Release, unsigned)
+        # Also after a test failure, so a red test never hides a link or nm regression below.
+        if: ${{ !cancelled() }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
           xcodebuild build -project Tally.xcodeproj -scheme Tally \
             -destination 'generic/platform=iOS' -configuration Release \
-            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO LD_GENERATE_MAP_FILE=YES \
             | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-device.log"
+      - name: Shipping binaries link no test code and no isolated deinit (plan 06 A1, A2)
+        if: ${{ !cancelled() }}
+        # A1: TallyTestSupport (fixture loaders, try!, #filePath, fakes) must not be linked into
+        # the Release app; sample mode uses TallyReplay. A2: no binary may reference
+        # swift_task_deinitOnExecutor (isolated deinit), which crashes iOS 26.0-26.3 runtimes
+        # (swiftlang/swift#88036, fixed in 26.4).
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/dd/Build/Products"
+          fail=0
+          map="$(find "$RUNNER_TEMP/dd/Build/Intermediates.noindex" -name 'Tally-LinkMap-*-arm64.txt' | head -1)"
+          if [ -z "$map" ]; then echo "::error::no link map for the Release app"; exit 1; fi
+          replay="$(grep -c 'TallyReplay' "$map" || true)"
+          support="$(grep -c 'TallyTestSupport' "$map" || true)"
+          echo "Release app link map: $map ($(wc -l < "$map") lines; TallyReplay lines: $replay; TallyTestSupport lines: $support)"
+          if [ "$support" != "0" ]; then
+            grep -n 'TallyTestSupport' "$map" > "$RUNNER_TEMP/support-hits.txt" || true
+            head -5 "$RUNNER_TEMP/support-hits.txt"
+            echo "::error::TallyTestSupport is linked into the Release app (lines above)"; fail=1
+          fi
+          app="$products/Release-iphoneos/Tally.app"
+          otool -L "$app/Tally" > "$RUNNER_TEMP/otool-L.txt"
+          cat "$RUNNER_TEMP/otool-L.txt"
+          if grep -q TallyTestSupport "$RUNNER_TEMP/otool-L.txt"; then
+            echo "::error::the Release app loads TallyTestSupport"; fail=1
+          fi
+          checked=0
+          for bundle in "$app" "$products/Debug-iphonesimulator/Tally.app"; do
+            while IFS= read -r binary; do
+              if xcrun nm -u "$binary" > "$RUNNER_TEMP/nm.txt" 2>/dev/null; then
+                checked=$((checked + 1))
+                if grep -q swift_task_deinitOnExecutor "$RUNNER_TEMP/nm.txt"; then
+                  echo "::error::$binary references swift_task_deinitOnExecutor (isolated deinit)"; fail=1
+                fi
+              fi
+            done < <(find "$bundle" -type f \( -perm -u+x -o -name '*.dylib' \))
+          done
+          echo "Mach-O binaries checked for swift_task_deinitOnExecutor: $checked (Release and Debug apps, their extensions and debug dylibs)"
+          if [ "$checked" -lt 2 ]; then echo "::error::fewer binaries than expected were checked"; fail=1; fi
+          exit $fail
       - name: Verify built app identity
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
@@ -316,6 +377,72 @@ jobs:
             ${{ runner.temp }}/ios/*.log
             ${{ runner.temp }}/ios/*.xcresult
           retention-days: 7
+
+  ios-tsan:
+    name: iOS ThreadSanitizer (TallyAppTests; report-only until first green)
+    runs-on: macos-26
+    timeout-minutes: 60
+    # Plan 06 A7: required once it is first green (PMO).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-tsan (fails on a test failure or any ThreadSanitizer report)
+        run: make ios-tsan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: ThreadSanitizer reports (count, then the first in full)
+        if: always()
+        run: |
+          echo "ThreadSanitizer reports: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
+          grep -n -A40 -m1 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+
+  ios-asan:
+    name: iOS AddressSanitizer (app + UI tests; report-only until first green)
+    runs-on: macos-26
+    timeout-minutes: 75
+    # Plan 06 A7: required once it is first green (PMO).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-asan (fails on a test failure or any AddressSanitizer report)
+        run: make ios-asan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: AddressSanitizer reports (count, then the first in full)
+        if: always()
+        run: |
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
 
   ios-perf:
     name: iOS perf budgets (Release, non-blocking)

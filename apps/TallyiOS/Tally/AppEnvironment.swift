@@ -33,8 +33,11 @@ struct AppEnvironment {
     /// the right actor.
     @MainActor
     static func live() -> AppEnvironment {
+        // One `os.Logger` adapter for the platform's own events and for TallyCore's logging port
+        // (plan 06 A8: `OSLogPlatformLogger` conforms to both).
+        let logger = OSLogPlatformLogger()
         let accountRuntime = AccountRuntime()
-        return AppEnvironment(logger: OSLogPlatformLogger(), webAuthPresenter: WebAuthPresenter(),
-                              accountRuntime: accountRuntime, appModel: AppModel(accountRuntime: accountRuntime))
+        return AppEnvironment(logger: logger, webAuthPresenter: WebAuthPresenter(), accountRuntime: accountRuntime,
+                              appModel: AppModel(accountRuntime: accountRuntime, logger: logger))
     }
 }

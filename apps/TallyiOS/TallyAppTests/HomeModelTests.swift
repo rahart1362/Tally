@@ -176,11 +176,13 @@ struct HomeModelTests {
 
     @Test("pull-to-refresh returns at the live budget while a slow refresh runs; the refresh still lands")
     func pullToRefreshReturnsAtTheBudget() async throws {
-        let (model, source) = try await Self.startedModel(latency: .milliseconds(900))
+        // Wide margins, so a busy CI machine cannot blur the two outcomes: the budget passes at
+        // 200 ms, the refresh lands at 2 s.
+        let (model, source) = try await Self.startedModel(latency: .seconds(2))
         let started = ContinuousClock.now
         await model.refreshUntilSettledOrDelayed(budget: .milliseconds(200))
         let waited = ContinuousClock.now - started
-        #expect(waited >= .milliseconds(200) && waited < .milliseconds(800), "returned after \(waited)")
+        #expect(waited >= .milliseconds(200) && waited < .milliseconds(1_500), "returned after \(waited)")
         #expect(await source.manualLanded == 0, "returned only once the refresh had landed")
 
         #expect(try await Self.landed(source, 1), "the refresh never landed")
@@ -201,7 +203,8 @@ struct HomeModelTests {
     /// fetch, so the view's `.refreshable` task must never be the run's owner.
     @Test("cancelling the pull-to-refresh task ends the wait at once; the refresh still commits")
     func cancellingThePullDoesNotCancelTheRefresh() async throws {
-        let (model, source) = try await Self.startedModel(latency: .milliseconds(500))
+        // The refresh lands 1.5 s after the pull, far past the 300 ms a cancelled pull may take.
+        let (model, source) = try await Self.startedModel(latency: .milliseconds(1_500))
         let pull = Task { await model.refreshUntilSettledOrDelayed(budget: .seconds(10)) }
         try await Task.sleep(for: .milliseconds(100))
         let cancelledAt = ContinuousClock.now

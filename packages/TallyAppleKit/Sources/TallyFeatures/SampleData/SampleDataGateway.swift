@@ -1,7 +1,8 @@
 import Foundation
+import Synchronization
 import TallyCanvasAPI
 import TallyDomain
-import TallyTestSupport
+import TallyReplay
 
 /// ASC-14 "Explore with Sample Data": errors this module raises itself, as opposed to whatever
 /// `CanvasGateway`/`RefreshFailure` reports once the replay is running.
@@ -26,8 +27,8 @@ nonisolated enum SampleDataFixtureBundle {
 
     /// Trimmed `manifest.json` shape (see `CanvasFixtures/manifest.json`'s own `$comment` for
     /// provenance/regeneration): just the flagship persona's routes, anchor and time zone, decoded
-    /// with the same `convertFromSnakeCase` strategy `CanvasManifest` uses so `RouteFixture`
-    /// (public, from `TallyTestSupport`) decodes unchanged.
+    /// with the same `convertFromSnakeCase` strategy the test manifest parser uses, so
+    /// `RouteFixture` (public, from `TallyReplay`) decodes unchanged.
     private nonisolated struct ManifestFile: Decodable {
         let anchor: Date
         let timeZone: String
@@ -62,8 +63,8 @@ nonisolated enum SampleDataFixtureBundle {
         let routes: [RouteFixture]
     }
 
-    static func loadManifest() throws -> Manifest {
-        let manifestURL = try resourceRoot().appendingPathComponent("manifest.json")
+    static func loadManifest(root: URL) throws -> Manifest {
+        let manifestURL = root.appendingPathComponent("manifest.json")
         let data = try Data(contentsOf: manifestURL)
         // `CanvasJSON.decoder()` (TallyCanvasAPI): the same custom date parser every Canvas DTO
         // uses, not Foundation's `.iso8601` (which the codebase avoids — see its doc comment).
@@ -77,9 +78,9 @@ nonisolated enum SampleDataFixtureBundle {
 
 /// A `CanvasGateway` that never touches the network (ASC-14: "No network calls in sample mode").
 /// Composes the exact same production pipeline a live account uses — `CanvasClient` ->
-/// `LiveCanvasGateway`, DTOs and mappers included — over `TallyTestSupport.ReplayTransport`
-/// pointed at the bundled flagship fixtures, then rebases every Canvas-content date forward so
-/// due dates look current (`SnapshotDateRebaser`, per `fixtures/canvas/README.md`).
+/// `LiveCanvasGateway`, DTOs and mappers included — over `TallyReplay.ReplayTransport` pointed at
+/// the bundled flagship fixtures, then rebases every Canvas-content date forward so due dates
+/// look current (`SnapshotDateRebaser`, per `fixtures/canvas/README.md`).
 ///
 /// Built only through `make(dateProvider:)`, which does the bundle I/O off the main actor: a
 /// synchronous actor `init` runs on its caller (SE-0327), which for `TallyFeatures` code is the
@@ -91,27 +92,36 @@ public actor SampleDataCanvasGateway: CanvasGateway {
 
     /// Locates the bundled fixtures and decodes their manifest, off the main actor (`@concurrent`
     /// runs on the global executor whatever the caller's isolation).
-    /// - Parameter dateProvider: only for tests (`SystemDateProvider()` in production); lets a
-    ///   test pin "now" instead of racing the real clock.
+    /// - Parameters:
+    ///   - dateProvider: only for tests (`SystemDateProvider()` in production); lets a test pin
+    ///     "now" instead of racing the real clock.
+    ///   - logger: receives the gateway's privacy-safe events (plan 06 A8: CS-07's
+    ///     `duplicateIDsDropped` counts); the app passes its `OSLogPlatformLogger`.
     @concurrent
-    public static func make(dateProvider: any DateProviding = SystemDateProvider()) async throws -> SampleDataCanvasGateway {
-        try await make(dateProvider: dateProvider, threadProbe: nil)
+    public static func make(
+        dateProvider: any DateProviding = SystemDateProvider(), logger: any TallyLogger = NoOpLogger()
+    ) async throws -> SampleDataCanvasGateway {
+        try await make(dateProvider: dateProvider, logger: logger, threadProbe: nil)
     }
 
-    /// `threadProbe` (tests only) receives `pthread_main_np() != 0` from inside the I/O, so a test
-    /// can prove the manifest is never read on the main thread.
+    /// Tests only: `threadProbe` receives `pthread_main_np() != 0` from inside the I/O, so a test
+    /// can prove the manifest is never read on the main thread; `root` replays a copy of the
+    /// fixtures instead of the bundled ones.
     @concurrent
     static func make(
-        dateProvider: any DateProviding, threadProbe: (@Sendable (_ onMainThread: Bool) -> Void)?
+        dateProvider: any DateProviding, logger: any TallyLogger = NoOpLogger(),
+        threadProbe: (@Sendable (_ onMainThread: Bool) -> Void)?, root: URL? = nil
     ) async throws -> SampleDataCanvasGateway {
         threadProbe?(pthread_main_np() != 0)
-        let manifest = try SampleDataFixtureBundle.loadManifest()
-        let root = try SampleDataFixtureBundle.resourceRoot()
-        return SampleDataCanvasGateway(manifest: manifest, root: root, dateProvider: dateProvider)
+        let root = try root ?? SampleDataFixtureBundle.resourceRoot()
+        let manifest = try SampleDataFixtureBundle.loadManifest(root: root)
+        return SampleDataCanvasGateway(manifest: manifest, root: root, dateProvider: dateProvider, logger: logger)
     }
 
     /// Pure construction over an already-loaded manifest.
-    private init(manifest: SampleDataFixtureBundle.Manifest, root: URL, dateProvider: any DateProviding) {
+    private init(
+        manifest: SampleDataFixtureBundle.Manifest, root: URL, dateProvider: any DateProviding, logger: any TallyLogger
+    ) {
         let transport = ReplayTransport(routes: manifest.routes, root: root)
         let accountKey = AccountKey("sample-flagship")
         // A credential that never expires: `ReplayTransport` never inspects the bearer token, and
@@ -119,10 +129,10 @@ public actor SampleDataCanvasGateway: CanvasGateway {
         // fails is the honest choice (it must never be called).
         let credential = CanvasCredential(host: manifest.host, userID: "sample", accessToken: "sample-mode",
                                           refreshToken: "unused", accessTokenExpiresAt: .distantFuture)
-        let tokens = TokenCoordinator(initial: credential, store: InMemoryCredentialStore(credential),
+        let tokens = TokenCoordinator(initial: credential, store: SampleCredentialStore(credential),
                                      refresher: NeverRefresh(), clock: dateProvider)
         let client = CanvasClient(host: manifest.host, transport: transport, tokens: tokens)
-        live = LiveCanvasGateway(host: manifest.host, accountKey: accountKey, client: client)
+        live = LiveCanvasGateway(host: manifest.host, accountKey: accountKey, client: client, logger: logger)
         anchor = manifest.anchor
         timeZone = manifest.timeZone
     }
@@ -142,4 +152,19 @@ private nonisolated struct NeverRefresh: TokenRefreshing {
     func refresh(_ credential: CanvasCredential) async throws -> CanvasCredential {
         throw AuthError.reauthRequired
     }
+}
+
+/// The sample session's credential, in memory only: sample mode never persists anything (ASC-14).
+/// `TokenCoordinator` requires a `CredentialStore`; this replaced the test-support in-memory store
+/// the gateway used before plan 06 A1.
+private nonisolated final class SampleCredentialStore: CredentialStore {
+    private let stored: Mutex<CanvasCredential?>
+
+    init(_ credential: CanvasCredential) {
+        stored = Mutex(credential)
+    }
+
+    func load() async -> CanvasCredential? { stored.withLock { $0 } }
+    func save(_ credential: CanvasCredential) async throws { stored.withLock { $0 = credential } }
+    func delete() async { stored.withLock { $0 = nil } }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import TallyCanvasAPI
+import TallyDomain
 import os
 
 /// Platform log events. No case carries free-form text or student content:
@@ -40,10 +41,28 @@ public enum PlatformLogEvent: Sendable {
     /// `UNNotificationScheduler` (reminder port adapter).
     case notificationScheduleFailed
     case notificationCategoriesRegistered(count: Int)
+    /// A reminder was not scheduled because notifications are denied or not yet determined
+    /// (plan 06 A4: iOS 27 rejects `add` from an unauthorised app).
+    case notificationsNotAuthorized
 
     /// `ProtectionState` (`UIApplication.isProtectedDataAvailable` transitions).
     case protectedDataDidBecomeAvailable
     case protectedDataDidBecomeUnavailable
+
+    /// TallyCore's logging port (CS-07 D1, plan 06 A8): `LiveCanvasGateway` kept the first of each
+    /// repeated ID in `collection` and dropped `count` repeats. A closed enum and a count only.
+    case duplicateIDsDropped(collection: SnapshotCollection, count: Int)
+}
+
+extension PlatformLogEvent {
+    /// The platform event for each of TallyCore's `LogEvent`s (plan 06 A8). Exhaustive: a new
+    /// `LogEvent` case fails to compile here until it has a platform event.
+    public init(_ event: LogEvent) {
+        switch event {
+        case .duplicateIDsDropped(let collection, let count):
+            self = .duplicateIDsDropped(collection: collection, count: count)
+        }
+    }
 }
 
 public protocol TallyPlatformLogger: Sendable {
@@ -54,7 +73,9 @@ public protocol TallyPlatformLogger: Sendable {
 /// only stores the subsystem/category strings — so it is safe to build
 /// inside `AppEnvironment.live()` (architecture.md §3.1: "pure construction,
 /// no I/O").
-public struct OSLogPlatformLogger: TallyPlatformLogger {
+/// Also TallyCore's `TallyLogger` (plan 06 A8): the one `os.Logger` adapter the composition root
+/// passes to the Canvas gateways, so CS-07's duplicate-ID counts reach the unified log.
+public struct OSLogPlatformLogger: TallyPlatformLogger, TallyLogger {
     private let logger: Logger
 
     public init(subsystem: String = Bundle.main.bundleIdentifier ?? "dev.tally-app.tally") {
@@ -85,11 +106,20 @@ public struct OSLogPlatformLogger: TallyPlatformLogger {
             logger.error("notification_schedule_failed")
         case .notificationCategoriesRegistered(let count):
             logger.info("notification_categories_registered count=\(count, privacy: .public)")
+        case .notificationsNotAuthorized:
+            logger.notice("notifications_not_authorized")
         case .protectedDataDidBecomeAvailable:
             logger.info("protected_data_available")
         case .protectedDataDidBecomeUnavailable:
             logger.info("protected_data_unavailable")
+        case .duplicateIDsDropped(let collection, let count):
+            logger.notice("duplicate_ids_dropped collection=\(collection.rawValue, privacy: .public) count=\(count, privacy: .public)")
         }
+    }
+
+    /// `TallyLogger`: TallyCore's events, through the same adapter.
+    public func log(_ event: LogEvent) {
+        log(PlatformLogEvent(event))
     }
 
     /// Internal (not private) so it is directly verifiable in a hosted test

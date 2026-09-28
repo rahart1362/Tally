@@ -42,6 +42,10 @@ public enum SignInPhase: Sendable, Equatable {
 /// completion handler by the system, never through the app's own URL-open
 /// path, so there is only ever one in-flight request for this view model to
 /// track — `PendingAuthorizations`'s multi-entry `state` table isn't needed here.
+/// Explicitly `@MainActor` (plan 06 A2): a class that only inherits the module's default
+/// isolation took the isolated-deinit path that crashes iOS 26.0-26.3 runtimes
+/// (swiftlang/swift#88036); the explicit annotation keeps `deinit` nonisolated.
+@MainActor
 @Observable
 public final class SignInHandoffViewModel {
     public let host: String

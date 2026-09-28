@@ -119,12 +119,20 @@ ios-test: ## Run the built tests on IOS_SIM_UDID with hang limits; print every f
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/$(IOS_RESULT_NAME).xcresult
 	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/$(IOS_RESULT_NAME)-test.log
 
+# Sanitizer runs skip the tests whose assertion is a wall-clock budget (a stall, an overhead or a
+# threshold of tens of milliseconds): TSan and ASan slow the process several-fold, and those runs
+# look for races and memory errors, not speed. The Debug and Release runs keep every one of them.
+IOS_SANITIZER_SKIP ?= \
+	-skip-testing:TallyAppTests/SampleLoadPerformanceTests \
+	"-skip-testing:TallyAppTests/MainThreadGuardsTests/sampleEntryStaysUnderTheStallBudget()" \
+	"-skip-testing:TallyAppTests/URLSessionTransportTests/capOverheadOn300KB()"
+
 ios-tsan: ## TallyAppTests under ThreadSanitizer: fails on a test failure or any TSan report
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
 	@mkdir -p $(IOS_OUT)
 	rm -rf $(IOS_OUT)/Tally-tsan.xcresult
 	$(IOS_XCODEBUILD) test -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
-		-derivedDataPath $(IOS_OUT)/DerivedData-tsan -enableThreadSanitizer YES -only-testing:TallyAppTests \
+		-derivedDataPath $(IOS_OUT)/DerivedData-tsan -enableThreadSanitizer YES -only-testing:TallyAppTests $(IOS_SANITIZER_SKIP) \
 		-resultBundlePath $(IOS_OUT)/Tally-tsan.xcresult $(IOS_TEST_FLAGS) \
 		2>&1 | tee $(IOS_OUT)/tsan.log | grep -E $(IOS_CONSOLE)"|ThreadSanitizer" || true
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-tsan.xcresult
@@ -136,7 +144,7 @@ ios-asan: ## App + UI tests under AddressSanitizer: fails on a test failure or a
 	@mkdir -p $(IOS_OUT)
 	rm -rf $(IOS_OUT)/Tally-asan.xcresult
 	$(IOS_XCODEBUILD) test -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
-		-derivedDataPath $(IOS_OUT)/DerivedData-asan -enableAddressSanitizer YES \
+		-derivedDataPath $(IOS_OUT)/DerivedData-asan -enableAddressSanitizer YES $(IOS_SANITIZER_SKIP) \
 		-resultBundlePath $(IOS_OUT)/Tally-asan.xcresult $(IOS_TEST_FLAGS) \
 		2>&1 | tee $(IOS_OUT)/asan.log | grep -E $(IOS_CONSOLE)"|AddressSanitizer" || true
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-asan.xcresult

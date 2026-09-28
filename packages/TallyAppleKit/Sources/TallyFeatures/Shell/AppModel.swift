@@ -59,9 +59,13 @@ public final class AppModel {
     /// Ends the previous session after `exitSample()` or `signOut()`; owned here so it is never
     /// orphaned.
     private let teardown = TaskBox()
+    /// TallyCore's logging port (plan 06 A8): the composition root passes its `os.Logger`
+    /// adapter, which the sample gateway (and later the account's gateway) reports to.
+    private let logger: any TallyLogger
 
-    public init(accountRuntime: AccountRuntime = AccountRuntime()) {
+    public init(accountRuntime: AccountRuntime = AccountRuntime(), logger: any TallyLogger = NoOpLogger()) {
         self.accountRuntime = accountRuntime
+        self.logger = logger
     }
 
     /// Resolves the launch route. There is no account directory to consult yet (the launch
@@ -75,7 +79,7 @@ public final class AppModel {
     /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
     public func enterSample() {
         guard route == .welcome else { return }
-        home = HomeModel(source: SampleSession())
+        home = HomeModel(source: SampleSession(logger: logger))
         route = .sample
     }
 

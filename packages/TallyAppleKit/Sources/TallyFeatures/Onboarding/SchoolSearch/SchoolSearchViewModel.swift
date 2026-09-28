@@ -32,6 +32,10 @@ public enum SchoolSelectionOutcome: Equatable, Sendable {
 /// §3.1), so this type — like every other type in the module — is
 /// main-actor isolated by default; the `Task` started in `queryChanged()`
 /// inherits that isolation, so its body can update `state` directly.
+/// Explicitly `@MainActor` (plan 06 A2): a class that only inherits the module's default
+/// isolation took the isolated-deinit path that crashes iOS 26.0-26.3 runtimes
+/// (swiftlang/swift#88036); the explicit annotation keeps `deinit` nonisolated.
+@MainActor
 @Observable
 public final class SchoolSearchViewModel {
     /// Debounce and minimum length per ux-ui.md §3.2.1: "debounce 300 ms, minimum 2 characters".
