@@ -53,9 +53,10 @@ actor SlowAfterFirstFetchGateway: CanvasGateway {
 }
 
 enum AccountTestSupport {
-    /// Polls an async `condition` every 10 ms for up to `timeout`.
+    /// Polls an async `condition` every 10 ms for up to `timeout` (generous for the sanitizer runs,
+    /// as `HomeTestSupport.waitUntil` explains).
     @MainActor
-    static func eventually(timeout: Duration = .seconds(5), _ condition: () async -> Bool) async throws -> Bool {
+    static func eventually(timeout: Duration = .seconds(30), _ condition: () async -> Bool) async throws -> Bool {
         let deadline = ContinuousClock.now + timeout
         while !(await condition()) {
             guard ContinuousClock.now < deadline else { return false }

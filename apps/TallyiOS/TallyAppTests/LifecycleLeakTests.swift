@@ -8,8 +8,9 @@ import Testing
 @Suite("Lifecycle: nothing from a sample session outlives exitSample()", .serialized)
 @MainActor
 struct LifecycleLeakTests {
-    /// Polls `condition` on the main actor for up to `timeout` (teardown finishes on other actors).
-    private func eventually(timeout: Duration = .seconds(3), _ condition: () -> Bool) async throws -> Bool {
+    /// Polls `condition` on the main actor for up to `timeout` (teardown finishes on other actors;
+    /// generous for the sanitizer runs, as `HomeTestSupport.waitUntil` explains).
+    private func eventually(timeout: Duration = .seconds(30), _ condition: () -> Bool) async throws -> Bool {
         let deadline = ContinuousClock.now + timeout
         while !condition() {
             guard ContinuousClock.now < deadline else { return false }

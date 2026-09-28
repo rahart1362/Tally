@@ -78,9 +78,11 @@ enum HomeTestSupport {
         HomeUpdate(generation: generation, snapshot: snapshot, digest: nil, digestAsOf: nil, freshness: freshness)
     }
 
-    /// Polls `condition` on the main actor for up to `timeout`.
+    /// Polls `condition` on the main actor for up to `timeout`. Every caller waits for something to
+    /// become true, so the generous default only lengthens a failing case: under AddressSanitizer a
+    /// real coordinator's first fetch, seal and commit outlasted 5 s (run 36410352867's ios-asan).
     @MainActor
-    static func waitUntil(timeout: Duration = .seconds(5), _ condition: () -> Bool) async throws -> Bool {
+    static func waitUntil(timeout: Duration = .seconds(30), _ condition: () -> Bool) async throws -> Bool {
         let deadline = ContinuousClock.now + timeout
         while !condition() {
             guard ContinuousClock.now < deadline else { return false }

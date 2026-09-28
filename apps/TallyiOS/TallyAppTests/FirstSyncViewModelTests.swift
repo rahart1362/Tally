@@ -10,7 +10,7 @@ import TallyDomain
 @Suite("First-sync skeleton (UX-WP-10)")
 struct FirstSyncViewModelTests {
     @Test("Phases complete in order and the status text tracks them")
-    func phasesCompleteInOrder() async {
+    func phasesCompleteInOrder() async throws {
         let publisher = FakeFirstSyncPublisher(events: [
             .phaseCompleted(.profileAndCourses), .phaseCompleted(.grades),
             .phaseCompleted(.dueItems), .phaseCompleted(.calendar), .finished,
@@ -18,20 +18,24 @@ struct FirstSyncViewModelTests {
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield State University", publisher: publisher)
         #expect(viewModel.statusText == "Connecting to Northfield State University…")
 
-        try? await Task.sleep(for: .milliseconds(100))
+        // Waits for the events, not a fixed time: under ThreadSanitizer 100 ms was not enough
+        // (run 36410352867's ios-tsan saw only the first phase).
+        #expect(try await HomeTestSupport.waitUntil { viewModel.isFinished })
         #expect(viewModel.completedPhases == FirstSyncPhase.allCases)
         #expect(viewModel.isFinished)
         #expect(viewModel.progress == 1)
     }
 
     @Test("A duplicate phase event is not double-counted")
-    func duplicatePhaseIsIgnored() async {
+    func duplicatePhaseIsIgnored() async throws {
+        // `.grades` after the duplicate: events arrive in order, so once it is in, the duplicate
+        // has been handled too (a fixed 60 ms sleep could check before either had arrived).
         let publisher = FakeFirstSyncPublisher(events: [
-            .phaseCompleted(.profileAndCourses), .phaseCompleted(.profileAndCourses),
+            .phaseCompleted(.profileAndCourses), .phaseCompleted(.profileAndCourses), .phaseCompleted(.grades),
         ])
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher)
-        try? await Task.sleep(for: .milliseconds(60))
-        #expect(viewModel.completedPhases == [.profileAndCourses])
+        #expect(try await HomeTestSupport.waitUntil { viewModel.completedPhases.contains(.grades) })
+        #expect(viewModel.completedPhases == [.profileAndCourses, .grades])
     }
 
     @Test("A failure is reported and never overwritten by a later slow-load notice")
