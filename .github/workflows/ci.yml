@@ -225,6 +225,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
       - name: Generate Xcode project
+        id: generate
         working-directory: apps/TallyiOS
         run: xcodegen generate --spec project.yml
       - name: Build for iOS Simulator (Debug)
@@ -243,8 +244,10 @@ jobs:
       # (scripts/ci/print_xcresult_failures.py) whatever the result, then fails unless xcodebuild
       # reported success. `ios-test` also sets a per-test hang limit (120 s default, 300 s max).
       - name: Build TallyAppTests + TallyUITests for testing
+        id: build_for_testing
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
       - name: Run TallyAppTests and TallyUITests (every failure printed in full)
+        id: main_tests
         # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **", not plain "TEST
         # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
@@ -252,8 +255,9 @@ jobs:
             IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Main-thread watchdog stalls during the UI tests (phase, length)
         # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
-        # it becomes required): every stall past 250 ms, launch-phase ones included.
-        if: always()
+        # it becomes required): every stall past 250 ms, launch-phase ones included. Needs the
+        # picked simulator (O11: not after a failure that came before the pick).
+        if: ${{ always() && steps.sim.outcome == 'success' }}
         run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the smallest iOS 26 iPhone simulator
         id: small
@@ -269,8 +273,10 @@ jobs:
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         # The floor run below runs even after a red test above, so a failure there never
-        # hides the floor's own result (run 36378109668 skipped it).
-        if: ${{ !cancelled() }}
+        # hides the floor's own result (run 36378109668 skipped it). It needs the built tests:
+        # after an earlier failure (the TallyCore step, the project, the build) it is skipped,
+        # not run against nothing (app-core report O11, run 36411999390).
+        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -280,7 +286,7 @@ jobs:
       # Required since 2026-09-28 (PMO, plan 06 A2): green in runs 36394287625, 36406525219,
       # 36418727234 and 36422438707 after the #88036 fix (b02c05a).
       - name: TallyAppTests on the deployment-floor runtime (iOS 26.x floor, required)
-        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
+        if: ${{ !cancelled() && steps.floor.outcome == 'success' && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
         run: |
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
@@ -319,8 +325,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Build for iOS device (Release, unsigned)
-        # Also after a test failure, so a red test never hides a link or nm regression below.
-        if: ${{ !cancelled() }}
+        id: device_build
+        # Also after a test failure, so a red test never hides a link or nm regression below;
+        # but not without a generated project (O11).
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
@@ -330,7 +338,9 @@ jobs:
             | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-device.log"
       - name: Shipping binaries link no test code and no isolated deinit (plan 06 A1, A2)
-        if: ${{ !cancelled() }}
+        # Inspects the Release device build and the Debug simulator app: skipped when the
+        # device build did not succeed (O11), instead of failing for lack of a link map.
+        if: ${{ !cancelled() && steps.device_build.outcome == 'success' }}
         # A1: TallyTestSupport (fixture loaders, try!, #filePath, fakes) must not be linked into
         # the Release app; sample mode uses TallyReplay. A2: no binary may reference
         # swift_task_deinitOnExecutor (isolated deinit), which crashes iOS 26.0-26.3 runtimes
