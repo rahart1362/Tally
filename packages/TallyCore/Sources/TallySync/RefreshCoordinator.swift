@@ -50,7 +50,13 @@ public actor RefreshCoordinator {
     private let minAutoRefreshInterval: Duration
 
     private var record: RefreshRecord
-    private var previousSnapshot: CanvasSnapshot?
+    /// SH-3: the snapshot this coordinator last committed, or was initialised with, or adopted
+    /// from the store when another writer's newer generation won (`finish`'s stale-generation
+    /// path). It is the very value that was committed, sharing its storage, never decoded again,
+    /// so the UI can project it without reading it back from disk. It is also the `previous` the
+    /// next fetch carries forward from and the base of the next digest. `nil` until an account's
+    /// first commit, and after `shutdown()`.
+    public private(set) var committedSnapshot: CanvasSnapshot?
     private var committedGeneration: UInt64
     /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
     private var digestThresholds: DigestThresholds = .default
@@ -110,7 +116,7 @@ public actor RefreshCoordinator {
         self.backgroundBudget = backgroundBudget
         self.minAutoRefreshInterval = minAutoRefreshInterval
         self.includeGrades = includeGrades
-        previousSnapshot = initialSnapshot
+        committedSnapshot = initialSnapshot
         committedGeneration = initialSnapshot?.generation ?? 0
         record = initialRecord.restoredAfterLaunch() // no in-flight mark survives a relaunch
     }
@@ -163,7 +169,7 @@ public actor RefreshCoordinator {
         let finishing = Array(subscribers.values)
         subscribers.removeAll()
         for continuation in finishing { continuation.finish() }
-        previousSnapshot = nil
+        committedSnapshot = nil
     }
 
     /// Sign-out or account removal (`SignOutUseCase`, WP-SEC-06, security.md §3.2 step 9): bumps
@@ -196,9 +202,6 @@ public actor RefreshCoordinator {
 
     /// Live subscribers. Internal, for tests.
     var subscriberCount: Int { subscribers.count }
-
-    /// Whether a decoded snapshot is still held. Internal, for tests.
-    var holdsDecodedSnapshot: Bool { previousSnapshot != nil }
 
     /// Callers waiting on the run in flight. Internal, for tests.
     var waiterCount: Int { runWaiters.count }
@@ -247,7 +250,7 @@ public actor RefreshCoordinator {
         emit(.stateChanged(currentState))
         runAbandoned = false
 
-        let previous = previousSnapshot
+        let previous = committedSnapshot
         let fetchTask = Task<CanvasSnapshot, any Error> { [gateway, clock] in
             try await gateway.fetchSnapshot(previous: previous, now: clock.now())
         }
@@ -371,11 +374,11 @@ public actor RefreshCoordinator {
             // CS-05: degrade before persisting, not after — a snapshot that blew past the item
             // budget must never even reach `SnapshotStore`'s encode/seal path at full size.
             let stamped = SnapshotBudget.enforce(restampedSnapshot).snapshot
-            let digest = ChangeDigest.diff(old: previousSnapshot, new: stamped, thresholds: digestThresholds)
+            let digest = ChangeDigest.diff(old: committedSnapshot, new: stamped, thresholds: digestThresholds)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades)
                 committedGeneration = stamped.generation
-                previousSnapshot = stamped
+                committedSnapshot = stamped
                 record.succeeded(dataFetchedAt: stamped.fetchedAt)
                 emit(.committed(generation: stamped.generation, digest: digest))
                 emit(.stateChanged(currentState))
@@ -386,7 +389,7 @@ public actor RefreshCoordinator {
                     // other writer committed `current` (> our attempt) to this same account while
                     // we were fetching. Adopt it rather than treat this as a failure.
                     committedGeneration = current
-                    if case .loaded(let onDisk) = await store.loadSnapshot() { previousSnapshot = onDisk }
+                    if case .loaded(let onDisk) = await store.loadSnapshot() { committedSnapshot = onDisk }
                     record.succeeded(dataFetchedAt: clock.now())
                     emit(.stateChanged(currentState))
                 }

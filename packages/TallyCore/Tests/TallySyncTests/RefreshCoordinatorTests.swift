@@ -150,6 +150,7 @@ struct RefreshCoordinatorTests {
         }
         #expect(onDisk.generation == 5, "the older, slower run must never overwrite the newer one already committed")
         #expect(onDisk == outOfBand)
+        #expect(await harness.coordinator.committedSnapshot == outOfBand, "SH-3: it adopts the newer generation the store holds")
     }
 
     // MARK: - Epoch guard: sign-out mid-flight discards the result

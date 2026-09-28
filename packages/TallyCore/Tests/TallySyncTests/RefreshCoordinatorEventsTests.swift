@@ -149,15 +149,7 @@ struct RefreshCoordinatorEventsTests {
         #expect(await finished(caller) == .noCache)
         #expect(await coordinator.currentState == .noCache, "the in-flight mark is dropped, not left refreshing forever")
         #expect(await store.loadSnapshot() == .absent, "the late result is never committed")
+        #expect(await coordinator.committedSnapshot == nil)
     }
-
-    @Test func shutdownReleasesTheDecodedSnapshot() async throws {
-        let (coordinator, _) = try makeCoordinator(gateway: ScriptedGateway())
-        _ = await coordinator.run(trigger: .manual)
-        #expect(await coordinator.holdsDecodedSnapshot, "a commit keeps the committed snapshot in memory")
-
-        await coordinator.shutdown()
-
-        #expect(await !coordinator.holdsDecodedSnapshot, "shutdown releases it")
-    }
+    // That shutdown releases the committed snapshot is SH-3's `RefreshCoordinatorSnapshotTests.shutdownReleasesIt`.
 }
