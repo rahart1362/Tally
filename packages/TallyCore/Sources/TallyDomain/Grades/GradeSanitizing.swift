@@ -16,7 +16,8 @@ import Foundation
 /// bisects with exact rationals whose step count and size grow with the spread of magnitudes in
 /// a drop-rule group, so one `GradeEngine.scores` call on one 50-item group with 1e300 and
 /// 1e-300 in it took 39 s in a debug build and 2.4 s in release (crash-safety-2.md F-5 measured
-/// up to 106 s), and `GoalSeek` makes about 62 such calls. So:
+/// up to 106 s), and `GoalSeek` makes about 62 such calls. Within the bounds, and with R-2b's
+/// root-first bisection, the worst such call measured 58 ms in debug and 6.7 ms in release. So:
 /// - a magnitude above `maximumMagnitude` (1e50) is invalid and handled like a non-finite value:
 ///   dropped (`nil`), or 0 for a weight;
 /// - a non-zero magnitude below `minimumMagnitude` becomes 0.
@@ -34,11 +35,10 @@ public enum GradeSanitizing {
     ///
     /// Why 1e-6 (resilience.md §R-2): it is far below any real Canvas score, points or weight,
     /// and a larger floor buys almost nothing. The drop-rule bisection's cost is set by the 1e50
-    /// ceiling (its squared maximum alone is about 332 bits of the step count); raising the floor
-    /// a millionfold, to 1, shortened the worst measured case by only 15% (debug 1.56 s to 1.32 s,
-    /// release 85 to 77 ms, n = 50). A floor at 1e-6 still bounds the decimal exponent of every
-    /// value at -22, and keeps a residue such as 1e-17 from dragging the exact-rational scale
-    /// down to it.
+    /// ceiling (its square alone is about 332 bits of the step count): on the same 50-item worst
+    /// cases, a floor of 1 instead of 1e-6 saved only 9-15% of the time before R-2b and 6-9% after
+    /// it. A floor at 1e-6 still bounds the decimal exponent of every value at -22, and keeps a
+    /// residue such as 1e-17 from dragging the exact-rational scale down to it.
     public static let minimumMagnitude: Double = 1e-6
 
     /// `points_possible`: never negative, finite and at most `maximumMagnitude`. Returns `nil`

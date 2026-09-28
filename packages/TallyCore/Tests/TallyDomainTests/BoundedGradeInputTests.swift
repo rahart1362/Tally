@@ -116,6 +116,19 @@ struct BoundedGradeInputTests {
 
     // MARK: - Bounded time (hang detectors: `make core-perf` gates speed, in release)
 
+    /// R-2b: the worst cases found inside the bounds (`BoundedGradeWorstCase`: 50 items, drop lowest
+    /// and highest, both extremes) take milliseconds: 15-58 ms per call in this debug build, against
+    /// 0.64-3.06 s before R-2b, inside the brief's 1 s debug target. `make core-perf` gates speed, in
+    /// release, at 50 ms (`CoreBenchmarks.boundedGradeWorstCaseCeiling`). This is a hang detector,
+    /// so its budget is 5 s: ThreadSanitizer runs this BigInt code about 180x slower than debug
+    /// (10.7 s measured for the grading-period case), past `TestTimeBudget`'s 10x scale.
+    @Test(arguments: BoundedGradeWorstCase.allCases)
+    func theBoundedWorstCaseFinishesInBoundedTime(_ shape: BoundedGradeWorstCase) {
+        let input = shape.input
+        let elapsed = ContinuousClock().measure { _ = GradeEngine.scores(for: input) }
+        #expect(elapsed < TestTimeBudget.seconds(5), "\(shape): one GradeEngine.scores call took \(elapsed)")
+    }
+
     /// crash-safety-2.md F-5's inputs, n = 50: they never reach the bisection now. Before R-2 each
     /// call took 39-44 s in this debug build.
     @Test(arguments: [(big: 1e300, small: 1e-300), (big: Double.greatestFiniteMagnitude, small: Double.leastNonzeroMagnitude)])

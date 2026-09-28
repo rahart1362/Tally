@@ -1,4 +1,10 @@
 import Foundation
+@testable import TallyDomain
+
+// R-2b (resilience.md): the drop-rule selection exactly as it was before R-2b (DropRuleSelection.swift
+// at 6d65cd2, sha256 6575a36b478989a608193f4a951d005b0d5052d88aba56260aa0c3fa4e4bcb6e), renamed and
+// kept only as the reference for `DropRuleBisectionDifferentialTests`. It evaluates big_f at every
+// bisection step. Do not edit it: it is the "before" the new code must match.
 
 /// Canvas's drop-rule selection (GradeCalculator#drop_assignments, keep_helper,
 /// big_f, estimate_q_high: the Kane-and-Kane bisection), ported from
@@ -16,21 +22,9 @@ import Foundation
 ///
 /// Ties: Ruby's `Array#sort` is unstable; like the Python port, every sort here is
 /// stable (equal keys keep their input order), which matches the canvas-lms JS specs.
-///
-/// R-2b (resilience.md): the bisection visits exactly the midpoints it always did, but decides
-/// each step by comparing the midpoint with big_f's root, found first by Dinkelbach's method, and
-/// evaluates big_f (rate and sort every item) once, at the last midpoint, instead of at every one
-/// of up to ~530 steps. `DropRuleBisectionDifferentialTests` holds it to the old code index for
-/// index; within `GradeSanitizing`'s bounds the worst 50-item group went from 42.8-169.8 ms to
-/// 1.8-6.7 ms per `GradeEngine.scores` call in release.
-enum DropRuleSelection {
-    struct Candidate: Sendable {
-        let assignmentID: CanvasID<Assignment>
-        /// The submission score, 0 when ungraded (final grade).
-        let score: Double
-        /// `points_possible`, 0 when absent.
-        let total: Double
-    }
+enum LegacyDropRuleSelection {
+    typealias Candidate = DropRuleSelection.Candidate
+
 
     /// Indices of the candidates that count, in gradecalc.py order (kept, then
     /// never-drop). An index can repeat in Canvas's all-unpointed corner case;
@@ -85,10 +79,6 @@ enum DropRuleSelection {
             .map(\.element)
     }
 
-    /// R-2b: Dinkelbach's method converges in a few rounds; past this many, `Exact.keep` falls
-    /// back to evaluating big_f at every bisection step, as before R-2b, rather than trust it.
-    static let maxRootIterations = 64
-
     /// A non-negative-denominator fraction of `BigInt`s (never reduced).
     private struct Ratio {
         let numerator: BigInt
@@ -140,7 +130,7 @@ enum DropRuleSelection {
             if pointed.isEmpty {
                 // Canvas's "really dumb situation": keep_highest removed every pointed item.
                 // (Unreachable in "highest" mode: the caller checked some total > 0.)
-                let ordered = DropRuleSelection.stableSorted(unpointed) { items[$0].score < items[$1].score }
+                let ordered = LegacyDropRuleSelection.stableSorted(unpointed) { items[$0].score < items[$1].score }
                 return keep > 0 ? Array(ordered.suffix(keep)) : []
             }
 
@@ -158,100 +148,21 @@ enum DropRuleSelection {
             var qHigh = highest.numerator * lowest.denominator
             var qMid = qLow + qHigh
             qLow = qLow + qLow; qHigh = qHigh + qHigh; den = den + den
+            var (x, kept) = bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best)
 
             // q_high - q_low < 1 / (2 * keep * max_total^2). q is scale-free but max_total
             // = maxTotal * 10^scale, so: (qHigh - qLow) * 2*keep*maxTotal^2 * 10^(2*scale) < den.
             var lhsFactor = BigInt(2 * keep) * maxTotal * maxTotal
             var rhsFactor = BigInt(1)
             if scale >= 0 { lhsFactor = lhsFactor * BigInt.pow10(2 * scale) } else { rhsFactor = BigInt.pow10(-2 * scale) }
-            // R-2b: a step keeps one half of the interval and then doubles qLow, qHigh and den, so
-            // qHigh - qLow is the same at every check and den doubles. Both sides of the stopping
-            // test are therefore known without multiplying at every step.
-            let width = (qHigh - qLow) * lhsFactor
-            var resolution = den * rhsFactor
-
-            // R-2b (resilience.md): each step's direction is the sign of big_f at the midpoint, and
-            // `root` knows that sign from one comparison. Without a root, big_f is evaluated at
-            // every midpoint, as before. Either way the loop visits the same midpoints, and the
-            // result is big_f's set at the last midpoint the loop evaluated (`lastMid`/`lastDen`).
-            let root = self.root(subs: subs, cantDrop: cantDrop, keep: keep, best: best)
-            var (x, kept) = root == nil ? bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best) : (BigInt(0), [])
-            var (lastMid, lastDen) = (qMid, den)
-            while !(width < resolution) {
-                let atLeastZero = root.map { $0.admits(qMid, over: den) } ?? (x.signum >= 0)
-                if atLeastZero { qLow = qMid } else { qHigh = qMid }
+            while !((qHigh - qLow) * lhsFactor < den * rhsFactor) {
+                if x.signum < 0 { qHigh = qMid } else { qLow = qMid }
                 qMid = qLow + qHigh
-                qLow = qLow + qLow; qHigh = qHigh + qHigh; den = den + den; resolution = resolution + resolution
+                qLow = qLow + qLow; qHigh = qHigh + qHigh; den = den + den
                 if qMid == qHigh || qMid == qLow { break }
-                (lastMid, lastDen) = (qMid, den)
-                if root == nil { (x, kept) = bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best) }
+                (x, kept) = bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best)
             }
-            if root != nil { kept = bigF(lastMid, lastDen, subs: subs, cantDrop: cantDrop, keep: keep, best: best).1 }
             return kept
-        }
-
-        /// Where big_f changes sign (R-2b). big_f at q is `den` times F(q): the largest (best) or
-        /// smallest sum of `score - q * total` over `keep` of `subs`, plus every never-drop item.
-        /// Every total is at least 0, so F is continuous and non-increasing, and F(q) >= 0 exactly
-        /// when q <= q* = sup { q : F(q) >= 0 }. `below` and `above` are q* = -inf and +inf.
-        enum Root {
-            case below
-            case at(Ratio)
-            case above
-
-            /// Whether F(`qNum` / `den`) >= 0, that is `qNum` / `den` <= q*. `den` > 0.
-            func admits(_ qNum: BigInt, over den: BigInt) -> Bool {
-                switch self {
-                case .below: false
-                case .above: true
-                // qNum / den <= n / d, both denominators positive.
-                case .at(let root): !(root.numerator * den < qNum * root.denominator)
-                }
-            }
-        }
-
-        /// q*, by Dinkelbach's method on big_f's own choice of set, or nil when that does not
-        /// apply: a negative total (F would not be monotone), or no convergence within
-        /// `DropRuleSelection.maxRootIterations` (the caller then evaluates every midpoint).
-        ///
-        /// Every set S of `keep` subs gives a line L_S(q) = A_S - q * B_S (sums of scores and totals
-        /// over S and the never-drop items), and F is the max (best) or min of those lines. Hence
-        /// q* is the max (best) or min over S of A_S / B_S, where a set without points (B_S = 0)
-        /// counts as +inf when A_S >= 0 and -inf otherwise.
-        /// - Sets without points only exist when no never-drop item has points; they are settled
-        ///   first: the best of them (for best) with A_S >= 0 makes q* = +inf, the worst (otherwise)
-        ///   with A_S < 0 makes q* = -inf.
-        /// - Otherwise, from any set with points and q = A/B: big_f's set T at q has
-        ///   L_T(q) = F(q), which is 0 exactly when q = q*; if not, T has points and A_T / B_T is
-        ///   strictly nearer q*. There are finitely many sets, so this ends, in practice after a
-        ///   few rounds.
-        private func root(subs: [Int], cantDrop: [Int], keep: Int, best: Bool) -> Root? {
-            guard (subs + cantDrop).allSatisfy({ total($0).signum >= 0 }) else { return nil }
-            if cantDrop.allSatisfy({ total($0).signum == 0 }) {
-                let pointless = subs.filter { total($0).signum == 0 }
-                if pointless.count >= keep {
-                    let extreme = pointless.map { score($0) }.sorted { best ? $1 < $0 : $0 < $1 }.prefix(keep)
-                    let sum = extreme.reduce(cantDrop.reduce(BigInt(0)) { $0 + score($1) }, +)
-                    if best && sum.signum >= 0 { return .above }
-                    if !best && sum.signum < 0 { return .below }
-                }
-            }
-            // A first set with points: the `keep` subs with the most points.
-            let start = Array(DropRuleSelection.stableSorted(subs) { total($1) < total($0) }.prefix(keep))
-            var (a, b) = sums(start + cantDrop)
-            for _ in 0..<DropRuleSelection.maxRootIterations {
-                guard b.signum > 0 else { return nil } // unreachable after the checks above; stay exact
-                let q = Ratio(a, b)
-                let (x, set) = bigF(q.numerator, q.denominator, subs: subs, cantDrop: cantDrop, keep: keep, best: best)
-                if x.signum == 0 { return .at(q) }
-                (a, b) = sums(set + cantDrop)
-            }
-            return nil
-        }
-
-        /// The sums of scores and of totals over `indices`.
-        private func sums(_ indices: [Int]) -> (score: BigInt, total: BigInt) {
-            indices.reduce((BigInt(0), BigInt(0))) { ($0.0 + score($1), $0.1 + total($1)) }
         }
 
         /// gradecalc.py `_estimate_q_high` for the unpointed case; nil means "use the highest grade".
@@ -270,7 +181,7 @@ enum DropRuleSelection {
             -> (BigInt, [Int]) {
             func rating(_ i: Int) -> BigInt { score(i) * den - qNum * total(i) }
             let rated = subs.map(rating)
-            let order = DropRuleSelection.stableSorted(Array(subs.indices)) { a, b in
+            let order = LegacyDropRuleSelection.stableSorted(Array(subs.indices)) { a, b in
                 best ? rated[b] < rated[a] : rated[a] < rated[b]
             }.prefix(keep)
             let x = order.reduce(BigInt(0)) { $0 + rated[$1] } + cantDrop.reduce(BigInt(0)) { $0 + rating($1) }

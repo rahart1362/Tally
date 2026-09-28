@@ -275,13 +275,13 @@ enum SnapshotMutator {
     static let extremeDoubles: [Double] = [1e15, -1e15, 1e50, -1e50, 1e300, -1e300, .greatestFiniteMagnitude,
                                            -.greatestFiniteMagnitude, .leastNonzeroMagnitude, 0, -0.0, 100.000_000_1]
     static let extremeInts: [Int] = [.max, .min, .max - 1, -1, 0, 1_000_000]
-    /// Assignment points and submission scores reach `DropRuleSelection`'s exact bisection, whose
-    /// cost grows with the spread of magnitudes in one drop-rule group: one `GradeEngine.scores`
-    /// call on one 50-item group took 0.76 s at 1e50 and 91-106 s with 1e300 and 1e-300, or the
-    /// largest and smallest doubles (debug; crash-safety-2.md, finding F-5: a decision for the PMO,
-    /// not fixed here). These stay within 1e15, still past the ~1.4e14 where `GoalSeek` used to
-    /// stall, so every case also fits the budget under the sanitizers.
-    static let gradeDoubles: [Double] = [1e15, -1e15, 1e9, 0, -0.0, 100.000_000_1, 1e-9, 0.5]
+    /// Assignment points and submission scores reach `DropRuleSelection`'s exact bisection. Until
+    /// R-2 (resilience.md) these stayed within 1e15: one `GradeEngine.scores` call on one 50-item
+    /// group took 91-106 s in debug with 1e300 and 1e-300 (crash-safety-2.md F-5). Now
+    /// `GradeSanitizing` bounds them to 1e50 with a 1e-6 floor (R-2) and the bisection walks to a
+    /// known root (R-2b), so they take every extreme value, including both bounds, one ulp past
+    /// each, and 1e15, still past the ~1.4e14 where `GoalSeek` used to stall.
+    static let gradeDoubles: [Double] = extremeDoubles + [1e9, 1e-9, 0.5, 1e50.nextUp, 1.0000000000000002e-06, 9.9999999999999995e-07]
 
     static func mutate(_ snapshot: CanvasSnapshot, seed: UInt64, passes: Int) -> CanvasSnapshot {
         var rng = SeededRandom(seed: seed)
