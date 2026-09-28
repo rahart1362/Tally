@@ -9,7 +9,7 @@ import TallyTestSupport
 /// assignments in one course gave two rows with one ID (CS-07 observed
 /// `["missingClosed:c1", "missingClosed:c1"]`). Now there is one row per key: the highest severity,
 /// then the first. The three-row cap is unchanged.
-@Suite("Needs attention: one row per ID (R-3)", .timeLimit(.minutes(1)))
+@Suite("Needs attention: one row per ID (R-3)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct AttentionUniquenessTests {
     private let now = DuplicateIDFixture.now
 

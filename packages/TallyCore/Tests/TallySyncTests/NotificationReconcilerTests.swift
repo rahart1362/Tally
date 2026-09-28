@@ -6,7 +6,7 @@ import TallyTestSupport
 @testable import TallySync
 
 /// WP-D02: `NotificationReconciler` against `FakeNotificationCenter` (`TallyTestSupport`).
-@Suite("NotificationReconciler: desired vs ledger vs the platform's pending set", .timeLimit(.minutes(1)))
+@Suite("NotificationReconciler: desired vs ledger vs the platform's pending set", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct NotificationReconcilerTests {
     private let anchor = Date(timeIntervalSince1970: 1_790_600_400)
 

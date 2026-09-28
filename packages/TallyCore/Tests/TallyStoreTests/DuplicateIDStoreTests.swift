@@ -12,7 +12,7 @@ import TallyTestSupport
 /// *before* it builds the glance, so the trap left the repeated snapshot on disk with an older
 /// glance, and the next `loadSnapshot()` rebuilt the glance and trapped again: a crash at every
 /// launch, not a one-off.
-@Suite("Repeated identifiers: glance projection and snapshot store never trap (CS-07)", .timeLimit(.minutes(1)))
+@Suite("Repeated identifiers: glance projection and snapshot store never trap (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct DuplicateIDStoreTests {
     private let accountKey = AccountKey("duplicate-id-fixture")
 

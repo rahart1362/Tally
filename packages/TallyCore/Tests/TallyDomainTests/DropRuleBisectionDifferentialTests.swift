@@ -12,7 +12,7 @@ import TallyTestSupport
 /// - a seeded random corpus built for ties, zero and negative scores, unpointed items, never-drop
 ///   items and fractional 17-digit values;
 /// - groups at `GradeSanitizing`'s bounds (1e50 and 1e-6).
-@Suite("DropRuleSelection: the root-first bisection matches the old one exactly (R-2b)", .timeLimit(.minutes(1)))
+@Suite("DropRuleSelection: the root-first bisection matches the old one exactly (R-2b)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct DropRuleBisectionDifferentialTests {
     typealias Candidate = DropRuleSelection.Candidate
 

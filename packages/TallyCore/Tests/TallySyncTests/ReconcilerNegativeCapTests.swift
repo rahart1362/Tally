@@ -8,7 +8,7 @@ import TallyTestSupport
 /// R-4 (resilience.md, crash-safety-2.md F-8): `NotificationReconciler.reconcile` took
 /// `desired.prefix(cap)`, which traps on a negative cap ("Can't take a prefix of negative
 /// length"). A negative cap is now 0: nothing is kept, so everything pending is cancelled.
-@Suite("NotificationReconciler: a negative cap is zero (R-4)", .timeLimit(.minutes(1)))
+@Suite("NotificationReconciler: a negative cap is zero (R-4)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct ReconcilerNegativeCapTests {
     private let anchor = Date(timeIntervalSince1970: 1_790_600_400)
 

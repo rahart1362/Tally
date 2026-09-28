@@ -10,7 +10,7 @@ import TallyTestSupport
 ///   reaches the target by construction.
 /// - `DropRuleSelection`'s bisection, capped at `DropRuleSelection.maxBisectionSteps`, returns
 ///   big_f's set at the last midpoint it reached.
-@Suite("Loops with a magnitude-dependent trip count stop at a named cap (R-5)", .timeLimit(.minutes(1)))
+@Suite("Loops with a magnitude-dependent trip count stop at a named cap (R-5)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct BoundedLoopTests {
     // MARK: - GoalSeek.nudge
 

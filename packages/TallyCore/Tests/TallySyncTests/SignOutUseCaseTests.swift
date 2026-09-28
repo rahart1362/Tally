@@ -9,7 +9,7 @@ import TallyTestSupport
 /// WP-SEC-06: the sign-out sequence (security.md §3.2 step 9): best-effort revoke, bump the epoch
 /// and cancel refresh, remove notifications, crypto-shred and purge files, delete credentials.
 /// Asserts nothing for the account remains: store, ledger, notifications, credentials.
-@Suite("SignOutUseCase: revoke, epoch, notifications, purge, credentials", .timeLimit(.minutes(1)))
+@Suite("SignOutUseCase: revoke, epoch, notifications, purge, credentials", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct SignOutUseCaseTests {
     private let host = "canvas.northfield.example"
     private let userID = "4820117"

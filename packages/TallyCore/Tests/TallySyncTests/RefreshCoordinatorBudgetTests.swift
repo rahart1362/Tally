@@ -9,7 +9,7 @@ import TallyTestSupport
 /// `SnapshotBudgetTests`; this pins its wiring, i.e. that `RefreshCoordinator.finish` applies it to
 /// the fetched snapshot before `SnapshotStore.commit`, so what reaches the disk and
 /// `committedSnapshot` is the budgeted snapshot, not the raw fetch.
-@Suite("RefreshCoordinator applies SnapshotBudget before committing (SH-5)", .timeLimit(.minutes(1)))
+@Suite("RefreshCoordinator applies SnapshotBudget before committing (SH-5)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct RefreshCoordinatorBudgetTests {
     /// The small fixture plus `TallyConfig.maxSnapshotItems` calendar events: over the item budget
     /// by the fixture's own items, so `SnapshotBudget` must drop the events before it may be stored.

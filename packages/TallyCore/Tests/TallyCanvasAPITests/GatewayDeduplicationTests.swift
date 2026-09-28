@@ -10,7 +10,7 @@ import TallyTestSupport
 /// The responses below are the recorded fixtures with repeats spliced in, the two ways Canvas
 /// produces them: a paginated list repeats an item when the data changes between page fetches,
 /// and a course comes back once per enrollment.
-@Suite("LiveCanvasGateway: repeated identifiers are removed at the boundary (CS-07)", .timeLimit(.minutes(1)))
+@Suite("LiveCanvasGateway: repeated identifiers are removed at the boundary (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct GatewayDeduplicationTests {
     private struct NeverRefresh: TokenRefreshing {
         func refresh(_ credential: CanvasCredential) async throws -> CanvasCredential { throw AuthError.reauthRequired }

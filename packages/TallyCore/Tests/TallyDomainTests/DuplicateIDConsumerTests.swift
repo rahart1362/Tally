@@ -9,7 +9,7 @@ import TallyTestSupport
 /// course or assignment ID, and `ChangeDigest.diff` on a repeated course ID in the older
 /// snapshot. The consumers must survive on their own, because `GradeInput` and what-if callers
 /// build values directly and never pass through the gateway's de-duplication.
-@Suite("Repeated identifiers: TallyDomain consumers never trap (CS-07)", .timeLimit(.minutes(1)))
+@Suite("Repeated identifiers: TallyDomain consumers never trap (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct DuplicateIDConsumerTests {
     private let now = DuplicateIDFixture.now
 

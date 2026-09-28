@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TallyDomain
+import TallyTestSupport
 
 /// CS-07 (crash-safety-2.md, CS7-4): `GoalSeek.solve` always returns. Its last step nudges the
 /// rounded answer up by `precision` until the target is met. Past about 1.4e14 points, 0.01 is
@@ -14,7 +15,7 @@ import Testing
 /// removed this suite did not fail at its one-minute limit: it hung until killed. The nudge loop
 /// now also stops at `GoalSeek.maxNudgeSteps`, and these cases check that the progress guard, not
 /// that backstop, is what ended it, so removing the guard fails them in milliseconds.
-@Suite("GoalSeek always returns, whatever the magnitude (CS-07)", .timeLimit(.minutes(1)))
+@Suite("GoalSeek always returns, whatever the magnitude (CS-07)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct GoalSeekTerminationTests {
     private func input(points: Double) -> GradeInput {
         GradeInput(weighting: .points, groups: [.init(id: "g1", weight: 100)], items: [

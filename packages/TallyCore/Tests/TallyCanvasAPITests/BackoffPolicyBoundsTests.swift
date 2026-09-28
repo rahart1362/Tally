@@ -9,7 +9,7 @@ import TallyTestSupport
 /// upperBound"), and a huge one overflowed the `Int64` milliseconds. Now `base` and `maxDelay`
 /// count as 0 below zero and `BackoffPolicy.longestDelay` (1 h) above it, so every delay is in
 /// 0...longestDelay.
-@Suite("BackoffPolicy: a negative or huge policy never traps (R-4)", .timeLimit(.minutes(1)))
+@Suite("BackoffPolicy: a negative or huge policy never traps (R-4)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct BackoffPolicyBoundsTests {
     @Test(arguments: [
         BackoffPolicy(base: .seconds(-1), maxDelay: .seconds(-8)),

@@ -14,7 +14,7 @@ import TallyTestSupport
 /// Every test runs on a `VirtualClock`: backoff waits are recorded and skipped, so a policy that
 /// waits for seconds runs in microseconds, and each test can check exactly how long the client
 /// waited and how much (virtual) time the call took.
-@Suite("CanvasClient: rate limits are bounded retries, never a storm (R-1)", .timeLimit(.minutes(1)))
+@Suite("CanvasClient: rate limits are bounded retries, never a storm (R-1)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct CanvasClientRateLimitTests {
     private let host = "canvas.northfield.example"
     private let profilePath = "/api/v1/users/self/profile"

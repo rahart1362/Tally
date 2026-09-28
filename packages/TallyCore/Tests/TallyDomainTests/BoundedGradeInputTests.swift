@@ -14,7 +14,7 @@ import TallyTestSupport
 /// value (`nil`, or 0 for a weight), and a non-zero magnitude below `minimumMagnitude` (1e-6)
 /// becomes 0. 1e50 itself is canvas-lms's own "ridiculous circumstances" value and still computes
 /// (`GradeEngineTests.tiesAndUnpointedAndRidiculousTotals`, unchanged).
-@Suite("Grade inputs are bounded before the drop-rule bisection (R-2)", .timeLimit(.minutes(1)))
+@Suite("Grade inputs are bounded before the drop-rule bisection (R-2)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct BoundedGradeInputTests {
     private let maximum = GradeSanitizing.maximumMagnitude
     private let minimum = GradeSanitizing.minimumMagnitude

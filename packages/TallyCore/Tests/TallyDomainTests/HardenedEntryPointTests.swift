@@ -7,7 +7,7 @@ import TallyTestSupport
 /// caller. None of these values comes from Canvas today (every caller in TallyCore passes a bounded
 /// priority and the default cap), but each is a public parameter or a snapshot that can bypass the
 /// gateway, and each used to trap or to depend on `Dictionary` order.
-@Suite("Entry points that trusted their caller (R-4)", .timeLimit(.minutes(1)))
+@Suite("Entry points that trusted their caller (R-4)", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct HardenedEntryPointTests {
     private static let now = Date(timeIntervalSince1970: 1_790_600_400) // 2026-09-28T13:00:00Z
     private static let utc = TimeZone(secondsFromGMT: 0) ?? .current
