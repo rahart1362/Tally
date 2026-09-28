@@ -49,7 +49,7 @@ public enum LaunchSignpost {
 
     /// L4: the first frame with cached content (the Dashboard's glance or full projection).
     public static func glancePainted() {
-        #if DEBUG || TALLY_TEST_HOOKS
+        #if true || TALLY_TEST_HOOKS
         LaunchProbe.shared.painted()
         #endif
         guard let state = interval else { return }
