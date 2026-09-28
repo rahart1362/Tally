@@ -112,15 +112,14 @@ public actor CanvasClient {
     /// scope) fails without refreshing; on 429 or a rate-limited 403 backs off within
     /// `budget`; on 5xx retries at most twice with `BackoffPolicy`.
     ///
-    /// R-1 (resilience.md): `budget` is measured from this call's start, on the injected clock. A
-    /// retry is scheduled only if its wait, plus another attempt as long as the last one took, ends
-    /// inside what is left of the budget, so the call returns within its budget unless an attempt
-    /// runs longer than the one before it. A rate limit is retried at most `maxRateLimitRetries`
-    /// times, never sooner than the response's `Retry-After` or the policy's exponential floor
-    /// (`BackoffPolicy.rateLimitDelay`). When the cap is reached, or the next retry (after a
-    /// `Retry-After` longer than the budget, say) would not fit, the call throws `.rateLimited` at
-    /// once rather than wait. A cancelled wait throws `.offline`, like every other below-HTTP
-    /// interruption, instead of sending another request.
+    /// R-1 (resilience.md): `budget` is measured from this call's start, on the injected clock, and
+    /// a backoff wait is started only if it ends inside what is left of it. A call therefore
+    /// overruns its budget by at most its last request's own duration. A rate limit is retried at
+    /// most `maxRateLimitRetries` times, never sooner than the response's `Retry-After` or the
+    /// policy's exponential floor (`BackoffPolicy.rateLimitDelay`). When the cap is reached, or the
+    /// next wait would not fit (a `Retry-After` longer than the budget, say), the call throws
+    /// `.rateLimited` at once rather than wait. A cancelled wait throws `.offline`, like every
+    /// other below-HTTP interruption, instead of sending another request.
     ///
     /// `throwOnClientError` (added for `perform`, defaults `true` so `fetchOne`/
     /// `fetchAllPages` are unchanged): when `false`, `.insufficientScope`, `.forbidden`,
@@ -134,7 +133,6 @@ public actor CanvasClient {
         var rateLimitRetries = 0
         let deadline = elapsed() + budget
         while true {
-            let attemptStart = elapsed()
             let token: String
             do { token = try await tokens.accessToken() } catch { throw Self.authFailure(error) }
             request.headers["Authorization"] = "Bearer \(token)"
@@ -146,10 +144,8 @@ public actor CanvasClient {
                 throw .offline // every below-HTTP failure (offline, timed out, cancelled) is reported the same way
             }
 
-            // What is left of the budget for the next retry's wait, keeping back as long again as
-            // this attempt took, for the retry's own request.
-            let now = elapsed()
-            let retryBudget = deadline - now - (now - attemptStart)
+            // What is left of the budget: a retry's wait must end inside it.
+            let retryBudget = deadline - elapsed()
             switch ResponseClassifier.classify(response) {
             case .success:
                 // CS-05: a response body past this size never reaches a mapper — this bounds

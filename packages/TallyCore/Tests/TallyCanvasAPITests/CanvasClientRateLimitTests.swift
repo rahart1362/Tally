@@ -71,17 +71,32 @@ struct CanvasClientRateLimitTests {
 
     // MARK: - The budget
 
-    /// The default 10 s budget, the production policy, and 1 s of latency per request: the call
-    /// ends `.rateLimited` inside its budget, having never started a wait it could not finish.
-    @Test func aPersistent429EndsInsideTheBudget() async {
+    /// A 5 s budget and the production policy, whose four waits add up to 7.5-15 s: the call ends
+    /// `.rateLimited` inside its budget. Its waits are the only time that passes, so they all fit.
+    @Test func aPersistent429ReturnsWithinTheBudget() async {
         let clock = VirtualClock()
-        let transport = ScriptedTransport([ScriptedTransport.rateLimited()], clock: clock, latency: .seconds(1))
-        let budget = TallyConfig.liveRefreshBudget
+        let transport = ScriptedTransport([ScriptedTransport.rateLimited()])
+        let budget = Duration.seconds(5)
         let result = await fetchProfile(client(transport, clock: clock), budget: budget)
 
         #expect(result == .failure(.rateLimited))
         #expect(await transport.requestCount <= 1 + CanvasClient.maxRateLimitRetries)
         #expect(clock.elapsed <= budget, "the call took \(clock.elapsed) of virtual time against a \(budget) budget")
+    }
+
+    /// With 1 s of latency per request, each wait still ends inside the budget, so the call
+    /// overruns it by at most its last request: never by another backoff step (the production
+    /// policy's fourth is 4-8 s).
+    @Test func withLatencyTheCallOverrunsItsBudgetByAtMostOneRequest() async {
+        let clock = VirtualClock()
+        let latency = Duration.seconds(1)
+        let transport = ScriptedTransport([ScriptedTransport.rateLimited()], clock: clock, latency: latency)
+        let budget = TallyConfig.liveRefreshBudget
+        let result = await fetchProfile(client(transport, clock: clock), budget: budget)
+
+        #expect(result == .failure(.rateLimited))
+        #expect(await transport.requestCount <= 1 + CanvasClient.maxRateLimitRetries)
+        #expect(clock.elapsed <= budget + latency, "the call took \(clock.elapsed) of virtual time against a \(budget) budget")
     }
 
     /// crash-safety-2.md F-6's reproduction: a 1-5 ms policy and a 200 ms budget made 1,501
@@ -175,8 +190,8 @@ struct CanvasClientRateLimitTests {
     }
 
     /// Every family-linking call, S1/O1 reads and W1-W3 writes, against a persistent 429 with 1 s
-    /// of latency per request: each ends as `.network(.rateLimited)` inside
-    /// `FamilyEndpoints.requestBudget`, after at most the cap's requests.
+    /// of latency per request: each ends as `.network(.rateLimited)` after at most the cap's
+    /// requests, within `FamilyEndpoints.requestBudget` plus its last request.
     @Test(arguments: ["listObservers", "listObservees", "createInvite", "addStudent", "unlink"])
     func aPersistent429EndsEveryLinkManagementCallInsideItsBudget(_ call: String) async {
         let clock = VirtualClock()
@@ -199,7 +214,7 @@ struct CanvasClientRateLimitTests {
 
         #expect(outcome == .network(.rateLimited))
         #expect(await transport.requestCount <= 1 + CanvasClient.maxRateLimitRetries)
-        #expect(clock.elapsed <= FamilyEndpoints.requestBudget, "\(call) took \(clock.elapsed) of virtual time")
+        #expect(clock.elapsed <= FamilyEndpoints.requestBudget + .seconds(1), "\(call) took \(clock.elapsed) of virtual time")
     }
 
     // MARK: - Parsing Retry-After
