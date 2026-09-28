@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TallyDomain
 @testable import TallyFeatures
 
 /// ASC-14: `SampleDataCanvasGateway` end to end — loads the bundled flagship persona through
@@ -49,12 +50,15 @@ struct SampleDataGatewayTests {
     /// that has been through `SnapshotDateRebaser`. `DashboardBuilderTests` covers the raw,
     /// un-rebased fixture; rebasing moves every Canvas date relative to "now", so a builder rule
     /// that misbehaves only on rebased dates would surface here.
-    @Test("DashboardBuilder.build over a rebased sample-data snapshot builds the full dashboard")
+    @Test("HomeProjector over a rebased sample-data snapshot builds the full dashboard")
     func dashboardBuilderOverRebasedSampleData() async throws {
         let now = Date()
         let gateway = try await SampleDataCanvasGateway.make()
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: now)
-        let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: now)
+        let projector = HomeProjector()
+        await projector.install(HomeUpdate(generation: snapshot.generation, snapshot: snapshot, digest: nil,
+                                           digestAsOf: nil, freshness: .fresh(at: now)))
+        let state = try #require(await projector.project(now: now)).dashboard
         #expect(state.hero.courseCount == 5)
         #expect(state.weekAhead.count == 7)
     }

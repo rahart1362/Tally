@@ -3,10 +3,12 @@ import Testing
 import TallyDomain
 @testable import TallyFeatures
 
-/// UX-WP-13: `DashboardBuilder` over a real flagship snapshot (never fabricated — every
-/// assertion below traces back to `fixtures/canvas/personas/flagship`, per
-/// `fixtures/canvas/README.md`'s persona table: 5 courses, BIO 101 93.4% A highest).
-@Suite("DashboardBuilder: hero, Next up, Needs attention, Due soon, Week ahead")
+/// UX-WP-13: the Dashboard over a real flagship snapshot (never fabricated — every assertion below
+/// traces back to `fixtures/canvas/personas/flagship`, per `fixtures/canvas/README.md`'s persona
+/// table: 5 courses, BIO 101 93.4% A highest). Step 6b: through the production path,
+/// `HomeProjector` (TallyDomain's `DashboardBuilder`, then localization), now that the pre-port
+/// builder is deleted (parity proven by `DashboardParityTests` on CI before its deletion).
+@Suite("Dashboard via HomeProjector: hero, Next up, Needs attention, Due soon, Week ahead")
 struct DashboardBuilderTests {
     private static let fixedNow = Date(timeIntervalSince1970: 1_790_000_000)
 
@@ -14,9 +16,18 @@ struct DashboardBuilderTests {
         try await FlagshipSnapshotHarness.fetchSnapshot(now: Self.fixedNow)
     }
 
+    /// The dashboard `HomeProjector` projects for `snapshot` at `fixedNow`.
+    private func project(_ snapshot: TallyDomain.CanvasSnapshot, digest: ChangeDigest? = nil,
+                         digestAsOf: Date? = nil) async throws -> DashboardProjection {
+        let projector = HomeProjector()
+        await projector.install(HomeUpdate(generation: snapshot.generation, snapshot: snapshot, digest: digest,
+                                           digestAsOf: digestAsOf, freshness: .fresh(at: Self.fixedNow)))
+        return try #require(await projector.project(now: Self.fixedNow)).dashboard
+    }
+
     @Test("hero: 5 courses, an overall percent close to the README's stated mean (88.34)")
     func heroAveragesFiveCourses() async throws {
-        let state = TallyFeatures.DashboardBuilder.build(from: try await snapshot(), digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(try await snapshot())
         #expect(state.hero.courseCount == 5)
         let overall = try #require(state.hero.overallPercent)
         #expect(abs(overall - 88.34) < 0.5)
@@ -25,14 +36,14 @@ struct DashboardBuilderTests {
 
     @Test("first snapshot (no previous): no digest chip, matching architecture's no-flood-on-first-look rule")
     func noDigestOnFirstSnapshot() async throws {
-        let state = TallyFeatures.DashboardBuilder.build(from: try await snapshot(), digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(try await snapshot())
         #expect(state.changeDigestSummary == nil)
     }
 
     @Test("Next up: at most 3 items, each excluding submitted/graded/excused work")
     func nextUpExcludesResolvedWork() async throws {
         let snap = try await snapshot()
-        let state = TallyFeatures.DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(snap)
         #expect(state.nextUp.count <= 3)
         let allAssignments = snap.groups.values.flatMap { $0.flatMap(\.assignments) }
         let byID = Dictionary(uniqueKeysWithValues: allAssignments.map { ($0.id, $0) })
@@ -49,7 +60,7 @@ struct DashboardBuilderTests {
 
     @Test("Needs attention: at most 3, ranked by severity+priority descending")
     func needsAttentionIsRankedAndCapped() async throws {
-        let state = TallyFeatures.DashboardBuilder.build(from: try await snapshot(), digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(try await snapshot())
         #expect(state.needsAttention.count <= 3)
         let severities = state.needsAttention.map(\.severity.rawValue)
         #expect(severities == severities.sorted(by: >))
@@ -58,7 +69,7 @@ struct DashboardBuilderTests {
     @Test("Due soon: only items due within 7 days of `now`, at most 5, sorted earliest-first")
     func dueSoonWindowAndOrder() async throws {
         let snap = try await snapshot()
-        let state = TallyFeatures.DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(snap)
         #expect(state.dueSoon.count <= 5)
         let horizon = Self.fixedNow.addingTimeInterval(7 * 24 * 3600)
         for item in state.dueSoon {
@@ -72,7 +83,7 @@ struct DashboardBuilderTests {
 
     @Test("Week ahead: exactly 7 days, starting today")
     func weekAheadHasSevenDays() async throws {
-        let state = TallyFeatures.DashboardBuilder.build(from: try await snapshot(), digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let state = try await project(try await snapshot())
         #expect(state.weekAhead.count == 7)
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
@@ -105,7 +116,7 @@ struct DashboardBuilderTests {
             sections: old.sections)
         let digest = ChangeDigest.diff(old: old, new: updated)
         #expect(!digest.isEmpty)
-        let state = TallyFeatures.DashboardBuilder.build(from: updated, digest: digest, digestAsOf: updated.fetchedAt, now: Self.fixedNow)
+        let state = try await project(updated, digest: digest, digestAsOf: updated.fetchedAt)
         let summary = try #require(state.changeDigestSummary)
         #expect(summary.contains("\(digest.count)"))
     }
