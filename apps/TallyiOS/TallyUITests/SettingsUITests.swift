@@ -1,8 +1,8 @@
 import XCTest
 
-/// UX-WP-20 (S-7): Settings as a `Form` sheet in sample mode. No dead rows and no chevron on a row
-/// that does not navigate, no Microsoft 365 or Google, and the "What changed" threshold: All or
-/// points, globally and per course.
+/// UX-WP-20 (S-7): Settings as a `Form` sheet in sample mode. Every section, the version as a row
+/// that is not a button (no chevron), no Microsoft 365 or Google, and the "What changed"
+/// threshold: All or points, globally and per course.
 final class SettingsUITests: TallyUITestCase {
     private static let sections = ["Account", "What changed", "Data & Refresh", "Calendar", "Privacy & Security", "About"]
 

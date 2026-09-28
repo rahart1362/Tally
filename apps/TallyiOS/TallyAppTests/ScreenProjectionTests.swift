@@ -264,6 +264,22 @@ struct CalendarProjectionTests {
         #expect(calendar.week.map(\.dotCount).allSatisfy { (0...3).contains($0) })
     }
 
+    @Test("the AX day pager steps through the agenda from today and stops at either end")
+    func dayPager() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let calendar = screens.calendar
+        let today = try #require(calendar.day(from: nil, offset: 0))
+        #expect(today.isToday)
+        #expect(calendar.day(from: today.id, offset: 1)?.id == calendar.days.first { $0.id > today.id }?.id)
+        #expect(calendar.day(from: today.id, offset: -1)?.id == calendar.days.last { $0.id < today.id }?.id)
+        let first = try #require(calendar.days.first)
+        let last = try #require(calendar.days.last)
+        #expect(calendar.day(from: first.id, offset: -1) == nil)
+        #expect(calendar.day(from: last.id, offset: 1) == nil)
+        #expect(calendar.day(from: first.id, offset: calendar.days.count - 1)?.id == last.id)
+        #expect(CalendarProjection.empty.day(from: nil, offset: 0) == nil)
+    }
+
     @Test("R6: the student's own feed as a webcal:// link")
     func subscribeLink() async throws {
         let (_, screens) = try await ScreenFixtures.projections("flagship")

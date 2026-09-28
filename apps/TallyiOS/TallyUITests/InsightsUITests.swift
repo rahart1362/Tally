@@ -1,8 +1,9 @@
 import XCTest
 
-/// UX-WP-19 (S-6): Insights on the flagship persona. Both charts expose a descriptor with a label
-/// and a value (A11Y-08: `chart.trend`, `chart.weights`), every card title is a header, and the
-/// streak uses the `flame` symbol with words, never an emoji.
+/// UX-WP-19 (S-6): Insights on the flagship persona. Both charts have a label and a value
+/// (A11Y-08: `chart.trend`, `chart.weights`), every card's title is on the screen, and the streak
+/// is a line of words. (The header trait, the `flame` symbol and "no emoji" are checked in code and
+/// by `ScreenSourceHygieneTests`, not here.)
 final class InsightsUITests: TallyUITestCase {
     private static let cardTitles = ["Performance trend", "Category breakdown", "Completion", "Momentum",
                                      "Needs a look", "Heavy stretches"]

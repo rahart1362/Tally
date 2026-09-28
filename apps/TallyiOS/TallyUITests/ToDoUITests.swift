@@ -1,8 +1,9 @@
 import XCTest
 
-/// UX-WP-18 (S-4): To-Do on the flagship persona. Missing work first, every row's label with its
-/// course code and status words (A11Y-06), the completion control at 44 × 44 pt (A11Y-04), the
-/// honest "done" copy, swipe actions and batch select.
+/// UX-WP-18 (S-4): To-Do on the flagship persona. Missing work first, the first rows' labels with
+/// their course codes and the first row's status words (A11Y-06; every row is checked in
+/// `ScreenProjectionTests`), the completion control at 44 × 44 pt (A11Y-04), the honest "done"
+/// copy, swipe actions and batch select.
 final class ToDoUITests: TallyUITestCase {
     private static let codes = ["BIO 101", "MATH 122", "ENG 101", "PSY 101", "HIST 210"]
 
