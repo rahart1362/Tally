@@ -72,12 +72,17 @@ struct SampleDataBanner: View {
             Text("SAMPLE DATA")
                 .font(TallyTypography.caption.weight(.semibold))
             Spacer()
-            Button("Exit", action: onExit)
-                .font(TallyTypography.caption.weight(.semibold))
+            // A 44 × 44 pt target (HIG minimum). The text alone measured 22 × 14 pt in CI's
+            // accessibility hierarchy (run 36363360710), too small to tap reliably.
+            Button(action: onExit) {
+                Text("Exit")
+                    .font(TallyTypography.caption.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
         }
         .foregroundStyle(TallyColor.accentOnFill)
         .padding(.horizontal, TallySpacing.screenMargin)
-        .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity)
         .background(TallyColor.accent)
         // Deliberately NOT `.accessibilityElement(children: .combine)`: that would fold the
