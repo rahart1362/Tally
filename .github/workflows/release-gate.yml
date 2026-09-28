@@ -11,11 +11,6 @@ name: Release gate
 #   gh workflow run "Release gate" --ref <branch>
 on:
   workflow_dispatch:
-  # TEMPORARY, removed in the next commit: GitHub dispatches only workflows that exist on the
-  # default branch ("workflow release-gate.yml not found on the default branch"), so this one push
-  # runs the gate once on m2/widget-compliance before it is merged (M2-C2 brief: run it once).
-  push:
-    branches: [m2/widget-compliance]
 
 permissions:
   contents: read
