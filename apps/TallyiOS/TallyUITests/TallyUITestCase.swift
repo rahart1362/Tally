@@ -17,8 +17,16 @@ class TallyUITestCase: XCTestCase {
     /// `MainThreadWatchdog.Mode.environmentKey` and its mode (this bundle does not link TallyCore).
     static let watchdogEnvironment = ["TALLY_MAIN_THREAD_WATCHDOG": "report:250"]
 
+    /// The per-test hang limit for UI tests (`-test-timeouts-enabled`; the command line's
+    /// maximum is 300 s). The 120 s default was too tight for this environment: in run
+    /// 36370850272 `testSchoolNotEnabledToSampleData` spent 80 s in "Open app" (the app process
+    /// started 76 s after the test began) and 20.7 s in its first search-field tap (first keyboard
+    /// presentation), then hit 120 s. A real hang still fails within 4 minutes.
+    static let executionAllowance: TimeInterval = 240
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+        executionTimeAllowance = Self.executionAllowance
     }
 
     @MainActor
