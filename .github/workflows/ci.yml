@@ -34,6 +34,19 @@ jobs:
           ! grep -rnE "Calculus III Midterm|simulated_exam_alert|simulated_event_1" packages apps
       - name: Go-live placeholders (report only; the release gate enforces)
         run: scripts/go-live/find-placeholders.sh || echo "::notice::Go-live placeholders remain (expected before go-live, see docs/GO-LIVE.md GL-02)"
+      - name: No debug logging, Task.detached or unaudited concurrency flags in shipping code
+        # perf-app-runtime.md section 6. Task.detached drops priority, task-locals and
+        # cancellation (use @concurrent). Turning on NonisolatedNonsendingByDefault moves
+        # nonisolated async work onto the caller, which can be the main actor, so it
+        # needs a recorded audit first.
+        run: |
+          if git grep -nE "DEBUG-NAV|NSLog\(|\bprint\(|Task\.detached|NonisolatedNonsendingByDefault" -- \
+              packages/TallyCore/Sources packages/TallyAppleKit/Sources \
+              apps/TallyiOS/Tally apps/TallyiOS/TallyWidgets \
+              ':!packages/TallyCore/Sources/TallyTestSupport'; then
+            echo "::error::Banned pattern in shipping code (lines above)"
+            exit 1
+          fi
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
@@ -49,6 +62,52 @@ jobs:
       - name: Test
         working-directory: packages/TallyCore
         run: swift test
+
+  lint:
+    name: Crash-safety lint (SwiftLint 0.59.1, pinned)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: make lint (force_unwrapping, force_try, force_cast, implicitly_unwrapped_optional)
+        run: make lint CONTAINER=docker
+
+  core-sanitizers:
+    name: TallyCore sanitizers (TSan + ASan/LSan, Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # TSan needs a memory layout that high ASLR entropy breaks. The Makefile already
+      # disables ASLR for the test process (setarch -R, crash-safety.md CS-04); this
+      # lowers the kernel's entropy as well, as belt and braces on the hosted runner.
+      - name: Lower mmap ASLR entropy for ThreadSanitizer
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: ThreadSanitizer (make core-tsan)
+        run: |
+          set -o pipefail
+          make core-tsan CONTAINER=docker 2>&1 | tee "$RUNNER_TEMP/tsan.log"
+          ! grep -q "WARNING: ThreadSanitizer" "$RUNNER_TEMP/tsan.log"
+      - name: AddressSanitizer + LeakSanitizer (make core-asan)
+        run: |
+          set -o pipefail
+          make core-asan CONTAINER=docker 2>&1 | tee "$RUNNER_TEMP/asan.log"
+          ! grep -qE "ERROR: (AddressSanitizer|LeakSanitizer)" "$RUNNER_TEMP/asan.log"
+
+  core-perf:
+    name: TallyCore perf gates (Linux, release, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Timing on shared runners is noisy. Report-only until the PMO has seen five
+    # green runs on main (perf-app-runtime.md D-P3); after that it becomes required.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: make core-perf (median of >= 5, release)
+        run: |
+          set -o pipefail
+          make core-perf CONTAINER=docker 2>&1 | tee "$RUNNER_TEMP/perf.log"
+          grep -E "^PERF(-BUDGET|-SCALING)? \|" "$RUNNER_TEMP/perf.log" || true
 
   ios-build:
     name: iOS build + test (Xcode 26.6)
