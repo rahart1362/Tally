@@ -8,7 +8,7 @@ on:
       scope:
         description: "full: every job (pull requests always run full). quick: Linux jobs plus ios-build only, for engineers' iteration runs; hand-off runs must be full."
         type: choice
-        options: [full, quick]
+        options: [full, quick, tour]
         default: full
 
 permissions:
@@ -167,7 +167,7 @@ jobs:
 
   core-perf-apple:
     name: TallyCore perf on Apple silicon (release, non-blocking)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 30
     # Release numbers from Apple's toolchain on Apple silicon are closer to a device than
@@ -189,8 +189,56 @@ jobs:
             2>&1 | tee "$RUNNER_TEMP/perf-apple.log" | grep -E "^PERF|passed after|failed after|known issue|error:" || true
           grep -qE "Test run with [0-9]+ tests? .*passed" "$RUNNER_TEMP/perf-apple.log"
 
+  screenshot-tour:
+    name: Screenshot tour (PMO, dispatch only)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.scope == 'tour' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: Build for testing
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run the screenshot tour
+        continue-on-error: true
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/ScreenshotTourUITests IOS_RESULT_NAME=Tally-tour
+      - name: Export the screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/tour"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally-tour.xcresult" \
+            --output-path "$RUNNER_TEMP/tour"
+          ls -la "$RUNNER_TEMP/tour"
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: screenshot-tour
+          path: ${{ runner.temp }}/tour
+          retention-days: 7
+
   ios-build:
     name: iOS build + test (Xcode 26.6)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'tour' }}
     runs-on: macos-26
     # 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
@@ -387,7 +435,7 @@ jobs:
 
   ios-tsan:
     name: iOS ThreadSanitizer (TallyAppTests; report-only until O12 is fixed)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 60
     # Plan 06 A7: required once it is first green (PMO).
@@ -421,7 +469,7 @@ jobs:
 
   ios-asan:
     name: iOS AddressSanitizer (app tests)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'tour' }}
     runs-on: macos-26
     timeout-minutes: 75
     # Plan 06 A7: required since 2026-09-28 (PMO). It runs the hosted app tests. The UI tests run
@@ -456,7 +504,7 @@ jobs:
 
   ios-asan-ui:
     name: iOS AddressSanitizer (UI tests, report-only)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 75
     # Report-only until the UI tests' waits hold up on the slow ASan simulator (O9, stream M2-C2).
@@ -491,7 +539,7 @@ jobs:
 
   ios-perf:
     name: iOS perf budgets (Release, non-blocking)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 45
     # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
@@ -523,7 +571,7 @@ jobs:
 
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: xcode-27
     timeout-minutes: 30
     continue-on-error: true # preview image; must never gate the required checks above
