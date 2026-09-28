@@ -108,14 +108,30 @@ struct URLSessionTransportTests {
         #expect(response.body.count == Self.cap)
     }
 
-    @Test("Content-Length of cap + 1 is refused at the headers: TransportError.other, no body delivered")
+    /// The stub holds its first body byte back for this long and stops at `stopLoading`, so a
+    /// transport that refuses at the headers throws long before the stub could send anything.
+    private static let firstByteNeverWithinTheTest: Duration = .seconds(30)
+
+    /// O12: this test used a 500 ms first-byte delay, which was its whole margin. In ios-tsan (run
+    /// 36418727234) the transport refused the response at the headers (109 bytes had arrived, under
+    /// the cap, so the running count had not fired), but the cancel took about 1.6 s to reach the
+    /// stub, which had sent those 109 bytes by then. Now the stub waits 30 s, so the assertion is
+    /// about the transport: it threw before a single body byte existed. Refusal itself is also
+    /// checked deterministically, with no URL Loading System timing at all, in
+    /// `TransportTaskDelegateCapTests`.
+    @Test("Content-Length of cap + 1 is refused at the headers: TransportError.other, before any body byte")
     func overCapContentLengthIsRefusedAtTheHeaders() async {
         ChunkedStubURLProtocol.configure(contentLength: Self.cap + 1, chunkSize: 1, chunks: Self.cap + 1,
-                                         firstChunkDelay: .milliseconds(500))
+                                         firstChunkDelay: Self.firstByteNeverWithinTheTest)
         let transport = URLSessionTransport(protocolClasses: [ChunkedStubURLProtocol.self], maxBodyBytes: Self.cap)
+        let clock = ContinuousClock()
+        let started = clock.now
         await #expect(throws: TransportError.other) {
             _ = try await transport.send(HTTPRequest(url: Self.url))
         }
+        let elapsed = clock.now - started
+        #expect(elapsed < Self.firstByteNeverWithinTheTest,
+                "send took \(elapsed): the response was not refused at its headers")
         #expect(ChunkedStubURLProtocol.deliveredChunks == 0, "the body was loaded although its length was over the cap")
     }
 
@@ -167,6 +183,59 @@ struct URLSessionTransportTests {
         #expect(URLSessionTransport.classify(URLError(.cancelled)) == .cancelled)
         #expect(URLSessionTransport.classify(URLError(.badURL)) == .other)
         #expect(URLSessionTransport.classify(CancellationError()) == .other)
+    }
+}
+
+/// The response-size cap's header refusal, driven by hand against the transport's task delegate
+/// (O12): no URL Loading System, no stub timing, so the result depends only on the delegate's logic.
+@Suite("TransportTaskDelegate: response-size cap")
+struct TransportTaskDelegateCapTests {
+    private static let cap = 1_000
+    private static let url = URL(string: "https://canvas.example.edu/api/v1/courses")!
+
+    @Test("an over-cap Content-Length is cancelled at the headers, and bytes delivered afterwards are never kept")
+    func overCapHeadIsRefusedAndLaterBytesAreDropped() async {
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: Self.url) // never resumed: it only supplies a real task
+        let response = HTTPURLResponse(url: Self.url, statusCode: 200, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Length": String(Self.cap + 1)])!
+        let delegate = TransportTaskDelegate(maxBodyBytes: Self.cap)
+        var disposition: URLSession.ResponseDisposition?
+        var thrown: (any Error)?
+        do {
+            let accepted = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HTTPResponse, any Error>) in
+                delegate.install(continuation)
+                delegate.urlSession(session, dataTask: task, didReceive: response) { disposition = $0 }
+                // Bytes the loading system had already queued before it acted on the cancel.
+                delegate.urlSession(session, dataTask: task, didReceive: Data(repeating: 0x20, count: 109))
+                delegate.urlSession(session, task: task, didCompleteWithError: URLError(.cancelled))
+            }
+            Issue.record("the over-cap response was accepted: \(accepted.body.count) body bytes")
+        } catch {
+            thrown = error
+        }
+        #expect(disposition == .cancel, "the delegate let an over-cap response continue past its headers")
+        #expect(thrown as? TransportError == .other)
+        task.cancel()
+    }
+
+    @Test("a Content-Length of exactly the cap is allowed through the headers")
+    func capLengthHeadIsAllowed() async throws {
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: Self.url)
+        let response = HTTPURLResponse(url: Self.url, statusCode: 200, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Length": String(Self.cap)])!
+        let delegate = TransportTaskDelegate(maxBodyBytes: Self.cap)
+        var disposition: URLSession.ResponseDisposition?
+        let accepted = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HTTPResponse, any Error>) in
+            delegate.install(continuation)
+            delegate.urlSession(session, dataTask: task, didReceive: response) { disposition = $0 }
+            delegate.urlSession(session, dataTask: task, didReceive: Data(repeating: 0x20, count: Self.cap))
+            delegate.urlSession(session, task: task, didCompleteWithError: nil)
+        }
+        #expect(disposition == .allow)
+        #expect(accepted.body.count == Self.cap)
+        task.cancel()
     }
 }
 
@@ -315,7 +384,10 @@ final class ChunkedStubURLProtocol: URLProtocol, @unchecked Sendable {
             }
             let isLast = index == config.chunks - 1 && config.lastChunkSize > 0
             client?.urlProtocol(self, didLoad: Data(repeating: 0x20, count: isLast ? config.lastChunkSize : config.chunkSize))
-            Self.progress.withLock { $0.delivered += 1 }
+            // Counted against this load's own generation, like `stopped`: a chunk from an earlier
+            // test's load that was never stopped cannot count in a later test.
+            let mine = generation.withLock { $0 }
+            Self.progress.withLock { if $0.generation == mine { $0.delivered += 1 } }
             deliver(chunk: index + 1, config: config, after: config.interChunkDelay)
         }
     }
