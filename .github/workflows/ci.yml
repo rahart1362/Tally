@@ -421,6 +421,8 @@ jobs:
           xcrun xcresulttool get test-results metrics --path "$RUNNER_TEMP/ios/Tally.xcresult" --compact \
             > "$RUNNER_TEMP/ios/widget-metrics.json"
           python3 scripts/ci/check_perf_budgets.py perf/widget-budgets.json "$RUNNER_TEMP/ios/widget-metrics.json"
+          # How the production Keychain group behaved on this runner (WidgetGlanceKeychainTests).
+          grep -h "WIDGET-KEYCHAIN" "$RUNNER_TEMP/ios/Tally-test.log" || echo "no WIDGET-KEYCHAIN line in the test log"
       - name: Verify built app identity
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
