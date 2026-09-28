@@ -12,6 +12,13 @@
 // seeing the exact same cross-run noise (2-5x outliers) that motivated `.serialized` in the
 // first place. Extending the same type keeps every timing-sensitive test in this target under
 // one suite identity, so `.serialized` on `CoreBenchmarks`'s primary declaration covers these too.
+//
+// PERF-05 PA-5: each ratio is now `Bench.scalingRatio`: three rounds, each timing the two sides
+// in alternation (11 iterations, 2 warmups, as before), gated on the median round. PERF-05's
+// weight context cut the stress-side `DashboardBuilder.build` from ~70 ms to ~5 ms, and at that
+// size outside load on this shared machine moved a single sequential ratio by itself: twelve
+// sequential runs read 7.8x to 17.3x (one over budget), and one interleaved run 16.73x. Same
+// 13.5x budget.
 #if !DEBUG
 import Testing
 import TallyDomain
@@ -29,9 +36,9 @@ extension CoreBenchmarks {
     /// this container's ordinary jitter for an algorithm that was never the problem.
     static let maxAcceptableRatio = 13.5
 
-    fileprivate func ratio(_ scaledUp: Duration, _ baseline: Duration) -> Double {
-        let ms: (Duration) -> Double = { Double($0.components.seconds) * 1000 + Double($0.components.attoseconds) / 1e15 }
-        return ms(scaledUp) / max(ms(baseline), 0.000_001) // guard a near-zero baseline from dividing to infinity
+    /// `(rounds 9.81x 10.02x 10.40x)`: every round's ratio, printed next to the gated median.
+    func roundsText(_ rounds: [Double]) -> String {
+        "(rounds " + rounds.map { String(format: "%.2fx", $0) }.joined(separator: " ") + ")"
     }
 
     @Test func gradeEngineScalesLinearlyNotSuperlinearly() {
@@ -39,18 +46,19 @@ extension CoreBenchmarks {
         let big = StressSnapshotFixture.make(scale: .stress)
         #expect(big.courses.count == 10 * base.courses.count) // the "10x" precondition, stated not assumed
 
-        let baseResult = Bench.time("scalingBaseline/gradeEngineAllCourses", iterations: 11, warmup: 2) {
-            for course in base.courses {
-                _ = GradeEngine.scores(course: course, groups: base.groups[course.id] ?? [], gradingPeriods: base.gradingPeriods[course.id] ?? [])
-            }
-        }
-        let bigResult = Bench.time("stress/gradeEngineAllCourses", iterations: 11, warmup: 2) {
-            for course in big.courses {
-                _ = GradeEngine.scores(course: course, groups: big.groups[course.id] ?? [], gradingPeriods: big.gradingPeriods[course.id] ?? [])
-            }
-        }
-        let r = ratio(bigResult.median, baseResult.median)
-        print("PERF-SCALING | gradeEngineAllCourses | 10x courses -> \(String(format: "%.2f", r))x time")
+        let (r, rounds) = Bench.scalingRatio(
+            "scalingBaseline/gradeEngineAllCourses", "stress/gradeEngineAllCourses",
+            base: {
+                for course in base.courses {
+                    _ = GradeEngine.scores(course: course, groups: base.groups[course.id] ?? [], gradingPeriods: base.gradingPeriods[course.id] ?? [])
+                }
+            },
+            scaled: {
+                for course in big.courses {
+                    _ = GradeEngine.scores(course: course, groups: big.groups[course.id] ?? [], gradingPeriods: big.gradingPeriods[course.id] ?? [])
+                }
+            })
+        print("PERF-SCALING | gradeEngineAllCourses | 10x courses -> \(String(format: "%.2f", r))x time \(roundsText(rounds))")
         #expect(r <= Self.maxAcceptableRatio, "GradeEngine scaled \(r)x for 10x the courses (budget \(Self.maxAcceptableRatio)x)")
     }
 
@@ -59,14 +67,11 @@ extension CoreBenchmarks {
         let big = StressSnapshotFixture.make(scale: .stress)
         #expect(big.courses.count == 10 * base.courses.count)
 
-        let baseResult = Bench.time("scalingBaseline/dashboardBuild", iterations: 11, warmup: 2) {
-            _ = DashboardBuilder.build(from: base, digest: nil, digestAsOf: nil, now: StressSnapshotFixture.referenceDate)
-        }
-        let bigResult = Bench.time("stress/dashboardBuild", iterations: 11, warmup: 2) {
-            _ = DashboardBuilder.build(from: big, digest: nil, digestAsOf: nil, now: StressSnapshotFixture.referenceDate)
-        }
-        let r = ratio(bigResult.median, baseResult.median)
-        print("PERF-SCALING | dashboardBuild | 10x courses -> \(String(format: "%.2f", r))x time")
+        let (r, rounds) = Bench.scalingRatio(
+            "scalingBaseline/dashboardBuild", "stress/dashboardBuild",
+            base: { _ = DashboardBuilder.build(from: base, digest: nil, digestAsOf: nil, now: StressSnapshotFixture.referenceDate) },
+            scaled: { _ = DashboardBuilder.build(from: big, digest: nil, digestAsOf: nil, now: StressSnapshotFixture.referenceDate) })
+        print("PERF-SCALING | dashboardBuild | 10x courses -> \(String(format: "%.2f", r))x time \(roundsText(rounds))")
         #expect(r <= Self.maxAcceptableRatio, "DashboardBuilder.build scaled \(r)x for 10x the courses (budget \(Self.maxAcceptableRatio)x)")
     }
 
@@ -74,10 +79,10 @@ extension CoreBenchmarks {
         let base = StressSnapshotFixture.make(scale: .scalingBaseline)
         let big = StressSnapshotFixture.make(scale: .stress)
 
-        let baseResult = Bench.time("scalingBaseline/changeDigestDiff", iterations: 11, warmup: 2) { _ = ChangeDigest.diff(old: base, new: base) }
-        let bigResult = Bench.time("stress/changeDigestDiff", iterations: 11, warmup: 2) { _ = ChangeDigest.diff(old: big, new: big) }
-        let r = ratio(bigResult.median, baseResult.median)
-        print("PERF-SCALING | changeDigestDiff | 10x courses -> \(String(format: "%.2f", r))x time")
+        let (r, rounds) = Bench.scalingRatio(
+            "scalingBaseline/changeDigestDiff", "stress/changeDigestDiff",
+            base: { _ = ChangeDigest.diff(old: base, new: base) }, scaled: { _ = ChangeDigest.diff(old: big, new: big) })
+        print("PERF-SCALING | changeDigestDiff | 10x courses -> \(String(format: "%.2f", r))x time \(roundsText(rounds))")
         #expect(r <= Self.maxAcceptableRatio, "ChangeDigest.diff scaled \(r)x for 10x the courses (budget \(Self.maxAcceptableRatio)x)")
     }
 }

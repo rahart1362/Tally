@@ -89,14 +89,12 @@ extension CoreBenchmarks {
         }
         let base = schedule(500, days: 12)
         let big = schedule(5000, days: 120)
-        let (baseResult, bigResult) = Bench.timeInterleaved(
-            "scheduleConflicts/500-items-12-days", "scheduleConflicts/5000-items-120-days", iterations: 11, warmup: 2,
-            { Bench.keep(Double(AlertEngine.scheduleConflicts(base).count)) },
-            { Bench.keep(Double(AlertEngine.scheduleConflicts(big).count)) })
-        let ms: (Duration) -> Double = { Double($0.components.seconds) * 1000 + Double($0.components.attoseconds) / 1e15 }
-        let ratio = ms(bigResult.median) / max(ms(baseResult.median), 0.000_001)
+        let (ratio, rounds) = Bench.scalingRatio(
+            "scheduleConflicts/500-items-12-days", "scheduleConflicts/5000-items-120-days",
+            base: { Bench.keep(Double(AlertEngine.scheduleConflicts(base).count)) },
+            scaled: { Bench.keep(Double(AlertEngine.scheduleConflicts(big).count)) })
         print("PERF-SCALING | scheduleConflicts | 10x items at constant density -> \(String(format: "%.2f", ratio))x time "
-            + "(budget \(String(format: "%.2f", Self.scheduleConflictsMaxRatio))x)")
+            + "\(roundsText(rounds)) (budget \(String(format: "%.2f", Self.scheduleConflictsMaxRatio))x)")
         #expect(ratio <= Self.scheduleConflictsMaxRatio,
                 "scheduleConflicts scaled \(ratio)x for 10x the items at constant density (budget \(Self.scheduleConflictsMaxRatio)x)")
     }
@@ -108,24 +106,22 @@ extension CoreBenchmarks {
     @Test func gradeEnginePerCourseScalingIsReported() {
         let base = StressSnapshotFixture.make(scale: Self.perCourseBaseline)
         let big = StressSnapshotFixture.make(scale: .stress)
-        let (baseResult, bigResult) = Bench.timeInterleaved(
+        let (ratio, rounds) = Bench.scalingRatio(
             "perCourseBaseline/gradeEngineAllCourses", "perCourseStress/gradeEngineAllCourses",
-            iterations: 11, warmup: 2,
-            {
+            base: {
                 for course in base.courses {
                     Bench.keep(GradeEngine.scores(course: course, groups: base.groups[course.id] ?? [],
                                                   gradingPeriods: base.gradingPeriods[course.id] ?? []).currentScore ?? 0)
                 }
             },
-            {
+            scaled: {
                 for course in big.courses {
                     Bench.keep(GradeEngine.scores(course: course, groups: big.groups[course.id] ?? [],
                                                   gradingPeriods: big.gradingPeriods[course.id] ?? []).currentScore ?? 0)
                 }
             })
-        let ms: (Duration) -> Double = { Double($0.components.seconds) * 1000 + Double($0.components.attoseconds) / 1e15 }
-        let ratio = ms(bigResult.median) / max(ms(baseResult.median), 0.000_001)
-        print("PERF-SCALING | gradeEngineAllCourses | 10x assignments per course -> \(String(format: "%.2f", ratio))x time (reported, not gated)")
+        print("PERF-SCALING | gradeEngineAllCourses | 10x assignments per course -> \(String(format: "%.2f", ratio))x time "
+            + "\(roundsText(rounds)) (reported, not gated)")
     }
 }
 #endif

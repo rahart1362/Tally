@@ -41,6 +41,22 @@ struct BenchmarkSupportTests {
         #expect(String(order) == String(repeating: "ab", count: 7)) // 2 warmups + 5 timed, alternating
     }
 
+    /// PERF-05 PA-5: a scaling ratio runs every round in full and reports each round's ratio.
+    @Test func scalingRatioRunsEveryRoundAndReportsEachRatio() {
+        var baseCalls = 0, scaledCalls = 0
+        let result = Bench.scalingRatio("meta-base", "meta-scaled", rounds: 3, iterations: 5, warmup: 1,
+                                        base: { baseCalls += 1 }, scaled: { scaledCalls += 1 })
+        #expect(baseCalls == 18 && scaledCalls == 18) // 3 rounds x (1 warmup + 5 timed)
+        #expect(result.roundRatios.count == 3)
+        #expect(result.ratio == Bench.medianOf(result.roundRatios))
+    }
+
+    @Test func medianOfOddAndEvenCounts() {
+        #expect(Bench.medianOf([9, 1, 5]) == 5)
+        #expect(Bench.medianOf([4, 1, 3, 2]) == 2.5)
+        #expect(Bench.medianOf([]) == 0)
+    }
+
     @Test func reportLineNamesTheLabelAndSampleCount() {
         let result = BenchResult(label: "widget/flagship", samples: [.milliseconds(1)], iterations: 1)
         #expect(result.reportLine.contains("widget/flagship"))

@@ -72,6 +72,36 @@ extension CoreBenchmarks {
         #expect(encoded.count <= budget, "\(scale): glance is \(encoded.count) bytes, over the gated \(budget)-byte ceiling")
     }
 
+    // MARK: - dashboardBuild/stress absolute ceiling (PERF-05 PA-5)
+
+    /// PERF-05 PA-5: an absolute ceiling on `DashboardBuilder.build` over the stress account (20
+    /// courses x 250 assignments), release mode, this container, median of 21. The scaling gates
+    /// catch a cost that grows faster than the data; this catches one that grows with it, only
+    /// by a larger constant factor. 13 ms is about 2x the measured after-PERF-05 number: medians
+    /// of 5.46-6.48 ms over three `make core-perf` runs, and 4.84-7.87 ms over nine runs of this
+    /// test (7.87 ms while other work loaded this shared machine). The pre-PERF-05 code measured
+    /// 68.7-71.3 ms and fails it by 5x. Under `deviceToCIFactor` (2.0, an estimate) the ceiling
+    /// projects to ~26 ms on the oldest device, inside the charter's 50 ms main-thread budget even
+    /// at `deviceSafetyMargin` (40 ms), though `DashboardBuilder` belongs off the main actor
+    /// regardless (perf-core.md §5).
+    static let dashboardBuildStressCeilingMs = 13.0
+
+    @Test("DashboardBuilder.build at stress scale stays under its absolute ceiling")
+    func dashboardBuildStressCeiling() {
+        let snapshot = StressSnapshotFixture.make(scale: .stress)
+        let result = Bench.time("ceiling/dashboardBuild/stress", iterations: 21, warmup: 3) {
+            _ = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: StressSnapshotFixture.referenceDate)
+        }
+        let medianMs = ms(result.median)
+        print("""
+            PERF-BUDGET | dashboardBuild/stress | median \(String(format: "%.2f", medianMs))ms \
+            | ceiling \(String(format: "%.2f", Self.dashboardBuildStressCeilingMs))ms \
+            | headroom \(String(format: "%.2f", Self.dashboardBuildStressCeilingMs - medianMs))ms
+            """)
+        #expect(medianMs <= Self.dashboardBuildStressCeilingMs,
+                "dashboardBuild/stress median \(medianMs)ms exceeds the \(Self.dashboardBuildStressCeilingMs)ms ceiling")
+    }
+
     // MARK: - Snapshot decode vs. the 100ms oldest-device budget (TallyConfig.snapshotDecodeBudget)
 
     @Test("Snapshot decode leaves headroom under the 100ms oldest-device budget", arguments: BenchScale.allCases)

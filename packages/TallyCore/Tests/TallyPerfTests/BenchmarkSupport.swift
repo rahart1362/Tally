@@ -101,6 +101,39 @@ public enum Bench {
         return (resultA, resultB)
     }
 
+    /// PERF-05 PA-5: a scaling gate's ratio, `scaled` median over `base` median, measured in
+    /// `rounds` separate interleaved rounds (each `timeInterleaved(iterations:warmup:)`), and
+    /// the median of the round ratios. Why rounds: after PERF-05 made `DashboardBuilder.build`
+    /// cheap, outside load on this shared machine could slow its stress side for a whole
+    /// measurement while the 10x-smaller baseline stayed fast, which alternating samples alone
+    /// cannot cancel out: one interleaved run read 16.73x for a linear function (stress-side
+    /// minimum 8.05 ms against ~4.9 ms in other runs). A real superlinear cost is high in every
+    /// round, so the median of three still fails on it; an outside episode has to last through
+    /// two of the three rounds to.
+    public static func scalingRatio(_ baseLabel: String, _ scaledLabel: String, rounds: Int = 3, iterations: Int = 11,
+                                    warmup: Int = 2, base: () throws -> Void, scaled: () throws -> Void) rethrows
+        -> (ratio: Double, roundRatios: [Double]) {
+        var ratios: [Double] = []
+        for round in 1...max(1, rounds) {
+            let (b, s) = try timeInterleaved("\(baseLabel)#\(round)", "\(scaledLabel)#\(round)",
+                                             iterations: iterations, warmup: warmup, base, scaled)
+            ratios.append(milliseconds(s.median) / max(milliseconds(b.median), 0.000_001))
+        }
+        return (medianOf(ratios), ratios)
+    }
+
+    /// The middle value (the mean of the middle two for an even count); 0 for no values.
+    public static func medianOf(_ values: [Double]) -> Double {
+        let sorted = values.sorted()
+        guard !sorted.isEmpty else { return 0 }
+        let mid = sorted.count / 2
+        return sorted.count.isMultiple(of: 2) ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+    }
+
+    public static func milliseconds(_ d: Duration) -> Double {
+        Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
+    }
+
     /// PERF-05: keeps a benchmark body's result observable, so the optimizer cannot delete the
     /// work that produced it once enough of that work is inlined across modules. The branch is
     /// never taken for a real checksum (every pass sums finite, non-negative terms), but the
