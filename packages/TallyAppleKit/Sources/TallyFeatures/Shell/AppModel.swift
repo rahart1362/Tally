@@ -136,13 +136,19 @@ public final class AppModel {
     /// this model owns, even while the lock is up. The Home's own `.task` starts the launch refresh
     /// (L9) only after that projection, and only once the Home is on screen, so after an unlock
     /// (ADR 0001's order: cover, lock, cached render, handshake).
+    ///
+    /// With no account the lock stays off, whatever the setting says: Welcome shows nothing to
+    /// protect, and the lock view's only way out without a passcode, sign-out, has no account to
+    /// sign out of. (A sign-out stopped between removing `accounts.json` and resetting the setting
+    /// leaves exactly that.) The setting itself is left as it is.
     func apply(_ resolution: LaunchResolution) {
         guard route == .launching else { return }
-        lock.configure(with: resolution.lock)
         guard let account = resolution.account else {
+            lock.configure(with: .disabled)
             route = .welcome
             return
         }
+        lock.configure(with: resolution.lock)
         let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime))
         if let glance = resolution.glance { home.showGlance(glance) }
         self.home = home

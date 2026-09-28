@@ -89,6 +89,26 @@ extension AccountLifecycleSuites {
             #expect(model.lock.isConfigured && !model.lock.isLocked)
         }
 
+        @Test("no account, but the lock setting left on (a sign-out stopped before its last step): Welcome, never locked")
+        func noAccountNeverLocksWelcome() async throws {
+            let harness = try AccountHarness(lock: AppLockPreference(isEnabled: true))
+            // Not a fresh install (its reconcile would reset the setting itself): an earlier
+            // launch's sentinel is on disk, and no account.
+            try ProtectedFile.atomicWrite(Data(), to: StoreLayout(root: harness.root, accountKey: harness.account).installSentinel,
+                                          excludeFromBackup: true)
+            let model = AppModel(accountEnvironment: harness.environment)
+
+            await model.launch()
+            #expect(model.route == .welcome)
+            #expect(model.lock.isConfigured && !model.lock.isEnabled && !model.lock.isLocked,
+                    "Welcome was locked, and its only escape (sign-out) has no account to sign out of")
+            model.lock.scenePhaseChanged(to: .background)
+            model.lock.scenePhaseChanged(to: .active)
+            #expect(!model.lock.isLocked && !model.lock.showsPrivacyCover)
+            #expect(await harness.lockPreferences.load() == .found(AppLockPreference(isEnabled: true)),
+                    "the launch changed the setting")
+        }
+
         @Test("a signed-in launch: .signedIn with the glance painted in the same assignment, then the full projection from one decoded snapshot")
         func signedInLaunchPaintsTheGlanceThenTheProjection() async throws {
             let harness = try AccountHarness()
