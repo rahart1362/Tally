@@ -5,9 +5,10 @@ import Testing
 /// CS-07 (crash-safety-2.md, CS7-4): `GoalSeek.solve` always returns. Its last step nudges the
 /// rounded answer up by `precision` until the target is met. Past about 1.4e14 points, 0.01 is
 /// below half an ulp of the candidate, so `candidate + precision == candidate`: when the rounded
-/// candidate landed one ulp under the target, the loop spun forever. The seeded pipeline fuzz
-/// found it; before the fix, `points_possible` 480406972144315 never returned (a runner under
-/// `timeout 60` was killed, exit 124), while 100 points returned in 6 ms.
+/// candidate landed one ulp under the target, the loop spun forever. A probe written while
+/// building the CS7-4 pipeline fuzz found it; before the fix, `points_possible` 480406972144315
+/// never returned (a runner under `timeout 60` was killed, exit 124), while 100 points returned
+/// in 6 ms.
 @Suite("GoalSeek always returns, whatever the magnitude (CS-07)", .timeLimit(.minutes(1)))
 struct GoalSeekTerminationTests {
     private func input(points: Double) -> GradeInput {
