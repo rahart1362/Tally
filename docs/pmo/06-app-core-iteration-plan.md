@@ -96,7 +96,10 @@ Review §7 steps 8–11:
 - **10. Sign-out:** the §4.3 order. Weak references to the coordinator, projector and models are nil. No `CanvasSnapshot` is reachable, checked by a DEBUG live-instance counter.
 - **11. Widget:** reads the glance only; `XCTMemoryMetric` stays within the 15 MB design budget; the widget does not link `TallyFeatures`.
 
-It also carries the leftovers: DM-01, DM-02, FX-01, FAM-04/05, and the digest-threshold Settings UI (M3).
+It also carries the leftovers: DM-01, DM-02, FX-01, FAM-04/05, and the digest-threshold Settings UI (M3). Core follow-ups:
+- **PERF-06**: profile the 5-6x Apple-silicon gap in the `PriorityScore`/`AlertEngine` per-item passes (`core-perf-apple`, run 36369710838), using `xctrace` on the macOS runner.
+- **CS-07** (in flight): duplicate IDs must never trap.
+- **`ReminderPlanner`** quiet-hours shifting accounts for 82-87% of its stress cost.
 
 ## 5. Core API changes app-core adopts at step 0
 

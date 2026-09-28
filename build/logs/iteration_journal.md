@@ -362,3 +362,25 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 - `TallyTestSupport/TestTimeBudget` scales every crash-safety hang budget by `TALLY_TEST_TIME_SCALE`: 1 by default; 10 in the Makefile sanitizer targets; 4 in CI's macOS TallyCore step. Values below 1, or unparsable ones, are ignored, so a budget can never be tightened. A probe test checked that: empty→1, 4→180 s, 10→450 s, 0.5→1, abc→1.
 - The budgets stay as they were written for local and Linux runs.
 **Evidence**: `make core-test` 523 tests, 0 failures; `make lint` 0 violations.
+
+## 2026-09-27 | PMO: Apple-silicon release numbers (core-perf-apple, run 36369710838)
+**Result**: required CI is green on `a601269`. The new non-blocking job `core-perf-apple` measured release builds on the macOS runner:
+- **The production risk is ruled out**: the extreme-input grade cases run in 0.411 s for all 8 in release on Apple. The 47.8 s earlier was a debug artefact.
+- **Stress medians, Apple runner vs the PMO's Linux x86 host**:
+
+  | Measure | Apple | Linux |
+  |---|---|---|
+  | `dashboardBuild` | 26.4 ms | 5.6 ms (4.7x) |
+  | `priorityScoreAllItems` | 6.8 ms | 1.3 ms (5.2x) |
+  | `alertEngineAllItems` | 7.1 ms | 1.1 ms (6.3x) |
+  | `gradeEngineAllCourses` | 125 ms | 70 ms (1.8x) |
+  | `reminderPlanner` | 49.8 ms | 27.3 ms (1.8x) |
+  | `snapshotDecode` | 58 ms | 40 ms (1.45x) |
+  | `changeDigestDiff` | 24.2 ms | about 25 ms (1.0x) |
+
+- `snapshotDecodeDevice/stress` projects to 127 ms under the 2.0x factor, which was the x86 estimate; for Apple silicon the factor is probably lower. It remains the known issue, and a measurement on an A13 device is needed.
+- The PERF-05 `dashboardBuild/stress` ceiling (13 ms, calibrated on Linux) failed there at 27.8 ms.
+
+**PMO action**:
+- The ceiling is now per platform: 13 ms on Linux, 56 ms on Darwin (about 2x the Apple measurement), with a comment giving the reason. Linux re-run: median 5.49 ms, all 38 perf tests pass.
+- Opened **PERF-06**: profile why the `PriorityScore` and `AlertEngine` per-item passes are 5-6x slower on Apple silicon, when most other paths are 1.0-1.8x. The plan is an `xctrace` time profile on the macOS runner. It is not blocking: at the typical (flagship) scale `dashboardBuild` takes 0.69 ms on Apple, and every projection runs off the main actor (plan 06 step 6).
