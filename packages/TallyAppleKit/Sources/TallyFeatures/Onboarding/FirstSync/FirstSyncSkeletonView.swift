@@ -7,16 +7,25 @@ import TallyDomain
 /// and course rows) is a later work package — this view is the progressive
 /// placeholder shell that precedes it, driven entirely by
 /// `FirstSyncViewModel`.
+///
+/// Plan 06 step 9: a plain page pushed in the Welcome stack (never a `TabView`). It does not own
+/// its model: `AppModel` does (`FirstSyncPage`), so a Retry can hand it a fresh one, and the root
+/// switch on `.finished` releases it. The page's `.task` starts it.
 struct FirstSyncSkeletonView: View {
-    @State private var viewModel: FirstSyncViewModel
+    let viewModel: FirstSyncViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onRetry: () -> Void
     let onFinished: () -> Void
+    /// perf-app-runtime.md §2.4: after a failure, "Choose a different school" ends and purges the
+    /// half-made account.
+    let onChooseDifferentSchool: () -> Void
 
-    init(viewModel: FirstSyncViewModel, onRetry: @escaping () -> Void, onFinished: @escaping () -> Void) {
-        _viewModel = State(wrappedValue: viewModel)
+    init(viewModel: FirstSyncViewModel, onRetry: @escaping () -> Void, onFinished: @escaping () -> Void,
+         onChooseDifferentSchool: @escaping () -> Void = {}) {
+        self.viewModel = viewModel
         self.onRetry = onRetry
         self.onFinished = onFinished
+        self.onChooseDifferentSchool = onChooseDifferentSchool
     }
 
     var body: some View {
@@ -41,7 +50,9 @@ struct FirstSyncSkeletonView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(TallyColor.bgCanvas)
         .animation(reduceMotion ? nil : .snappy, value: viewModel.showsSlowLoadNotice)
-        .onChange(of: viewModel.isFinished) { _, isFinished in
+        .navigationBarBackButtonHidden(true)
+        .task(id: ObjectIdentifier(viewModel)) { viewModel.start() }
+        .onChange(of: viewModel.isFinished, initial: true) { _, isFinished in
             if isFinished { onFinished() }
         }
     }
@@ -95,6 +106,8 @@ struct FirstSyncSkeletonView: View {
         } actions: {
             Button("Retry", action: onRetry)
                 .buttonStyle(.tallyPrimary)
+            Button("Choose a Different School", action: onChooseDifferentSchool)
+                .buttonStyle(.tallySecondary)
         }
     }
 

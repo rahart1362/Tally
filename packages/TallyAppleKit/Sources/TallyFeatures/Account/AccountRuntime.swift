@@ -20,8 +20,9 @@ public actor AccountRuntime {
     /// installs its (now stale) answer.
     private var epoch: UInt64 = 0
 
-    /// - Parameter resolve: finds the signed-in account's coordinator (the launch bootstrapper,
-    ///   perf-app-runtime.md §7 step 8). The default finds none: there is no account store yet.
+    /// - Parameter resolve: finds the signed-in account's coordinator. The composition root passes
+    ///   `AccountSessionFactory.activeCoordinator` (perf-app-runtime.md §7 step 8: `accounts.json`,
+    ///   then the cached snapshot, decoded once); the default finds none.
     public init(resolve: @escaping Resolver = { nil }) {
         self.resolve = resolve
     }
@@ -60,11 +61,16 @@ public actor AccountRuntime {
     /// Sign-out (perf-app-runtime.md §4.3 step 5): `bumpEpochAndCancel()` discards any run in
     /// flight, publishes `.noCache` to every subscriber and shuts the coordinator down (its streams
     /// finish, its snapshot is released, later runs never fetch). Then it is forgotten. Idempotent.
-    public func end() async {
+    ///
+    /// Returns the retired coordinator, if there was one, for sign-out's purge step
+    /// (`SignOutUseCase` takes it); it holds no snapshot any more.
+    @discardableResult
+    public func end() async -> RefreshCoordinator? {
         epoch &+= 1
         let ending = installed
         installed = nil
         resolution = nil
         await ending?.bumpEpochAndCancel()
+        return ending
     }
 }

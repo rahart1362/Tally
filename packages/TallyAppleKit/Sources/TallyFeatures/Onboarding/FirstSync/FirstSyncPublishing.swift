@@ -3,7 +3,7 @@ import TallyDomain
 /// The four phases of a first sync (ux-ui.md §3.2 stage 5: "Phases come
 /// from the refresh coordinator: profile+courses → grades → assignments/due
 /// → calendar"), in the order they complete.
-public enum FirstSyncPhase: Sendable, Equatable, CaseIterable {
+public nonisolated enum FirstSyncPhase: Sendable, Equatable, CaseIterable {
     case profileAndCourses
     case grades
     case dueItems
@@ -24,7 +24,7 @@ public enum FirstSyncPhase: Sendable, Equatable, CaseIterable {
 /// What the (future) `RefreshCoordinator` reports during a first sync. A
 /// closed, Linux-shaped vocabulary — `FirstSyncViewModel` never sees raw
 /// Canvas data, only progress.
-public enum FirstSyncEvent: Sendable, Equatable {
+public nonisolated enum FirstSyncEvent: Sendable, Equatable {
     case phaseCompleted(FirstSyncPhase)
     case finished
     /// Total failure with nothing saved yet (ux-ui.md §3.2 stage 5: "On
@@ -34,10 +34,10 @@ public enum FirstSyncEvent: Sendable, Equatable {
 
 /// The port `FirstSyncViewModel` depends on. "A progressive skeleton view
 /// model driven by a protocol that publishes phase events" (this work
-/// package's brief) — the app-core team connects a real conformance to
-/// `RefreshCoordinator` once it exists; this package only defines the seam
-/// and a view model that consumes it.
-public protocol FirstSyncPublishing: Sendable {
+/// package's brief). The real conformance is `CoordinatorFirstSyncPublisher`,
+/// over the new account's `RefreshCoordinator` (plan 06 step 9).
+/// `nonisolated` (like the phase and event types): the publisher runs off the main actor.
+public nonisolated protocol FirstSyncPublishing: Sendable {
     func events() -> AsyncStream<FirstSyncEvent>
 }
 
@@ -46,7 +46,7 @@ public protocol FirstSyncPublishing: Sendable {
 /// hanging forever — the same seam pattern as `UnavailableInstitutionSearch`
 /// (UX-WP-08) and `UnavailableTokenExchange`/`UnavailableWebAuthPresenter`
 /// (UX-WP-09).
-public struct UnavailableFirstSyncPublisher: FirstSyncPublishing {
+public nonisolated struct UnavailableFirstSyncPublisher: FirstSyncPublishing {
     public init() {}
     public func events() -> AsyncStream<FirstSyncEvent> {
         AsyncStream { continuation in

@@ -86,10 +86,16 @@ targets:
       # TallyDomain and TallySync directly; since perf-app-runtime.md §7 step 7
       # `.backgroundTask` reaches the account's coordinator through
       # `AccountRuntime` (TallyFeatures) rather than holding one itself.
+      # TallyStore and TallyCanvasAPI (plan 07 M2-C1): `AppEnvironment` builds the
+      # process's one `VaultKeyring` and hands the Canvas transport to the account.
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore
         product: TallySync
+      - package: TallyCore
+        product: TallyStore
+      - package: TallyCore
+        product: TallyCanvasAPI
       - target: TallyWidgets
         embed: true
 

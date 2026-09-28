@@ -9,6 +9,15 @@
       "median_max": 0.150,
       "device_target": "tap to full dashboard <= 300 ms on the oldest supported device",
       "source": "perf-app-runtime.md §5.2: CI gate <= 150 ms, a 2x margin under the device target"
+    },
+    {
+      "name": "Warm launch to the painted glance (signed in, flagship)",
+      "test": "TallyPerfUITests/testWarmLaunchGlancePaint",
+      "metric": ["com.apple.dt.XCTMetric_OSSignpost-Launch.GlancePaint.duration", "Duration (Launch.GlancePaint)"],
+      "unit": "s",
+      "median_max": 0.300,
+      "device_target": "L1 (TallyApp.init) to L4 (the glance painted) <= 300 ms warm, on device (TallyConfig.warmStartBudget)",
+      "source": "perf-app-runtime.md §2.4 and §5.2; plan 07 §3 item 1: Launch.GlancePaint median <= 300 ms on the CI simulator. The metric's identifier and display name are UNVERIFIED until the first ios-perf run prints them (PERF-REPORT lines)"
     }
   ]
 }

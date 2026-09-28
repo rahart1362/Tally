@@ -2,11 +2,14 @@ import Observation
 import TallyDomain
 
 /// Drives the first-sync skeleton (UX-WP-10, ux-ui.md §3.2 stage 5). Consumes
-/// `FirstSyncPublishing` — a protocol, not a concrete `RefreshCoordinator`
-/// (which doesn't exist yet; connecting one is the app-core team's job) — and
-/// turns its events into what the skeleton view needs: which phases are
-/// done, whether it's finished or failed, and whether the "large course
-/// loads" notice should show.
+/// `FirstSyncPublishing` (`CoordinatorFirstSyncPublisher` over the new account's coordinator in
+/// the app) and turns its events into what the skeleton view needs: which phases are done, whether
+/// it's finished or failed, and whether the "large course loads" notice should show.
+///
+/// Plan 06 step 9 / perf-app-runtime.md §4.4: nothing starts in `init`. `AppModel` builds this
+/// model when the token exchange succeeds (route state, not a navigation destination builder), the
+/// page's `.task` calls `start()`, and both tasks hold `self` weakly, so the model is deallocated as
+/// soon as the root switch drops it (`SignInFirstSyncTests`).
 /// Explicitly `@MainActor`, with an explicit `nonisolated deinit` (plan 06 A2): see that deinit.
 @MainActor
 @Observable
@@ -31,10 +34,12 @@ public final class FirstSyncViewModel {
     /// this view model needs to model.
     public private(set) var showsSlowLoadNotice = false
 
+    private let publisher: any FirstSyncPublishing
     private let clock: any DateProviding
     private let slowLoadThreshold: Duration
-    private var eventTask: Task<Void, Never>?
-    private var slowLoadTask: Task<Void, Never>?
+    private let eventTask = TaskBox()
+    private let slowLoadTask = TaskBox()
+    @ObservationIgnored private var hasStarted = false
 
     public init(
         schoolDisplayName: String,
@@ -43,9 +48,9 @@ public final class FirstSyncViewModel {
         slowLoadThreshold: Duration = .seconds(10)
     ) {
         self.schoolDisplayName = schoolDisplayName
+        self.publisher = publisher
         self.clock = clock
         self.slowLoadThreshold = slowLoadThreshold
-        start(publisher)
     }
 
     /// "Setting up Tally · step N of 4" (ux-ui.md prototype `heroSkeleton`), or
@@ -68,18 +73,23 @@ public final class FirstSyncViewModel {
         return base + Double(completedPhases.count) * perPhase
     }
 
-    private func start(_ publisher: any FirstSyncPublishing) {
-        eventTask = Task {
-            for await event in publisher.events() {
+    /// Starts consuming the publisher and the slow-load timer (the page's `.task`). Once only.
+    public func start() {
+        guard !hasStarted else { return }
+        hasStarted = true
+        let events = publisher.events()
+        eventTask.replace(with: Task { [weak self] in
+            for await event in events {
                 guard !Task.isCancelled else { return }
-                apply(event)
+                self?.apply(event)
             }
-        }
-        slowLoadTask = Task {
-            try? await Task.sleep(for: slowLoadThreshold)
-            guard !Task.isCancelled, !isFinished, failure == nil else { return }
-            showsSlowLoadNotice = true
-        }
+        })
+        let threshold = slowLoadThreshold
+        slowLoadTask.replace(with: Task { [weak self] in
+            try? await Task.sleep(for: threshold)
+            guard !Task.isCancelled, let self, !self.isFinished, self.failure == nil else { return }
+            self.showsSlowLoadNotice = true
+        })
     }
 
     private func apply(_ event: FirstSyncEvent) {
@@ -90,10 +100,10 @@ public final class FirstSyncViewModel {
             AccessibilityAnnouncer.announce(phase.announcementText)
         case .finished:
             isFinished = true
-            slowLoadTask?.cancel()
+            slowLoadTask.cancel()
         case .failed(let reason):
             failure = reason
-            slowLoadTask?.cancel()
+            slowLoadTask.cancel()
         }
     }
 }

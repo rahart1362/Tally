@@ -1,11 +1,13 @@
+import Synchronization
 import Testing
 import TallyDomain
 @testable import TallyFeatures
 
-/// UX-WP-10. Driven entirely through a fake `FirstSyncPublishing` — the real
-/// `RefreshCoordinator` conformance is the app-core team's work package, so
+/// UX-WP-10. Driven entirely through a fake `FirstSyncPublishing` (the real
+/// `CoordinatorFirstSyncPublisher` is covered by `SignInFirstSyncTests`), so
 /// this only tests `FirstSyncViewModel`'s own logic: phase bookkeeping,
-/// progress, and the 10 s "large course loads" notice.
+/// progress, the 10 s "large course loads" notice, and (plan 06 step 9) that
+/// nothing starts before `start()` and nothing keeps the model alive.
 @MainActor
 @Suite("First-sync skeleton (UX-WP-10)")
 struct FirstSyncViewModelTests {
@@ -16,6 +18,7 @@ struct FirstSyncViewModelTests {
             .phaseCompleted(.dueItems), .phaseCompleted(.calendar), .finished,
         ])
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield State University", publisher: publisher)
+        viewModel.start()
         #expect(viewModel.statusText == "Connecting to Northfield State University…")
 
         // Waits for the events, not a fixed time: under ThreadSanitizer 100 ms was not enough
@@ -34,6 +37,7 @@ struct FirstSyncViewModelTests {
             .phaseCompleted(.profileAndCourses), .phaseCompleted(.profileAndCourses), .phaseCompleted(.grades),
         ])
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher)
+        viewModel.start()
         #expect(try await HomeTestSupport.waitUntil { viewModel.completedPhases.contains(.grades) })
         #expect(viewModel.completedPhases == [.profileAndCourses, .grades])
     }
@@ -45,6 +49,7 @@ struct FirstSyncViewModelTests {
         // cannot let the timer win (a 20 ms threshold flaked under parallel load).
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
                                            slowLoadThreshold: .milliseconds(500))
+        viewModel.start()
         try? await Task.sleep(for: .milliseconds(800))
         #expect(viewModel.failure == .offline)
         #expect(!viewModel.showsSlowLoadNotice)
@@ -55,6 +60,7 @@ struct FirstSyncViewModelTests {
         let publisher = FakeFirstSyncPublisher(events: []) // never emits
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
                                            slowLoadThreshold: .milliseconds(20))
+        viewModel.start()
         #expect(!viewModel.showsSlowLoadNotice)
         try? await Task.sleep(for: .milliseconds(500)) // well past the 20 ms threshold
         #expect(viewModel.showsSlowLoadNotice)
@@ -70,9 +76,50 @@ struct FirstSyncViewModelTests {
         // under parallel load on the Linux harness).
         let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
                                            slowLoadThreshold: .milliseconds(500))
+        viewModel.start()
         try? await Task.sleep(for: .milliseconds(800))
         #expect(viewModel.isFinished)
         #expect(!viewModel.showsSlowLoadNotice)
+    }
+}
+
+extension FirstSyncViewModelTests {
+    @Test("Nothing starts in init: no events are consumed before start()")
+    func nothingStartsBeforeStart() async throws {
+        let publisher = FakeFirstSyncPublisher(events: [.phaseCompleted(.profileAndCourses), .finished])
+        let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield", publisher: publisher,
+                                           slowLoadThreshold: .milliseconds(20))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(viewModel.completedPhases.isEmpty)
+        #expect(!viewModel.isFinished)
+        #expect(!viewModel.showsSlowLoadNotice, "the slow-load timer ran without start()")
+        viewModel.start()
+        #expect(try await HomeTestSupport.waitUntil { viewModel.isFinished })
+    }
+
+    @Test("A started model is released once nothing holds it (its tasks hold it weakly)")
+    func startedModelIsReleased() async throws {
+        weak var released: FirstSyncViewModel?
+        do {
+            let viewModel = FirstSyncViewModel(schoolDisplayName: "Northfield",
+                                               publisher: HangingFirstSyncPublisher(), // never emits, never finishes
+                                               slowLoadThreshold: .seconds(60))
+            viewModel.start()
+            released = viewModel
+            #expect(released != nil)
+        }
+        #expect(try await HomeTestSupport.waitUntil { released == nil }, "a running first-sync model outlived its owner")
+    }
+}
+
+/// A publisher whose streams never emit and never finish (a first sync that hangs).
+private final class HangingFirstSyncPublisher: FirstSyncPublishing {
+    private let continuations = Mutex<[AsyncStream<FirstSyncEvent>.Continuation]>([])
+
+    func events() -> AsyncStream<FirstSyncEvent> {
+        let (stream, continuation) = AsyncStream<FirstSyncEvent>.makeStream()
+        continuations.withLock { $0.append(continuation) }
+        return stream
     }
 }
 

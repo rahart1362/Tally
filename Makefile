@@ -152,13 +152,19 @@ ios-asan: ## App + UI tests under AddressSanitizer: fails on a test failure or a
 	! grep -q "ERROR: AddressSanitizer" $(IOS_OUT)/asan.log
 
 # Release, like the charter's budgets; ENABLE_TESTABILITY lets the hosted tests `@testable import`.
-IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests -only-testing:TallyAppTests/MainThreadGuardsTests
+# TallyPerfUITests (plan 07 M2-C1) measures the warm launch of a signed-in account, which needs a
+# seeded store: `TALLY_TEST_HOOKS` compiles the UI-test hooks (`LaunchTestHooks`) into this Release
+# *test* build only. The shipping Release build never sets it, and ios-build's binary gate checks
+# that build for the hooks' launch-argument prefix.
+IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests -only-testing:TallyAppTests/MainThreadGuardsTests \
+	-only-testing:TallyUITests/TallyPerfUITests
+IOS_PERF_CONDITIONS ?= SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TALLY_TEST_HOOKS'
 
 ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
 	@mkdir -p $(IOS_OUT)
 	rm -rf $(IOS_OUT)/Tally-perf.xcresult
-	$(IOS_XCODEBUILD) build-for-testing -configuration Release ENABLE_TESTABILITY=YES \
+	$(IOS_XCODEBUILD) build-for-testing -configuration Release ENABLE_TESTABILITY=YES $(IOS_PERF_CONDITIONS) \
 		-destination 'generic/platform=iOS Simulator' -derivedDataPath $(IOS_OUT)/DerivedData-perf \
 		| tee $(IOS_OUT)/build-perf.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
 	grep -q "BUILD SUCCEEDED" $(IOS_OUT)/build-perf.log
