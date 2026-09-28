@@ -470,10 +470,32 @@ jobs:
       - name: make ios-tsan (fails on a test failure or any ThreadSanitizer report)
         run: make ios-tsan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: ThreadSanitizer reports (count, then the first in full)
+        # Warnings (races) and errors (a deadly signal: run 36453374066's "ERROR: ThreadSanitizer:
+        # BUS", which the old count of warnings alone reported as 0).
         if: always()
         run: |
-          echo "ThreadSanitizer reports: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
-          grep -n -A40 -m1 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+          echo "ThreadSanitizer warnings: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0); errors: $(grep -c 'ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
+          grep -n -A40 -m1 -E 'WARNING: ThreadSanitizer|ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+      - name: Collect simulator crash reports (on failure)
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/ios/crash-reports"
+          sleep 20
+          find "$HOME/Library/Logs/DiagnosticReports" -name '*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
+            -exec cp {} "$RUNNER_TEMP/ios/crash-reports/" \; 2>/dev/null || true
+          ls -l "$RUNNER_TEMP/ios/crash-reports"
+      - name: Upload the full TSan log, its xcresult and crash reports (on failure)
+        # The console shows only the Makefile's filtered lines; a crash's stack is in these.
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tsan-logs
+          path: |
+            ${{ runner.temp }}/ios/tsan.log
+            ${{ runner.temp }}/ios/Tally-tsan.xcresult
+            ${{ runner.temp }}/ios/crash-reports
+          if-no-files-found: ignore
+          retention-days: 7
 
   ios-asan:
     name: iOS AddressSanitizer (app tests)
