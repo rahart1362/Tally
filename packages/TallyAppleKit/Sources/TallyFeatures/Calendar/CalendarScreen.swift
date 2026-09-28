@@ -118,7 +118,7 @@ struct CalendarScreen: View {
     /// UX-WP-17: the day timeline's hour grid clips text at the accessibility sizes, so it is
     /// offered only below them (ux-ui.md §3.7.4). A hosted test pins it for every size.
     static func offersTimeline(at size: DynamicTypeSize) -> Bool {
-        true
+        !size.isAccessibilitySize
     }
 
     private func timelineDay(_ calendar: CalendarProjection) -> AgendaDay? {

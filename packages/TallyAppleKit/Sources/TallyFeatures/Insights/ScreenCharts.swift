@@ -55,6 +55,7 @@ struct TrendChart: View {
         .frame(height: height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Performance trend")
+        .accessibilityValue(view.summary)
         .accessibilityChartDescriptor(TrendChartDescriptor(view: view))
         .accessibilityIdentifier("chart.trend")
     }
@@ -74,7 +75,7 @@ nonisolated struct CategoryChartDescriptor: AXChartDescriptorRepresentable {
                                                 })
         let series = AXDataSeriesDescriptor(name: title, isContinuous: false,
                                             dataPoints: weights.map { AXDataPoint(x: $0.name, y: $0.share * 100) })
-        return AXChartDescriptor(title: title, summary: title, xAxis: xAxis, yAxis: yAxis, additionalAxes: [],
+        return AXChartDescriptor(title: title, summary: summary, xAxis: xAxis, yAxis: yAxis, additionalAxes: [],
                                  series: [series])
     }
 }
@@ -98,7 +99,7 @@ nonisolated struct TrendChartDescriptor: AXChartDescriptorRepresentable {
         let series = AXDataSeriesDescriptor(
             name: "Average of your courses", isContinuous: true,
             dataPoints: view.points.map { AXDataPoint(x: $0.date.timeIntervalSince1970, y: $0.percent) })
-        return AXChartDescriptor(title: "Trend", summary: view.summary, xAxis: xAxis, yAxis: yAxis,
+        return AXChartDescriptor(title: "Performance trend", summary: view.summary, xAxis: xAxis, yAxis: yAxis,
                                  additionalAxes: [], series: [series])
     }
 }

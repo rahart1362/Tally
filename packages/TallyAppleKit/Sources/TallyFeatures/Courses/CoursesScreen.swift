@@ -24,7 +24,7 @@ struct CoursesScreen: View {
                         NavigationLink(value: card.id) {
                             CourseCardView(card: card)
                         }
-                        .accessibilityLabel(card.name)
+                        .accessibilityLabel(card.accessibilityLabel)
                         .accessibilityIdentifier("course.card")
                     }
                     .onMove { source, destination in

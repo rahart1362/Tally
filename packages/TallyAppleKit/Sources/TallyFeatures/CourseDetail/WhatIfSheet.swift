@@ -129,7 +129,7 @@ private struct WhatIfItemRow: View {
             }
             // The adjustable control: VoiceOver swipes up or down on it, and every other assistive
             // technology treats it as the standard slider it is.
-            Slider(value: Binding(get: { model.scores[item.id] ?? 0 }, set: { _ in }),
+            Slider(value: Binding(get: { model.scores[item.id] ?? 0 }, set: { model.setScore($0, for: item.id) }),
                    in: 0...max(item.pointsPossible, 1), step: WhatIfModel.stepPoints) {
                 Text("Score for \(item.title)")
             }

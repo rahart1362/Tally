@@ -254,6 +254,7 @@ public nonisolated enum CalendarBuilder {
         let count = items.count
         let spokenCount = count == 1 ? "1 item" : "\(count) items"
         var strip = [formatter.dayHeading(dayStart, spoken: true)]
+        if isToday { strip.append("today") }
         strip.append(spokenCount)
         let earliestHour = items.filter { !$0.isAllDay }.map { $0.startMinute / 60 }.min() ?? defaultTimelineStartHour
         return AgendaDay(

@@ -37,6 +37,7 @@ struct AddToCalendarView: UIViewControllerRepresentable {
         event.endDate = draft.end
         event.isAllDay = draft.isAllDay
         event.location = draft.location
+        event.url = draft.url
         return event
     }
 
