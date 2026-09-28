@@ -422,7 +422,7 @@ byte-identical.
   only TSan's allocator exposes. `oneTimelineEndToEnd` passed under TSan and ASan in F2; the stack
   was not captured.
 - **Whether the sanitizer wait scale (3×) ends the ASan UI flakes** seen on PR #2: the UI tests
-  under ASan passed in F1 and F2; two runs are two samples.
+  under ASan passed in F1, F2 and F3; three runs are three samples.
 
 ## 12. Lessons, for the PMO to distill
 
