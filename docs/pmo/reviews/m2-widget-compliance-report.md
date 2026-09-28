@@ -257,3 +257,47 @@ byte-identical.
 | OI10 | **The `ci.yml` merge with M2-C1**: both streams add ios-build steps just before "Verify built app identity", a textual conflict. M2-C1's new UI-test-hooks check uses `!cancelled()` alone; under O11 it should also need `steps.device_build.outcome == 'success'` | Whoever merges second | |
 | OI11 | The Xcode 27 job (report-only) failed `testSlowRefreshShowsTheBreadcrumbThenSelfHeals` once (F2, run 36457770542): the refresh landed ("Updated just now") but the breadcrumb's ~2 s window fell between two slow accessibility queries on the preview simulator. It passed in F1's Xcode 27 run and in every required run | Recorded, not debugged (owner guidance: a UI-timing flake on a report-only job) | |
 | OI12 | The smallest-iPhone step's app launch timed out once on a freshly booted iPhone 16e (Q2, run 36442668566); it passed in every other run | Recorded, not debugged | |
+
+## UNVERIFIED
+
+- **The widget process's own peak memory** against its 15 MB design budget. CI measures the hosted
+  delta (the test host's absolute peak, 68 MB, is the whole app). It needs a device (Instruments
+  or the Xcode memory gauge on the widget process).
+- **That WidgetKit's locked rendering puts `.privacy` in the view's environment.** The view's
+  behaviour under `.privacy` is tested with `.redacted(reason: .privacy)`; the lock screen itself
+  needs a device.
+- **`$(AppIdentifierPrefix)` with a real Team ID.** CI shows only the no-team expansion (a valid
+  empty value).
+- **The App Group Keychain round trip** (a known issue until GL-02).
+- **WidgetKit's reload timing** under its budget (`.after(first boundary)`): device.
+- **The release gate's binary scan against Apple's own upload scanner**: only our symbol list is
+  checked.
+- **The TSan abort's cause** (run 36453374066): XCTest's `measure` under TSan, or an over-release
+  only TSan's allocator exposes. `oneTimelineEndToEnd` passed under TSan and ASan in F2; the stack
+  was not captured.
+- **Whether the sanitizer wait scale (3×) ends the ASan UI flakes** seen on PR #2: the UI tests
+  under ASan passed in F1 and F2; two runs are two samples.
+
+## Lessons, for the PMO to distill
+
+I did not run `agent-ecosystem distill`: it commits and pushes outside this worktree, which the
+brief rules out.
+- **GitHub will not dispatch a workflow that is not on the default branch** (HTTP 404, "workflow …
+  not found on the default branch"). A new dispatch-only workflow can run before its merge only
+  through a temporary trigger on the branch, or after the merge.
+- **A sanitizer job's console hides its crashes.** The Makefile filters the log to a few lines, so
+  a deadly signal ("ERROR: ThreadSanitizer: BUS") read as "0 reports", and without an uploaded
+  log the stack was lost. Count errors as well as warnings, and upload the full log on failure.
+- **`.privacySensitive()` on a container also redacts the replacement text shown when locked.**
+  Put it on the sensitive leaf.
+- **The glance's due-soon selection sorts past items first**, so any "next up" consumer can get a
+  glance with nothing upcoming (OI3).
+- **`find-placeholders.sh` scans every file**, scripts and scratch output included: write reports
+  outside the tree, and keep legacy identifiers out of new scripts' text.
+- **A job's log (API or `gh run view --job --log`) is empty until the whole run completes**; the
+  check-run annotations and step conclusions are readable earlier.
+- **An xcresult's metrics are readable on Linux**: `database.sqlite3`'s `PerformanceMetrics` table
+  holds every iteration's measurement.
+- **Apple's required-reason codes are in the doc pages' JSON**
+  (`developer.apple.com/tutorials/data/documentation/bundleresources/…`), readable without a
+  browser.
