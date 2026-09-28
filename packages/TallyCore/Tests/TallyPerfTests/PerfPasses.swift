@@ -15,15 +15,27 @@ import TallyDomain
 typealias OpenItem = (course: Course, groups: [AssignmentGroup], assignment: Assignment)
 
 enum PerfPasses {
+    /// PERF-05 PA-2: one `PriorityScore.WeightContext` per course, the way `DashboardBuilder`
+    /// weighs items. Built inside each pass's timed region: the context's own O(n·p) build is
+    /// part of what a pass costs.
+    static func weightContexts(_ snapshot: CanvasSnapshot) -> [CanvasID<Course>: PriorityScore.WeightContext] {
+        var contexts: [CanvasID<Course>: PriorityScore.WeightContext] = [:]
+        for course in snapshot.courses {
+            contexts[course.id] = PriorityScore.WeightContext(course: course, groups: snapshot.groups[course.id] ?? [],
+                                                              gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+        }
+        return contexts
+    }
+
     /// `DashboardBuilder`'s "Next up" per-item work (`PriorityScore` over every item), the pass
     /// `priorityScoreAllItems` times.
     static func priorityScore(items: [OpenItem], snapshot: CanvasSnapshot, now: Date) -> Double {
+        let contexts = weightContexts(snapshot)
         var checksum = 0.0
-        for (course, groups, assignment) in items {
+        for (course, _, assignment) in items {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
-            let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                              gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+            let weight = contexts[course.id]?.weight(of: assignment) ?? 0
             let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
             let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
             let reason = PriorityScore.reasonText(hoursUntilDue: hours, weight: weight, modifiers: modifiers,
@@ -34,18 +46,18 @@ enum PerfPasses {
     }
 
     /// `DashboardBuilder`'s "Needs attention" per-item work (A1/A2, A3, then A7 over the open
-    /// future items), the pass `alertEngineAllItems` times. It calls `weight` up to twice per
+    /// future items), the pass `alertEngineAllItems` times. It looks `weight` up to twice per
     /// item, like the pre-PERF-03 app-core code it was written against.
     static func alertEngine(items: [OpenItem], snapshot: CanvasSnapshot, now: Date) -> Double {
+        let contexts = weightContexts(snapshot)
         var checksum = 0.0
         var loadItems: [AlertEngine.LoadItem] = []
-        for (course, groups, assignment) in items {
+        for (course, _, assignment) in items {
             if let missing = AlertEngine.missingAlert(assignment: assignment, now: now) {
                 checksum += Double(missing.rank)
             } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,
                       let due = assignment.dueAt, due >= now {
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+                let weight = contexts[course.id]?.weight(of: assignment) ?? 0
                 let hours = due.timeIntervalSince(now) / 3600
                 let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
                 let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
@@ -55,8 +67,7 @@ enum PerfPasses {
             }
             if let due = assignment.dueAt, due >= now, let submission = assignment.submission,
                !submission.isSubmitted, !submission.excused {
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+                let weight = contexts[course.id]?.weight(of: assignment) ?? 0
                 loadItems.append(AlertEngine.LoadItem(dueAt: due, weight: weight, courseID: course.id))
                 checksum += weight
             }
@@ -66,10 +77,10 @@ enum PerfPasses {
 
     /// `ReminderPlanner.plan`'s input, built untimed (the benchmark times `plan` alone).
     static func reminderCandidates(items: [OpenItem], snapshot: CanvasSnapshot, now: Date) -> [ReminderCandidate] {
-        items.map { course, groups, assignment -> ReminderCandidate in
+        let contexts = weightContexts(snapshot)
+        return items.map { course, _, assignment -> ReminderCandidate in
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
-            let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                              gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+            let weight = contexts[course.id]?.weight(of: assignment) ?? 0
             let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight,
                                             modifiers: priorityModifiers(assignment: assignment, course: course, now: now))
             return ReminderCandidate(assignment: assignment, isExam: false, priority: score, markedDone: false)

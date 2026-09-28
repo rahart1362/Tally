@@ -101,59 +101,22 @@ public enum PriorityScore {
     ///   period (no due date) falls back to the whole group/course.
     /// - `omit_from_final_grade`, unpublished, not gradeable, or
     ///   `pointsPossible` nil/0: `w = 0` (ranking is by urgency only).
+    ///
+    /// PERF-05 PA-2: a thin wrapper over `WeightContext`, which holds the implementation. It
+    /// costs O(n·p) per call (n = the items it sums over, p = grading periods), so weighing every
+    /// item of a course this way is O(n²·p): hot paths build one `WeightContext` per course and
+    /// call `weight(of:)` instead. For a weighted course only the item's own group is summed, so
+    /// the context built here covers just that group, keeping this call's cost what it was.
     public static func weight(
         assignment: Assignment,
         course: Course,
         groups: [AssignmentGroup],
         gradingPeriods: [GradingPeriod] = []
     ) -> Double {
-        guard let possible = assignment.pointsPossible, possible > 0 else { return 0 }
-        guard assignment.published, assignment.isGradeable, !assignment.omitFromFinalGrade else { return 0 }
-        guard let group = groups.first(where: { $0.id == assignment.groupID }) else { return 0 }
-
-        func counted(_ a: Assignment) -> Bool {
-            a.published && a.isGradeable && !a.omitFromFinalGrade && (a.pointsPossible ?? 0) > 0
-        }
-
-        let usesPeriods = course.hasGradingPeriods && !gradingPeriods.isEmpty
-        let ownPeriod = usesPeriods ? effectivePeriod(for: assignment, in: gradingPeriods) : nil
-        func inScope(_ a: Assignment) -> Bool {
-            guard usesPeriods, let ownPeriod else { return true }
-            return effectivePeriod(for: a, in: gradingPeriods) == ownPeriod
-        }
-
-        var w: Double
-        if course.appliesGroupWeights {
-            let groupPossible = group.assignments.filter { counted($0) && inScope($0) }
-                .reduce(0.0) { $0 + ($1.pointsPossible ?? 0) }
-            guard groupPossible > 0 else { return 0 }
-            w = (group.weight ?? 0) / 100 * possible / groupPossible
-        } else {
-            let coursePossible = groups.flatMap(\.assignments).filter { counted($0) && inScope($0) }
-                .reduce(0.0) { $0 + ($1.pointsPossible ?? 0) }
-            guard coursePossible > 0 else { return 0 }
-            w = possible / coursePossible
-        }
-
-        let rules = group.rules
-        if !rules.neverDrop.contains(assignment.id) {
-            let droppable = group.assignments.filter { counted($0) && !rules.neverDrop.contains($0.id) }
-            let n = droppable.count
-            let k = max(0, rules.dropLowest) + max(0, rules.dropHighest)
-            if n > 0, k > 0 {
-                w *= (1 - min(Double(k), Double(n)) / Double(n))
-            }
-        }
-        return max(0, w)
-    }
-
-    /// The grading period an assignment falls in by due-date containment
-    /// (`start < due <= end`, minute-truncated like `GradeEngine.currentGradingPeriod`).
-    /// nil when undated or when no period contains the due date.
-    private static func effectivePeriod(for assignment: Assignment, in periods: [GradingPeriod]) -> CanvasID<GradingPeriod>? {
-        guard let due = assignment.dueAt else { return nil }
-        func minute(_ d: Date) -> Double { (d.timeIntervalSince1970 / 60).rounded(.down) }
-        return periods.first { minute($0.startDate) < minute(due) && minute(due) <= minute($0.endDate) }?.id
+        guard WeightContext.isCounted(assignment),
+              let group = groups.first(where: { $0.id == assignment.groupID }) else { return 0 }
+        let scope = course.appliesGroupWeights ? [group] : groups
+        return WeightContext(course: course, groups: scope, gradingPeriods: gradingPeriods).weight(of: assignment)
     }
 
     // MARK: - Modifier derivation

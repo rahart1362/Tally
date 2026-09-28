@@ -325,10 +325,10 @@ struct CoreBenchmarks {
                                        gradingPeriods: decoded.gradingPeriods[course.id] ?? [])
             }
             let items = openAssignments(in: decoded)
-            for (course, groups, assignment) in items {
+            let contexts = PerfPasses.weightContexts(decoded)
+            for (course, _, assignment) in items {
                 let hours = assignment.dueAt.map { $0.timeIntervalSince(PerfFixtures.anchor) / 3600 }
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: decoded.gradingPeriods[course.id] ?? [])
+                let weight = contexts[course.id]?.weight(of: assignment) ?? 0
                 _ = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight,
                                         modifiers: priorityModifiers(assignment: assignment, course: course, now: PerfFixtures.anchor))
             }
