@@ -119,6 +119,9 @@ jobs:
         run: |
           python3 scripts/ci/check_widget_isolation.py --self-test
           python3 scripts/ci/check_widget_isolation.py --sources .
+      - name: Release gate checker self-test (scripts/ci/check_release.py; ASC-10)
+        # The release gate (release-gate.yml, manual dispatch) runs the checks themselves.
+        run: python3 scripts/ci/check_release.py --self-test
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)

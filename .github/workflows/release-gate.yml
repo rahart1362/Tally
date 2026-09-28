@@ -1,0 +1,400 @@
+name: Release gate
+# ASC-10 (docs/pmo/reviews/app-store-compliance.md §3.3.1; docs/GO-LIVE.md GL-06): the
+# pre-TestFlight gate. Manual dispatch only for now: plan 07 §1, "For M2 the workflow must exist and
+# run; making it fully green is M5's exit". PR and nightly triggers come with M5.
+#
+# Every job writes its results as compliance checks (scripts/ci/check_release.py). A check due by a
+# later milestone that does not pass yet is PENDING, with its milestone and owner; a check due now
+# that fails is FAIL. The last job merges every report into one compliance JSON (an artifact),
+# prints it, and fails the run only on a FAIL. Nothing is dropped from the report.
+#
+#   gh workflow run "Release gate" --ref <branch>
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app # uploads require Xcode 26+ since 2026-04-28 (R1)
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+  # Same per-test limits as CI's ios-* targets (Makefile IOS_TEST_FLAGS).
+  TEST_FLAGS: >-
+    -collect-test-diagnostics never -test-timeouts-enabled YES
+    -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
+  # The critical flows that need no DEBUG-only launch hook run against a Release build.
+  RELEASE_FLOWS: >-
+    -only-testing:TallyUITests/TallyLaunchUITests -only-testing:TallyUITests/SampleDataUITests
+    -only-testing:TallyUITests/WelcomeCTAUITests -only-testing:TallyUITests/SchoolSearchUITests
+  # The slow-refresh flows need `-TallyDebugSampleRefreshLatency`, a DEBUG-only hook, until the
+  # UITest configuration (Release optimizations plus TALLY_UI_TESTING) exists (M5).
+  DEBUG_FLOWS: -only-testing:TallyUITests/SlowRefreshUITests
+
+jobs:
+  static-linux:
+    name: Static compliance checks (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: PyYAML (the release checks read project.yml)
+        run: python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q python3-yaml; }
+      - name: Checker self-tests
+        run: |
+          python3 scripts/ci/check_release.py --self-test
+          python3 scripts/ci/check_privacy_manifest.py --self-test
+          python3 scripts/ci/check_widget_isolation.py --self-test
+      - name: Source checks (Info.plist, entitlements, icon, release strings, placeholders, metadata, privacy manifests)
+        # Exit 1 (a failing check) is recorded in the report, which decides; exit 2 (an unreadable
+        # input) fails this job.
+        run: |
+          mkdir -p "$RUNNER_TEMP/compliance"
+          python3 scripts/ci/check_release.py --source . --json "$RUNNER_TEMP/compliance/source.json" || [ $? -eq 1 ]
+      - name: The widget reads the glance only (sources and module closure)
+        run: |
+          set +e
+          python3 scripts/ci/check_widget_isolation.py --sources .
+          code=$?
+          [ $code -le 1 ] || exit $code
+          python3 scripts/ci/check_release.py --result REL.widget.isolation-sources \
+            "$([ $code -eq 0 ] && echo pass || echo fail)" "check_widget_isolation.py --sources exit $code (log above)" \
+            --title "The widget links no TallyFeatures and its code reads the glance only (plan 06 step 11)" \
+            --json "$RUNNER_TEMP/compliance/widget-sources.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compliance-static
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
+
+  core-tests:
+    name: TallyCore tests (Linux, Swift 6.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; as CI's core-linux
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build sources and tests (warnings are errors)
+        working-directory: packages/TallyCore
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+      - name: Test
+        working-directory: packages/TallyCore
+        run: swift test
+
+  ios-gate:
+    name: iOS gate (Xcode 26.6; Release build, launch, critical flows, device archive)
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/compliance"
+          version="$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')"
+          python3 scripts/ci/check_release.py --result REL.toolchain.xcode \
+            "$([ "${version:-0}" -ge 26 ] && echo pass || echo fail)" "$(xcodebuild -version | tr '\n' ' ')" \
+            --title "Built with Xcode 26 or later on the iOS 26 SDK (R1)" \
+            --json "$RUNNER_TEMP/compliance/toolchain.json" || [ $? -eq 1 ]
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: Release build for the simulator
+        id: release_build
+        run: |
+          set +e -o pipefail
+          xcodebuild build -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-release" \
+            | tee "$RUNNER_TEMP/build-release-sim.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
+          if grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-release-sim.log"; then result=pass; else result=fail; fi
+          echo "ok=$([ $result = pass ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          python3 scripts/ci/check_release.py --result REL.build.release-simulator "$result" \
+            "xcodebuild build -configuration Release, iOS Simulator: $(grep -oE 'BUILD (SUCCEEDED|FAILED)' "$RUNNER_TEMP/build-release-sim.log" | tail -1)" \
+            --title "The Release configuration builds (app and widget)" \
+            --json "$RUNNER_TEMP/compliance/build-release-simulator.json" || [ $? -eq 1 ]
+      - name: Launch smoke test (the Release app is alive 10 s after launch, with no crash report)
+        if: steps.release_build.outputs.ok == 'true'
+        run: |
+          set -u
+          udid="${{ steps.sim.outputs.udid }}"
+          app="$RUNNER_TEMP/dd-release/Build/Products/Release-iphonesimulator/Tally.app"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          marker="$RUNNER_TEMP/launch-marker"
+          touch "$marker"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          launched="$(xcrun simctl launch "$udid" "$bundle_id" 2>&1)" || true # a failed launch is a failed check below
+          echo "$launched"
+          pid="$(echo "$launched" | sed -n 's/.*: \([0-9][0-9]*\)$/\1/p' | tail -1)"
+          sleep 10
+          crashes="$(find "$HOME/Library/Logs/DiagnosticReports" -name 'Tally*' -newer "$marker" 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -n "$pid" ] && ps -p "$pid" > /dev/null && [ "$crashes" = "0" ]; then result=pass; else result=fail; fi
+          echo "bundle $bundle_id, pid ${pid:-none}, alive after 10 s: $(ps -p "${pid:-0}" > /dev/null && echo yes || echo no), new crash reports: $crashes"
+          xcrun simctl terminate "$udid" "$bundle_id" 2>/dev/null || true
+          python3 scripts/ci/check_release.py --result REL.launch.smoke "$result" \
+            "$bundle_id on ${{ steps.sim.outputs.name }} (${{ steps.sim.outputs.runtime }}): pid ${pid:-none}, new crash reports $crashes" \
+            --title "The Release app launches and is alive after 10 s, with no crash report" \
+            --json "$RUNNER_TEMP/compliance/launch-smoke.json" || [ $? -eq 1 ]
+      - name: Built-app checks on the Release simulator build (Info.plist, widget, privacy manifests, binary symbols)
+        if: steps.release_build.outputs.ok == 'true'
+        run: |
+          python3 scripts/ci/check_release.py \
+            --app "$RUNNER_TEMP/dd-release/Build/Products/Release-iphonesimulator/Tally.app" --label simulator \
+            --json "$RUNNER_TEMP/compliance/app-simulator.json" || [ $? -eq 1 ]
+      - name: Critical flows on a Release build (no DEBUG-only hooks needed)
+        # Release, plus ENABLE_TESTABILITY so the scheme's hosted-test target also builds (as
+        # `make ios-perf` does); the UI tests themselves are black-box.
+        run: |
+          set +e -o pipefail
+          # shellcheck disable=SC2086 # the flag lists split into separate arguments on purpose
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release ENABLE_TESTABILITY=YES \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath "$RUNNER_TEMP/dd-flows-release" \
+            $RELEASE_FLOWS -resultBundlePath "$RUNNER_TEMP/Release-flows.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/flows-release.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/Release-flows.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/Release-flows.xcresult" --compact \
+              > "$RUNNER_TEMP/flows-release-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Release-flows.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/flows-release-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/flows-release-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/flows-release-tests.json"
+          fi
+      - name: Critical flows that need a DEBUG-only hook (Debug build; the Release variant is M5)
+        run: |
+          set +e -o pipefail
+          # shellcheck disable=SC2086 # the flag lists split into separate arguments on purpose
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath "$RUNNER_TEMP/dd-flows-debug" \
+            $DEBUG_FLOWS -resultBundlePath "$RUNNER_TEMP/Debug-flows.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/flows-debug.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/Debug-flows.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/Debug-flows.xcresult" --compact \
+              > "$RUNNER_TEMP/flows-debug-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Debug-flows.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/flows-debug-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/flows-debug-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/flows-debug-tests.json"
+          fi
+      - name: Critical-flow checks (a flow with no UI test yet is pending with its owner)
+        run: |
+          python3 scripts/ci/check_release.py \
+            --flows "Release=$RUNNER_TEMP/flows-release-tests.json" "Debug=$RUNNER_TEMP/flows-debug-tests.json" \
+            --json "$RUNNER_TEMP/compliance/flows.json" || [ $? -eq 1 ]
+      - name: Device archive (Release, unsigned)
+        id: archive
+        run: |
+          set +e -o pipefail
+          xcodebuild archive -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Tally.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/dd-archive" CODE_SIGNING_ALLOWED=NO \
+            | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|warning:|ARCHIVE (SUCCEEDED|FAILED)"
+          if grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"; then result=pass; else result=fail; fi
+          echo "ok=$([ $result = pass ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          python3 scripts/ci/check_release.py --result REL.build.device-archive "$result" \
+            "xcodebuild archive -configuration Release, generic iOS, CODE_SIGNING_ALLOWED=NO: $(grep -oE 'ARCHIVE (SUCCEEDED|FAILED)' "$RUNNER_TEMP/archive.log" | tail -1)" \
+            --title "The Release device archive builds" \
+            --json "$RUNNER_TEMP/compliance/build-device-archive.json" || [ $? -eq 1 ]
+      - name: Built-app checks on the device archive (what App Store Connect would receive)
+        if: steps.archive.outputs.ok == 'true'
+        run: |
+          python3 scripts/ci/check_release.py \
+            --app "$RUNNER_TEMP/Tally.xcarchive/Products/Applications/Tally.app" --label device \
+            --json "$RUNNER_TEMP/compliance/app-device.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: compliance-ios-gate
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: ios-gate-results
+          path: |
+            ${{ runner.temp }}/*.xcresult
+            ${{ runner.temp }}/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ios-gate-27:
+    name: iOS gate on iOS 27 (Xcode 27 preview; report-only)
+    runs-on: xcode-27
+    timeout-minutes: 75
+    # A preview runner image (R1, R5): its checks are reported as warnings and never fail the gate,
+    # the same policy as CI's forward-compat job.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Xcode version on this runner
+        run: |
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/compliance"
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 27 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py --min-major 27 >> "$GITHUB_OUTPUT"
+      - name: Release build for the simulator (iOS 27 SDK)
+        id: release_build
+        run: |
+          set +e -o pipefail
+          xcodebuild build -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-release" \
+            | tee "$RUNNER_TEMP/build-release-sim.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
+          if grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-release-sim.log"; then result=pass; else result=fail; fi
+          echo "ok=$([ $result = pass ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          python3 scripts/ci/check_release.py --result REL.ios27.build "$result" \
+            "$(xcodebuild -version | tr '\n' ' '): $(grep -oE 'BUILD (SUCCEEDED|FAILED)' "$RUNNER_TEMP/build-release-sim.log" | tail -1)" \
+            --title "The Release configuration builds on the iOS 27 SDK" --report-only \
+            --json "$RUNNER_TEMP/compliance/ios27-build.json" || [ $? -eq 1 ]
+      - name: Launch smoke test on iOS 27
+        if: steps.release_build.outputs.ok == 'true'
+        run: |
+          set -u
+          udid="${{ steps.sim.outputs.udid }}"
+          app="$RUNNER_TEMP/dd-release/Build/Products/Release-iphonesimulator/Tally.app"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          marker="$RUNNER_TEMP/launch-marker"
+          touch "$marker"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          launched="$(xcrun simctl launch "$udid" "$bundle_id" 2>&1)" || true # a failed launch is a failed check below
+          echo "$launched"
+          pid="$(echo "$launched" | sed -n 's/.*: \([0-9][0-9]*\)$/\1/p' | tail -1)"
+          sleep 10
+          crashes="$(find "$HOME/Library/Logs/DiagnosticReports" -name 'Tally*' -newer "$marker" 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -n "$pid" ] && ps -p "$pid" > /dev/null && [ "$crashes" = "0" ]; then result=pass; else result=fail; fi
+          echo "bundle $bundle_id, pid ${pid:-none}, new crash reports: $crashes"
+          python3 scripts/ci/check_release.py --result REL.ios27.launch-smoke "$result" \
+            "$bundle_id on ${{ steps.sim.outputs.name }} (${{ steps.sim.outputs.runtime }}): pid ${pid:-none}, new crash reports $crashes" \
+            --title "The Release app launches on iOS 27 and is alive after 10 s" --report-only \
+            --json "$RUNNER_TEMP/compliance/ios27-launch-smoke.json" || [ $? -eq 1 ]
+      - name: Critical flows on a Release build, iOS 27
+        run: |
+          set +e -o pipefail
+          # shellcheck disable=SC2086 # the flag lists split into separate arguments on purpose
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release ENABLE_TESTABILITY=YES \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath "$RUNNER_TEMP/dd-flows-release" \
+            $RELEASE_FLOWS -resultBundlePath "$RUNNER_TEMP/Release-flows-27.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/flows-release-27.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/Release-flows-27.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/Release-flows-27.xcresult" --compact \
+              > "$RUNNER_TEMP/flows-release-27-tests.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/flows-release-27-tests.json"
+          fi
+          python3 scripts/ci/check_release.py --flows "Release=$RUNNER_TEMP/flows-release-27-tests.json" --label ios27 \
+            --report-only --json "$RUNNER_TEMP/compliance/ios27-flows.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: compliance-ios-gate-27
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
+
+  a11y-perf-shots:
+    name: Accessibility audit, launch metric and screenshots (stub, M5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # M5 (ASC-12, R12, R14): performAccessibilityAudit() per screen with AX5 text, Dark, Reduce Motion
+    # and Increase Contrast; XCTApplicationLaunchMetric against a stored baseline (fail on > 20%);
+    # screenshot scenes at 1320x2868 (and 2064x2752 if iPad ships), status bar overridden, RGB, no
+    # alpha. Until then this job records each as PENDING, so the report shows what M5 still owes.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Record the M5 checks as pending
+        run: |
+          mkdir -p "$RUNNER_TEMP/compliance"
+          python3 scripts/ci/check_release.py --pending REL.m5.accessibility-audit M5 "M5 (UX accessibility; R12)" \
+            "not implemented: performAccessibilityAudit() on each screen, at AX5, Dark, Reduce Motion and Increase Contrast" \
+            --title "Accessibility audit: 0 unwaived issues" --json "$RUNNER_TEMP/compliance/m5-a11y.json" || [ $? -eq 1 ]
+          python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
+            "not implemented: XCTApplicationLaunchMetric against a stored baseline, failing on a regression over 20%" \
+            --title "Launch time within 20% of the baseline" --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
+          python3 scripts/ci/check_release.py --pending REL.m5.screenshots M5 "M5 (ASC-12 screenshot pipeline)" \
+            "not implemented: deterministic sample-data scenes, 1320x2868, status bar 9:41, flattened to RGB" \
+            --title "App Store screenshots generated at the required sizes, no alpha" \
+            --json "$RUNNER_TEMP/compliance/m5-screenshots.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compliance-m5-stubs
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
+
+  compliance-report:
+    name: Compliance report (one JSON artifact; fails only on a check due now)
+    needs: [static-linux, core-tests, ios-gate, ios-gate-27, a11y-perf-shots]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: compliance-*
+          path: ${{ runner.temp }}/compliance
+          merge-multiple: true
+      - name: Each job's own result, and each report that must exist
+        # A job that did not run to completion, or a report that never arrived, is a failing check:
+        # nothing passes by being missing.
+        env:
+          RESULTS: >-
+            static-linux=${{ needs.static-linux.result }}
+            core-tests=${{ needs.core-tests.result }}
+            ios-gate=${{ needs.ios-gate.result }}
+            ios-gate-27=${{ needs.ios-gate-27.result }}
+            a11y-perf-shots=${{ needs.a11y-perf-shots.result }}
+        run: |
+          dir="$RUNNER_TEMP/compliance"
+          mkdir -p "$dir"
+          ls -l "$dir"
+          for pair in $RESULTS; do
+            job="${pair%%=*}"; result="${pair#*=}"
+            extra=""
+            [ "$job" = "ios-gate-27" ] && extra="--report-only"
+            python3 scripts/ci/check_release.py --result "REL.job.$job" "$([ "$result" = success ] && echo pass || echo fail)" \
+              "job result: $result" --title "The $job job ran to completion" $extra --json "$dir/job-$job.json" > /dev/null || true
+          done
+          for report in source widget-sources toolchain build-release-simulator flows build-device-archive \
+                        m5-a11y m5-launch m5-screenshots; do
+            [ -f "$dir/$report.json" ] && continue
+            python3 scripts/ci/check_release.py --result "REL.report.$report" fail "no $report.json was produced" \
+              --title "The $report report exists" --json "$dir/missing-$report.json" > /dev/null || true
+          done
+      - name: Merge and decide
+        run: |
+          python3 scripts/ci/check_release.py --merge "$RUNNER_TEMP/compliance.json" "$RUNNER_TEMP"/compliance/*.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: compliance
+          path: ${{ runner.temp }}/compliance.json
+          retention-days: 90
