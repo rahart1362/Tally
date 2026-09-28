@@ -235,16 +235,20 @@ public final class AppModel {
 
     /// "Choose a Different School" after a failed first sync (perf-app-runtime.md §2.4: "calls
     /// `AccountSession.end()` and purges"): the half-made account is removed exactly as a sign-out
-    /// removes one. A no-op without a sign-in in progress.
+    /// removes one, by its derived record, whether or not provisioning finished (a provisioning
+    /// that stopped part-way can have saved the credential and written `accounts.json`). A no-op
+    /// without a sign-in in progress.
     public func abandonSignIn() {
         guard let pending = pendingSignIn else { return }
         pendingSignIn = nil
         firstSync = nil
-        guard let environment = accountEnvironment, pending.coordinator != nil, let record = pending.record else { return }
+        guard let environment = accountEnvironment else { return }
+        let record = pending.record ?? AccountRecord.derived(credential: pending.credential, target: pending.target)
+        let installed = pending.coordinator
         let runtime = accountRuntime
         teardown.replace(with: Task {
-            let retired = await runtime.end()
-            await AccountSignOut.purge(account: record, retired: retired ?? pending.coordinator, environment: environment)
+            let retired = installed == nil ? nil : await runtime.end()
+            await AccountSignOut.purge(account: record, retired: retired ?? installed, environment: environment)
         })
     }
 
@@ -268,6 +272,13 @@ public final class AppModel {
             provisioned = try await AccountSessionFactory.provision(credential: pending.credential, target: pending.target,
                                                                     environment: environment)
         } catch {
+            // Stopped part-way. Retry provisions again over what it wrote, and "Choose a Different
+            // School" purges it; but if the sign-in was abandoned meanwhile, that purge may have
+            // run before these writes, so purge again.
+            if pendingSignIn?.id != id {
+                await AccountSignOut.purge(account: .derived(credential: pending.credential, target: pending.target),
+                                           retired: nil, environment: environment)
+            }
             return nil
         }
         let (record, coordinator) = provisioned

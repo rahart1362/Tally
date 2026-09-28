@@ -47,8 +47,7 @@ public nonisolated enum AccountSessionFactory {
                           environment: AccountEnvironment) async throws -> (AccountRecord, RefreshCoordinator) {
         let root = try environment.storeRoot()
         try await environment.credentialStore.save(credential)
-        let record = AccountRecord.derived(host: credential.host, canvasUserID: credential.userID,
-                                           clientID: target.clientID, displayLabel: target.schoolDisplayName)
+        let record = AccountRecord.derived(credential: credential, target: target)
         try AccountDirectoryStore(root: root).activate(record)
         try await environment.snapshotStore(for: record.accountKey, root: root).prepare()
         return (record, await coordinator(for: record, root: root, environment: environment))
@@ -68,5 +67,15 @@ public nonisolated enum AccountSessionFactory {
         let client = CanvasClient(host: account.host, transport: environment.transport, tokens: tokens)
         return LiveCanvasGateway(host: account.host, accountKey: account.accountKey, client: client,
                                  logger: environment.logger)
+    }
+}
+
+extension AccountRecord {
+    /// The record sign-in's S3 writes for `credential` at `target`: its account key derives from
+    /// the host and the Canvas user ID, so an abandoned sign-in can be purged by it whether or not
+    /// its provisioning finished.
+    nonisolated static func derived(credential: CanvasCredential, target: SignInTarget) -> AccountRecord {
+        .derived(host: credential.host, canvasUserID: credential.userID, clientID: target.clientID,
+                 displayLabel: target.schoolDisplayName)
     }
 }

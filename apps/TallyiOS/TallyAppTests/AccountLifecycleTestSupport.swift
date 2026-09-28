@@ -154,4 +154,53 @@ final class ScriptedAuthenticator: AppLockAuthenticating {
     func evaluatedPolicyDomainState() async -> Data? { nil }
     func availability() async -> AppLockAvailability { available }
 }
+
+/// Holds every `save` until `open()`, so a test can act while a sign-in's provisioning is in
+/// flight (between S2 and the Keychain write).
+final class GatedCredentialStore: CredentialStore {
+    private struct State {
+        var isOpen = false
+        var waiting: [CheckedContinuation<Void, Never>] = []
+        var saveStarted = false
+        var saveFinished = false
+    }
+
+    private let base: InMemoryCredentialStore
+    private let state = Mutex(State())
+
+    init(base: InMemoryCredentialStore) {
+        self.base = base
+    }
+
+    var saveStarted: Bool { state.withLock { $0.saveStarted } }
+    var saveFinished: Bool { state.withLock { $0.saveFinished } }
+
+    func load() async -> CanvasCredential? { await base.load() }
+
+    func save(_ credential: CanvasCredential) async throws {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = state.withLock { state -> Bool in
+                state.saveStarted = true
+                if state.isOpen { return true }
+                state.waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+        try await base.save(credential)
+        state.withLock { $0.saveFinished = true }
+    }
+
+    func delete() async { await base.delete() }
+
+    func open() {
+        let waiting = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            state.isOpen = true
+            let waiting = state.waiting
+            state.waiting.removeAll()
+            return waiting
+        }
+        for continuation in waiting { continuation.resume() }
+    }
+}
 #endif

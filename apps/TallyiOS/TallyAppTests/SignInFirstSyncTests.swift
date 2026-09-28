@@ -132,6 +132,64 @@ extension AccountLifecycleSuites {
             #expect(await model.accountRuntime.coordinator() == nil)
             #expect(model.route == .welcome)
         }
+
+        @Test("a provisioning that stops part-way (after the credential and accounts.json), then Choose a Different School: nothing of it is left")
+        func abandonAfterAFailedProvisioningPurgesWhatItWrote() async throws {
+            let harness = try AccountHarness()
+            // A plain file where the account's store directory goes: `SnapshotStore.prepare()`, the
+            // last write of S3, fails after the credential and the `accounts.json` record are written.
+            try FileManager.default.createDirectory(at: harness.accountDirectory.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            try Data().write(to: harness.accountDirectory)
+            let model = AppModel(accountEnvironment: harness.environment)
+            model.bootstrap()
+            model.signInSucceeded(harness.credential, target: AccountHarness.target)
+            let viewModel = try #require(model.firstSync)
+            viewModel.start()
+            #expect(try await HomeTestSupport.waitUntil { viewModel.failure != nil })
+            #expect(harness.credentials.credential != nil, "the provisioning did not get as far as the credential")
+            #expect(AccountDirectoryStore(root: harness.root).activeAccount()?.accountKey == harness.account)
+
+            model.abandonSignIn()
+            await model.awaitTeardown()
+            #expect(harness.credentials.credential == nil, "the abandoned sign-in's credential survived a failed provisioning")
+            #expect(AccountDirectoryStore(root: harness.root).activeAccount() == nil,
+                    "the abandoned sign-in's accounts.json record survived: the next launch would sign in to it")
+            #expect(await model.accountRuntime.coordinator() == nil)
+            #expect(model.route == .welcome)
+        }
+
+        @Test("abandoned while provisioning, which then stops part-way: what it wrote after the abandon's purge goes too")
+        func abandonDuringAFailingProvisioningPurgesItsLateWrites() async throws {
+            let harness = try AccountHarness()
+            let gated = GatedCredentialStore(base: harness.credentials)
+            let root = harness.root
+            let environment = AccountEnvironment(
+                storeRoot: { root }, credentialStore: gated, keyring: harness.keyring,
+                lockPreferences: harness.lockPreferences, transport: harness.transport, notifications: harness.notifications,
+                gatewayOverride: { account in FlagshipAccountGateway(account: account.accountKey) })
+            let model = AppModel(accountEnvironment: environment)
+            model.bootstrap()
+            model.signInSucceeded(harness.credential, target: AccountHarness.target)
+            let viewModel = try #require(model.firstSync)
+            viewModel.start()
+            #expect(try await HomeTestSupport.waitUntil { gated.saveStarted }, "provisioning never reached the Keychain")
+
+            // The abandon's purge runs to the end while the credential is still unwritten.
+            model.abandonSignIn()
+            await model.awaitTeardown()
+            // Then the provisioning goes on: the credential and `accounts.json` land after that purge,
+            // and the store cannot be prepared (a plain file where its directory goes).
+            try FileManager.default.createDirectory(at: harness.accountDirectory.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            try Data().write(to: harness.accountDirectory)
+            gated.open()
+            #expect(try await HomeTestSupport.waitUntil { gated.saveFinished })
+            #expect(try await HomeTestSupport.waitUntil(timeout: .seconds(10)) {
+                harness.credentials.credential == nil && AccountDirectoryStore(root: root).activeAccount() == nil
+            }, "a write that landed after the abandon's purge survived")
+            _ = viewModel
+        }
     }
 }
 
