@@ -102,10 +102,13 @@ struct WidgetGlanceKeychainTests {
         let reader = WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: configuration.keychainAccessGroup)
         let result = await GlanceReader(storeRoot: fixture.root, keyStore: reader).read()
 
+        // Which of the two this runner does is evidence for the report, so it goes to the log.
         do {
-            _ = try reader.keyIDs(for: KeyScope(account: account.rawValue, audience: .widget))
+            let ids = try reader.keyIDs(for: KeyScope(account: account.rawValue, audience: .widget))
+            print("WIDGET-KEYCHAIN | group \(configuration.keychainAccessGroup): no error, \(ids.count) keys; reader: \(result)")
             #expect(result == .noGlance)
         } catch {
+            print("WIDGET-KEYCHAIN | group \(configuration.keychainAccessGroup): \(error); reader: \(result)")
             #expect(error as? VaultError == .storage(code: Int(errSecMissingEntitlement)))
             #expect(result == .unavailable)
             let plan = GlanceTimelinePlanner.plan(for: result, now: Date(), calendar: .current)
