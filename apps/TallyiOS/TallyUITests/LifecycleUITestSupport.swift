@@ -27,6 +27,11 @@ enum TestHooks {
 /// The lifecycle suites' shared set-up and tear-down steps. Static, so a nonisolated `tearDown`
 /// can run them on the main actor without sending the test case across isolation.
 enum LifecycleUITest {
+    /// How long a lifecycle test waits for a control to become hittable before tapping it. Longer
+    /// than `tapWhenHittable`'s 10 s default: under AddressSanitizer a search field took longer
+    /// than 10 s to become hittable (M2-C2, run 36434300284). A passing run never waits it out.
+    static let tapTimeout: TimeInterval = 30
+
     /// Erases every account, key, credential and the app-lock setting (the reset hook), so the next
     /// test launches to Welcome whatever this one left behind. Every lifecycle suite runs it in
     /// `tearDown`: the simulator keeps the app's container and Keychain between UI tests, and the

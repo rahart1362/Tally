@@ -29,7 +29,7 @@ final class AppLockUITests: TallyUITestCase {
         XCTAssertFalse(app.staticTexts[TestHooks.flagshipHero].exists, "cached grades were built under the lock")
         XCTAssertEqual(app.alerts.count, 0, "a cancel raised an alert")
 
-        tapWhenHittable(app.buttons["lock.unlock"], in: app)
+        tapWhenHittable(app.buttons["lock.unlock"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts[Self.lockedTitle].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["lock.unlock"].waitForExistence(timeout: 5), "the unlock button went away")
         XCTAssertFalse(app.staticTexts[TestHooks.flagshipHero].exists, "a cancel unlocked the app")
