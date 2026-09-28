@@ -144,7 +144,7 @@ ios-asan: ## App + UI tests under AddressSanitizer: fails on a test failure or a
 	! grep -q "ERROR: AddressSanitizer" $(IOS_OUT)/asan.log
 
 # Release, like the charter's budgets; ENABLE_TESTABILITY lets the hosted tests `@testable import`.
-IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests
+IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests -only-testing:TallyAppTests/MainThreadGuardsTests
 
 ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }

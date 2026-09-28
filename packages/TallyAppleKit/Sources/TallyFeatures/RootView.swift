@@ -54,13 +54,19 @@ public struct RootView: View {
                 onExploreSampleData: { appModel.enterSample() }
             )
         case .sample:
-            SampleDataRootView(onExit: { appModel.exitSample() }) { model in
-                HomeShellView(
-                    snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
-                    freshness: model.freshness, studentDisplayName: model.studentDisplayName,
-                    banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })),
-                    onRefresh: { await model.refresh() }
-                )
+            if let sample = appModel.sample {
+                SampleDataRootView(
+                    model: sample,
+                    onExit: { appModel.exitSample() },
+                    onAppear: { await appModel.sampleDidAppear() }
+                ) { model in
+                    HomeShellView(
+                        snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
+                        freshness: model.freshness, studentDisplayName: model.studentDisplayName,
+                        banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })),
+                        onRefresh: { await model.refresh() }
+                    )
+                }
             }
         case .signedIn:
             // No account session exists yet (perf-app-runtime.md §7 step 9), so every tab shows its

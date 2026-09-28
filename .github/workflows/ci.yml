@@ -276,6 +276,37 @@ jobs:
             ${{ runner.temp }}/ios/*.xcresult
           retention-days: 7
 
+  ios-perf:
+    name: iOS perf budgets (Release, non-blocking)
+    runs-on: macos-26
+    timeout-minutes: 45
+    # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
+    # Release build, medians of 5 iterations, compared with perf/budgets.json.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        run: make ios-project
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-perf (Release; sample entry budget, Release main-actor stall budget)
+        run: make ios-perf IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Print the raw metrics JSON (its schema is what check_perf_budgets.py reads)
+        if: always()
+        run: cat "$RUNNER_TEMP/ios/perf-metrics.json" 2>/dev/null || echo "no metrics JSON"
+
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
     runs-on: xcode-27

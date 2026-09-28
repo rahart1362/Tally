@@ -47,17 +47,21 @@ struct AppModelTests {
         #expect(model.route == .sample)
     }
 
-    @Test("enterSample/exitSample: welcome -> sample -> welcome, twice; exit never replays the brand moment")
+    @Test("enterSample/exitSample: welcome -> sample -> welcome, twice; a session per entry; no brand moment on exit")
     func sampleRoundTrips() {
         let model = AppModel()
         model.bootstrap()
         for _ in 0..<2 {
             model.enterSample()
             #expect(model.route == .sample)
-            model.enterSample() // already .sample: a no-op
+            let session = model.sample
+            #expect(session != nil)
+            model.enterSample() // already .sample: a no-op that keeps the same session
             #expect(model.route == .sample)
+            #expect(model.sample === session)
             model.exitSample()
             #expect(model.route == .welcome)
+            #expect(model.sample == nil)
             #expect(!model.playsBrandMoment)
         }
     }

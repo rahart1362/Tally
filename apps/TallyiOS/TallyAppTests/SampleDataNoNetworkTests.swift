@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import TallyFeatures
 
@@ -12,10 +13,10 @@ import Testing
 @Suite("Sample data: no network calls")
 struct SampleDataNoNetworkTests {
     final class FailOnAnyRequestURLProtocol: URLProtocol, @unchecked Sendable {
-        static let invocationCount = Locked(0)
+        static let invocationCount = Mutex<Int>(0)
 
         override class func canInit(with request: URLRequest) -> Bool {
-            invocationCount.increment()
+            invocationCount.withLock { $0 += 1 }
             return true
         }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -27,38 +28,32 @@ struct SampleDataNoNetworkTests {
         override func stopLoading() {}
     }
 
-    final class Locked: @unchecked Sendable {
-        private let lock = NSLock()
-        private var value: Int
-        init(_ value: Int) { self.value = value }
-        func increment() { lock.lock(); value += 1; lock.unlock() }
-        var current: Int { lock.lock(); defer { lock.unlock() }; return value }
-    }
-
     @Test("fetching a full sample-data snapshot never triggers any URLSession request")
     func noNetworkDuringSampleFetch() async throws {
         URLProtocol.registerClass(FailOnAnyRequestURLProtocol.self)
         defer { URLProtocol.unregisterClass(FailOnAnyRequestURLProtocol.self) }
-        let before = FailOnAnyRequestURLProtocol.invocationCount.current
+        let before = FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 }
 
-        let gateway = try SampleDataCanvasGateway()
+        let gateway = try await SampleDataCanvasGateway.make()
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: Date())
 
         #expect(snapshot.courses.count == 5)
-        #expect(FailOnAnyRequestURLProtocol.invocationCount.current == before)
+        #expect(FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 } == before)
     }
 
-    @Test("SampleDataModel.refresh() end to end never triggers any URLSession request")
+    @Test("sample entry end to end (session, model, refresh) never triggers any URLSession request")
     @MainActor
     func noNetworkThroughSampleDataModel() async throws {
         URLProtocol.registerClass(FailOnAnyRequestURLProtocol.self)
         defer { URLProtocol.unregisterClass(FailOnAnyRequestURLProtocol.self) }
-        let before = FailOnAnyRequestURLProtocol.invocationCount.current
+        let before = FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 }
 
-        let model = try SampleDataModel.live()
+        let model = SampleDataModel()
+        await model.start()
         await model.refresh()
+        for _ in 0..<100 where model.snapshot == nil { try await Task.sleep(for: .milliseconds(10)) }
 
         #expect(model.snapshot?.courses.count == 5)
-        #expect(FailOnAnyRequestURLProtocol.invocationCount.current == before)
+        #expect(FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 } == before)
     }
 }

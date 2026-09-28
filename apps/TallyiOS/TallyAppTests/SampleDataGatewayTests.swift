@@ -10,7 +10,7 @@ import Testing
 struct SampleDataGatewayTests {
     @Test("fetchSnapshot returns the flagship persona's 5 courses with their known codes")
     func returnsFlagshipCourses() async throws {
-        let gateway = try SampleDataCanvasGateway()
+        let gateway = try await SampleDataCanvasGateway.make()
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: Date())
         let codes = Set(snapshot.courses.map(\.courseCode))
         #expect(codes == ["BIO 101", "MATH 122", "ENG 101", "PSY 101", "HIST 210"])
@@ -19,7 +19,7 @@ struct SampleDataGatewayTests {
     @Test("planner due dates are rebased to land within a few months of now, not fixed at 2026-09-28")
     func dueDatesLookCurrent() async throws {
         let now = Date()
-        let gateway = try SampleDataCanvasGateway()
+        let gateway = try await SampleDataCanvasGateway.make()
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: now)
 
         let dueDates = snapshot.planner.compactMap(\.dueAt)
@@ -39,8 +39,8 @@ struct SampleDataGatewayTests {
     @Test("two fetches on the same day are byte-for-byte equal (deterministic rebasing)")
     func deterministicForTheSameDay() async throws {
         let now = Date()
-        let a = try await SampleDataCanvasGateway().fetchSnapshot(previous: nil, now: now)
-        let b = try await SampleDataCanvasGateway().fetchSnapshot(previous: nil, now: now)
+        let a = try await SampleDataCanvasGateway.make().fetchSnapshot(previous: nil, now: now)
+        let b = try await SampleDataCanvasGateway.make().fetchSnapshot(previous: nil, now: now)
         #expect(a.courses == b.courses)
         #expect(a.planner == b.planner)
     }
@@ -52,7 +52,7 @@ struct SampleDataGatewayTests {
     @Test("DashboardBuilder.build over a rebased sample-data snapshot builds the full dashboard")
     func dashboardBuilderOverRebasedSampleData() async throws {
         let now = Date()
-        let gateway = try SampleDataCanvasGateway()
+        let gateway = try await SampleDataCanvasGateway.make()
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: now)
         let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: now)
         #expect(state.hero.courseCount == 5)

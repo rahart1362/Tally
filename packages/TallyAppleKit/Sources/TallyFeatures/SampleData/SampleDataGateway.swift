@@ -80,16 +80,39 @@ nonisolated enum SampleDataFixtureBundle {
 /// `LiveCanvasGateway`, DTOs and mappers included — over `TallyTestSupport.ReplayTransport`
 /// pointed at the bundled flagship fixtures, then rebases every Canvas-content date forward so
 /// due dates look current (`SnapshotDateRebaser`, per `fixtures/canvas/README.md`).
+///
+/// Built only through `make(dateProvider:)`, which does the bundle I/O off the main actor: a
+/// synchronous actor `init` runs on its caller (SE-0327), which for `TallyFeatures` code is the
+/// main actor, so the initialiser itself is pure (perf-app-runtime.md §4.1, §7 step 5).
 public actor SampleDataCanvasGateway: CanvasGateway {
     private let live: LiveCanvasGateway
     private let anchor: Date
     private let timeZone: TimeZone
 
+    /// Locates the bundled fixtures and decodes their manifest, off the main actor (`@concurrent`
+    /// runs on the global executor whatever the caller's isolation).
     /// - Parameter dateProvider: only for tests (`SystemDateProvider()` in production); lets a
     ///   test pin "now" instead of racing the real clock.
-    public init(dateProvider: any DateProviding = SystemDateProvider()) throws {
+    @concurrent
+    public static func make(dateProvider: any DateProviding = SystemDateProvider()) async throws -> SampleDataCanvasGateway {
+        try await make(dateProvider: dateProvider, threadProbe: nil)
+    }
+
+    /// `threadProbe` (tests only) receives `pthread_main_np() != 0` from inside the I/O, so a test
+    /// can prove the manifest is never read on the main thread.
+    @concurrent
+    static func make(
+        dateProvider: any DateProviding, threadProbe: (@Sendable (_ onMainThread: Bool) -> Void)?
+    ) async throws -> SampleDataCanvasGateway {
+        threadProbe?(pthread_main_np() != 0)
         let manifest = try SampleDataFixtureBundle.loadManifest()
-        let transport = ReplayTransport(routes: manifest.routes, root: try SampleDataFixtureBundle.resourceRoot())
+        let root = try SampleDataFixtureBundle.resourceRoot()
+        return SampleDataCanvasGateway(manifest: manifest, root: root, dateProvider: dateProvider)
+    }
+
+    /// Pure construction over an already-loaded manifest.
+    private init(manifest: SampleDataFixtureBundle.Manifest, root: URL, dateProvider: any DateProviding) {
+        let transport = ReplayTransport(routes: manifest.routes, root: root)
         let accountKey = AccountKey("sample-flagship")
         // A credential that never expires: `ReplayTransport` never inspects the bearer token, and
         // there is no real Canvas account to refresh against, so a `TokenRefreshing` that always

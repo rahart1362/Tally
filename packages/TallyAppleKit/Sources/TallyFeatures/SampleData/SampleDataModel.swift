@@ -1,70 +1,77 @@
 import Foundation
-import TallyCanvasAPI
 import TallyDomain
 
-/// ASC-14: the in-memory, session-scoped state behind "Explore with Sample Data". Deliberately
-/// does **not** go through `TallyStore`'s `SnapshotStore`/vault: sample data is never persisted
-/// (there is nothing to protect, nothing to survive a relaunch — re-fetching the bundled replay
-/// on every entry is both simpler and safer than teaching the real account's on-disk store about
-/// a second, fake account), and it deliberately does **not** route through `AppModel`'s
-/// `RefreshCoordinator` or the background task / Siri intent (`RefreshIntentBridge`): sample mode
-/// must never be reachable from either, keeping "no network calls in sample mode" trivially true
-/// by construction rather than by a runtime check alone.
+/// ASC-14: the main-actor face of a `SampleSession` (perf-app-runtime.md §7 step 5). A thin
+/// adapter: it constructs nothing that does I/O, computes no digest, and only assigns the small
+/// values a `HomeUpdate` carries. The session actor does the bundle I/O, the replay, the mapping,
+/// the rebase and the digest, all off the main actor.
 ///
-/// Still reuses every pure rule the real Dashboard will: `FreshnessRules`/`RefreshRecord` for the
-/// footer, `ChangeDigest` for the digest chip, and (via `DashboardBuilder`) the same
-/// `PriorityScore`/`AlertEngine` this session's `DashboardView` renders.
+/// Sample data never reaches `AppModel`'s `RefreshCoordinator`, the background task or the
+/// "Refresh Tally" intent (ASC-14's "no network calls in sample mode").
 @MainActor
 @Observable
 public final class SampleDataModel {
+    public enum Phase: Equatable, Sendable {
+        /// Created, or loading its first snapshot: the shell shows its skeleton.
+        case loading
+        case loaded
+        /// The first load failed (the bundled fixtures are a packaging bug if this ever happens).
+        case failed
+    }
+
+    public private(set) var phase: Phase = .loading
+    /// Replaced only when a new generation arrives, so an unchanged refresh never touches it.
     public private(set) var snapshot: CanvasSnapshot?
     public private(set) var freshness: FreshnessState = .noCache
     public private(set) var digest: ChangeDigest?
     public private(set) var digestAsOf: Date?
 
-    private let gateway: any CanvasGateway
-    private let clock: any DateProviding
-    private var record = RefreshRecord()
-    private var isRefreshing = false
+    /// Internal so `LifecycleLeakTests` can hold a weak reference to it.
+    let session: SampleSession
+    private let subscription = TaskBox()
+    @ObservationIgnored private var generation: UInt64 = 0
+    @ObservationIgnored private var hasStarted = false
 
-    public init(gateway: any CanvasGateway, clock: any DateProviding = SystemDateProvider()) {
-        self.gateway = gateway
-        self.clock = clock
-    }
-
-    /// The production entry point: the bundled flagship persona over a replay transport
-    /// (`SampleDataCanvasGateway`), never the network.
-    public static func live() throws -> SampleDataModel {
-        SampleDataModel(gateway: try SampleDataCanvasGateway())
+    public init(session: SampleSession = SampleSession()) {
+        self.session = session
     }
 
     public var studentDisplayName: String? { snapshot?.profile.shortName ?? snapshot?.profile.name }
 
-    /// Called once when sample mode is entered, and again for pull-to-refresh / the footer's
-    /// button — both call this one method (ux-ui.md §3.3: "Both call the same single-flight
-    /// refresh"), matching `RefreshStatusModel.refresh()`'s shape even though there is no
-    /// `RefreshCoordinator` underneath it here.
-    public func refresh() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
-
-        let now = clock.now()
-        record.began(.manual, at: now)
-        freshness = FreshnessRules.state(of: record, now: now)
-
-        do {
-            let fetched = try await gateway.fetchSnapshot(previous: snapshot, now: now)
-            let newDigest = ChangeDigest.diff(old: snapshot, new: fetched)
-            snapshot = fetched
-            if !newDigest.isEmpty {
-                digest = newDigest
-                digestAsOf = fetched.fetchedAt
+    /// Subscribes to the session and loads the first snapshot. Runs once, from the shell's `.task`.
+    public func start() async {
+        guard !hasStarted else { return }
+        hasStarted = true
+        let updates = await session.updates()
+        subscription.replace(with: Task { [weak self] in
+            for await update in updates {
+                self?.apply(update)
             }
-            record.succeeded(dataFetchedAt: fetched.fetchedAt)
-        } catch {
-            record.failed(.unknown)
+        })
+        await session.refresh(.launch)
+    }
+
+    /// Pull-to-refresh and the refresh button: one single-flight refresh on the session.
+    public func refresh() async {
+        await session.refresh(.manual)
+    }
+
+    /// Ends the subscription and the session: its streams finish and its snapshot is released.
+    public func end() async {
+        subscription.cancel()
+        await session.end()
+    }
+
+    private func apply(_ update: HomeUpdate) {
+        if update.generation != generation {
+            generation = update.generation
+            snapshot = update.snapshot
+            phase = .loaded
+        } else if update.snapshot == nil, case .failed = update.freshness {
+            phase = .failed
         }
-        freshness = FreshnessRules.state(of: record, now: clock.now())
+        freshness = update.freshness
+        digest = update.digest
+        digestAsOf = update.digestAsOf
     }
 }

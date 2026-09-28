@@ -2,60 +2,49 @@ import SwiftUI
 import TallyDesignSystem
 
 /// ASC-14 "Explore with Sample Data": the real demo mode (app-store-compliance.md §3.2 option B)
-/// — the full Home shell and Dashboard, running over the bundled flagship persona, behind a
-/// persistent SAMPLE DATA banner, with an exit back to Welcome. `RootView` shows this for
+/// — the full Home shell and Dashboard over the bundled flagship persona, behind a persistent
+/// SAMPLE DATA banner, with an exit back to Welcome. `RootView` shows this for
 /// `RootRoute.sample`, a root switch and never a `navigationDestination` push (a pushed `TabView`
 /// does not render; see `HomeShellView`).
 ///
-/// This view owns only the sample-data *loading* state. The shell itself comes from `shell`, which
-/// `RootView` supplies, so the Home shell is constructed in exactly one file (the hygiene grep
-/// gate, perf-app-runtime.md §3 item 2).
+/// perf-app-runtime.md §7 step 5: the shell (banner and skeleton) renders in the first frame, and
+/// loading starts from its `.task`, off the main actor. The shell itself comes from `shell`, which
+/// `RootView` supplies, so the Home shell is constructed in exactly one file (the hygiene gate).
 public struct SampleDataRootView<Shell: View>: View {
+    let model: SampleDataModel
     let onExit: () -> Void
+    let onAppear: () async -> Void
     let shell: (SampleDataModel) -> Shell
 
-    @State private var model: SampleDataModel?
-    @State private var loadError: Error?
-
-    public init(onExit: @escaping () -> Void, @ViewBuilder shell: @escaping (SampleDataModel) -> Shell) {
+    public init(
+        model: SampleDataModel, onExit: @escaping () -> Void, onAppear: @escaping () async -> Void,
+        @ViewBuilder shell: @escaping (SampleDataModel) -> Shell
+    ) {
+        self.model = model
         self.onExit = onExit
+        self.onAppear = onAppear
         self.shell = shell
     }
 
     public var body: some View {
-        Group {
-            if let model {
-                shell(model)
-                    .task {
-                        if model.snapshot == nil { await model.refresh() }
-                    }
-            } else if loadError != nil {
-                // The bundled fixture resources failed to load — a packaging bug, not a runtime
-                // condition a student can hit in a correctly-built app. Honest, not fabricated:
-                // no sample data is shown rather than silently falling back to something fake.
-                // A `NavigationStack` as this root's own root (never pushed), so the toolbar
-                // button has somewhere to attach to.
-                NavigationStack {
-                    ContentUnavailableView("Sample data unavailable", systemImage: "exclamationmark.triangle",
-                                           description: Text("The bundled sample data couldn't be loaded."))
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Back", action: onExit)
-                            }
+        if model.phase == .failed {
+            // The bundled fixture resources failed to load — a packaging bug, not a runtime
+            // condition a student can hit in a correctly-built app. Honest, not fabricated:
+            // no sample data is shown rather than silently falling back to something fake.
+            // A `NavigationStack` as this root's own root (never pushed), so the toolbar
+            // button has somewhere to attach to.
+            NavigationStack {
+                ContentUnavailableView("Sample data unavailable", systemImage: "exclamationmark.triangle",
+                                       description: Text("The bundled sample data couldn't be loaded."))
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Back", action: onExit)
                         }
-                }
-            } else {
-                ProgressView()
-                    .task { load() }
+                    }
             }
-        }
-    }
-
-    private func load() {
-        do {
-            model = try SampleDataModel.live()
-        } catch {
-            loadError = error
+        } else {
+            shell(model)
+                .task { await onAppear() }
         }
     }
 }

@@ -150,10 +150,14 @@ struct MainThreadGuardsTests {
             let probe = MainActorStallProbe()
             probe.start()
             try await Task.sleep(for: .milliseconds(20)) // the ticker is running before the work starts
-            let model = try SampleDataModel.live()
-            await model.refresh()
+            let app = AppModel()
+            app.bootstrap()
+            app.enterSample()
+            await app.sampleDidAppear()
+            for _ in 0..<100 where app.sample?.snapshot == nil { try await Task.sleep(for: .milliseconds(10)) }
             stalls.append(await probe.stop())
-            #expect(model.snapshot?.courses.count == 5)
+            #expect(app.sample?.snapshot?.courses.count == 5)
+            app.exitSample()
         }
         let median = stalls.sorted()[stalls.count / 2]
         #expect(median < Self.stallBudget, "median main-actor stall \(median) ≥ \(Self.stallBudget); all: \(stalls)")
