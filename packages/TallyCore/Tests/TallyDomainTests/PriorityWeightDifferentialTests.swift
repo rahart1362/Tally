@@ -173,7 +173,7 @@ struct PriorityWeightDifferentialTests {
     static let periodSpan: TimeInterval = 30 * 86_400
     static let corpusBase = Date(timeIntervalSince1970: 1_790_000_000)
 
-    struct AdversarialCourse {
+    struct AdversarialCourse: Sendable {
         let course: Course
         let groups: [AssignmentGroup]
         let periods: [GradingPeriod]
@@ -271,14 +271,15 @@ struct PriorityWeightDifferentialTests {
     static let adversarialCourseCount = 3_000
     static let adversarialSeed: UInt64 = 0x5EED_0005
 
-    static func adversarialCorpus() -> [AdversarialCourse] {
+    /// Built once and shared by both tests below (it is the slow part under the sanitizers).
+    static let adversarialCorpus: [AdversarialCourse] = {
         var rng = SeededRandom(seed: adversarialSeed)
         return (0..<adversarialCourseCount).map { adversarialCourse($0, rng: &rng) }
-    }
+    }()
 
     @Test func adversarialCoursesWeighTheSame() {
         var tally = Tally()
-        for c in Self.adversarialCorpus() {
+        for c in Self.adversarialCorpus {
             tally.merge(Self.compare(course: c.course, groups: c.groups, periods: c.periods, extra: c.extra))
         }
         Self.expectIdentical(tally, "adversarial")
@@ -298,7 +299,7 @@ struct PriorityWeightDifferentialTests {
         func minute(_ d: Date) -> Double { (d.timeIntervalSince1970 / 60).rounded(.down) }
         var orderSensitiveCourses = 0
         var boundaryItems = 0
-        for c in Self.adversarialCorpus() {
+        for c in Self.adversarialCorpus {
             let counted = c.groups.flatMap(\.assignments).filter {
                 $0.published && $0.isGradeable && !$0.omitFromFinalGrade && ($0.pointsPossible ?? 0) > 0
             }.compactMap(\.pointsPossible)
