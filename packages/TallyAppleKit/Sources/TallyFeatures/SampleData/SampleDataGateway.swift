@@ -3,6 +3,7 @@ import Synchronization
 import TallyCanvasAPI
 import TallyDomain
 import TallyReplay
+import TallyTestSupport // MUTATION MA1
 import TallySampleFixtures
 
 /// ASC-14 "Explore with Sample Data": errors this module raises itself, as opposed to whatever
@@ -36,6 +37,7 @@ nonisolated enum SampleDataFixtureBundle {
 
     /// The bundled fixtures folder (`SampleFixtures.folderURL()`), or `bundleResourceMissing`.
     static func resourceRoot() throws -> URL {
+        _ = TallyTestSupportModule.name // MUTATION MA1: a live reference into TallyTestSupport
         guard let url = SampleFixtures.folderURL() else { throw SampleDataError.bundleResourceMissing(root) }
         return url
     }
@@ -91,7 +93,7 @@ public actor SampleDataCanvasGateway: CanvasGateway {
     /// Tests only: `threadProbe` receives `pthread_main_np() != 0` from inside the I/O, so a test
     /// can prove the manifest is never read on the main thread; `root` replays a copy of the
     /// fixtures instead of the bundled ones.
-    @concurrent
+    @MainActor // MUTATION M5a: was @concurrent
     static func make(
         dateProvider: any DateProviding, logger: any TallyLogger = NoOpLogger(),
         threadProbe: (@Sendable (_ onMainThread: Bool) -> Void)?, root: URL? = nil
@@ -116,7 +118,7 @@ public actor SampleDataCanvasGateway: CanvasGateway {
         let tokens = TokenCoordinator(initial: credential, store: SampleCredentialStore(credential),
                                      refresher: NeverRefresh(), clock: dateProvider)
         let client = CanvasClient(host: manifest.host, transport: transport, tokens: tokens)
-        live = LiveCanvasGateway(host: manifest.host, accountKey: accountKey, client: client, logger: logger)
+        live = LiveCanvasGateway(host: manifest.host, accountKey: accountKey, client: client) // MUTATION MA8b
         anchor = manifest.anchor
         timeZone = manifest.timeZone
     }

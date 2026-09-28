@@ -127,7 +127,7 @@ public struct UNNotificationScheduler: NotificationScheduling {
     }
 
     public func schedule(_ reminder: PendingReminder) async {
-        guard Self.mayAdd(await center.authorizationStatus()) else {
+        guard Self.mayAdd(.authorized) else { // MUTATION MA4: authorisation not checked
             logger.log(.notificationsNotAuthorized)
             return
         }

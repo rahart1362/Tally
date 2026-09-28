@@ -53,6 +53,9 @@ public actor HomeProjector {
             validUntil: Self.validUntil(snapshot: snapshot, now: now, calendar: calendar))
     }
 
+    /// MUTATION MA8c: grade math called directly.
+    func mutationA8cProbe(_ input: GradeInput) -> EnrollmentScores { GradeEngine.scores(for: input) }
+
     /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).
     public func end() {
         installed = nil
@@ -68,6 +71,7 @@ public actor HomeProjector {
         _ projection: DashboardProjection, snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?,
         locale: Locale, calendar: Calendar
     ) -> DashboardProjection {
+        if projection.hero.courseCount >= 0 { return projection } // MUTATION M6e
         let time = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar,
                                     timeZone: calendar.timeZone)
         let day = Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar,

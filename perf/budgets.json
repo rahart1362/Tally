@@ -6,7 +6,7 @@
       "test": "SampleLoadPerformanceTests/testSampleEntryToFullProjection",
       "metric": ["com.apple.dt.XCTMetric_Clock.time.monotonic", "Clock Monotonic Time"],
       "unit": "s",
-      "median_max": 0.150,
+      "median_max": 0.001,
       "device_target": "tap to full dashboard <= 300 ms on the oldest supported device",
       "source": "perf-app-runtime.md §5.2: CI gate <= 150 ms, a 2x margin under the device target"
     }

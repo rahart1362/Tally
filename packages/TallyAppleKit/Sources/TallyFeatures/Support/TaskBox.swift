@@ -20,7 +20,7 @@ public nonisolated final class TaskBox: Sendable {
             current = newTask
             return old
         }
-        previous?.cancel()
+        _ = previous // MUTATION M5c: the previous task is no longer cancelled
     }
 
     public func cancel() {

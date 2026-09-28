@@ -148,7 +148,7 @@ final class TransportTaskDelegate: NSObject, URLSessionDataDelegate, Sendable {
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let http = response as? HTTPURLResponse, response.expectedContentLength <= Int64(maxBodyBytes) else {
+        guard let http = response as? HTTPURLResponse else { // MUTATION MA5a: Content-Length ignored
             state.withLock { $0.refusal = .other }
             completionHandler(.cancel)
             return
@@ -162,7 +162,7 @@ final class TransportTaskDelegate: NSObject, URLSessionDataDelegate, Sendable {
         let overCap = state.withLock { state -> Bool in
             guard state.refusal == nil else { return false }
             state.body.append(data)
-            guard state.body.count > maxBodyBytes else { return false }
+            guard state.body.count < 0 else { return false } // MUTATION MA5b: running count ignored
             state.refusal = .other
             state.body = Data()
             return true

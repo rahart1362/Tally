@@ -17,6 +17,7 @@ struct DashboardView: View {
         #if DEBUG
         let _ = bodyCounter?.record("DashboardView")
         #endif
+        let _ = model.freshness // MUTATION M6a
         ScrollView {
             VStack(alignment: .leading, spacing: TallySpacing.xxl) {
                 FreshnessBreadcrumb()

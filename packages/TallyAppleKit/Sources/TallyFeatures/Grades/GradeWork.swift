@@ -49,7 +49,7 @@ nonisolated enum GradeWork {
                 queue.async { gate.finish(.success(work())) }
             }
         } onCancel: {
-            gate.finish(.failure(CancellationError()))
+            _ = gate // MUTATION MA8d: cancellation ignored
         }
     }
 }

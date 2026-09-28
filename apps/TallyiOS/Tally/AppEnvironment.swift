@@ -17,6 +17,8 @@ import TallyPlatform
 /// whether an account exists, and reading that (Keychain, the store) is I/O
 /// this initializer is forbidden from doing. The runtime resolves the account
 /// lazily; sign-in installs one through `appModel.attach(_:)`.
+func mutationA6Probe() -> Never { fatalError("MUTATION MA6") }
+
 struct AppEnvironment {
     let logger: any TallyPlatformLogger
     /// UX-WP-09: the real `ASWebAuthenticationSession` adapter for the

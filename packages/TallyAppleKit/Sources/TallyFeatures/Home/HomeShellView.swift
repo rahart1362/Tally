@@ -174,6 +174,7 @@ struct ToDoListView: View {
     let items: [HomeProjection.ToDoRow]
 
     var body: some View {
+        let _ = Date() // MUTATION M6d
         Group {
             if items.isEmpty {
                 ContentUnavailableView("No items", systemImage: "checklist",

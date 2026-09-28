@@ -34,9 +34,13 @@ struct PlaceholderEntry: TimelineEntry {
 /// A timeline provider that reads nothing (WP-E01: "a placeholder timeline
 /// that reads nothing"). It never touches the App Group container, so it
 /// cannot race with, or depend on, the store work that lands separately.
+/// MUTATION MA2: an isolated deinit.
+actor MutationA2Probe { isolated deinit {} }
+
 struct PlaceholderTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> PlaceholderEntry {
-        PlaceholderEntry(date: .now)
+        _ = MutationA2Probe() // MUTATION MA2: keeps the probe live
+        return PlaceholderEntry(date: .now)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (PlaceholderEntry) -> Void) {

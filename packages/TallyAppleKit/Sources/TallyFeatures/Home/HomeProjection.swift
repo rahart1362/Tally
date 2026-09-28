@@ -5,6 +5,8 @@ import TallyDomain
 /// small, `Equatable` values built off the main actor by `HomeProjector`, so a view body only
 /// reads and formats, and an unchanged refresh re-renders nothing. No view ever holds the
 /// `CanvasSnapshot` itself.
+nonisolated enum MutationM7a { nonisolated(unsafe) static var probe = 0 } // MUTATION M7a
+
 public nonisolated struct HomeProjection: Equatable, Sendable {
     public nonisolated enum Greeting: String, Equatable, Sendable {
         case morning, afternoon, evening

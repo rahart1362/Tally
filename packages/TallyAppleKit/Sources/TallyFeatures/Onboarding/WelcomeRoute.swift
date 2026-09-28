@@ -31,7 +31,7 @@ nonisolated enum WelcomePath {
     /// Pops `page` when it is the top page; otherwise (an empty path, or a closure from a page that
     /// is no longer on top) does nothing.
     static func pop(_ page: WelcomeRoute, from path: inout [WelcomeRoute]) {
-        guard !path.isEmpty, path.last == page else { return }
+        guard !path.isEmpty else { return } // MUTATION MA8a: pops whatever page is on top
         path.removeLast()
     }
 
