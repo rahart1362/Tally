@@ -117,6 +117,38 @@ struct CanvasDateDifferentialTests {
         tally.expectIdentical("calendar edges")
     }
 
+    // MARK: - Floating-point order
+
+    /// The old parser added the fraction and then subtracted the offset. The two orders round
+    /// differently only where the offset carries the value across a power of two (the unit in
+    /// the last place changes there), so random dates almost never show it. This sweep puts a
+    /// fractional, offset timestamp within two days of each power-of-two second count from
+    /// 2^27 to 2^31 (1974-04-03 to 2038-01-19) and before 1970 (-2^30, -2^31), where a
+    /// different order would change the last bit.
+    @Test func powerOfTwoBoundariesKeepTheOldRoundingOrder() {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        var rng = SeededRandom(seed: 0xB1A_DE05)
+        let legacy = Legacy()
+        var tally = Tally()
+        for boundary in [134_217_728.0, 268_435_456, 536_870_912, 1_073_741_824, 2_147_483_648, -1_073_741_824, -2_147_483_648] {
+            for _ in 0..<2_000 {
+                let instant = boundary + Double(Int.random(in: -172_800...172_800, using: &rng))
+                let offsetMinutes = Int.random(in: -14 * 60...14 * 60, using: &rng) / 15 * 15
+                let local = utc.dateComponents([.year, .month, .day, .hour, .minute, .second],
+                                               from: Date(timeIntervalSince1970: instant + Double(offsetMinutes * 60)))
+                let digits = (0..<Int.random(in: 1...9, using: &rng)).map { _ in String(Int.random(in: 0...9, using: &rng)) }.joined()
+                let text = String(format: "%04d-%02d-%02dT%02d:%02d:%02d", local.year ?? 0, local.month ?? 0, local.day ?? 0,
+                                  local.hour ?? 0, local.minute ?? 0, local.second ?? 0)
+                    + "." + digits + (offsetMinutes < 0 ? "-" : "+")
+                    + String(format: "%02d:%02d", abs(offsetMinutes) / 60, abs(offsetMinutes) % 60)
+                tally.check(text, legacy: legacy)
+            }
+        }
+        tally.expectIdentical("power-of-two boundaries")
+        #expect(tally.parsed == tally.compared, "every boundary string is a valid date")
+    }
+
     // MARK: - Seeded fuzz corpus
 
     static let fuzzCount = 150_000
