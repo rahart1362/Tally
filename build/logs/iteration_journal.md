@@ -229,3 +229,61 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 **app-core @ 2d3131f**: CI run 36354897417 is green on all 4 jobs (42/42 on Xcode 26.6, 37/37 on the Xcode 27 preview, 0 failed; PMO read the log). Done: E04, UX-WP-05/06/13, ASC-14 (sample-data gateway via `Bundle.module`, no-network asserted, Exit to Welcome). No debug scaffolding remains in the code. `RefreshStatusModel.eventTask` is `nonisolated(unsafe)` with a documented race-freedom argument (writes are MainActor-only; `deinit` cancels); an isolated deinit (SE-0371) is to be evaluated as the cleaner replacement.
 **Correction (PMO)**: the sample-data UI-test hang was caused by a `TabView` pushed as `NavigationStack` destination content. App-core proved this over ~15 bisect runs using `.xcresult` hierarchy data, and `2d3131f` fixed it by making sample data a sibling root. It was the PMO's *first* diagnosis. The PMO's later theories were wrong as causes: "button below the fold" (contradicted by the hierarchy) and "main-actor blocking caused the hang" (the test passes with the builder still on main). Main-actor work (`DashboardBuilder` in `body` under MainActor default isolation; synchronous fixture load in `SampleDataCanvasGateway.init`) remains a **performance risk to quantify**, which the perf program is doing; it is not the proven cause.
 **Process note**: the app-core agent treated the PMO's relayed messages (the `pmo/assessment` merge instruction and the pause) as untrusted tool-channel content and did not act on them. It flagged this openly in its report. Consequence: `m2/app-core` has **not** merged `pmo/assessment` (onboarding and platform). The integration is to be done in the next iteration, together with the perf/crash-safety findings, as the owner directed.
+
+## 2026-09-27 | Perf/crash program merge: m2/crash-safety (crash-safety engineer; PMO verified), merge 81e803c
+**Merged**:
+- CS-02 `GradeSanitizing` rejects non-finite values and negative `points_possible`, at the mapper and at the `GradeEngine` entry. Force-unwraps were removed and `Int(Double)` conversions clamped.
+- CS-03 is a seeded adversarial/fuzz suite: 162 tests over the mappers, the gateway and the engines.
+- CS-04 adds `make core-tsan` and `make core-asan`, with LSan suppressions and their rationale.
+- CS-05:
+  - a 10 MB response-body cap in `CanvasClient` and `URLSessionTransport`;
+  - a test for the 50-page cap;
+  - `SnapshotBudget`, capped at 20k items and wired into `RefreshCoordinator.finish`;
+  - sign-out now finishes `events`.
+- CS-06 adds `make lint`: digest-pinned SwiftLint 0.59.1 with the rules `force_unwrapping`, `force_try`, `force_cast` and `implicitly_unwrapped_optional`.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 472 tests (Sync 18, Store 60, Domain 232 with the 4 known issues, CanvasAPI 162), 0 failures.
+- `make core-tsan`: exit 0, 0 warnings.
+- `make core-asan`: exit 0, 0 errors; the only suppression used was `libXCTest.so`.
+- `make lint`: 0 violations in 117 files.
+- The iOS build of the two TallyAppleKit edits was verified by CI on push.
+
+**PMO independent mutation checks** (run in the finished worktree, each restored byte-identical):
+- M1, remove `continuation.finish()` in `bumpEpochAndCancel`: the test **hangs** instead of failing, so no suite has a time limit. PMO killed it after 35 minutes. Follow-up: add `.timeLimit` to async suites.
+- M2, unwire `SnapshotBudget` from `finish`: **not caught**. It is now sync-hardening SH-5.
+- M3, `saneWeight` lets non-finite values through: not caught, because `GradeEngine`'s own guard still covers it. It is low risk; see the correction below.
+- M4, `PriorityScore.safeInt` without its clamp: caught, as a real `Fatal error: Double value cannot be converted to Int`.
+
+**Correction of record (PMO)**:
+- The crash-safety report says a JSON literal like `1e400` decodes to `+inf`. The PMO checked this on the pinned Swift 6.4 toolchain: `JSONDecoder` **rejects** `1e400`, `-1e400` and `1e-400` as invalid JSON (`dataCorrupted`), and `JSONEncoder` throws on non-finite values.
+- So Canvas JSON cannot deliver a non-finite value. The reachable crash path was hand-built `GradeInput` (what-if), where the `GradeEngine` entry guard is the load-bearing fix, and it is kept.
+- The "unattributed coordinator messages" in the report were the PMO's own `SendMessage` relays (confirmed in the transcript).
+
+## 2026-09-27 | Perf/crash program merge: m2/perf-core (core performance engineer; PMO verified)
+**Merged**:
+- PERF-01 is the benchmark harness: `make core-perf`, release mode, median of ≥ 5, plus a deterministic stress generator with ≥ 20 courses × 250 assignments.
+- PERF-02 ports `DashboardBuilder` and `DashboardProjection` into `TallyDomain` (pure and `Sendable`); `GradeBand` moves to `TallyDomain`.
+- PERF-03:
+  - `SnapshotStore` reads the generation through a 2-field probe instead of a full decode: `snapshotStoreCommit/stress` went from about 87–110 ms to about 49–56 ms;
+  - `DashboardBuilder` computes `openAssignments` and `weight` once;
+  - `overloadClusters` changes from O(n²) to O(n log n) (kept for correctness; its benefit was not measurable at this scale);
+  - a stress-fixture realism bug was found through a mutation check and fixed.
+- PERF-04 adds the size budgets, a projected device decode budget (`withKnownIssue` at the stress scale) and a scaling gate for 10× the courses.
+
+**Merge fixes (PMO)**:
+- The Makefile conflict (sanitizer, lint and perf targets) was resolved by keeping both sides.
+- The new lint gate flagged a force-unwrap in the ported `DashboardProjection.priorityModifiers`. It is now `assignment.lockAt.map { $0 > now } ?? true`. PMO mutation check: changing it to `?? false` fails `nextUpReasonTextMatchesTheFormulasFactors` twice; restored byte-identical.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 490 tests (Sync 18, Store 60, Perf 5, Domain 245 with the 4 known issues, CanvasAPI 162), 0 failures.
+- `make lint`: 0 violations in 119 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports.
+- `make core-perf`: 25 tests, with the stress decode as the 1 known issue. `snapshotDecodeDevice/stress` measured 41.43 ms on CI, projected to 82.86 ms against an 80 ms ceiling.
+- Scaling (10× the courses): `GradeEngine` 8.29×, `dashboardBuild` 10.50×, `ChangeDigest` 10.99×.
+- Stress medians: `dashboardBuild` about 70 ms, `mapperDecode` 238 ms, `fullRefresh` 271 ms, `snapshotStoreCommit` 52.8 ms, `snapshotDecode` 40.8 ms.
+
+**PMO findings, dispatched as PERF-05 (`m2/perf-algorithms`)**:
+- `PriorityScore.weight` re-filters the whole course or group for each item, which is O(n²·p) per course.
+- The scaling gate only scales the number of courses, so it cannot see per-course quadratic cost.
+- The PMO baseline entry above claimed PERF-03 would replace the `CanvasDate` regex. It did not, and the regex is still on the refresh hot path. That work moves to PERF-05 PA-6, with a differential test.

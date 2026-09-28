@@ -8,7 +8,7 @@ CORE_DIR    := $(CURDIR)/packages/TallyCore
 # The whole repo is mounted so tests can read fixtures/canvas; only .build is written.
 RUN_CORE     = $(CONTAINER) run --rm --network none -v $(CURDIR):/repo:Z -w /repo/packages/TallyCore $(SWIFT_IMAGE)
 
-.PHONY: core-test core-build core-deps placeholders
+.PHONY: core-test core-build core-deps core-perf placeholders
 
 core-deps: ## Fetch pinned SwiftPM dependencies (needs network; tests then run offline)
 	$(CONTAINER) run --rm -v $(CURDIR):/repo:Z -w /repo/packages/TallyCore $(SWIFT_IMAGE) swift package resolve
@@ -18,6 +18,9 @@ core-test: core-deps ## Build and run every TallyCore test on Linux (no network)
 
 core-build: core-deps ## Compile TallyCore and its tests with warnings treated as errors
 	$(RUN_CORE) swift build --build-tests -Xswiftc -warnings-as-errors
+
+core-perf: core-deps ## PERF-01: run TallyPerfTests in release mode (real numbers; skipped entirely by core-test)
+	$(RUN_CORE) swift test -c release --filter TallyPerfTests
 
 # CS-04 (crash-safety.md): sanitizer lanes. Each uses its own --scratch-path so it never touches
 # the normal .build cache core-build/core-test use, and each needs its own `swift package

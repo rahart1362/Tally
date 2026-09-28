@@ -144,12 +144,27 @@ public actor SnapshotStore {
         try access.write(try JSONEncoder().encode(glance), .glance, to: layout.url(for: .glance), excludeFromBackup: true)
     }
 
+    /// PERF-03: the two fields `currentOnDiskGeneration()` actually reads, decoded on their own
+    /// instead of through the full `CanvasSnapshot`. `Decodable` conformance only materializes
+    /// the stored properties a type actually declares — a synthesized `CanvasSnapshot.init(from:)`
+    /// unavoidably decodes every course/group/assignment/planner item on every call, which is
+    /// exactly the ~40ms `snapshotDecode` costs measured in `TallyPerfTests` at stress scale.
+    /// This was paid on *every* `commit`, not just the first: measured before this fix,
+    /// `snapshotStoreCommit/stress` (~92ms) tracked `snapshotEncode/stress` (~45ms) plus this
+    /// full extra decode (~40ms) plus a few ms of I/O and glance work — almost exactly double
+    /// the encode-only cost. Same guard behaviour in every case (absent file, decrypt/parse
+    /// failure, or a schema mismatch all still fall through to `nil`, same as before).
+    private struct GenerationProbe: Decodable {
+        let schemaVersion: Int
+        let generation: UInt64
+    }
+
     /// Peeks the on-disk snapshot's generation without touching the glance; used only to guard
     /// against a caller committing a generation that is not strictly increasing.
     private func currentOnDiskGeneration() -> UInt64? {
         guard case .plaintext(let data) = access.read(.snapshot, at: layout.url(for: .snapshot)),
-              let decoded = try? JSONDecoder().decode(CanvasSnapshot.self, from: data),
-              decoded.schemaVersion == CanvasSnapshot.currentSchemaVersion else { return nil }
-        return decoded.generation
+              let probe = try? JSONDecoder().decode(GenerationProbe.self, from: data),
+              probe.schemaVersion == CanvasSnapshot.currentSchemaVersion else { return nil }
+        return probe.generation
     }
 }
