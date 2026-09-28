@@ -337,6 +337,27 @@ struct GradeDerivedScreenTests {
         #expect(model.trend == result)
     }
 
+    @Test("the trend recomputes each day with only the scores posted by then (R9)")
+    func trendUsesTheScoresPostedByEachDay() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let course = try #require(screens.insights.trendInput.courses.first)
+        let dates = course.postedAt.values.sorted()
+        let cut = try #require(dates.dropFirst(dates.count / 2).first)
+        let asOf = GradeTrend.inputAsOf(course, postedBefore: cut)
+        for item in asOf.items {
+            guard let posted = course.postedAt[item.id] else { continue }
+            #expect(item.submission?.posted == (posted < cut), "\(item.id): posted \(posted), cut \(cut)")
+        }
+        #expect(asOf.items.filter { $0.submission?.posted == true }.count
+                < course.input.items.filter { $0.submission?.posted == true }.count)
+
+        let formatter = ScreenFixtures.formatter()
+        let result = try await GradeTrend.compute(screens.insights.trendInput, calendar: formatter.calendar,
+                                                  locale: formatter.locale)
+        let term = try #require(result.ranges[.term])
+        #expect(Set(term.points.map(\.percent)).count > 1, "a flat line: the history was not derived")
+    }
+
     @Test("no graded history reads as 'not enough data', never a fabricated line")
     func emptyTrend() async throws {
         let formatter = ScreenFixtures.formatter()

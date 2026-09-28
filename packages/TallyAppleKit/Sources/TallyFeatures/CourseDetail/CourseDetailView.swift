@@ -25,7 +25,6 @@ nonisolated enum CourseDetailSegment: String, CaseIterable, Identifiable {
 struct CourseDetailView: View {
     let courseID: CanvasID<Course>
     @Environment(HomeModel.self) private var model
-    @Environment(\.openURL) private var openURL
     @State private var segment: CourseDetailSegment = .overview
     @State private var grades = CourseGradesModel()
     /// Built by the What-If button's action, never in a view initialiser (perf-app-runtime.md §3 item 6).
@@ -79,7 +78,8 @@ struct CourseDetailView: View {
             if !model.isSampleData, let url = detail.canvasURL {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        openURL(url)
+                        // A one-shot open: the Canvas Student app, else the browser (R20).
+                        Task { await CanvasLinkOpener.open(url) }
                     } label: {
                         Label("Open in Canvas", systemImage: "safari")
                     }

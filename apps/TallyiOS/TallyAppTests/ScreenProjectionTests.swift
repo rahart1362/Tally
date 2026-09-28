@@ -69,6 +69,26 @@ struct CourseCardProjectionTests {
         #expect(!detail.showsCategoryPercentages)
     }
 
+    @Test("hidden totals stay hidden even when Canvas sends a score and a letter", arguments: [
+        (GradeVisibility.hiddenTotals, nil as String?, nil as String?),
+        (.lettersOnly, "B+", nil),
+        (.visible, "B+", "88.6%"),
+    ])
+    func visibilityDecidesWhatShows(_ visibility: GradeVisibility, _ letter: String?, _ percent: String?) {
+        let course = Course(
+            id: "1", name: "Chemistry", courseCode: "CHEM 1", term: nil, teachers: [], timeZone: nil,
+            appliesGroupWeights: false, hasGradingPeriods: false, currentGradingPeriodID: nil, gradeVisibility: visibility,
+            scores: ComputedScores(currentScore: 88.6, finalScore: 70, currentGrade: "B+", finalGrade: "C-"),
+            currentPeriodScores: nil, htmlURL: nil)
+        let grade = GradeDisplay(course: course, formatter: ScreenFixtures.formatter())
+        #expect(grade.letter == letter)
+        #expect(grade.percentText == percent)
+        if visibility == .hiddenTotals {
+            #expect(grade.spoken == "No grade yet")
+            #expect(!grade.spoken.contains("88"))
+        }
+    }
+
     @Test("a pass/fail course is never 'near a cutoff' of a letter scale")
     func passFailHasNoLetterCutoffs() async throws {
         let (_, screens) = try await ScreenFixtures.projections("grading-periods")
@@ -361,6 +381,24 @@ struct InsightsProjectionTests {
         #expect(screens.insights.trendInput.courses.isEmpty)
         #expect(screens.courseCards.isEmpty)
         #expect(screens.toDo.sections.isEmpty)
+    }
+}
+
+@Suite("M3-A: Open in Canvas (R20)")
+struct CanvasLinkTests {
+    @Test("an https Canvas URL becomes the Canvas Student app's canvas-courses:// URL, path and query kept")
+    func appURL() throws {
+        let web = try #require(URL(string: "https://canvas.northfield.example/courses/51842/assignments/1204405?module_item_id=7"))
+        let app = try #require(CanvasLink.appURL(for: web))
+        #expect(app.absoluteString == "canvas-courses://canvas.northfield.example/courses/51842/assignments/1204405?module_item_id=7")
+    }
+
+    @Test("anything but an http(s) URL with a host has no app URL (the web fallback is used)", arguments: [
+        "mailto:someone@northfield.example", "canvas-courses://x.example/a", "file:///tmp/a", "https:///no-host",
+    ])
+    func noAppURL(_ string: String) throws {
+        let url = try #require(URL(string: string))
+        #expect(CanvasLink.appURL(for: url) == nil)
     }
 }
 

@@ -9,7 +9,6 @@ import TallyDomain
 /// expects a submission.
 struct ToDoScreen: View {
     @Environment(HomeModel.self) private var model
-    @Environment(\.openURL) private var openURL
     @State private var sortOrder: ToDoSortOrder = .dueDate
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<CanvasID<Assignment>>()
@@ -88,7 +87,8 @@ struct ToDoScreen: View {
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = item.canvasURL {
                 Button {
-                    openURL(url)
+                    // A one-shot open: the Canvas Student app, else the browser (R20).
+                    Task { await CanvasLinkOpener.open(url) }
                 } label: {
                     Label("Open in Canvas", systemImage: "safari")
                 }
