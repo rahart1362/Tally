@@ -161,6 +161,15 @@ struct WidgetGlanceKeychainTests {
         #expect(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy") != nil)
     }
 
+    /// ASC-F07: iPhone only. XcodeGen's target-level iOS preset once made both bundles iPad-capable
+    /// (`UIDeviceFamily` [1, 2], release gate run 36465775989) despite a project-level "1".
+    @Test("the app and the widget are iPhone-only (UIDeviceFamily [1], ASC-F07)")
+    func iPhoneOnly() throws {
+        #expect(Bundle.main.object(forInfoDictionaryKey: "UIDeviceFamily") as? [Int] == [1])
+        let appex = try #require(Self.embeddedWidgetBundle())
+        #expect(appex.object(forInfoDictionaryKey: "UIDeviceFamily") as? [Int] == [1])
+    }
+
     private static func embeddedWidgetBundle() -> Bundle? {
         Bundle.main.builtInPlugInsURL.flatMap { Bundle(url: $0.appendingPathComponent("TallyWidgets.appex")) }
     }

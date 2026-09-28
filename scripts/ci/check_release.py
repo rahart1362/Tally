@@ -95,6 +95,8 @@ def _sibling(name: str):
 PROJECT_YML = "apps/TallyiOS/project.yml"
 IDENTITY = "apps/TallyiOS/Config/Identity.xcconfig"
 APP_ICON = "apps/TallyiOS/Tally/Assets.xcassets/AppIcon.appiconset/Icon-1024.png"
+# XcodeGen 2.46.0, SettingPresets/Platforms/iOS.yml, applied to every iOS target.
+XCODEGEN_IOS_TARGET_PRESET_FAMILY = "1,2"
 METADATA_DIR = "docs/release/metadata"
 # App Store Connect limits (app-store-compliance.md §3.5): characters, except keywords (bytes).
 METADATA_LIMITS = {"name.txt": 30, "subtitle.txt": 30, "keywords.txt": 100, "promotional_text.txt": 170,
@@ -227,11 +229,16 @@ def source_checks(root: pathlib.Path) -> list[Check]:
             and '+ ".refresh"' in background_text)),
         f"UIBackgroundModes {modes}; BGTaskSchedulerPermittedIdentifiers "
         f"{app_info.get('BGTaskSchedulerPermittedIdentifiers')}")
-    family = str(base.get("TARGETED_DEVICE_FAMILY", ""))
+    # XcodeGen applies its iOS platform preset (TARGETED_DEVICE_FAMILY '1,2') at target level, so a
+    # project-level value never reaches the targets; only a target's own setting does (release gate
+    # run 36465775989 found UIDeviceFamily [1, 2] in both built apps with the project-level "1").
+    families = {name: str((targets[name].get("settings") or {}).get("base", {}).get(
+        "TARGETED_DEVICE_FAMILY", XCODEGEN_IOS_TARGET_PRESET_FAMILY)) for name in ("Tally", "TallyWidgets")}
     orientations = app_info.get("UISupportedInterfaceOrientations", [])
     add("REL.plist.device-family", "iPhone only, portrait (ASC-F07); iPad would need all four orientations",
-        family == "1" and orientations == ["UIInterfaceOrientationPortrait"],
-        f"TARGETED_DEVICE_FAMILY {family!r}; orientations {orientations}")
+        all(family == "1" for family in families.values()) and orientations == ["UIInterfaceOrientationPortrait"],
+        f"TARGETED_DEVICE_FAMILY per target {families} (project level {base.get('TARGETED_DEVICE_FAMILY')!r} "
+        f"is overridden by XcodeGen's target preset); orientations {orientations}")
     ats = [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info))
            if (info.get("NSAppTransportSecurity") or {}).get("NSAllowsArbitraryLoads")]
     add("REL.plist.ats", "No NSAllowsArbitraryLoads", not ats, f"arbitrary loads allowed in: {ats or 'none'}")
