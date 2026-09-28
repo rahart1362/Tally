@@ -18,7 +18,8 @@ struct TallyApp: App {
     init() {
         #if DEBUG
         // perf-app-runtime.md §5.1: DEBUG-only main-thread hang detection, armed before the
-        // first frame. UI tests run it in `fatal:250` mode (`TallyUITestCase`).
+        // first frame. UI tests run it in `report:250` mode (`TallyUITestCase`; step 4's CI
+        // calibration showed a fatal UI-test threshold cannot be both meaningful and green).
         MainThreadWatchdog.arm()
         #endif
     }
