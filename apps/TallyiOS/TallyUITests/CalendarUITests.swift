@@ -33,9 +33,13 @@ final class CalendarUITests: TallyUITestCase {
         XCTAssertTrue(note.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
         note.buttons["OK"].tap()
 
-        // Add to Calendar: the system editor, with no calendar permission prompt (R6).
-        let add = app.buttons.matching(identifier: "calendar.add").firstMatch
-        tapWhenHittable(add, in: app)
+        // Add to Calendar: the system editor, with no calendar permission prompt (R6). The agenda
+        // opens on today, so take the first button on screen.
+        guard let add = firstHittable(app.buttons.matching(identifier: "calendar.add")) else {
+            XCTFail("no Add to Calendar button on screen. Hierarchy: \(app.debugDescription)")
+            return
+        }
+        add.tap()
         let editor = app.navigationBars["New Event"]
         let cancel = app.buttons["Cancel"]
         XCTAssertTrue(eventually(timeout: 15) { editor.exists || cancel.exists },

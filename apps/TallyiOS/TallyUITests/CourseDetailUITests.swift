@@ -3,7 +3,8 @@ import XCTest
 /// UX-WP-15 (S-2) and UX-WP-16 (S-3): Course Detail on MATH 122 of the flagship persona, then the
 /// what-if sheet. Segments without "People", the hero as one element, `chart.weights` with a label
 /// and a value (A11Y-08), no distribution (no score statistics), and the what-if score set by
-/// typing and by VoiceOver-style adjustment on a 44 pt stepper (A11Y-04).
+/// typing, by the 44 pt ±1 stepper (A11Y-04), and by VoiceOver-style adjustment of the row's slider
+/// (`adjust(toNormalizedSliderPosition:)`; XCUITest has no increment or decrement on iOS).
 final class CourseDetailUITests: TallyUITestCase {
     @MainActor
     private func openMath(_ app: XCUIApplication) {
@@ -55,25 +56,41 @@ final class CourseDetailUITests: TallyUITestCase {
         XCTAssertTrue(eventually(timeout: 15) { projected.label.contains("the same as your current grade") },
                       "the baseline never landed: '\(projected.label)'")
 
-        // Typing: a zero on the first ungraded item lowers the projection.
+        // VoiceOver-style adjust first, while no keyboard covers the sheet: the first row's slider,
+        // moved as an assistive technology moves it.
         let field = app.textFields.matching(identifier: "whatif.field").firstMatch
+        let slider = app.sliders.matching(identifier: "whatif.slider").firstMatch
+        XCTAssertTrue(slider.waitForExistence(timeout: 5), "no score slider. Hierarchy: \(app.debugDescription)")
+        slider.adjust(toNormalizedSliderPosition: 0.9)
+        XCTAssertTrue(eventually {
+            guard let text = field.value as? String, let value = Double(text) else { return false }
+            return (80...100).contains(value)
+        }, "adjusting the slider did not set the score: \(String(describing: field.value))")
+        XCTAssertTrue(eventually(timeout: 15) { !projected.label.contains("the same as your current grade") },
+                      "the projection did not follow the slider: '\(projected.label)'")
+
+        // The ±1 stepper: two 44 pt buttons (A11Y-04) on the same row.
+        XCTAssertTrue(element("whatif.stepper", in: app).exists, "Hierarchy: \(app.debugDescription)")
+        let raise = app.buttons.matching(identifier: "whatif.increment").firstMatch
+        let lower = app.buttons.matching(identifier: "whatif.decrement").firstMatch
+        for button in [raise, lower] {
+            XCTAssertGreaterThanOrEqual(button.frame.width, 44, "\(button.label): \(button.frame)")
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44, "\(button.label): \(button.frame)")
+        }
+        let adjusted = Double(field.value as? String ?? "") ?? 0
+        tapWhenHittable(lower, in: app)
+        XCTAssertTrue(eventually { Double(field.value as? String ?? "") == adjusted - 1 },
+                      "the stepper did not lower the score by 1: \(String(describing: field.value))")
+        tapWhenHittable(raise, in: app)
+        XCTAssertTrue(eventually { Double(field.value as? String ?? "") == adjusted },
+                      "the stepper did not raise the score by 1: \(String(describing: field.value))")
+
+        // Typing: clear the field, then a zero on this item lowers the projection.
         tapWhenHittable(field, in: app)
-        field.typeText("0")
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6) + "0")
+        XCTAssertTrue(eventually { field.value as? String == "0" }, "typing did not set 0: \(String(describing: field.value))")
         XCTAssertTrue(eventually(timeout: 15) { projected.label.contains("down") },
                       "typing a score did not move the projection: '\(projected.label)'")
-
-        // VoiceOver-style adjust on the same row's stepper, a 44 pt target (A11Y-04).
-        let stepper = element("whatif.stepper", in: app)
-        XCTAssertTrue(stepper.exists, "Hierarchy: \(app.debugDescription)")
-        XCTAssertGreaterThanOrEqual(stepper.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(stepper.frame.width, 44)
-        XCTAssertEqual(stepper.value as? String, "0 out of 100")
-        stepper.increment()
-        XCTAssertTrue(eventually { stepper.value as? String == "1 out of 100" },
-                      "adjusting did not step the score: \(String(describing: stepper.value))")
-        XCTAssertTrue(eventually { field.value as? String == "1" }, "the field did not follow the stepper")
-        stepper.decrement()
-        XCTAssertTrue(eventually { stepper.value as? String == "0 out of 100" })
 
         // Reset clears every hypothetical score.
         tapWhenHittable(app.buttons["whatif.reset"], in: app)
@@ -94,9 +111,10 @@ final class CourseDetailUITests: TallyUITestCase {
         let whatIf = element("courseDetail.whatIf", in: app)
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app, maxSwipes: 15), "Hierarchy: \(app.debugDescription)")
         whatIf.tap()
-        let stepper = element("whatif.stepper", in: app)
-        XCTAssertTrue(stepper.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-        XCTAssertGreaterThanOrEqual(stepper.frame.height, 44)
+        let raise = app.buttons.matching(identifier: "whatif.increment").firstMatch
+        XCTAssertTrue(raise.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
+        XCTAssertGreaterThanOrEqual(raise.frame.height, 44)
+        XCTAssertTrue(app.sliders.matching(identifier: "whatif.slider").firstMatch.exists)
         assertEveryButtonHasALabel(app, screen: "What-If AX XXXL")
         assertAccessibilityAudit(app, screen: "What-If AX XXXL")
     }

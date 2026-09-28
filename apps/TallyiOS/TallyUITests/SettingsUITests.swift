@@ -47,7 +47,8 @@ final class SettingsUITests: TallyUITestCase {
                       "the course threshold did not change. Hierarchy: \(app.debugDescription)")
         app.navigationBars["Per Course"].buttons.element(boundBy: 0).tap()
         let perCourse = app.buttons["settings.perCourse"]
-        XCTAssertTrue(eventually { perCourse.label.contains("1 course") }, "per-course summary: '\(perCourse.label)'")
+        XCTAssertTrue(eventually { perCourse.label.contains("1 course") || perCourse.value as? String == "1 course" },
+                      "per-course summary: '\(perCourse.label)' / \(String(describing: perCourse.value))")
 
         // Rows that do not navigate are not buttons (no chevron): the version is a plain row.
         for section in Self.sections {

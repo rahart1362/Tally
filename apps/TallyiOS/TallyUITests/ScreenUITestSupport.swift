@@ -51,6 +51,17 @@ extension TallyUITestCase {
         return element.exists && element.isHittable
     }
 
+    /// The first element of `query` that is on screen and hittable, waiting up to `timeout`.
+    @MainActor
+    func firstHittable(_ query: XCUIElementQuery, timeout: TimeInterval = 10) -> XCUIElement? {
+        var found: XCUIElement?
+        _ = eventually(timeout: timeout) {
+            found = (0..<query.count).lazy.map { query.element(boundBy: $0) }.first { $0.isHittable }
+            return found != nil
+        }
+        return found
+    }
+
     /// Polls `condition` until it holds or `timeout` passes.
     @MainActor
     func eventually(timeout: TimeInterval = 10, _ condition: () -> Bool) -> Bool {

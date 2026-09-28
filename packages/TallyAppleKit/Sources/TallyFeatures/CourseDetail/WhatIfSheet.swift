@@ -106,7 +106,7 @@ private struct WhatIfSummary: View {
     }
 }
 
-/// One ungraded item: the score field, the stepper and the quick-fill chips.
+/// One ungraded item: the score field, the ±1 stepper, the slider and the quick-fill chips.
 private struct WhatIfItemRow: View {
     let item: WhatIfItem
     let model: WhatIfModel
@@ -144,6 +144,14 @@ private struct WhatIfItemRow: View {
                 if !typeSize.isAccessibilitySize { Spacer(minLength: TallySpacing.sm) }
                 ScoreStepper(item: item, model: model)
             }
+            // The adjustable control: VoiceOver swipes up or down on it, and every other assistive
+            // technology treats it as the standard slider it is.
+            Slider(value: Binding(get: { model.scores[item.id] ?? 0 }, set: { model.setScore($0, for: item.id) }),
+                   in: 0...max(item.pointsPossible, 1), step: WhatIfModel.stepPoints) {
+                Text("Score for \(item.title)")
+            }
+            .tint(TallyColor.accent)
+            .accessibilityIdentifier("whatif.slider")
             let chips = typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.sm))
                 : AnyLayout(HStackLayout(spacing: TallySpacing.sm))
@@ -176,8 +184,8 @@ private struct WhatIfItemRow: View {
     }
 }
 
-/// ±1 point, 44 × 44 pt each (A11Y-04). For VoiceOver it is one adjustable element: swipe up or
-/// down to step (`whatif.stepper`).
+/// ±1 point, two 44 × 44 pt buttons (A11Y-04), each with its own label so Voice Control can name
+/// it; `whatif.stepper` is their container.
 private struct ScoreStepper: View {
     let item: WhatIfItem
     let model: WhatIfModel
@@ -189,32 +197,21 @@ private struct ScoreStepper: View {
             } label: {
                 Image(systemName: "minus").frame(width: 44, height: 44)
             }
+            .accessibilityLabel("Lower \(item.title) by 1 point")
+            .accessibilityIdentifier("whatif.decrement")
             Divider().frame(height: 24)
             Button {
                 model.step(item.id, up: true)
             } label: {
                 Image(systemName: "plus").frame(width: 44, height: 44)
             }
+            .accessibilityLabel("Raise \(item.title) by 1 point")
+            .accessibilityIdentifier("whatif.increment")
         }
         .buttonStyle(.borderless)
         .background(TallyColor.bgCanvas, in: Capsule())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Adjust \(item.title)")
-        .accessibilityValue(value)
-        .accessibilityAdjustableAction { direction in
-            if direction == .increment {
-                model.step(item.id, up: true)
-            } else if direction == .decrement {
-                model.step(item.id, up: false)
-            }
-        }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("whatif.stepper")
-    }
-
-    private var value: String {
-        guard let score = model.scores[item.id] else { return "Not set" }
-        return "\(score.formatted(.number.precision(.fractionLength(0...2)))) out of "
-            + item.pointsPossible.formatted(.number.precision(.fractionLength(0...2)))
     }
 }
 
