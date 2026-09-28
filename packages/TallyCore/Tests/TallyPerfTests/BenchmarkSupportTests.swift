@@ -31,6 +31,16 @@ struct BenchmarkSupportTests {
         #expect(calls == 6) // 1 warmup + 5 timed
     }
 
+    /// PERF-05: the interleaved timer runs both bodies the same number of times, strictly
+    /// alternating (warmups included), and reports one full sample set per body.
+    @Test func interleavedTimingAlternatesAndCountsBothBodies() {
+        var order: [Character] = []
+        let (a, b) = Bench.timeInterleaved("meta-a", "meta-b", iterations: 5, warmup: 2, { order.append("a") }, { order.append("b") })
+        #expect(a.samples.count == 5 && b.samples.count == 5)
+        #expect(a.iterations == 5 && b.iterations == 5)
+        #expect(String(order) == String(repeating: "ab", count: 7)) // 2 warmups + 5 timed, alternating
+    }
+
     @Test func reportLineNamesTheLabelAndSampleCount() {
         let result = BenchResult(label: "widget/flagship", samples: [.milliseconds(1)], iterations: 1)
         #expect(result.reportLine.contains("widget/flagship"))

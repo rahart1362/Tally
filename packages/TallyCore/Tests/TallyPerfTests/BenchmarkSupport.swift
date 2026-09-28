@@ -68,6 +68,47 @@ public enum Bench {
         print(result.reportLine)
         return result
     }
+
+    /// PERF-05: times two bodies in alternation (`a`, `b`, `a`, `b`, ...) instead of all of `a`
+    /// then all of `b`, and prints and returns both medians. A ratio gate compares the two
+    /// medians, and this machine is shared with other builds: a burst of outside load that lands
+    /// on only one side of a sequential run moves the ratio by itself (observed: a
+    /// `ScalingGateTests` ratio of 20.63x for the linear `ChangeDigest.diff` while another
+    /// engineer's Swift container was running). Alternating spreads any such burst over both
+    /// sides.
+    public static func timeInterleaved(_ labelA: String, _ labelB: String, iterations: Int = 5, warmup: Int = 1,
+                                       _ a: () throws -> Void, _ b: () throws -> Void) rethrows -> (a: BenchResult, b: BenchResult) {
+        for _ in 0..<warmup {
+            try a()
+            try b()
+        }
+        var samplesA: [Duration] = [], samplesB: [Duration] = []
+        samplesA.reserveCapacity(iterations)
+        samplesB.reserveCapacity(iterations)
+        let clock = ContinuousClock()
+        for _ in 0..<iterations {
+            var start = clock.now
+            try a()
+            samplesA.append(clock.now - start)
+            start = clock.now
+            try b()
+            samplesB.append(clock.now - start)
+        }
+        let resultA = BenchResult(label: labelA, samples: samplesA, iterations: iterations)
+        let resultB = BenchResult(label: labelB, samples: samplesB, iterations: iterations)
+        print(resultA.reportLine)
+        print(resultB.reportLine)
+        return (resultA, resultB)
+    }
+
+    /// PERF-05: keeps a benchmark body's result observable, so the optimizer cannot delete the
+    /// work that produced it once enough of that work is inlined across modules. The branch is
+    /// never taken for a real checksum (every pass sums finite, non-negative terms), but the
+    /// compiler cannot prove that, so it must compute `value`.
+    @inline(never)
+    public static func keep(_ value: Double) {
+        if value.isNaN && value.sign == .minus { print("Bench.keep: unreachable checksum \(value)") }
+    }
 }
 
 /// Peak resident set size, read from `/proc/self/status` (Linux only — the pinned container

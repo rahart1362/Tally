@@ -277,21 +277,15 @@ struct CoreBenchmarks {
 
     // MARK: - PriorityScore + AlertEngine + ReminderPlanner over all items
 
+    // The three pass bodies live in `PerfPasses.swift`, shared with `PerCourseScalingGateTests`
+    // so the gate and these benchmarks can never measure different code.
+
     @Test("PriorityScore over all items", arguments: BenchScale.allCases)
     func priorityScoreAllItems(_ scale: BenchScale) async throws {
         let context = try await PerfFixtures.context(for: scale)
         let items = openAssignments(in: context.snapshot)
         Bench.time("priorityScoreAllItems/\(scale)") {
-            for (course, groups, assignment) in items {
-                guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: PerfFixtures.anchor) else { continue }
-                let hours = assignment.dueAt.map { $0.timeIntervalSince(PerfFixtures.anchor) / 3600 }
-                let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                  gradingPeriods: context.snapshot.gradingPeriods[course.id] ?? [])
-                let modifiers = priorityModifiers(assignment: assignment, course: course, now: PerfFixtures.anchor)
-                let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
-                _ = PriorityScore.reasonText(hoursUntilDue: hours, weight: weight, modifiers: modifiers, courseCode: course.courseCode)
-                _ = PriorityScore.band(score)
-            }
+            Bench.keep(PerfPasses.priorityScore(items: items, snapshot: context.snapshot, now: PerfFixtures.anchor))
         }
     }
 
@@ -300,27 +294,7 @@ struct CoreBenchmarks {
         let context = try await PerfFixtures.context(for: scale)
         let items = openAssignments(in: context.snapshot)
         Bench.time("alertEngineAllItems/\(scale)") {
-            var loadItems: [AlertEngine.LoadItem] = []
-            for (course, groups, assignment) in items {
-                if let missing = AlertEngine.missingAlert(assignment: assignment, now: PerfFixtures.anchor) {
-                    _ = missing
-                } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,
-                          let due = assignment.dueAt, due >= PerfFixtures.anchor {
-                    let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                      gradingPeriods: context.snapshot.gradingPeriods[course.id] ?? [])
-                    let hours = due.timeIntervalSince(PerfFixtures.anchor) / 3600
-                    let modifiers = priorityModifiers(assignment: assignment, course: course, now: PerfFixtures.anchor)
-                    let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
-                    _ = AlertEngine.dueSoonAlert(assignment: assignment, priorityScore: score, weight: weight, now: PerfFixtures.anchor)
-                }
-                if let due = assignment.dueAt, due >= PerfFixtures.anchor, let submission = assignment.submission,
-                   !submission.isSubmitted, !submission.excused {
-                    let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                                      gradingPeriods: context.snapshot.gradingPeriods[course.id] ?? [])
-                    loadItems.append(AlertEngine.LoadItem(dueAt: due, weight: weight, courseID: course.id))
-                }
-            }
-            _ = AlertEngine.overloadClusters(loadItems, now: PerfFixtures.anchor)
+            Bench.keep(PerfPasses.alertEngine(items: items, snapshot: context.snapshot, now: PerfFixtures.anchor))
         }
     }
 
@@ -328,22 +302,12 @@ struct CoreBenchmarks {
     func reminderPlannerAllItems(_ scale: BenchScale) async throws {
         let context = try await PerfFixtures.context(for: scale)
         let items = openAssignments(in: context.snapshot)
-        let candidates = items.map { course, groups, assignment -> ReminderCandidate in
-            let hours = assignment.dueAt.map { $0.timeIntervalSince(PerfFixtures.anchor) / 3600 }
-            let weight = PriorityScore.weight(assignment: assignment, course: course, groups: groups,
-                                              gradingPeriods: context.snapshot.gradingPeriods[course.id] ?? [])
-            let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight,
-                                            modifiers: priorityModifiers(assignment: assignment, course: course, now: PerfFixtures.anchor))
-            return ReminderCandidate(assignment: assignment, isExam: false, priority: score, markedDone: false)
-        }
-        var refresh = RefreshRecord()
-        refresh.began(.launch, at: PerfFixtures.anchor.addingTimeInterval(-3600))
-        refresh.succeeded(dataFetchedAt: PerfFixtures.anchor.addingTimeInterval(-3600))
-        let timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        let candidates = PerfPasses.reminderCandidates(items: items, snapshot: context.snapshot, now: PerfFixtures.anchor)
+        let refresh = PerfPasses.reminderRefreshRecord(now: PerfFixtures.anchor)
 
         Bench.time("reminderPlannerAllItems/\(scale)") {
-            _ = ReminderPlanner.plan(accountKey: AccountKey("perf-\(scale.rawValue)"), candidates: candidates,
-                                     settings: ReminderSettings(), now: PerfFixtures.anchor, timeZone: timeZone, refresh: refresh)
+            Bench.keep(PerfPasses.reminderPlan(candidates: candidates, refresh: refresh, now: PerfFixtures.anchor,
+                                               label: scale.rawValue))
         }
     }
 
