@@ -379,3 +379,61 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 ## 2026-09-28 | App-core iteration 3, step 4: main-thread guards, watchdog calibration, and the pmo/assessment merge @ a601269 (commits 3f84fe3 … c9f8c12, 79c5534)
 **Changes**: `TallyConfig` (additive): `mainThreadHangThreshold` 250 ms, `launchHangThreshold` 1000 ms, `launchSettleWindow` 2 s, `mainActorStallBudget` 50 ms, `dashboardMaxStaleness` 900 s. DEBUG-only `MainThreadWatchdog` (armed in `TallyApp.init`), `MainActorStallProbe` + stall-budget test, watchdog detection/policy tests, `make ios-watchdog-log` (CI prints every stall with length and phase). Merge `79c5534` of `pmo/assessment` @ a601269 (sync hardening, PERF-05, the hang-budget fix; brief rule 3), with `RefreshStatusModel` moved to `await coordinator.events()`.
 **Calibration evidence (the review's §5.1 "calibrate before it becomes required")**: run 36367196647 (fatal:250, grace until the first root `.task`): 8/8 UI tests crashed 1.8–3.9 s after launch, inside `app.launch()`, main thread in first-render type resolution/SwiftUI graph construction/`dlopen` (8 `.ips` reports), never Tally code; `core-sanitizers` also red on the pre-existing `CrashSafetyFuzzTests.swift:241` hang-budget flake that a601269 fixes. Run 36368473854 (settle-based grace): every UI launch stalled ≥ 1000 ms from process start (`phase=launch ms=1001–1010`), the hosted process 1301/1649 ms. Run 36369654517 (launch hangs logged, not fatal): 3/8 UI tests passed; the other 5 crashed on interactive stalls whose stacks were SwiftUI first renders (UIViewControllerRepresentable, List), a toolbar update, a `UICollectionView` reload and XCUITest's own accessibility snapshot. Run 36370850272 (UI tests `report:250`): 109/113 passed; interactive stalls of 250 ms–3.65 s and one of 19.16 s coinciding with the first search-field tap (first keyboard presentation, cause UNVERIFIED); the one failure was the 120 s per-test allowance (80 s "Open app" before the process started). **Decision for the PMO**: a fatal UI-test threshold cannot be both meaningful and green on the Debug CI simulator; UI tests arm `report:250` and CI prints every stall, while the hosted stall-budget test (50 ms Debug, 25 ms Release) and the watchdog detection/policy tests are the gates. UI tests get a 240 s per-test allowance (max 300 s unchanged).
+
+## 2026-09-27 | PMO: Apple-silicon release numbers (core-perf-apple, run 36369710838)
+**Result**: required CI is green on `a601269`. The new non-blocking job `core-perf-apple` measured release builds on the macOS runner:
+- **The production risk is ruled out**: the extreme-input grade cases run in 0.411 s for all 8 in release on Apple. The 47.8 s earlier was a debug artefact.
+- **Stress medians, Apple runner vs the PMO's Linux x86 host**:
+
+  | Measure | Apple | Linux |
+  |---|---|---|
+  | `dashboardBuild` | 26.4 ms | 5.6 ms (4.7x) |
+  | `priorityScoreAllItems` | 6.8 ms | 1.3 ms (5.2x) |
+  | `alertEngineAllItems` | 7.1 ms | 1.1 ms (6.3x) |
+  | `gradeEngineAllCourses` | 125 ms | 70 ms (1.8x) |
+  | `reminderPlanner` | 49.8 ms | 27.3 ms (1.8x) |
+  | `snapshotDecode` | 58 ms | 40 ms (1.45x) |
+  | `changeDigestDiff` | 24.2 ms | about 25 ms (1.0x) |
+
+- `snapshotDecodeDevice/stress` projects to 127 ms under the 2.0x factor, which was the x86 estimate; for Apple silicon the factor is probably lower. It remains the known issue, and a measurement on an A13 device is needed.
+- The PERF-05 `dashboardBuild/stress` ceiling (13 ms, calibrated on Linux) failed there at 27.8 ms.
+
+**PMO action**:
+- The ceiling is now per platform: 13 ms on Linux, 56 ms on Darwin (about 2x the Apple measurement), with a comment giving the reason. Linux re-run: median 5.49 ms, all 38 perf tests pass.
+- Opened **PERF-06**: profile why the `PriorityScore` and `AlertEngine` per-item passes are 5-6x slower on Apple silicon, when most other paths are 1.0-1.8x. The plan is an `xctrace` time profile on the macOS runner. It is not blocking: at the typical (flagship) scale `dashboardBuild` takes 0.69 ms on Apple, and every projection runs off the main actor (plan 06 step 6).
+
+## 2026-09-27 | Perf/crash program merge: m2/crash-safety-2, CS-07 (crash-safety engineer; PMO verified)
+**Merged**:
+- `Dictionary(uniqueKeysWithValues:)` trapped on a repeated ID at 6 sites. All 6 now use `uniquingKeysWith`, first occurrence wins. The worst case was a repeated course: `SnapshotStore.commit` writes the snapshot before building the glance, so the trap recurred on **every launch**.
+- `LiveCanvasGateway` removes repeated IDs once, at the boundary: assignments account-wide; groups and periods per course; repeated courses before the per-course requests. It logs counts only, through the new `TallyLogger`/`LogEvent` port.
+- Two `Int` overflow traps were fixed: `drop_lowest`/`drop_highest` near `Int.max`, in `DropRuleSelection` and in `WeightContext`.
+- A `GoalSeek` hang for `points_possible` above about 1.4e14 was fixed.
+- A seeded pipeline fuzz covers every post-fetch consumer.
+
+**PMO merge fix**: `PipelineFuzzTests`' budget and suite time limit now scale with `TestTimeBudget`.
+
+**PMO evidence, re-run on the merge**:
+- `make core-test`: 559 tests (Sync 39, Store 71, Perf 8, Domain 264 with the 4 known issues, CanvasAPI 177), 0 failures.
+- `make lint`: 0 violations in 122 files.
+- `make core-tsan` and `make core-asan`: exit 0, 0 reports, 559 tests each.
+
+**PMO mutations** (each restored byte-identical):
+- C1, the glance projection back to `uniqueKeysWithValues`: caught, with the real trap `Fatal error: Duplicate values for key: '7001'`.
+- C2, the gateway returns the snapshot without removing repeats: caught by `aRepeatAcrossAPageBoundaryIsDropped`.
+- C3, `GoalSeek`'s progress guard removed: **it hung past 400 s**. `.timeLimit` cannot interrupt a synchronous loop, so the regression shows up only as a CI job timeout. CS-08 R-5 adds explicit iteration caps so it fails fast.
+
+**PMO rulings**:
+- D1: the `TallyLogger` port is accepted. The app bridges it to `OSLogLogger`.
+- D3: assignment de-duplication is account-wide.
+- D2: (a) grade inputs are bounded in `GradeSanitizing`. Magnitudes above 1e50 are invalid, and a floor turns tiny values into 0, calibrated to a worst case of ≤ 1 s in debug and ≤ 50 ms in release. (b) `GradeEngine` and `GoalSeek` always run off the main actor with cancellation; this is an app-layer requirement.
+- Dispatched as **CS-08** (`m2/resilience`):
+  - R-1, stop the 429 retry storm (F-6);
+  - R-2, bound grade magnitudes (D2a);
+  - R-3, unique "Needs attention" IDs (F-7);
+  - R-4, cheap hardening (F-8, F-10);
+  - R-5, loop iteration caps.
+
+**App-layer items for app-core** (CS7-5):
+- `DashboardViewState.swift:84/125/142` has the same traps; it is deleted in step 6.
+- `WelcomeFlowView.swift:98/107`: `path.removeLast()` traps on an empty path.
+- Bridge the logger into `OSLogPlatformLogger`.

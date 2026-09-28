@@ -25,7 +25,11 @@ public enum NotificationReconciler {
         cap: Int = TallyConfig.pendingNotificationCap
     ) async -> SyncLedger {
         let capped = Array(desired.sorted(by: bySoonestThenID).prefix(cap))
-        let desiredByID = Dictionary(uniqueKeysWithValues: capped.map { ($0.id, $0) })
+        // CS-07: `desired` can repeat an ID. `ReminderPlanner.plan` emits reminders per candidate,
+        // so a candidate list that repeats an assignment repeats its reminder IDs, and
+        // `Dictionary(uniqueKeysWithValues:)` trapped on that. The first occurrence in the
+        // soonest-first order above wins, and each ID is scheduled once.
+        let desiredByID = Dictionary(capped.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         let pendingOnPlatform = await platform.pendingIdentifiers()
         let managed = Set(ledger.notifications.keys).union(pendingOnPlatform)

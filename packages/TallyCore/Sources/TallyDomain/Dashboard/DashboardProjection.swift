@@ -120,7 +120,10 @@ public nonisolated enum DashboardBuilder {
     /// snapshot after sign-in/entering sample mode, per architecture.md §3.4: "no digest or
     /// grade alerts on the first snapshot").
     public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date) -> DashboardProjection {
-        let coursesByID = Dictionary(uniqueKeysWithValues: snapshot.courses.map { ($0.id, $0) })
+        // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
+        // overlap). `Dictionary(uniqueKeysWithValues:)` trapped on that. The first occurrence
+        // wins, as in `PriorityScore.WeightContext`.
+        let coursesByID = Dictionary(snapshot.courses.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         // PERF-03: computed once and shared by `nextUp`/`needsAttention` below, which used to
         // each rebuild this (a `flatMap` over every course's every assignment group) from
         // scratch, AND each independently recompute `PriorityScore.weight` per item --
@@ -184,7 +187,8 @@ public nonisolated enum DashboardBuilder {
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: String] = [:]
-        let courseOrder = Dictionary(uniqueKeysWithValues: snapshot.courses.enumerated().map { ($1.id, $0) })
+        // CS-07: a repeated course ID keeps its first (lowest) position instead of trapping.
+        let courseOrder = Dictionary(snapshot.courses.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for (course, _, assignment, weight) in items {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
@@ -199,7 +203,9 @@ public nonisolated enum DashboardBuilder {
                                                               modifiers: modifiers, courseCode: course.courseCode)
         }
 
-        let byID = Dictionary(uniqueKeysWithValues: ranked.map { ($0.item.assignmentID, $0) })
+        // CS-07: an assignment ID can repeat (within a group, across groups or across courses);
+        // `Dictionary(uniqueKeysWithValues:)` trapped on that. The first ranked occurrence wins.
+        let byID = Dictionary(ranked.map { ($0.item.assignmentID, $0) }, uniquingKeysWith: { first, _ in first })
         return PriorityScore.sorted(ranked.map(\.item)).prefix(3).map { rankedItem in
             let entry = byID[rankedItem.assignmentID]
             return DashboardProjection.NextUpItem(
