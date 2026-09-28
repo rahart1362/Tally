@@ -1,6 +1,10 @@
 import SwiftUI
 import Testing
 import TallyDomain
+import TallyPlatform
+import TallyStore
+import TallyTestSupport
+import WidgetKit
 @testable import TallyGlance
 
 /// Plan 06 step 11 and PMO R10 through the widgets' own views, rendered with `ImageRenderer` in
@@ -84,6 +88,36 @@ struct WidgetGlanceRenderTests {
         for content in contents {
             #expect(Self.png(NextUpWidgetView(entry: Self.entry(content))) != nil, "Next up: \(content)")
             #expect(Self.png(StandingWidgetView(entry: Self.entry(content))) != nil, "Standing: \(content)")
+        }
+    }
+
+    /// The memory test's work in one pass, with no XCTest `measure` around it, so it also runs under
+    /// ThreadSanitizer and AddressSanitizer (where the metric test is skipped): the app side commits
+    /// with real Keychain items, the widget's reader reads, the planner plans, WidgetKit's `Timeline`
+    /// is built, and both widgets render every entry.
+    @Test("one timeline end to end: the app commits, the widget reads, plans and renders every entry")
+    func oneTimelineEndToEnd() async throws {
+        let bundleID = "dev.tally-app.tally.tests.widget-e2e.\(UUID().uuidString)"
+        let appStore = KeychainVaultKeyStore(bundleID: bundleID)
+        let fixture = GlanceStoreFixture()
+        defer { fixture.remove(); try? appStore.deleteEverything() }
+        let account = AccountKey.derive(host: "canvas.example.edu", userID: "e2e")
+        let snapshot = CanvasSnapshotFixture.make(accountKey: account, courseCount: 12, dueItemCount: 40)
+        let owner = SnapshotStore(root: fixture.root, accountKey: account,
+                                  sealer: VaultSealer(account: account.rawValue, keyring: VaultKeyring(store: appStore),
+                                                      mayCreateKeys: true))
+        let committed = try await owner.commit(snapshot, includeGrades: true)
+
+        let result = await GlanceReader(storeRoot: fixture.root,
+                                        keyStore: WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: nil)).read()
+        #expect(result == .loaded(committed))
+        let plan = GlanceTimelinePlanner.plan(for: result, now: snapshot.fetchedAt.addingTimeInterval(60), calendar: .current)
+        let timeline = Timeline(entries: plan.moments.map(GlanceEntry.init), policy: .after(plan.reloadAfter))
+        #expect(timeline.entries.count == plan.moments.count)
+        #expect(timeline.entries.count >= 3)
+        for entry in timeline.entries {
+            #expect(Self.png(NextUpWidgetView(entry: entry)) != nil)
+            #expect(Self.png(StandingWidgetView(entry: entry)) != nil)
         }
     }
 

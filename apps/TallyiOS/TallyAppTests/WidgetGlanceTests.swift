@@ -1,3 +1,4 @@
+import MachO
 import SwiftUI
 import TallyDomain
 import TallyPlatform
@@ -18,6 +19,13 @@ import XCTest
 /// reads the xcresult's metrics and fails when the median "Memory Physical" delta passes 5 MB
 /// (perf/widget-budgets.json, scripts/ci/check_perf_budgets.py). The test host's absolute peak is
 /// reported, not budgeted: it is the whole app process, not the widget.
+///
+/// Skipped under a sanitizer, like `SampleLoadPerformanceTests` (app-core report D6): the ASan and
+/// TSan allocators and shadow memory make a memory measurement meaningless, and the gate reads the
+/// main run. Under TSan this `measure` also aborted once ("ThreadSanitizer: BUS … in
+/// objc_release_x8" on a background thread, run 36453374066, 0 TSan reports), cause not traced.
+/// The same widget work runs under both sanitizers without `measure` in
+/// `WidgetGlanceRenderTests.oneTimelineEndToEnd`.
 @MainActor
 final class WidgetGlanceTests: XCTestCase {
     /// A small widget on a 6.1-inch iPhone, in points, rendered at 3x like a device.
@@ -25,6 +33,7 @@ final class WidgetGlanceTests: XCTestCase {
     private static let renderScale: CGFloat = 3
 
     func testGlanceTimelineMemory() throws {
+        try XCTSkipIf(Self.sanitizerRuntimeIsLoaded, "memory metrics are meaningless under a sanitizer's allocator")
         let bundleID = "dev.tally-app.tally.tests.widget-memory.\(UUID().uuidString)"
         let appStore = KeychainVaultKeyStore(bundleID: bundleID)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("glance-memory-\(UUID().uuidString)",
@@ -72,6 +81,15 @@ final class WidgetGlanceTests: XCTestCase {
                 done.fulfill()
             }
             wait(for: [done], timeout: 30)
+        }
+    }
+
+    /// An ASan or TSan runtime is loaded in this process (the instrumented host loads it).
+    private static var sanitizerRuntimeIsLoaded: Bool {
+        (0..<_dyld_image_count()).contains { index in
+            guard let name = _dyld_get_image_name(index) else { return false }
+            let path = String(cString: name)
+            return path.contains("libclang_rt.asan") || path.contains("libclang_rt.tsan")
         }
     }
 
