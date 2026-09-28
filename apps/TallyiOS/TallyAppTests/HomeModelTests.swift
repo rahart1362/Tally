@@ -187,7 +187,9 @@ struct HomeModelTests {
 
         #expect(try await Self.landed(source, 1), "the refresh never landed")
         #expect(try await HomeTestSupport.waitUntil { model.freshness == .fresh(at: HomeTestSupport.anchor.addingTimeInterval(60)) })
-        #expect(await model.projector.projectionCount == 2)
+        // `receive(_:)` sets `freshness` before it projects the new generation, so wait for the
+        // projection too (read at once, it failed on the iOS 26.2 floor in run 36394287625).
+        #expect(try await AccountTestSupport.eventually { await model.projector.projectionCount == 2 })
     }
 
     @Test("a fast refresh: pull-to-refresh returns as soon as it settles")
