@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "full: every job (pull requests always run full). quick: Linux jobs plus ios-build only, for engineers' iteration runs; hand-off runs must be full."
+        type: choice
+        options: [full, quick]
+        default: full
 
 permissions:
   contents: read
@@ -161,6 +167,7 @@ jobs:
 
   core-perf-apple:
     name: TallyCore perf on Apple silicon (release, non-blocking)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 30
     # Release numbers from Apple's toolchain on Apple silicon are closer to a device than
@@ -380,6 +387,7 @@ jobs:
 
   ios-tsan:
     name: iOS ThreadSanitizer (TallyAppTests; report-only until O12 is fixed)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 60
     # Plan 06 A7: required once it is first green (PMO).
@@ -413,6 +421,7 @@ jobs:
 
   ios-asan:
     name: iOS AddressSanitizer (app + UI tests)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 75
     # Plan 06 A7: required since 2026-09-28 (PMO). 0 ASan reports and green in runs
@@ -446,6 +455,7 @@ jobs:
 
   ios-perf:
     name: iOS perf budgets (Release, non-blocking)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: macos-26
     timeout-minutes: 45
     # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
@@ -477,6 +487,7 @@ jobs:
 
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: xcode-27
     timeout-minutes: 30
     continue-on-error: true # preview image; must never gate the required checks above
