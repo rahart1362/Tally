@@ -39,13 +39,15 @@ final class SlowRefreshUITests: TallyUITestCase {
 
         let refresh = app.buttons["Refresh"]
         waitUntilHittable(refresh, in: app)
-        // Read before the tap, so the time measured below is never shorter than the refresh's own.
+        // Read before the tap, so the time measured below is never shorter than the refresh's own
+        // (a re-tap only makes the real refresh start later than this).
         let tapped = Date()
-        refresh.tap()
 
-        // Within the budget the footer says "Refreshing…" and there is no breadcrumb.
+        // Within the budget the footer says "Refreshing…" and there is no breadcrumb. O9: the
+        // Xcode 27 run of PR #2 (36434300284) found the footer still "Updated just now" after this
+        // tap, the tap not taken; `tap(_:expecting:)` re-taps once in that case.
         let refreshing = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Refreshing")).firstMatch
-        XCTAssertTrue(refreshing.waitForExistence(timeout: 5), "no Refreshing… footer. Hierarchy: \(app.debugDescription)")
+        tap(refresh, expecting: refreshing, in: app, timeout: 5)
         XCTAssertFalse(breadcrumb.exists, "the breadcrumb showed within the live budget. Hierarchy: \(app.debugDescription)")
 
         // The breadcrumb appears once the budget has passed, and before the 12 s refresh lands.
