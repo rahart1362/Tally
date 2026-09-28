@@ -44,6 +44,9 @@ struct WelcomeView: View {
                     .padding(.horizontal, TallySpacing.screenMargin)
                     .padding(.bottom, TallySpacing.xxl)
 
+                actions // MUTATION M3: back in the scroll content, not pinned
+                    .padding(.horizontal, TallySpacing.screenMargin)
+
                 footer
                     .padding(.top, TallySpacing.md)
                     .padding(.horizontal, TallySpacing.screenMargin)
@@ -55,13 +58,6 @@ struct WelcomeView: View {
         // area, so they are on screen and tappable from the first frame on every iPhone and at
         // every Dynamic Type size, whatever the scroll position. The R10 footer stays in the
         // scrolling content.
-        .safeAreaInset(edge: .bottom) {
-            actions
-                .padding(.horizontal, TallySpacing.screenMargin)
-                .padding(.top, TallySpacing.md)
-                .padding(.bottom, TallySpacing.sm)
-                .background(TallyColor.bgCanvas)
-        }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             guard !revealed else { return }

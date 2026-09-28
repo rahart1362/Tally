@@ -36,6 +36,7 @@ struct WelcomeFlowView: View {
     let onExploreSampleData: () -> Void
 
     @State private var path: [WelcomeRoute] = []
+    @State private var mutationPushesShell = false // MUTATION M1
 
     init(
         playsBrandMoment: Bool,
@@ -54,10 +55,18 @@ struct WelcomeFlowView: View {
             WelcomeView(
                 playsBrandMoment: playsBrandMoment,
                 onFindSchool: { path.append(.findSchool) },
-                onExploreSampleData: onExploreSampleData
+                onExploreSampleData: { mutationPushesShell = true } // MUTATION M1: a push, not enterSample()
             )
             .navigationDestination(for: WelcomeRoute.self) { route in
                 destination(for: route)
+            }
+            // MUTATION M1: the Home shell (a TabView) pushed onto the welcome stack.
+            .navigationDestination(isPresented: $mutationPushesShell) {
+                HomeShellView(
+                    snapshot: nil, digest: nil, digestAsOf: nil, freshness: .noCache,
+                    banner: AnyView(SampleDataBanner(onExit: { mutationPushesShell = false })),
+                    onRefresh: {}
+                )
             }
         }
     }

@@ -35,7 +35,8 @@ public final class SampleDataModel {
     /// The production entry point: the bundled flagship persona over a replay transport
     /// (`SampleDataCanvasGateway`), never the network.
     public static func live() throws -> SampleDataModel {
-        SampleDataModel(gateway: try SampleDataCanvasGateway())
+        usleep(60_000) // MUTATION M4b: a 60 ms main-actor stall on the sample path
+        return SampleDataModel(gateway: try SampleDataCanvasGateway())
     }
 
     public var studentDisplayName: String? { snapshot?.profile.shortName ?? snapshot?.profile.name }

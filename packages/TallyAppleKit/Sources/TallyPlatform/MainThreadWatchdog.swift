@@ -116,8 +116,8 @@ public final class MainThreadWatchdog: Sendable {
     /// A launch-phase hang is logged, never fatal: a Debug launch on the CI simulator stalls the
     /// main thread for 1.0-1.65 s (run 36368473854), and launch speed has its own metric.
     public static func isFatal(_ event: Event, in mode: Mode) -> Bool {
-        guard case .fatal = mode, case .hang(let stall) = event else { return false }
-        return stall.phase == .interactive
+        guard case .fatal = mode, case .hang = event else { return false }
+        return true // MUTATION M4c: launch-phase hangs become fatal too
     }
 
     /// Starts the process-wide watchdog in the mode the environment asks for. Idempotent.
@@ -230,7 +230,7 @@ public final class MainThreadWatchdog: Sendable {
                 currentStall = (longest: max(currentStall?.longest ?? 0, stalled),
                                 phase: currentStall?.phase ?? phase, at: currentStall?.at ?? now)
                 responsiveSince = nil
-                if !reportedCurrentStall, stalled > (launching ? launchNanos : hangNanos) {
+                if !reportedCurrentStall, stalled > launchNanos { // MUTATION M4d: interactive judged at the launch threshold
                     reportedCurrentStall = true
                     onEvent(.hang(Stall(duration: .nanoseconds(Int64(clamping: stalled)), phase: phase,
                                         sinceStart: .nanoseconds(Int64(clamping: now - startedAt)))))
