@@ -22,7 +22,7 @@ struct CrashSafetyFuzzTests {
 
     /// `[Any]` erases the fact every element here is an immutable value type; this array is
     /// only ever read (never mutated) after initialization, so sharing it across concurrently
-    /// running `@Test` cases is safe — the same reasoning as `CanvasJSON.CanvasDate.pattern`.
+    /// running `@Test` cases is safe.
     nonisolated(unsafe) private static let poisonScalars: [Any] = [
         NSNull(),
         "NaN", "Infinity", "-Infinity", "-0",
