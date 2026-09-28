@@ -8,7 +8,8 @@ import TallyDesignSystem
 ///
 /// - `.launching`: the launch colour, until `AppModel.bootstrap()` resolves the route.
 /// - `.welcome`: `WelcomeFlowView`, onboarding's `NavigationStack` of plain pushed pages.
-/// - `.sample` / `.signedIn`: `HomeShellView`, the root `TabView` whose tabs own their stacks.
+/// - `.sample`: `HomeShellView`, the root `TabView` whose tabs own their stacks, over the
+///   `HomeModel` that `AppModel.enterSample()` built (the signed-in Home follows, step 9).
 ///
 /// **Navigation rule** (CONTRIBUTING.md code-review checklist): `TabView` and `NavigationStack`
 /// appear only as a root, or as a tab's root inside the root `TabView` — never inside a pushed
@@ -54,28 +55,15 @@ public struct RootView: View {
                 onExploreSampleData: { appModel.enterSample() }
             )
         case .sample:
-            if let sample = appModel.sample {
-                SampleDataRootView(
-                    model: sample,
-                    onExit: { appModel.exitSample() },
-                    onAppear: { await appModel.sampleDidAppear() }
-                ) { model in
-                    HomeShellView(
-                        snapshot: model.snapshot, digest: model.digest, digestAsOf: model.digestAsOf,
-                        freshness: model.freshness, studentDisplayName: model.studentDisplayName,
-                        banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })),
-                        onRefresh: { await model.refresh() }
-                    )
-                }
+            if let home = appModel.home {
+                HomeShellView(model: home, banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })))
             }
         case .signedIn:
-            // No account session exists yet (perf-app-runtime.md §7 step 9), so every tab shows its
-            // honest empty state; the refresh status is the one real, attached source.
-            HomeShellView(
-                snapshot: nil, digest: appModel.refreshStatus.lastDigest,
-                digestAsOf: appModel.refreshStatus.lastDigestAt, freshness: appModel.refreshStatus.freshness,
-                onRefresh: { await appModel.refreshStatus.refresh() }
-            )
+            // The signed-in Home needs the account session from sign-in's first sync
+            // (perf-app-runtime.md §7 step 9); until then this root says so plainly.
+            ContentUnavailableView("Signed in", systemImage: "checkmark.circle.fill",
+                                   description: Text("Your dashboard appears after the first sync."))
+                .background(TallyColor.bgCanvas)
         }
     }
 }

@@ -142,7 +142,7 @@ struct MainThreadGuardsTests {
 
     /// The median of 5 entries, so one scheduling hiccup on a shared CI simulator cannot fail the
     /// test, while main-actor work that stalls on every entry always does.
-    @Test("sample entry and its first refresh never stall the main actor past the budget")
+    @Test("sample entry, its first refresh and its projection never stall the main actor past the budget")
     @MainActor
     func sampleEntryStaysUnderTheStallBudget() async throws {
         var stalls: [Duration] = []
@@ -153,10 +153,10 @@ struct MainThreadGuardsTests {
             let app = AppModel()
             app.bootstrap()
             app.enterSample()
-            await app.sampleDidAppear()
-            for _ in 0..<100 where app.sample?.snapshot == nil { try await Task.sleep(for: .milliseconds(10)) }
+            await app.home?.start()
+            for _ in 0..<100 where app.home?.phase != .loaded { try await Task.sleep(for: .milliseconds(10)) }
             stalls.append(await probe.stop())
-            #expect(app.sample?.snapshot?.courses.count == 5)
+            #expect(app.home?.dashboard.hero.courseCount == 5)
             app.exitSample()
         }
         let median = stalls.sorted()[stalls.count / 2]

@@ -54,14 +54,14 @@ struct AppModelTests {
         for _ in 0..<2 {
             model.enterSample()
             #expect(model.route == .sample)
-            let session = model.sample
+            let session = model.home
             #expect(session != nil)
             model.enterSample() // already .sample: a no-op that keeps the same session
             #expect(model.route == .sample)
-            #expect(model.sample === session)
+            #expect(model.home === session)
             model.exitSample()
             #expect(model.route == .welcome)
-            #expect(model.sample == nil)
+            #expect(model.home == nil)
             #expect(!model.playsBrandMoment)
         }
     }

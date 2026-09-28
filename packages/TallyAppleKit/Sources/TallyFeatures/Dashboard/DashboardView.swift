@@ -2,141 +2,119 @@ import SwiftUI
 import TallyDesignSystem
 import TallyDomain
 
-/// UX-WP-13: the Dashboard, over the glance/snapshot (ux-ui.md §3.7.1, insights-at-a-glance.md
-/// §1). Built purely from parameters — the same view serves a signed-in session and ASC-14's
-/// sample mode (`SampleDataRootView`), differing only in what they pass in.
-public struct DashboardView: View {
-    let snapshot: CanvasSnapshot?
-    let digest: ChangeDigest?
-    let digestAsOf: Date?
-    let freshness: FreshnessState
-    let studentDisplayName: String?
-    let onRefresh: () async -> Void
+/// UX-WP-13: the Dashboard (ux-ui.md §3.7.1, insights-at-a-glance.md §1). It renders
+/// `HomeModel`'s already-built `DashboardProjection` and computes nothing in `body`
+/// (perf-app-runtime.md §3 item 4): no builder, no clock, no calendar, no sorting. Freshness
+/// lives in leaf views (`FreshnessFooter`, `FreshnessBreadcrumb`), so a refresh that changes only
+/// freshness never re-evaluates this body (`HomeRenderTests`).
+struct DashboardView: View {
+    @Environment(HomeModel.self) private var model
+    #if DEBUG
+    @Environment(\.bodyEvaluationCounter) private var bodyCounter
+    #endif
 
-    public init(
-        snapshot: CanvasSnapshot?, digest: ChangeDigest?, digestAsOf: Date?, freshness: FreshnessState,
-        studentDisplayName: String? = nil, onRefresh: @escaping () async -> Void
-    ) {
-        self.snapshot = snapshot
-        self.digest = digest
-        self.digestAsOf = digestAsOf
-        self.freshness = freshness
-        self.studentDisplayName = studentDisplayName
-        self.onRefresh = onRefresh
-    }
-
-    private var state: DashboardViewState {
-        guard let snapshot else { return .empty }
-        return DashboardBuilder.build(from: snapshot, digest: digest, digestAsOf: digestAsOf, now: Date())
-    }
-
-    public var body: some View {
-        // Computed ONCE per body evaluation: `state` re-runs the full DashboardBuilder pipeline
-        // (PriorityScore/AlertEngine over every assignment) every time it's read, and the
-        // previous version of this file read it six separate times in one body. Same for the
-        // freshness presentation, read fresh below instead of re-deriving it in every section.
-        let currentState = state
-        let presentation = FreshnessPresenter.present(freshness, now: Date())
-        return ScrollView {
+    var body: some View {
+        #if DEBUG
+        let _ = bodyCounter?.record("DashboardView")
+        #endif
+        ScrollView {
             VStack(alignment: .leading, spacing: TallySpacing.xxl) {
-                // The stale breadcrumb (ux-ui.md §3.3), as a plain leading element rather than
-                // `.safeAreaBar` — this screen's own top-of-scroll content, not a floating bar.
-                if let breadcrumb = presentation.longText {
-                    FreshnessBreadcrumb(text: breadcrumb)
-                }
+                FreshnessBreadcrumb()
                 header
-                if snapshot == nil {
+                switch model.phase {
+                case .loading:
+                    DashboardLoadingView()
+                case .failed:
                     ContentUnavailableView("No dashboard yet", systemImage: "house",
                                            description: Text("Sign in, or explore with sample data, to see your dashboard."))
                         .padding(.top, TallySpacing.xxxl)
-                } else {
-                    HeroSection(hero: currentState.hero, presentation: presentation, onRefresh: onRefresh)
-                    if let summary = currentState.changeDigestSummary {
+                case .loaded:
+                    HeroSection(hero: model.dashboard.hero)
+                    if let summary = model.dashboard.changeDigestSummary {
                         ChangeDigestChip(summary: summary)
                     }
-                    NextUpSection(items: currentState.nextUp)
-                    NeedsAttentionSection(items: currentState.needsAttention)
-                    WeekAheadSection(days: currentState.weekAhead)
-                    DueSoonSection(items: currentState.dueSoon)
+                    NextUpSection(items: model.dashboard.nextUp)
+                    NeedsAttentionSection(items: model.dashboard.needsAttention)
+                    WeekAheadSection(days: model.dashboard.weekAhead)
+                    DueSoonSection(items: model.dashboard.dueSoon)
                 }
             }
             .padding(.horizontal, TallySpacing.screenMargin)
             .padding(.bottom, TallySpacing.xxxl)
         }
         .background(TallyColor.bgCanvas)
-        .refreshable { await onRefresh() }
+        .refreshable { await model.refresh() }
         .navigationTitle("Dashboard")
     }
 
+    @ViewBuilder
     private var header: some View {
-        VStack(alignment: .leading, spacing: TallySpacing.xs) {
-            if let name = studentDisplayName {
-                Text("Good \(timeOfDayGreeting), \(name)")
-                    .font(TallyTypography.subheadline)
-                    .foregroundStyle(TallyColor.textSecondary)
-            }
+        if let name = model.studentDisplayName {
+            Text("Good \(model.greeting.rawValue), \(name)")
+                .font(TallyTypography.subheadline)
+                .foregroundStyle(TallyColor.textSecondary)
         }
     }
+}
 
-    private var timeOfDayGreeting: String {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 0..<12: "morning"
-        case 12..<17: "afternoon"
-        default: "evening"
+/// The first-load skeleton: the hero's shape with a progress indicator, never fabricated values.
+private struct DashboardLoadingView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.md) {
+            ProgressView()
+                .tint(TallyColor.textOnHero)
+            Text("Loading your dashboard…")
+                .font(TallyTypography.footnote)
+                .foregroundStyle(TallyColor.textOnHero2)
         }
+        .padding(TallySpacing.lg)
+        .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+        .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - Hero ("Average of N courses")
 
+/// Its freshness line and refresh button are a separate leaf (`FreshnessFooter`), so a change of
+/// freshness re-renders that footer only.
 private struct HeroSection: View {
-    let hero: DashboardViewState.Hero
-    let presentation: FreshnessPresenter.Presentation
-    let onRefresh: () async -> Void
+    let hero: DashboardProjection.Hero
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
-            Text("Average of \(hero.courseCount) course\(hero.courseCount == 1 ? "" : "s")")
-                .font(TallyTypography.footnote)
-                .foregroundStyle(TallyColor.textOnHero2)
-
-            if let percent = hero.overallPercent {
-                HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                    Text(percent.formatted(.number.precision(.fractionLength(1))) + "%")
-                        .font(.system(.largeTitle, design: .serif).bold())
-                        .foregroundStyle(TallyColor.textOnHero)
-                        .monospacedDigit()
-                    if let band = hero.overallBand {
-                        Text(bandLabel(band))
-                            .font(TallyTypography.sectionHeader)
-                            .foregroundStyle(TallyColor.brandGold)
-                    }
-                }
-            } else {
-                Text("No grades to show yet")
-                    .font(TallyTypography.body)
-                    .foregroundStyle(TallyColor.textOnHero2)
-            }
-
-            HStack {
-                Text(presentation.shortText)
+            VStack(alignment: .leading, spacing: TallySpacing.md) {
+                Text("Average of \(hero.courseCount) course\(hero.courseCount == 1 ? "" : "s")")
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
-                Spacer()
-                Button {
-                    Task { await onRefresh() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .frame(width: 44, height: 44)
+
+                if let percent = hero.overallPercent {
+                    HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                        Text(percent.formatted(.number.precision(.fractionLength(1))) + "%")
+                            .font(.system(.largeTitle, design: .serif).bold())
+                            .foregroundStyle(TallyColor.textOnHero)
+                            .monospacedDigit()
+                        if let band = hero.overallBand {
+                            Text(bandLabel(band))
+                                .font(TallyTypography.sectionHeader)
+                                .foregroundStyle(TallyColor.brandGold)
+                        }
+                    }
+                } else {
+                    Text("No grades to show yet")
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textOnHero2)
                 }
-                .disabled(presentation.action == .none)
-                .accessibilityLabel("Refresh")
             }
+            // The figures read as one element; the footer's refresh button stays its own element
+            // (perf-app-runtime.md §3 item 7: never combine children that include a control).
+            .accessibilityElement(children: .combine)
+
+            FreshnessFooter()
         }
         .padding(TallySpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 
     private func bandLabel(_ band: GradeBand) -> String {
@@ -156,7 +134,7 @@ private struct HeroSection: View {
 // MARK: - Next up
 
 private struct NextUpSection: View {
-    let items: [DashboardViewState.NextUpItem]
+    let items: [DashboardProjection.NextUpItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -193,7 +171,7 @@ private struct NextUpSection: View {
 // MARK: - Needs attention
 
 private struct NeedsAttentionSection: View {
-    let items: [DashboardViewState.AttentionItem]
+    let items: [DashboardProjection.AttentionItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -240,7 +218,7 @@ private struct NeedsAttentionSection: View {
 // MARK: - Week ahead
 
 private struct WeekAheadSection: View {
-    let days: [DashboardViewState.WeekDay]
+    let days: [DashboardProjection.WeekDay]
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -270,7 +248,7 @@ private struct WeekAheadSection: View {
 // MARK: - Due soon
 
 private struct DueSoonSection: View {
-    let items: [DashboardViewState.DueItem]
+    let items: [DashboardProjection.DueItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -327,22 +305,5 @@ private struct ChangeDigestChip: View {
         .padding(.horizontal, TallySpacing.md)
         .padding(.vertical, TallySpacing.sm)
         .background(TallyColor.bgCard, in: Capsule())
-    }
-}
-
-/// UX-WP-06: the subtle stale breadcrumb (ux-ui.md §3.3). Shown only via `.safeAreaBar(edge:
-/// .top)` when `FreshnessPresenter` produces a `longText` (delayed/offline/failed/authExpired
-/// with saved data on screen).
-struct FreshnessBreadcrumb: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(TallyTypography.footnote)
-            .foregroundStyle(TallyColor.textPrimary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, TallySpacing.screenMargin)
-            .padding(.vertical, TallySpacing.sm)
-            .background(.orange.opacity(0.16))
-            .accessibilityAddTraits(.updatesFrequently)
     }
 }

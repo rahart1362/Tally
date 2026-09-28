@@ -6,8 +6,8 @@ import XCTest
 /// runs it in Release (5 iterations) and `scripts/ci/check_perf_budgets.py` compares the median
 /// `XCTClockMetric` with `perf/budgets.json`; CPU and memory are reported, not gated.
 ///
-/// Each iteration starts at the tap (`AppModel.enterSample()`) and stops once the Home models hold
-/// the full sample dashboard.
+/// Each iteration starts at the tap (`AppModel.enterSample()`) and stops once `HomeModel` holds the
+/// full projected sample dashboard (fetch, digest and projection all off the main actor).
 @MainActor
 final class SampleLoadPerformanceTests: XCTestCase {
     func testSampleEntryToFullProjection() throws {
@@ -21,7 +21,7 @@ final class SampleLoadPerformanceTests: XCTestCase {
             startMeasuring()
             app.enterSample()
             Task { @MainActor in
-                await app.sampleDidAppear()
+                await app.home?.start()
                 // The update lands on the main actor right after the refresh returns; yield until
                 // it has, with a deadline so a failed load cannot spin forever.
                 let deadline = ContinuousClock.now + .seconds(5)
@@ -35,6 +35,6 @@ final class SampleLoadPerformanceTests: XCTestCase {
     }
 
     private static func isFullyLoaded(_ app: AppModel) -> Bool {
-        app.sample?.snapshot?.courses.count == 5
+        app.home?.dashboard.hero.courseCount == 5
     }
 }

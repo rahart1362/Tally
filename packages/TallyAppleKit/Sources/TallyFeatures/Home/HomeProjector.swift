@@ -1,0 +1,186 @@
+import Foundation
+import TallyDomain
+
+/// Builds the Home shell's `HomeProjection` off the main actor (perf-app-runtime.md §2.1, §7 step
+/// 6). An actor holding the **one** UI reference to the current snapshot: `install` swaps it in,
+/// `project(now:)` builds every row and the dashboard from it, `end()` releases it.
+///
+/// The dashboard comes from `TallyDomain.DashboardBuilder` (about 70 ms at stress scale in
+/// Release, about 140 ms estimated on an A13), which must never run on the main actor. The two
+/// strings the port formats with fixed `HH:mm`/`yyyy-MM-dd` patterns because TallyDomain builds
+/// on Linux (the due-soon alert title and the overload-cluster title), and the digest chip's
+/// time, are rendered again here from their raw dates in the user's locale (`localized`), so the
+/// student sees exactly the text the pre-port builder produced.
+public actor HomeProjector {
+    private let calendar: Calendar
+    private let locale: Locale
+    private var installed: HomeUpdate?
+    /// How many projections this projector has built (tests: "recomputes exactly once").
+    private(set) var projectionCount = 0
+
+    public init(calendar: Calendar = .autoupdatingCurrent, locale: Locale = .autoupdatingCurrent) {
+        self.calendar = calendar
+        self.locale = locale
+    }
+
+    /// Holds `update`'s snapshot, replacing (and so releasing) the previous one.
+    public func install(_ update: HomeUpdate) {
+        installed = update
+    }
+
+    /// The projection of the installed snapshot at `now`, or `nil` when there is no snapshot yet.
+    public func project(now: Date) -> HomeProjection? {
+        guard let update = installed, let snapshot = update.snapshot else { return nil }
+        projectionCount += 1
+        let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf, now: now)
+        let dashboard = Self.withUniqueAttention(Self.localized(
+            raw, snapshot: snapshot, digest: update.digest, digestAsOf: update.digestAsOf, locale: locale, calendar: calendar))
+        return HomeProjection(
+            generation: update.generation,
+            dashboard: dashboard,
+            studentDisplayName: snapshot.profile.shortName ?? snapshot.profile.name,
+            greeting: Self.greeting(at: now, calendar: calendar),
+            courses: snapshot.courses.map(Self.courseRow),
+            events: snapshot.events
+                .sorted { $0.startAt < $1.startAt }
+                .map { HomeProjection.EventRow(id: $0.id, title: $0.title, startAt: $0.startAt) },
+            toDo: snapshot.planner
+                .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+                .map { HomeProjection.ToDoRow(id: $0.id, title: $0.title, dueAt: $0.dueAt) },
+            validUntil: Self.validUntil(snapshot: snapshot, now: now, calendar: calendar))
+    }
+
+    /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).
+    public func end() {
+        installed = nil
+    }
+
+    // MARK: - Pure pieces (nonisolated: unit-tested directly)
+
+    /// Re-renders, in `locale`, the three dashboard strings that carry a time or date: the
+    /// due-soon alert title (`AlertKind.dueSoon`'s dedupe key is `due:<assignmentID>`), the
+    /// overload-cluster title (`overload:<window start, epoch seconds>`), and the change-digest
+    /// summary. Anything it cannot resolve keeps the domain's text.
+    nonisolated static func localized(
+        _ projection: DashboardProjection, snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?,
+        locale: Locale, calendar: Calendar
+    ) -> DashboardProjection {
+        let time = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar,
+                                    timeZone: calendar.timeZone)
+        let day = Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar,
+                                   timeZone: calendar.timeZone)
+        let assignments = Self.assignmentsByID(in: snapshot)
+
+        let attention = projection.needsAttention.map { item -> DashboardProjection.AttentionItem in
+            if let id = item.id.dropPrefix("due:"), let assignment = assignments[id], let due = assignment.dueAt {
+                return .init(id: item.id, severity: item.severity,
+                             title: "\(assignment.name) due \(due.formatted(time))", subtitle: item.subtitle)
+            }
+            if let epoch = item.id.dropPrefix("overload:").flatMap(Int.init) {
+                let start = Date(timeIntervalSince1970: TimeInterval(epoch))
+                return .init(id: item.id, severity: item.severity,
+                             title: "Busy stretch starting \(start.formatted(day))", subtitle: item.subtitle)
+            }
+            return item
+        }
+
+        var summary = projection.changeDigestSummary
+        if summary != nil, let digest, !digest.isEmpty, let digestAsOf {
+            summary = "\(digest.count) change\(digest.count == 1 ? "" : "s") since \(digestAsOf.formatted(time))"
+        }
+
+        return DashboardProjection(hero: projection.hero, nextUp: projection.nextUp, needsAttention: attention,
+                                   dueSoon: projection.dueSoon, weekAhead: projection.weekAhead,
+                                   changeDigestSummary: summary)
+    }
+
+    /// `ForEach` needs unique IDs, but `AlertEngine.missingAlert` raises one `.missingClosed` per
+    /// assignment, so every closed-missing item in a course shares one dedupe key
+    /// (perf-app-runtime.md §3 item 5). Keeps the first (highest-ranked) item for each key.
+    nonisolated static func withUniqueAttention(_ projection: DashboardProjection) -> DashboardProjection {
+        var seen = Set<String>()
+        let unique = projection.needsAttention.filter { seen.insert($0.id).inserted }
+        guard unique.count != projection.needsAttention.count else { return projection }
+        return DashboardProjection(hero: projection.hero, nextUp: projection.nextUp, needsAttention: unique,
+                                   dueSoon: projection.dueSoon, weekAhead: projection.weekAhead,
+                                   changeDigestSummary: projection.changeDigestSummary)
+    }
+
+    /// The same boundaries the pre-port `DashboardView` used for "Good morning/afternoon/evening".
+    nonisolated static func greeting(at now: Date, calendar: Calendar) -> HomeProjection.Greeting {
+        switch calendar.component(.hour, from: now) {
+        case 0..<12: .morning
+        case 12..<17: .afternoon
+        default: .evening
+        }
+    }
+
+    /// Windows, before a due date, at which some dashboard section changes on its own: the
+    /// due-soon alert's severity bands, the 7-day "Due soon" list and the overload horizon.
+    nonisolated static let dueWindows: [TimeInterval] = [
+        0,
+        InsightsConfig.dueSoonCriticalWindowHours * 3600,
+        InsightsConfig.dueSoonHighWindowHours * 3600,
+        InsightsConfig.dueSoonMediumWindowHours * 3600,
+        7 * 24 * 3600,
+        InsightsConfig.overloadHorizon.timeInterval,
+    ]
+
+    /// perf-app-runtime.md §2.3: the earliest of the next due-date or lock-date crossing, the next
+    /// time an item enters one of `dueWindows`, the next local midnight, the next greeting
+    /// boundary, and `now + TallyConfig.dashboardMaxStaleness`.
+    nonisolated static func validUntil(snapshot: CanvasSnapshot, now: Date, calendar: Calendar) -> Date {
+        var earliest = now.addingTimeInterval(TallyConfig.dashboardMaxStaleness.timeInterval)
+        func consider(_ date: Date?) {
+            guard let date, date > now, date < earliest else { return }
+            earliest = date
+        }
+        for hour in [0, 12, 17] {
+            consider(calendar.nextDate(after: now, matching: DateComponents(hour: hour, minute: 0, second: 0),
+                                       matchingPolicy: .nextTime))
+        }
+        func considerDue(_ due: Date?) {
+            guard let due else { return }
+            for window in dueWindows { consider(due.addingTimeInterval(-window)) }
+        }
+        for groups in snapshot.groups.values {
+            for group in groups {
+                for assignment in group.assignments {
+                    considerDue(assignment.dueAt)
+                    consider(assignment.lockAt)
+                }
+            }
+        }
+        for item in snapshot.planner { considerDue(item.dueAt) }
+        return earliest
+    }
+
+    nonisolated static func courseRow(_ course: Course) -> HomeProjection.CourseRow {
+        let visible = course.gradeVisibility == .visible
+        return HomeProjection.CourseRow(
+            id: course.id, code: course.courseCode, name: course.name,
+            percent: visible ? course.scores?.currentScore : nil,
+            letterGrade: visible ? course.scores?.currentGrade : nil)
+    }
+
+    /// In course order, then group order; the first occurrence of a repeated ID wins, the same
+    /// rule as the gateway and `DashboardBuilder` (CS-07), so the rendering is deterministic.
+    private nonisolated static func assignmentsByID(in snapshot: CanvasSnapshot) -> [String: Assignment] {
+        var byID: [String: Assignment] = [:]
+        for course in snapshot.courses {
+            for group in snapshot.groups[course.id] ?? [] {
+                for assignment in group.assignments where byID[assignment.id.rawValue] == nil {
+                    byID[assignment.id.rawValue] = assignment
+                }
+            }
+        }
+        return byID
+    }
+}
+
+extension String {
+    /// The rest of the string after `prefix`, or `nil` when it does not start with it.
+    fileprivate nonisolated func dropPrefix(_ prefix: String) -> String? {
+        hasPrefix(prefix) ? String(dropFirst(prefix.count)) : nil
+    }
+}

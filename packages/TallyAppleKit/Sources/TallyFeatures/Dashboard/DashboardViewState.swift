@@ -81,7 +81,9 @@ public nonisolated enum DashboardBuilder {
     /// snapshot after sign-in/entering sample mode, per architecture.md §3.4: "no digest or
     /// grade alerts on the first snapshot").
     public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date) -> DashboardViewState {
-        let coursesByID = Dictionary(uniqueKeysWithValues: snapshot.courses.map { ($0.id, $0) })
+        // CS-07 A8 (crash-safety-2.md §8 A1): a repeated course ID trapped here. The first
+        // occurrence wins, as in TallyDomain's DashboardBuilder. This copy is deleted in step 6b.
+        let coursesByID = Dictionary(snapshot.courses.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         return DashboardViewState(
             hero: hero(courses: snapshot.courses),
@@ -122,7 +124,8 @@ public nonisolated enum DashboardBuilder {
     ) -> [DashboardViewState.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: String] = [:]
-        let courseOrder = Dictionary(uniqueKeysWithValues: snapshot.courses.enumerated().map { ($1.id, $0) })
+        // CS-07 A8 (§8 A2): a repeated course ID keeps its first (lowest) position.
+        let courseOrder = Dictionary(snapshot.courses.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for (course, groups, assignment) in openAssignments(in: snapshot, coursesByID: coursesByID) {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
@@ -139,7 +142,8 @@ public nonisolated enum DashboardBuilder {
                                                               modifiers: modifiers, courseCode: course.courseCode)
         }
 
-        let byID = Dictionary(uniqueKeysWithValues: ranked.map { ($0.item.assignmentID, $0) })
+        // CS-07 A8 (§8 A3): a repeated assignment ID; the first ranked occurrence wins.
+        let byID = Dictionary(ranked.map { ($0.item.assignmentID, $0) }, uniquingKeysWith: { first, _ in first })
         return PriorityScore.sorted(ranked.map(\.item)).prefix(3).map { rankedItem in
             let entry = byID[rankedItem.assignmentID]
             return DashboardViewState.NextUpItem(

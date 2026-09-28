@@ -41,19 +41,20 @@ struct SampleDataNoNetworkTests {
         #expect(FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 } == before)
     }
 
-    @Test("sample entry end to end (session, model, refresh) never triggers any URLSession request")
+    @Test("sample entry end to end (session, projector, Home model, refresh) never triggers any URLSession request")
     @MainActor
-    func noNetworkThroughSampleDataModel() async throws {
+    func noNetworkThroughTheHomeModel() async throws {
         URLProtocol.registerClass(FailOnAnyRequestURLProtocol.self)
         defer { URLProtocol.unregisterClass(FailOnAnyRequestURLProtocol.self) }
         let before = FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 }
 
-        let model = SampleDataModel()
+        let model = HomeModel(source: SampleSession())
         await model.start()
         await model.refresh()
-        for _ in 0..<100 where model.snapshot == nil { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<100 where model.phase != .loaded { try await Task.sleep(for: .milliseconds(10)) }
 
-        #expect(model.snapshot?.courses.count == 5)
+        #expect(model.dashboard.hero.courseCount == 5)
+        #expect(model.courses.count == 5)
         #expect(FailOnAnyRequestURLProtocol.invocationCount.withLock { $0 } == before)
     }
 }

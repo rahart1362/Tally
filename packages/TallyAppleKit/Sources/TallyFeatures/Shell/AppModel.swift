@@ -49,11 +49,12 @@ public final class AppModel {
     public private(set) var playsBrandMoment = true
     public private(set) var refreshCoordinator: RefreshCoordinator?
     public let refreshStatus = RefreshStatusModel()
-    /// The sample session's model while `route == .sample`. Built by `enterSample()` (pure
-    /// construction); it starts loading, off the main actor, from `sampleDidAppear()`.
-    public private(set) var sample: SampleDataModel?
-    /// Ends the previous sample session after `exitSample()`; owned here so it is never orphaned.
-    private let sampleTeardown = TaskBox()
+    /// The Home shell's model while `route == .sample`: a `HomeModel` over a `SampleSession`.
+    /// Built by `enterSample()` (pure construction); the shell's `.task` starts it, and every
+    /// fetch, digest and projection then runs off the main actor.
+    public private(set) var home: HomeModel?
+    /// Ends the previous session after `exitSample()`; owned here so it is never orphaned.
+    private let homeTeardown = TaskBox()
 
     public init() {}
 
@@ -65,30 +66,24 @@ public final class AppModel {
     }
 
     /// Welcome's (and "school not enabled"'s) "Explore with Sample Data": a root switch, never a
-    /// push. Only constructs the session's model (no I/O), so the shell paints in the same frame.
+    /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
     public func enterSample() {
         guard route == .welcome else { return }
-        sample = SampleDataModel()
+        home = HomeModel(source: SampleSession())
         route = .sample
-    }
-
-    /// The sample shell's `.task`: subscribe and load. The bundle I/O, replay, mapping, rebase and
-    /// digest all run off the main actor (`SampleSession`, `SampleDataCanvasGateway.make()`).
-    public func sampleDidAppear() async {
-        await sample?.start()
     }
 
     /// The SAMPLE DATA banner's "Exit": back to Welcome without replaying the brand moment, then
     /// the session ends (perf-app-runtime.md §4.3). The route switches first, in this call, so the
-    /// shell goes away and SwiftUI cancels its tasks; then `sampleTeardown` ends the session off
-    /// the view's lifetime: its streams finish and its snapshot is released.
+    /// shell goes away and SwiftUI cancels its tasks; then `homeTeardown` ends the model, its
+    /// projector and its session off the view's lifetime: streams finish, the snapshot is released.
     public func exitSample() {
         guard route == .sample else { return }
         playsBrandMoment = false
         route = .welcome
-        guard let ending = sample else { return }
-        sample = nil
-        sampleTeardown.replace(with: Task { await ending.end() })
+        guard let ending = home else { return }
+        home = nil
+        homeTeardown.replace(with: Task { await ending.end() })
     }
 
     /// Sign-in's first sync finished for `account`: a root switch to its Home shell, which releases

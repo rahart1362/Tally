@@ -60,6 +60,16 @@ jobs:
           fi
       - name: Perf budget checker self-test (scripts/ci/check_perf_budgets.py)
         run: python3 scripts/ci/check_perf_budgets.py --self-test
+      - name: View bodies only read and format (no clock, calendar, sorting, filtering or build calls)
+        # perf-app-runtime.md section 3 item 4 and section 7 step 6: projection happens off the
+        # main actor (HomeProjector); a body only reads projections and formats them.
+        run: |
+          python3 scripts/ci/check_view_bodies.py --self-test
+          python3 scripts/ci/check_view_bodies.py .
+          if git grep -n "\.build(" -- 'packages/TallyAppleKit/Sources/**/*View.swift'; then
+            echo "::error::A *View.swift file calls .build( (projection belongs in HomeProjector)"
+            exit 1
+          fi
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
