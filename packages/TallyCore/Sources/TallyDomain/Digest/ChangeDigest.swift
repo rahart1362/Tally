@@ -184,13 +184,23 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
 
     /// Flattens every course's assignment groups into one lookup by assignment ID.
     /// Canvas assignment IDs are unique account-wide, so this never collides across courses.
+    ///
+    /// R-4 (resilience.md, crash-safety-2.md F-10): a repeat, from data that bypassed the gateway,
+    /// keeps its **first** occurrence, in the order `LiveCanvasGateway`'s de-duplication uses:
+    /// courses in `courses` order, then any other course the groups are keyed by, in ID order;
+    /// groups in order, a repeated group skipped whole; assignments in order. It used to keep the
+    /// last, in `Dictionary` order, which changes from one process to the next.
     private static func assignmentsByID(
         _ snapshot: CanvasSnapshot
     ) -> [CanvasID<Assignment>: (courseID: CanvasID<Course>, assignment: Assignment)] {
+        var listed = Set<CanvasID<Course>>()
+        let listedOrder = snapshot.courses.map(\.id).filter { listed.insert($0).inserted }
+        let courseOrder = listedOrder + snapshot.groups.keys.filter { !listed.contains($0) }.sorted()
         var result: [CanvasID<Assignment>: (courseID: CanvasID<Course>, assignment: Assignment)] = [:]
-        for (courseID, groups) in snapshot.groups {
-            for group in groups {
-                for assignment in group.assignments {
+        for courseID in courseOrder {
+            var seenGroups = Set<CanvasID<AssignmentGroup>>()
+            for group in snapshot.groups[courseID] ?? [] where seenGroups.insert(group.id).inserted {
+                for assignment in group.assignments where result[assignment.id] == nil {
                     result[assignment.id] = (courseID, assignment)
                 }
             }

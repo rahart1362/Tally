@@ -93,8 +93,17 @@ public struct BackoffPolicy: Sendable {
         return delay < remainingBudget ? delay : nil
     }
 
+    /// R-4 (resilience.md, crash-safety-2.md F-8): the longest delay a policy can produce. `base`
+    /// and `maxDelay` are public, and a duration past this used to overflow the `Int64`
+    /// milliseconds below and trap.
+    public static let longestDelay: Duration = .seconds(3_600)
+
     /// `min(base · 2^attempt, maxDelay)` in seconds; the exponent stops growing at 16.
+    ///
+    /// R-4: `base` and `maxDelay` count as 0 when negative and `longestDelay` past it, and a
+    /// negative `attempt` as 0. A negative duration made `Double.random(in: 0...ceiling)` trap.
     private func ceilingSeconds(attempt: Int) -> Double {
-        min(base.timeInterval * Double(1 << min(attempt, 16)), maxDelay.timeInterval)
+        func bounded(_ duration: Duration) -> Double { min(max(duration, .zero), Self.longestDelay).timeInterval }
+        return min(bounded(base) * Double(1 << min(max(attempt, 0), 16)), bounded(maxDelay))
     }
 }
