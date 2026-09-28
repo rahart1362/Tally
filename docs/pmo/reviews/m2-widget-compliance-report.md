@@ -11,7 +11,35 @@ a local run in this worktree (the pinned `swift:6.4` container; scratch tools an
 git-ignored `.build-widget/`). Exit code 0 was never taken as evidence on its own. Anything not
 observed is marked UNVERIFIED.
 
-<!-- TODO: summary, tables and run results are completed after the CI runs. -->
+## 1. Summary
+
+- **W-1, the widget (plan 06 step 11): done.** A new target, `TallyGlance`, reads the glance and
+  nothing else (`SnapshotStore(…, sealer: VaultSealer(…, mayCreateKeys: false), isOwner: false)
+  .loadGlance()`, with a read-only, widget-audience-only Keychain reader); plans a timeline at each
+  due-item boundary, the next midnight and the stale time, `.after(first boundary)`; and draws two
+  small widgets, "Next up" (no grades) and the opt-in "Standing" (the grade band, hidden while
+  locked, R10). Without a Team ID (GL-02) the App Group Keychain gives -34018 and the widgets show
+  their placeholder text; one `withKnownIssue` records the round trip the platform blocks. Gates:
+  the widget's module closure and code (hygiene), its Release link map and its binaries' load
+  commands (ios-build; TallyFeatures and 7 other modules: 0 lines), and a hosted `XCTMemoryMetric`
+  budget (median delta 0 to 16 kB against 5,000 kB).
+- **W-2, ASC-03: done.** `check_privacy_manifest.py` derives each bundle's modules from
+  `project.yml` and `Package.swift`, scans them for Apple's required-reason APIs, and checks both
+  manifests; a hygiene step runs it. An undeclared `UserDefaults` fails it (locally and in MR1).
+- **W-3, ASC-10: done; the gate ran once.** `release-gate.yml` (dispatch only) produced a
+  96-check compliance report: 75 PASS, 18 PENDING (M3 and M5, each with its owner), 3 FAIL.
+  One FAIL is expected (M2-C1's cache-launch UI test is not merged). **Two were a real defect: the
+  built app was still iPad-capable (`UIDeviceFamily` [1, 2], ASC-F07)**, because XcodeGen's iOS
+  preset overrides a project-level device family. Fixed in `57afb5a` (two lines in `project.yml`),
+  with a hosted regression test and a corrected source check.
+- **W-4: O5, O8, O9, O11 and O12 done.** O12's test now asserts on the transport, with a 30 s
+  margin and deterministic delegate tests; the old race also failed PR #2's *required* ASan job.
+  **`ios-tsan` is required** from `<TSAN_COMMIT>`, after green full runs 36457770542 and
+  36488159412 (§6).
+- **Hand-off:** code `<HANDOFF_COMMIT>`, full run `<HANDOFF_RUN>` (§2).
+- **Mutations:** 13 local and 12 on CI (MR1, run 36465596888, plus MR2 for O11), each caught by the
+  test or gate meant for it; every file restored byte-identical (§5).
+
 
 ## W-1: the widget (plan 06 step 11)
 
@@ -176,6 +204,23 @@ Debug, and their Release variant is PENDING until the UITest configuration exist
 privacy-link and sign-out flows are PENDING with their M3 owners; first login with a mock OAuth
 server is M5 (ASC-11's PMO ruling).
 
+### The M2 run: 36465775989
+
+GitHub refuses to dispatch a workflow that is not on the default branch (HTTP 404, "workflow
+release-gate.yml not found on the default branch"), so the one M2 run was started by a temporary
+`push` trigger on this branch (`82f970e`), removed in the next commit (D9).
+
+Every job ran to completion. The merged `compliance.json` (artifact `compliance`) holds 96 checks:
+**75 PASS, 18 PENDING, 3 FAIL**, so the run is red, as it should be while those three fail.
+
+| Result | Checks |
+|---|---|
+| FAIL (expected) | `REL.flow.02-launch-with-cache`: M2-C1's `LaunchFromCacheUITests` is not on this branch (OI7) |
+| **FAIL (real)** | `REL.app.simulator.identity`, `REL.app.device.identity`: `UIDeviceFamily` [1, 2] in the built app (Release simulator build and unsigned device archive). ASC-F07 was not fixed: XcodeGen 2.46.0 applies its iOS platform preset (`TARGETED_DEVICE_FAMILY '1,2'`) at target level, overriding `project.yml`'s project-level `"1"`. `57afb5a` sets it on both targets; `REL.plist.device-family` now reads the targets (it had passed on the project-level value), and a hosted test checks both bundles' `UIDeviceFamily` on every CI run |
+| PASS, among others | Xcode 26.6; the Release simulator build and the device archive; the launch smoke test (alive after 10 s, 0 crash reports; also on iOS 27); flows 3 and 14, the Welcome CTAs and school search on a Release build (8/8), flows 5 and 6 on Debug (2/2), and the Release flows on iOS 27 (report-only); both built bundles carry a valid privacy manifest, and their binaries import no required-reason API symbol (`nm -u`, `otool`), matching the source scan; the widget is embedded with its own ID and the glance keys; no shipping identifier regressions |
+| PENDING (M3) | Flows 7, 8, 10, 11, 12, 13 (notifications, permissions, the privacy link, sign-out and erase), each with its owner |
+| PENDING (M5) | Flow 1 (first login with a mock server), flow 4, the Release variants of flows 5 and 6; version variables; owner values (GL-02), counsel (GL-03), the unlinked legacy packages; store metadata; the accessibility audit, the launch metric and screenshots (stubs) |
+
 ## W-4: carried-over items
 
 - **O5, transport timeouts (`6b42ec6`).** `URLSessionTransport` now sets
@@ -212,6 +257,49 @@ server is M5 (ASC-11's PMO ruling).
   floor pick and run need `build_for_testing` to have succeeded (they still run after a red test,
   D8), the Release device build needs a generated project, the binary gates need the device build,
   and the watchdog log needs the picked simulator.
+
+## 5. Mutation checks
+
+Every mutated file was restored byte-identical; the sha256 is the file's pre-mutation value,
+checked again after the restore.
+
+**Local** (Linux; the harness for the Swift ones, the real scripts for the gates):
+
+| ID | Mutation | File (sha256) | Caught by |
+|---|---|---|---|
+| W2 | An undeclared `UserDefaults` read in code linked into both bundles | `TallyDesignSystem/Spacing.swift` (`f51ed415…cfbbd`) | Hygiene ASC-03 step, both bundles: `ASC-03.app.api.UserDefaults`, `ASC-03.widget.api.UserDefaults` |
+| MWT1 | No midnight boundary | `GlanceTimeline.swift` (`daff724b…c96cb`) | 3 timeline tests |
+| MWT2 | Submitted items count as open | same | 3 timeline tests (6 issues) |
+| MWT3 | Stale only after more than 3 h (`>` for `>=`) | same | `staleBoundary` |
+| MWR1 | A Keychain failure reads as no glance | `GlanceReader.swift` (`aa5322bf…1b094`) | `keychainFailuresDegrade` |
+| MWR2 | The reader owns files (`isOwner: true`) | same | `purgedAccountIsSkipped`: "the widget removed the purged account's unreadable glance" |
+| MWS1 | `import TallyFeatures` in the widget | `TallyWidgets.swift` (`eb07f38a…857d1`) | Hygiene widget source gate |
+| MWS2 | `loadSnapshot()` in the reader | `GlanceReader.swift` (`aa5322bf…1b094`) | Hygiene widget source gate |
+| RM1 | A legacy identifier in shipping code | `GlanceStoreLocation.swift` (`46d2019b…83f63`) | `REL.go-live.shipping-identifiers` FAIL (M2), exit 1 |
+| RM2 | `NSFaceIDUsageDescription` with no caller | `project.yml` (`bdbcb54e…c5408`) | `REL.plist.purpose-strings` FAIL |
+| RM3 | The PENDING rule broken | `check_release.py` (`180a50db…3da46`) | `check_release.py --self-test` |
+| RM4 | The Tally target's `TARGETED_DEVICE_FAMILY` removed | `project.yml` (`f3706657…53ee`) | `REL.plist.device-family` FAIL, exit 1 |
+
+**CI, MR1** (run 36465596888 on `be09116`, quick; reverted in `3261c32`; the code is then identical
+to `97028da`):
+
+| ID | Mutation | File (sha256) | Caught by |
+|---|---|---|---|
+| W2 | An undeclared `UserDefaults` in TallyGlance (widget only) | `GlanceStoreLocation.swift` (`46d2019b…83f63`) | Hygiene ASC-03 step: `ASC-03.widget.api.UserDefaults` only (the app bundle, which does not link TallyGlance, passed) |
+| MW1 | The widget links TallyFeatures (dependency, import, a live reference) | `project.yml` (`bdbcb54e…c5408`), `TallyWidgets.swift` (`eb07f38a…857d1`) | Widget link gate: the Release link map names TallyFeatures (4,967 lines), TallySync, TallyCanvasAPI, TallyIntents, TallyReplay, TallySampleFixtures; the Debug widget dylib loads all six |
+| MW2 | The reader keeps 8 MB of touched memory per read | `GlanceReader.swift` (`aa5322bf…1b094`) | Widget memory budget: median 8,028 kB > 5,000 kB |
+| MW3 | The grade band drawn under `.privacy` (no branch, no `.privacySensitive()`) | `GlanceWidgetViews.swift` (`beb45421…36673`) | Both render tests: locked renderings of A and Passing differ; 8 distinct locked badges |
+| MW4 | The key reader answers for any audience | `WidgetVaultKeyReader.swift` (`3a8bfcc5…61ef8`) | `readerNeverAnswersForTheAppAudience`: the app key returned and the snapshot opened |
+| MW5 | -34018 reads as no glance | `GlanceReader.swift` | `productionGroupDegrades` (`.noGlance`, not `.unavailable`) and `keychainFailuresDegrade` |
+| MO5 | No resource timeout | `URLSessionTransport.swift` (`fadb3b5c…15d9f`) | `timeouts`: 604800 ≠ 60 |
+| MA5a | An over-cap `Content-Length` no longer refused at the headers | same | The reworked cap test (`.timedOut` after 30.07 s, a chunk delivered) and the delegate test (`.allow`, not `.cancel`) |
+| MS3 | `.refreshable` returns at once | `DashboardView.swift` (`013e4138…16474`) | The pull test's second signal ("the breadcrumb was not up within 1.0 s of the pull returning … the pull blocked 5.67 s") and its lower bound (5.67 < 9.0), both recorded |
+
+One more failure in MR1 is not a mutation's: `SampleDataUITests.testWelcomeToSampleDataDashboard`,
+the SAMPLE DATA banner not up 10 s after the sample-entry tap (the O9 symptom in a suite that does
+not use the re-tap helper; recorded, not debugged). The floor run failed the same 8 hosted tests.
+
+**CI, MR2 (O11):** `<MR2_RESULT>`
 
 ## Shared files I edited (all additive)
 
