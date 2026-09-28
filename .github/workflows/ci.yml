@@ -103,6 +103,14 @@ jobs:
             echo "::error::A *View.swift file calls .build( (projection belongs in HomeProjector)"
             exit 1
           fi
+      - name: Privacy manifests declare every required-reason API the shipping code uses (ASC-03)
+        # app-store-compliance.md R2: App Store Connect rejects an upload whose code uses a
+        # required-reason API that its bundle's PrivacyInfo.xcprivacy does not declare. The script
+        # scans the code linked into each bundle (app, widget; from project.yml and Package.swift),
+        # checks the reason codes, tracking, and the collected data against the privacy policy.
+        run: |
+          python3 scripts/ci/check_privacy_manifest.py --self-test
+          python3 scripts/ci/check_privacy_manifest.py .
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
