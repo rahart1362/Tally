@@ -28,8 +28,17 @@ struct DashboardView: View {
                     ContentUnavailableView("No dashboard yet", systemImage: "house",
                                            description: Text("Sign in, or explore with sample data, to see your dashboard."))
                         .padding(.top, TallySpacing.xxxl)
+                case .glance:
+                    // perf-app-runtime.md §2.4 L4 (decision D-P1): the sealed glance's hero count and
+                    // due-soon rows paint first; the rest are skeletons until the full projection.
+                    HeroSection(hero: model.dashboard.hero, isGlance: true)
+                        .onAppear { LaunchSignpost.glancePainted() }
+                    GlanceSkeletonSection(title: "Next up")
+                    GlanceSkeletonSection(title: "Needs attention")
+                    DueSoonSection(items: model.dashboard.dueSoon)
                 case .loaded:
                     HeroSection(hero: model.dashboard.hero)
+                        .onAppear { LaunchSignpost.glancePainted() }
                     if let summary = model.dashboard.changeDigestSummary {
                         ChangeDigestChip(summary: summary)
                     }
@@ -82,6 +91,8 @@ private struct DashboardLoadingView: View {
 /// freshness re-renders that footer only.
 private struct HeroSection: View {
     let hero: DashboardProjection.Hero
+    /// The launch's glance paint: the percentage is a skeleton until the full projection.
+    var isGlance = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
@@ -90,7 +101,14 @@ private struct HeroSection: View {
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
 
-                if let percent = hero.overallPercent {
+                if hero.overallPercent == nil, hero.courseCount > 0, isGlance {
+                    // The glance carries no percentage (encryption.md §3.3): a skeleton, never "0%".
+                    Text("00.0%")
+                        .font(.system(.largeTitle, design: .serif).bold())
+                        .foregroundStyle(TallyColor.textOnHero)
+                        .redacted(reason: .placeholder)
+                        .accessibilityHidden(true)
+                } else if let percent = hero.overallPercent {
                     HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
                         Text(percent.formatted(.number.precision(.fractionLength(1))) + "%")
                             .font(.system(.largeTitle, design: .serif).bold())
@@ -130,6 +148,30 @@ private struct HeroSection: View {
         case .failing: "Failing"
         case .unknown: ""
         }
+    }
+}
+
+// MARK: - Glance skeletons
+
+/// A section the glance cannot fill (it carries no priorities or alerts): its header and two
+/// redacted rows, never fabricated values.
+private struct GlanceSkeletonSection: View {
+    let title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.sm) {
+            SectionHeader(title: title)
+            ForEach(0..<2, id: \.self) { _ in
+                Text("Loading this section")
+                    .font(TallyTypography.cardTitle)
+                    .padding(TallySpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.card, style: .continuous))
+                    .redacted(reason: .placeholder)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), loading")
     }
 }
 

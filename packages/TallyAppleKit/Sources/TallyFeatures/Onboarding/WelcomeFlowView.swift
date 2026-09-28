@@ -5,33 +5,24 @@ import TallyDesignSystem
 /// `RootRoute.welcome`: onboarding's `NavigationStack` (Welcome, school search, sign-in hand-off,
 /// first sync), per the iOS 26 navigation shell in ux-ui.md §3.4. `RootView` creates a new
 /// instance each time the route becomes `.welcome`, so the stack's path always starts empty.
+///
+/// Sign-in's first sync (plan 06 step 9) is the stack's last page, a plain page: when it finishes,
+/// `AppModel.finishFirstSync()` switches the root to the signed-in Home, which removes this whole
+/// stack. There is no signed-in page inside it.
 struct WelcomeFlowView: View {
-    let playsBrandMoment: Bool
-    let webAuthPresenter: any WebAuthPresenting
-    let tokenExchange: any TokenExchanging
-    /// A root switch (`AppModel.enterSample()`), from Welcome and from "school not enabled" alike.
-    let onExploreSampleData: () -> Void
+    let appModel: AppModel
+    /// The sign-in pages' platform services (the composition root's).
+    let signIn: SignInServices
 
     @State private var path: [WelcomeRoute] = []
-
-    init(
-        playsBrandMoment: Bool,
-        webAuthPresenter: any WebAuthPresenting,
-        tokenExchange: any TokenExchanging,
-        onExploreSampleData: @escaping () -> Void
-    ) {
-        self.playsBrandMoment = playsBrandMoment
-        self.webAuthPresenter = webAuthPresenter
-        self.tokenExchange = tokenExchange
-        self.onExploreSampleData = onExploreSampleData
-    }
 
     var body: some View {
         NavigationStack(path: $path) {
             WelcomeView(
-                playsBrandMoment: playsBrandMoment,
+                playsBrandMoment: appModel.playsBrandMoment,
                 onFindSchool: { path.append(.findSchool) },
-                onExploreSampleData: onExploreSampleData
+                // A root switch (`AppModel.enterSample()`), from Welcome and from "school not enabled" alike.
+                onExploreSampleData: { appModel.enterSample() }
             )
             .navigationDestination(for: WelcomeRoute.self) { route in
                 destination(for: route)
@@ -45,8 +36,8 @@ struct WelcomeFlowView: View {
         case .findSchool:
             SchoolSearchView(
                 viewModel: SchoolSearchViewModel(
-                    search: UnavailableInstitutionSearch(),
-                    registry: ClientRegistry([]),
+                    search: signIn.institutionSearch,
+                    registry: signIn.registry,
                     reachability: PathMonitorReachability()
                 ),
                 onSelectEnabled: { match, registration in
@@ -58,53 +49,26 @@ struct WelcomeFlowView: View {
                 }
             )
         case .schoolNotEnabled(let school):
-            SchoolNotEnabledView(school: school, onExploreSampleData: onExploreSampleData)
+            SchoolNotEnabledView(school: school, onExploreSampleData: { appModel.enterSample() })
         case .signIn(let host, let clientID, let schoolDisplayName):
             SignInHandoffView(
                 viewModel: SignInHandoffViewModel(
                     host: host, clientID: clientID, schoolDisplayName: schoolDisplayName,
-                    presenter: webAuthPresenter, tokenExchange: tokenExchange,
+                    presenter: signIn.webAuthPresenter, tokenExchange: signIn.makeTokenExchange(host, clientID),
                     redirectURI: SignInHandoffViewModel.defaultRedirectURI,
-                    onSuccess: { _ in
-                        // No CredentialStore is wired in yet (SEC WP-SEC-04, a platform-
-                        // adapters work package): a real, unpersisted CanvasCredential is
-                        // handed here and intentionally goes no further than this navigation.
+                    onSuccess: { credential in
+                        // perf-app-runtime.md §2.4 S2 → S4: the credential goes to `AppModel` (never into
+                        // the navigation path), which builds the first sync; then the page is pushed.
+                        appModel.signInSucceeded(credential, target: SignInTarget(
+                            host: host, clientID: clientID, schoolDisplayName: schoolDisplayName))
                         path.append(.firstSync(schoolDisplayName: schoolDisplayName))
                     }
                 ),
                 // Only while this page is on top (plan 06 A8): never traps on an empty path.
                 onChooseDifferentSchool: { WelcomePath.pop(route, from: &path) }
             )
-        case .firstSync(let schoolDisplayName):
-            FirstSyncSkeletonView(
-                viewModel: FirstSyncViewModel(
-                    schoolDisplayName: schoolDisplayName,
-                    publisher: UnavailableFirstSyncPublisher()
-                ),
-                onRetry: { WelcomePath.restart(route, in: &path) },
-                onFinished: {
-                    path.append(.signedIn(schoolDisplayName: schoolDisplayName))
-                }
-            )
-        case .signedIn(let schoolDisplayName):
-            SignedInPlaceholder(schoolDisplayName: schoolDisplayName)
+        case .firstSync:
+            FirstSyncPage(appModel: appModel, onChooseDifferentSchool: { path.removeAll() })
         }
-    }
-}
-
-/// As far as onboarding goes today: a real sign-in completed, but the signed-in Home it hands off
-/// to needs the account session from sign-in's first sync (perf-app-runtime.md §7 step 9).
-private struct SignedInPlaceholder: View {
-    let schoolDisplayName: String
-
-    var body: some View {
-        ContentUnavailableView(
-            "Signed in to \(schoolDisplayName)",
-            systemImage: "checkmark.circle.fill",
-            description: Text("The dashboard and first sync land in a later milestone.")
-        )
-        .background(TallyColor.bgCanvas)
-        .navigationTitle("Welcome")
-        .navigationBarTitleDisplayMode(.large)
     }
 }

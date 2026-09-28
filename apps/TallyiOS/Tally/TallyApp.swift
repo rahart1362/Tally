@@ -11,17 +11,23 @@ import TallySync
 /// handler exactly once, replacing the old `BackgroundSyncManager.shared
 /// .registerTask()` call from inside a view's `init` (ARC-02: Apple kills an
 /// app that registers the same task identifier twice).
+///
+/// The launch (perf-app-runtime.md §2.4): L1 is this `init` (the `Launch.GlancePaint` signpost
+/// begins before anything else, then the pure `AppEnvironment.live()`); L2 is `RootView`'s first
+/// frame, the launch colour; `AppModel.launch()` does the rest off the main actor.
 @main
 struct TallyApp: App {
-    @State private var environment = AppEnvironment.live()
+    @State private var environment: AppEnvironment
 
     init() {
+        LaunchSignpost.begin()
         #if DEBUG
         // perf-app-runtime.md §5.1: DEBUG-only main-thread hang detection, armed before the
         // first frame. UI tests run it in `report:250` mode (`TallyUITestCase`; step 4's CI
         // calibration showed a fatal UI-test threshold cannot be both meaningful and green).
         MainThreadWatchdog.arm()
         #endif
+        _environment = State(initialValue: AppEnvironment.live())
     }
 
     var body: some Scene {
@@ -35,13 +41,13 @@ struct TallyApp: App {
         // reference itself is `Sendable`).
         let logger = environment.logger
         let appModel = environment.appModel
-        let webAuthPresenter = environment.webAuthPresenter
+        let signIn = environment.signIn
         let accountRuntime = environment.accountRuntime
         // "Refresh Tally"'s `RefreshIntentBridge` is set and cleared by
         // `AppModel.attach(_:)`/`detach()` (perf-app-runtime.md §7 step 1),
         // never here: `body` stays free of side effects.
         return WindowGroup {
-            RootView(appModel: appModel, webAuthPresenter: webAuthPresenter)
+            RootView(appModel: appModel, signIn: signIn)
                 .task {
                     logger.log(.appLaunch)
                     #if DEBUG
@@ -54,11 +60,9 @@ struct TallyApp: App {
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             logger.log(.backgroundRefreshInvoked)
-            // perf-app-runtime.md §7 step 7: one run through the account's
-            // one coordinator (single-flight with the foreground), resolved
-            // lazily by the runtime. With no account it is an honest no-op,
-            // and it does real work the moment sign-in installs one, with no
-            // change at this call site.
+            // perf-app-runtime.md §7 step 7: one run through the account's one coordinator
+            // (single-flight with the foreground), resolved lazily by the runtime from
+            // `accounts.json` and the cached snapshot (B2). With no account it is an honest no-op.
             await accountRuntime.backgroundRefresh()
         }
     }
