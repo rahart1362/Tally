@@ -39,8 +39,8 @@ observed is marked UNVERIFIED.
 - **Hand-off:** the code is final at `d0a94f9`; this report and the journal are committed on top
   (docs only). The full hand-off run is on the report's own commit, so its ID and results are in
   the reply to the PMO, not here.
-- **Mutations:** 13 local and 12 on CI (MR1, run 36465596888, plus MR2 for O11), each caught by the
-  test or gate meant for it; every file restored byte-identical (§7).
+- **Mutations:** 12 local and 10 on CI (9 in MR1, run 36465596888; 1 in MR2, run 36490284006),
+  each caught by the test or gate meant for it; every file restored byte-identical (§7).
 
 
 ## 2. Per-package evidence
@@ -52,14 +52,14 @@ newest iOS 26 simulator; "floor" is TallyAppTests on iOS 26.2.
 
 | Package | Commits | CI runs | Job results | Test counts | Mutation checks |
 |---|---|---|---|---|---|
-| W-1 widget | `2a78c1c`, `4012d88`, `43c474f`, `d2dfe76`, `c606b33`, `bfc77a3` | Q2 36442668566; F1 36453374066; F2 36457770542; F3 36488159412; hand-off | Widget link gate and memory budget PASS in all four; F1 ios-tsan aborted in the metric test (§3, "The TSan abort"), fixed by `bfc77a3` | 31 new tests (reader 10, timeline 9, Keychain 6 + `iPhoneOnly`, views 6, memory 1); Linux harness 19 × 3 runs + TSan | Local MWT1-3, MWR1-2, MWS1-2; CI MW1-MW5 (§7) |
+| W-1 widget | `2a78c1c`, `4012d88`, `43c474f`, `d2dfe76`, `c606b33`, `bfc77a3` | Q2 36442668566; F1 36453374066; F2 36457770542; F3 36488159412; hand-off | Widget link gate and memory budget PASS in all four; F1 ios-tsan aborted in the metric test (§3, "The TSan abort"), fixed by `bfc77a3` | 33 new tests (reader 10, timeline 9, Keychain 7 with `iPhoneOnly`, views 6, memory 1); Linux harness 19 × 3 runs + TSan | Local MWT1-3, MWR1-2, MWS1-2; CI MW1-MW5 (§7) |
 | W-2 ASC-03 | `03b629f` | Q1 36437746888 and every run since | hygiene green; 11 checks PASS | Self-test 17 checks | Local W2; CI W2 (MR1) |
 | W-3 ASC-10 | `06da76c`, `6924e1e`, `0568daa`, `1f39c3e`, `3c8a273`; trigger `82f970e` (removed) | Release gate 36465775989 | Ran to completion: 75 PASS, 18 PENDING, 3 FAIL (§5) | Self-test 16 checks; source 25 PASS, 5 PENDING | Local RM1-RM4 |
 | ASC-F07 fix | `57afb5a` | F3 36488159412 | `iPhoneOnly` passed on iOS 26.5, 26.2 (floor), under TSan and ASan, and on iOS 27 | +1 test | Local RM4 |
 | O5 timeouts | `6b42ec6` | Q1 and every run since | Green | `timeouts` | CI MO5 |
 | O12 TSan race | `92b92f9` | F1, F2, F3 (ios-tsan) | The O12 test passed in every run (0.005 to 1.299 s; its margin is 30 s) | 3 new tests | CI MA5a |
 | O8 second signal | `70daf8a` | Q1 and every run since | The pull test passed in Q1, Q2, F1, F2; F3 failed its old upper bound once (§6) | — | CI MS3 |
-| O9 re-tap, sanitizer waits | `a6e67ca`, `94f5cf9` | F1, F2, F3 | UI tests under ASan: F1 192/192 (app + UI), F2 and F3 `ios-asan-ui` 10/10, 0 ASan reports | — | A helper; its evidence is PR #2's two failures (§6) |
+| O9 re-tap, sanitizer waits | `a6e67ca`, `94f5cf9` | F1, F2, F3 | UI tests under ASan: F1 (the pre-split app + UI job) 192 total, 190 passed, 2 expected; F2 and F3 `ios-asan-ui` 10/10; 0 ASan reports | — | A helper; its evidence is PR #2's two failures (§6) |
 | O11 step conditions | `3d64bd9` | MR2 36490284006 | The after-failure steps skipped | — | CI MR2 |
 | ios-tsan required | `d0a94f9` | Hand-off | — | — | — |
 
@@ -138,7 +138,7 @@ Foundation and TallyCore, so a scratch harness also ran them on Linux (Swift 6.4
 |---|---|---|
 | `WidgetGlanceReaderTests` | 10 | The committed glance is read with the widget's keys alone; the snapshot cannot be opened with them (`keyMissing`) and no store file changes; no container is `unavailable`, no account directory `noAccount` (hidden entries and files ignored), a prepared account `noGlance`; a locked Keychain is `locked` and -34018 is `unavailable`, deleting nothing; a purged account is skipped and nothing of it is removed; the newer of two glances wins; the widget's sealer cannot seal; the Info.plist values (a Team ID prefix used, anything else counted as none); the store root path |
 | `WidgetGlanceTimelineTests` | 9 | The boundaries (each open item's due time, the next midnight, the stale time; submitted and excused items are none) and `.after(first boundary)`; the summary now and at a due time (the item turns overdue); day words at midnight; stale at exactly 3 h; at most `glanceDueItemLimit` due entries; a grade only when the glance was built with grades; the message plans and their retries; the next midnight across a DST change |
-| `WidgetGlanceKeychainTests` (`.serialized`) | 6 | Against the real Keychain: the reader finds the key `KeychainVaultKeyStore` wrote (parity) and reads the glance; it never answers for the app audience, so the snapshot does not open; every write throws `readOnlyProcess`; the production access group degrades to the placeholder (-34018 on this runner) or, where entitled, to `noGlance`; **one `withKnownIssue`**, forced by the platform: the App Group round trip needs a Team ID (GL-02), and when GL-02 lands the known issue stops occurring and the test fails, the signal to remove it; the embedded widget's Info.plist carries the app's bundle ID, the App Group and a valid Team ID prefix, and both bundles ship their privacy manifest |
+| `WidgetGlanceKeychainTests` (`.serialized`) | 7 | Against the real Keychain: the reader finds the key `KeychainVaultKeyStore` wrote (parity) and reads the glance; it never answers for the app audience, so the snapshot does not open; every write throws `readOnlyProcess`; the production access group degrades to the placeholder (-34018 on this runner) or, where entitled, to `noGlance`; **one `withKnownIssue`**, forced by the platform: the App Group round trip needs a Team ID (GL-02), and when GL-02 lands the known issue stops occurring and the test fails, the signal to remove it; the embedded widget's Info.plist carries the app's bundle ID, the App Group and a valid Team ID prefix, and both bundles ship their privacy manifest; `iPhoneOnly`: both bundles declare `UIDeviceFamily` [1] (ASC-F07, `57afb5a`) |
 | `WidgetGlanceRenderTests` (`@MainActor`, `ImageRenderer`) | 6 | Under `.redacted(reason: .privacy)` the Standing widget and the grade badge render the same pixels for every band, and different ones without it; the Next up widget's pixels never depend on the glance's grades; every state renders; the copy; and `oneTimelineEndToEnd`: the memory test's work once, with no `measure` (commit with real Keychain items, read, plan, `Timeline`, render both widgets for every entry), so it runs under both sanitizers |
 | `WidgetGlanceTests` (XCTest) | 1 | The memory gate: `XCTMemoryMetric` and `XCTClockMetric` over 5 iterations of read, plan, `Timeline` and a render of both widgets, on the largest glance the builder writes (every due slot, 12 courses, grades on), with real Keychain items. Skipped under a sanitizer (see "The TSan abort" below) |
 
