@@ -17,7 +17,7 @@
       "unit": "s",
       "median_max": 0.300,
       "device_target": "L1 (TallyApp.init) to L4 (the glance painted) <= 300 ms warm, on device (TallyConfig.warmStartBudget)",
-      "source": "perf-app-runtime.md §2.4 and §5.2; plan 07 §3 item 1: Launch.GlancePaint median <= 300 ms on the CI simulator. The metric's identifier and display name are UNVERIFIED until the first ios-perf run prints them (PERF-REPORT lines)"
+      "source": "perf-app-runtime.md §2.4 and §5.2; plan 07 §3 item 1: Launch.GlancePaint median <= 300 ms on the CI simulator. Identifier and display name as CI run 36454268485 printed them; its median there was 1.9696 s (FAIL; docs/pmo/reviews/m2-lifecycle-report.md §3)"
     }
   ]
 }

@@ -119,6 +119,7 @@ public final class AppModel {
     public func launch() async {
         guard route == .launching, !isLaunching else { return }
         isLaunching = true
+        LaunchSignpost.enterPhase(LaunchSignpost.resolve)
         #if DEBUG || TALLY_TEST_HOOKS
         if let testHooks, let accountEnvironment { await testHooks.prepareLaunch(accountEnvironment) }
         #endif
@@ -144,10 +145,12 @@ public final class AppModel {
     func apply(_ resolution: LaunchResolution) {
         guard route == .launching else { return }
         guard let account = resolution.account else {
+            LaunchSignpost.enterPhase(nil)
             lock.configure(with: .disabled)
             route = .welcome
             return
         }
+        LaunchSignpost.enterPhase(LaunchSignpost.homeRender)
         lock.configure(with: resolution.lock)
         let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime))
         if let glance = resolution.glance { home.showGlance(glance) }
