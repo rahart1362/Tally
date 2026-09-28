@@ -185,7 +185,9 @@ jobs:
   ios-build:
     name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
-    timeout-minutes: 45
+    # 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
+    # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -269,17 +271,6 @@ jobs:
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
             IOS_ONLY_TESTING=-only-testing:TallyAppTests IOS_RESULT_NAME=Tally-floor
-      # Diagnosis (plan 06 A2): since step 5 the floor run aborts before its first test
-      # ("Test crashed with signal abrt while preparing to run tests", run 36374124903). This
-      # second report-only floor run skips the one XCTest class, to tell whether it is the trigger.
-      - name: TallyAppTests on the deployment floor, without SampleLoadPerformanceTests (diagnosis)
-        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
-        continue-on-error: true
-        run: |
-          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.floor.outputs.udid }}" \
-            IOS_ONLY_TESTING="-only-testing:TallyAppTests -skip-testing:TallyAppTests/SampleLoadPerformanceTests" \
-            IOS_RESULT_NAME=Tally-floor-noxctest
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
         run: make ios-summary IOS_RESULT="$RUNNER_TEMP/ios/Tally.xcresult"
