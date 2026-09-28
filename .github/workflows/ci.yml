@@ -253,8 +253,8 @@ jobs:
             IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
-        # The report-only floor runs below run even after a red test above, so a failure there
-        # never hides the floor's own result (run 36378109668 skipped them).
+        # The floor run below runs even after a red test above, so a failure there never
+        # hides the floor's own result (run 36378109668 skipped it).
         if: ${{ !cancelled() }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
@@ -262,10 +262,10 @@ jobs:
       # The app supports iOS 26.0, but the test above runs on the newest 26.x.
       # Some runtime bugs affect only early 26.x releases (swiftlang/swift#88036,
       # fixed in 26.4), so the hosted tests also run on the lowest 26.x here.
-      # Report-only until its first green runs (PMO), then it becomes required.
-      - name: TallyAppTests on the deployment-floor runtime (report-only for now)
+      # Required since 2026-09-28 (PMO, plan 06 A2): green in runs 36394287625, 36406525219,
+      # 36418727234 and 36422438707 after the #88036 fix (b02c05a).
+      - name: TallyAppTests on the deployment-floor runtime (iOS 26.x floor, required)
         if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
-        continue-on-error: true
         run: |
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
@@ -379,7 +379,7 @@ jobs:
           retention-days: 7
 
   ios-tsan:
-    name: iOS ThreadSanitizer (TallyAppTests; report-only until first green)
+    name: iOS ThreadSanitizer (TallyAppTests; report-only until O12 is fixed)
     runs-on: macos-26
     timeout-minutes: 60
     # Plan 06 A7: required once it is first green (PMO).
@@ -412,11 +412,11 @@ jobs:
           grep -n -A40 -m1 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
 
   ios-asan:
-    name: iOS AddressSanitizer (app + UI tests; report-only until first green)
+    name: iOS AddressSanitizer (app + UI tests)
     runs-on: macos-26
     timeout-minutes: 75
-    # Plan 06 A7: required once it is first green (PMO).
-    continue-on-error: true
+    # Plan 06 A7: required since 2026-09-28 (PMO). 0 ASan reports and green in runs
+    # 36394287625, 36406525219, 36418727234 and 36422438707.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode

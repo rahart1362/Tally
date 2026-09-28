@@ -2,7 +2,7 @@
 
 **Owner mandate (2026-09-27):** "Ensure memory, storage, data rehydration/loading is as efficient as possible. Take those findings and merge/integrate them with the next iteration … I need you to directly ensure the core of this app will not crash or have any performance issues."
 
-**Status:** FINAL for Iteration A (2026-09-27). Perf-core and crash-safety are PMO-verified and merged into `pmo/assessment` (`81e803c`, `1ec17ff`). CI gates were added in `efc02d5`. Two TallyCore follow-ups are in flight and will land on `pmo/assessment` during Iteration A: sync hardening SH-1..SH-5 (`m2/sync-hardening`) and core algorithms PERF-05 (`m2/perf-algorithms`).
+**Status:** Iteration A is **DONE**. The PMO verified it and merged it on 2026-09-28 (`81d3927`; report: `docs/pmo/reviews/app-core-iteration3-report.md`; PMO rulings on its open items are in the journal). Iteration B (§4) is next, from protected `main`. The original status line follows. FINAL for Iteration A (2026-09-27). Perf-core and crash-safety are PMO-verified and merged into `pmo/assessment` (`81e803c`, `1ec17ff`). CI gates were added in `efc02d5`. Two TallyCore follow-ups are in flight and will land on `pmo/assessment` during Iteration A: sync hardening SH-1..SH-5 (`m2/sync-hardening`) and core algorithms PERF-05 (`m2/perf-algorithms`).
 
 ## 1. Inputs and PMO verification
 
@@ -105,6 +105,7 @@ It also carries the leftovers: DM-01, DM-02, FX-01, FAM-04/05, and the digest-th
 - **PERF-06**: profile the 5-6x Apple-silicon gap in the `PriorityScore`/`AlertEngine` per-item passes (`core-perf-apple`, run 36369710838), using `xctrace` on the macOS runner.
 - **CS-07** (in flight): duplicate IDs must never trap.
 - **`ReminderPlanner`** quiet-hours shifting accounts for 82-87% of its stress cost.
+- **Carried over from the Iteration A report:** O4 (`GradeWork` callers), O5 (transport timeouts), O8 (the pull test's second signal), O9 (a starved-simulator tap), O11 (`ios-build` step results after an early failure), and O12 (the `URLSessionTransportTests` TSan race; then make `ios-tsan` required).
 
 ## 5. Core API changes app-core adopts at step 0
 

@@ -523,3 +523,31 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 ## 2026-09-28 | App-core iteration 3: the final code's CI run; O12 (report update, docs only)
 **Run 36418727234 on 8622bd3 (code d2fdcd5: 5c90f32 + the merges of pmo/assessment @ ba684b2 and @ bbc4f57)**: every required job success. hygiene; core-linux 607 tests (the 4 known issues); lint 0 violations in 149 files; core-sanitizers 607 tests under TSan and 607 under ASan, 0 TSan warnings, 0 ASan errors, 0 time-limit issues (the R-2 and R-3 suites passed after 242 s under TSan, inside their scaled limits; R-1's test passed); ios-build: TallyCore on Xcode 607 (O10's test passed after 12.5 s), main xcresult 161 total = 150 Swift Testing + 1 XCTest + 10 UI, 160 passed, 1 expected, 0 failed; smallest iPhone (iPhone 16e) 2/2; floor (iOS 26.2) 151 total, 150 passed, 1 expected, 0 failed; link map TallyTestSupport 0 lines (TallyReplay 341); no isolated deinit in 38 Mach-O files; bundle id dev.tally-app.tally; watchdog 14 launch-phase stalls (max 1562 ms), 46 interactive (max 882 ms); 29 min 18 s. Report-only: ios-asan 158 total, 157 passed, 1 expected, 0 ASan reports; Xcode 27 161 total, 160 passed, 1 expected; ios-perf 0.0345 s <= 0.15 s; core-perf (`dashboardBuild/stress` 9.02 ms) and core-perf-apple (31.80 ms) success.
 **O12, ios-tsan failure (report-only)**: 148 total, 146 passed, 1 expected, 1 failed, 0 TSan reports. My 7b A5 test `URLSessionTransportTests.overCapContentLengthIsRefusedAtTheHeaders`: the transport threw `TransportError.other` (refused), but the stub had pushed 109 one-byte chunks before `stopLoading` reached it, against the test's `deliveredChunks == 0`; 1.8 s, where the 6 other non-mutation ios-tsan runs took 0.019-0.027 s. 109 bytes is under the 1,000-byte cap, so the header check, not the running count, cancelled the task. The stub's 500 ms first-chunk delay is the whole margin. Not changed at the checkpoint (a test change needs its own CI run and mutation check); fix before making ios-tsan required (report O1, O12).
+
+## 2026-09-28 | PMO checkpoint: app-core Iteration A verified and merged (merge 81d3927)
+**Verified**: I re-read the app-core head `f9d9bd3` myself.
+- CI run 36422438707: all 11 jobs success.
+  - Main xcresult: 161 total, 160 passed, 1 expected, 0 failed.
+  - Floor (iOS 26.2): 151 total, 150 passed, 1 expected, 0 failed.
+  - The binary gates step passes: no TallyTestSupport in the link map, and no `swift_task_deinitOnExecutor`.
+  - The app identity is `dev.tally-app.tally`, and TallyCore on Xcode ran 607 tests.
+- On the merge result, locally: `make core-test` 607 tests, 0 failures; `make lint` 0 violations in 149 files (app code included); all 10 hygiene steps pass.
+
+**Highlights**:
+- The iOS 26.0-26.3 floor abort was swiftlang/swift#88036. In a default-`MainActor` module, implicit deinits are isolated even under an explicit `@MainActor`, so plan 06 A2's premise was wrong. It is fixed with an explicit `nonisolated deinit {}` on 6 classes, the sample fixtures moved out of TallyFeatures, and an `nm` gate.
+- Step 7's red UI test was a test-timing error: XCUITest blocks while the pull spinner runs. The screen recording confirmed the breadcrumb appears at the 10 s budget.
+
+**PMO rulings on the open items** (`docs/pmo/reviews/app-core-iteration3-report.md` §9):
+- **O1:** the floor step and `ios-asan` are **required** from now on, both green in 4 runs. `ios-tsan` stays report-only until O12 is fixed.
+- **O2 (the watchdog in UI tests):** accept `report:250`. Calibration showed launch and XCUITest stalls on the Debug simulator that are not Tally code. The gate is the hosted stall-budget test: 50 ms Debug, 25 ms Release. Device hang profiling (Instruments Hangs, Release) is added to the owner's device calibration (D-P3).
+- **O3 (the deployment target):** stays at iOS 26.0. The A2 `nm` gate keeps #88036 out.
+- **O10 (the sync tests' 5 s windows):** fixed by the PMO in `d7a2f2b`; they now scale with `TestTimeBudget`.
+- **O7 (the CS-08 flakes):** fixed by the PMO in `ba684b2` and `bbc4f57`.
+- **To Iteration B:**
+  - O4 (`GradeWork` callers);
+  - O5 (`URLSessionTransport` timeouts: set `timeoutIntervalForRequest` and `timeoutIntervalForResource`);
+  - O8 (the pull test's second signal);
+  - O9 (a starved-simulator tap);
+  - O11 (misleading `ios-build` step results after an early failure);
+  - O12 (the `URLSessionTransportTests` race under TSan; then make `ios-tsan` required).
+- **Correction:** the "2-vCPU runner" in the journal (above) and in `ba684b2`'s commit message was never verified. GitHub documents 4 vCPUs for public-repo `ubuntu-latest`.
