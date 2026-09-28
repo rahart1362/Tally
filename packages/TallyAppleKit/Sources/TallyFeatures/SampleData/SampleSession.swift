@@ -62,7 +62,10 @@ public actor SampleSession: HomeDataSource {
     }
 
     public func refresh(_ trigger: RefreshTrigger) async {
-        // MUTATION M5d: no single-flight join
+        if let inFlight {
+            await inFlight.value
+            return
+        }
         guard !hasEnded else { return }
         let run = Task { await self.performRefresh(trigger) }
         inFlight = run
@@ -87,7 +90,7 @@ public actor SampleSession: HomeDataSource {
         let now = clock.now()
         record.began(trigger, at: now)
         publish()
-        // MUTATION M7f: no delayed signal
+        scheduleDelayedSignal()
         defer { delayedSignal?.cancel() }
         do {
             #if DEBUG

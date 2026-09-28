@@ -19,7 +19,7 @@ public final class HomeModel {
     /// (`swift_task_deinitOnExecutor`) aborts iOS 26.0-26.3 runtimes when it runs nested or in a
     /// task-local scope (swiftlang/swift#88036; the floor abort in CI run 36390172728). CI's `nm`
     /// gate keeps isolated deinits out of every shipping binary.
-    // MUTATION MA2b: the explicit nonisolated deinit removed (the implicit one is isolated)
+    nonisolated deinit {}
 
     public enum Phase: Equatable, Sendable {
         /// Waiting for the first projection: the shell shows skeletons.
@@ -94,7 +94,6 @@ public final class HomeModel {
     /// The hero's refresh button (perf-app-runtime.md §1.4 H9): starts the manual refresh, or joins
     /// the one already going. Never an unstructured `Task` in the view.
     public func requestRefresh() {
-        manualRun = nil // MUTATION M7e: a tap replaces (cancels) the run in flight
         _ = manualRefreshRun()
     }
 
@@ -106,7 +105,6 @@ public final class HomeModel {
     /// refresh still runs to its commit.
     public func refreshUntilSettledOrDelayed(budget: Duration = TallyConfig.liveRefreshBudget) async {
         let run = manualRefreshRun()
-        if budget >= .zero { await run.value; return } // MUTATION M7d: waits for the run
         let gate = ResumeGate()
         await withTaskCancellationHandler {
             // Not a task group: a group waits for every child, and `run.value` never ends early,
@@ -144,7 +142,7 @@ public final class HomeModel {
     /// Re-projects only if `validUntil` has passed (the shell's `.task(id: validUntil)` timer, and
     /// the scene becoming active after a while in the background).
     public func projectIfStale() async {
-        // MUTATION M6c: validUntil ignored
+        guard clock.now() >= validUntil else { return }
         await reproject()
     }
 
@@ -192,7 +190,7 @@ public final class HomeModel {
 
     /// Assigns only what changed, and nothing from an older generation than the one on screen.
     func apply(_ projection: HomeProjection) {
-        // MUTATION M6b: older generations accepted
+        guard projection.generation >= generation else { return }
         generation = projection.generation
         if dashboard != projection.dashboard { dashboard = projection.dashboard }
         if studentDisplayName != projection.studentDisplayName { studentDisplayName = projection.studentDisplayName }

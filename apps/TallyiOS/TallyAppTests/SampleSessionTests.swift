@@ -7,17 +7,6 @@ import TallyDomain
 /// perf-app-runtime.md §7 step 5: sample entry runs off the main actor. The gateway's bundle I/O
 /// happens in `SampleDataCanvasGateway.make()`, and the replay, mapping, rebase and digest run on
 /// the `SampleSession` actor; `TaskBox` owns the model's subscription.
-/// MUTATION MA7: a deliberate data race, for ios-tsan to report.
-@Test("MUTATION MA7: two tasks write one Int without synchronisation")
-func mutationA7Race() async {
-    final class Box: @unchecked Sendable { var value = 0 }
-    let box = Box()
-    await withTaskGroup(of: Void.self) { group in
-        for _ in 0..<2 { group.addTask { for _ in 0..<10_000 { box.value += 1 } } }
-    }
-    #expect(box.value > 0)
-}
-
 @Suite("Sample session: off-main entry, updates, end()")
 struct SampleSessionTests {
     /// Records what a `@Sendable` probe saw, from any thread.

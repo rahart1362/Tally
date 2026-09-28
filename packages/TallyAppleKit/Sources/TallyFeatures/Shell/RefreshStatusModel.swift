@@ -27,7 +27,7 @@ public final class RefreshStatusModel {
     public private(set) var lastDigest: ChangeDigest?
     public private(set) var lastDigestAt: Date?
 
-    private var coordinator: RefreshCoordinator? // MUTATION M7b: strong
+    private weak var coordinator: RefreshCoordinator?
     private let subscription = TaskBox()
 
     public init() {}
@@ -50,7 +50,8 @@ public final class RefreshStatusModel {
     /// Stops mirroring and forgets the coordinator. `AppModel.signOut()` calls this.
     public func detach() {
         subscription.cancel()
-        freshness = .noCache // MUTATION M7b: the coordinator is kept
+        coordinator = nil
+        freshness = .noCache
         lastDigest = nil
         lastDigestAt = nil
     }

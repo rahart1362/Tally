@@ -1,10 +1,6 @@
 import AuthenticationServices
-import LocalAuthentication
 import TallyFeatures
 import UIKit
-
-// MUTATION MA3: LAContext's callback API
-func mutationA3Probe(_ context: LAContext) { context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "x") { _, _ in } }
 
 /// The one new `TallyPlatform` file this work package adds (implementation
 /// brief scope note): an `ASWebAuthenticationSession`-backed conformance to

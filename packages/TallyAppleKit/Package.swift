@@ -79,7 +79,6 @@ let package = Package(
                 .product(name: "TallyStore", package: "TallyCore"),
                 .product(name: "TallySync", package: "TallyCore"),
                 .product(name: "TallyReplay", package: "TallyCore"),
-                .product(name: "TallyTestSupport", package: "TallyCore"), // MUTATION MA1
                 "TallySampleFixtures",
                 // perf-app-runtime.md §7 step 1: `AppModel` sets and clears
                 // `RefreshIntentBridge` when it attaches to or detaches from an account's

@@ -44,9 +44,7 @@ public nonisolated enum FreshnessPresenter {
 
         case .refreshing(let showing):
             let base = showing.map { "Updated \(when($0, now: now, locale: locale, timeZone: timeZone))" } ?? "Refreshing"
-            return Presentation(shortText: "\(base) · Refreshing…", // MUTATION MS2: breadcrumb while refreshing
-                                longText: "Live refresh is taking longer than expected — showing saved data.",
-                                symbol: .spinner, action: .none)
+            return Presentation(shortText: "\(base) · Refreshing…", longText: nil, symbol: .spinner, action: .none)
 
         case .delayed(let showing):
             guard let showing else {

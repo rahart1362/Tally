@@ -31,7 +31,7 @@ public actor AccountRuntime {
     public func coordinator() async -> RefreshCoordinator? {
         if let installed { return installed }
         let resolving: Task<RefreshCoordinator?, Never>
-        if false, let resolution { // MUTATION M7c: asks the resolver every time
+        if let resolution {
             resolving = resolution
         } else {
             resolving = Task { [resolve] in await resolve() }
@@ -39,8 +39,8 @@ public actor AccountRuntime {
         }
         let asked = epoch
         let resolved = await resolving.value
-        _ = asked
-        return resolved // MUTATION M7c: never kept
+        if installed == nil, epoch == asked { installed = resolved }
+        return installed
     }
 
     /// Sign-in: the new account's coordinator replaces any earlier one.
@@ -65,6 +65,6 @@ public actor AccountRuntime {
         let ending = installed
         installed = nil
         resolution = nil
-        _ = ending // MUTATION M7h: forgotten, never retired
+        await ending?.bumpEpochAndCancel()
     }
 }

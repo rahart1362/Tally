@@ -99,7 +99,7 @@ public final class AppModel {
         playsBrandMoment = false
         route = .welcome
         guard let ending = home else { return }
-        // MUTATION M5b: home = nil removed
+        home = nil
         teardown.replace(with: Task { await ending.end() })
     }
 
@@ -143,7 +143,7 @@ public final class AppModel {
     /// Stops mirroring the coordinator and clears the intent's reference to it. The coordinator
     /// itself is retired by `signOut()`.
     public func detach() {
-        // MUTATION M7g: RefreshIntentBridge kept
+        RefreshIntentBridge.coordinator = nil
         refreshStatus.detach()
     }
 
