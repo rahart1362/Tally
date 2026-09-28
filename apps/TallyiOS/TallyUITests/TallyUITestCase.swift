@@ -3,16 +3,19 @@ import XCTest
 /// The base class for every Tally UI test (perf-app-runtime.md §7 steps 3 and 4).
 ///
 /// - `launchApp(arguments:)` is the one way a test starts the app, so launch configuration lives
-///   in one place. It arms the DEBUG main-thread watchdog in `fatal` mode: a main-thread stall of
-///   250 ms (`TallyConfig.mainThreadHangThreshold`) crashes the app with "MAIN-THREAD HANG", and
-///   the crash report carries the main thread's backtrace.
+///   in one place. It arms the DEBUG main-thread watchdog in `report:250` mode: every main-thread
+///   stall past 250 ms is logged with its length and phase, and CI prints those lines
+///   (`make ios-watchdog-log`). Not `fatal:250` (perf-app-runtime.md §5.1's calibration step):
+///   on the Debug CI simulator, one-time framework work (first renders, collection-view reloads,
+///   toolbars) and XCUITest's own accessibility snapshots stall the main thread past 250 ms after
+///   launch (runs 36368473854, 36369654517). The fatal threshold for UI tests is set from the
+///   logged stall lengths.
 /// - `tapWhenHittable(_:)` taps a control only once it is actually hittable. A control that exists
 ///   but is covered or off screen fails the test at the call site, with the hierarchy, instead of
 ///   XCUITest tapping whatever lies on top of it.
 class TallyUITestCase: XCTestCase {
-    /// `MainThreadWatchdog.Mode.environmentKey` and its fatal mode at
-    /// `TallyConfig.mainThreadHangThreshold` (this bundle does not link TallyCore).
-    static let watchdogEnvironment = ["TALLY_MAIN_THREAD_WATCHDOG": "fatal:250"]
+    /// `MainThreadWatchdog.Mode.environmentKey` and its mode (this bundle does not link TallyCore).
+    static let watchdogEnvironment = ["TALLY_MAIN_THREAD_WATCHDOG": "report:250"]
 
     override func setUpWithError() throws {
         continueAfterFailure = false

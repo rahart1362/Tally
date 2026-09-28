@@ -26,10 +26,10 @@ import TallyDomain
 /// past `mainThreadHangThreshold` (250 ms), the watchdog's real job.
 ///
 /// **Modes** come from `TALLY_MAIN_THREAD_WATCHDOG` (`Mode.parse`):
-/// - `fatal:<ms>` — UI tests (`TallyUITestCase`): an interactive hang logs a fault, then
-///   `fatalError("MAIN-THREAD HANG …")` from the watchdog thread, so the crash report holds the
-///   main thread's backtrace.
-/// - `report:<ms>` — the DEBUG default: a fault and a signpost event.
+/// - `fatal:<ms>` — an interactive hang past `<ms>` logs a fault, then `fatalError("MAIN-THREAD
+///   HANG …")` from the watchdog thread, so the crash report holds the main thread's backtrace.
+/// - `report:<ms>` — the DEBUG default, and UI tests' mode until the fatal threshold is
+///   calibrated (`TallyUITestCase`): a fault and a signpost event.
 /// - `off`, or any value when a debugger is attached (a paused debugger is not a hang).
 ///
 /// In every mode, each stall longer than the hang threshold is also logged when it ends, with its
@@ -142,6 +142,7 @@ public final class MainThreadWatchdog: Sendable {
     }
 
     private let threshold: Duration
+    private let stallLogThreshold: Duration
     private let launchThreshold: Duration
     private let settleWindow: Duration
     private let pingInterval: Duration
@@ -154,13 +155,18 @@ public final class MainThreadWatchdog: Sendable {
     private let stopped = Atomic<Bool>(false)
 
     /// - Parameters:
-    ///   - threshold: after launch, how long the main queue may go without running a heartbeat.
-    ///   - launchThreshold: the same limit while the app is launching.
+    ///   - threshold: after launch, how long the main queue may go without running a heartbeat
+    ///     before a `.hang` (fatal in `.fatal` mode).
+    ///   - stallLogThreshold: every stall longer than this is sent as `.stallEnded`, in both
+    ///     phases, whatever `threshold` is (so a calibrated, higher fatal threshold still logs
+    ///     every 250 ms hang).
+    ///   - launchThreshold: the `.hang` limit while the app is launching (logged, never fatal).
     ///   - settleWindow: how long the main thread must stay responsive, after
     ///     `firstRootTaskDidRun()`, for launch to end.
     ///   - onEvent: called on the watchdog thread.
     public init(
         threshold: Duration,
+        stallLogThreshold: Duration = TallyConfig.mainThreadHangThreshold,
         launchThreshold: Duration = TallyConfig.launchHangThreshold,
         settleWindow: Duration = TallyConfig.launchSettleWindow,
         pingInterval: Duration = .milliseconds(50),
@@ -168,6 +174,7 @@ public final class MainThreadWatchdog: Sendable {
         onEvent: @escaping @Sendable (Event) -> Void
     ) {
         self.threshold = threshold
+        self.stallLogThreshold = stallLogThreshold
         self.launchThreshold = launchThreshold
         self.settleWindow = settleWindow
         self.pingInterval = pingInterval
@@ -198,6 +205,7 @@ public final class MainThreadWatchdog: Sendable {
         let startedAt = Self.uptimeNanoseconds()
         let pingNanos = Self.nanoseconds(pingInterval)
         let hangNanos = Self.nanoseconds(threshold)
+        let logNanos = min(Self.nanoseconds(stallLogThreshold), hangNanos)
         let launchNanos = Self.nanoseconds(launchThreshold)
         let settleNanos = Self.nanoseconds(settleWindow)
         var lastPing: UInt64 = 0
@@ -217,7 +225,7 @@ public final class MainThreadWatchdog: Sendable {
             let beat = lastBeat.load(ordering: .relaxed)
             let stalled = now > beat ? now - beat : 0
 
-            if stalled > hangNanos {
+            if stalled > logNanos {
                 let phase: Stall.Phase = launching ? .launch : .interactive
                 currentStall = (longest: max(currentStall?.longest ?? 0, stalled),
                                 phase: currentStall?.phase ?? phase, at: currentStall?.at ?? now)

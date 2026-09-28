@@ -105,6 +105,23 @@ struct MainThreadGuardsTests {
         #expect(blocked.count == 1 && blocked.first?.phase == .launch, "\(log.ended)")
     }
 
+    @Test("with a fatal threshold above 250 ms, a shorter interactive stall is logged at full length, not a hang")
+    @MainActor
+    func stallsUnderACalibratedThresholdAreLoggedNotHangs() async throws {
+        let log = EventLog()
+        let watchdog = MainThreadWatchdog(threshold: .seconds(2), settleWindow: .milliseconds(100)) { log.record($0) }
+        watchdog.start()
+        defer { watchdog.stop() }
+        watchdog.firstRootTaskDidRun()
+
+        try await Task.sleep(for: .milliseconds(500)) // launch settles
+        Self.blockCurrentThread(seconds: 0.6)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(log.hangs.isEmpty, "600 ms is under the 2 s threshold: \(log.hangs)")
+        let blocked = log.ended.filter { $0.duration >= .milliseconds(500) }
+        #expect(blocked.count == 1 && blocked.first?.phase == .interactive, "\(log.ended)")
+    }
+
     /// Synchronous on purpose: `Thread.sleep` is unavailable from async contexts.
     private static func blockCurrentThread(seconds: TimeInterval) {
         Thread.sleep(forTimeInterval: seconds)
