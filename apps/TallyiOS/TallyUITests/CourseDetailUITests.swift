@@ -10,10 +10,14 @@ final class CourseDetailUITests: TallyUITestCase {
     @MainActor
     private func openMath(_ app: XCUIApplication) {
         openTab("Courses", in: app)
-        let math = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == 'course.card' AND label CONTAINS 'MATH 122'")).firstMatch
+        // MATH 122 by its place, never by its card's label, so a fault in the card label (the Courses
+        // test's to catch) cannot mask a fault here (MU12, masked by MU1 in run 36468704319). A new
+        // sample session lists the flagship's courses in Canvas order, MATH 122 second; the hero's
+        // "Calculus II" check below proves the right course opened.
+        let cards = elements("course.card", in: app)
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        let math = cards.element(boundBy: TestHooks.flagshipCourseCodes.firstIndex(of: "MATH 122") ?? 1)
         // At the accessibility sizes one card fills most of the screen, so MATH 122 may start below it.
-        XCTAssertTrue(elements("course.card", in: app).firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(scrollUntilHittable(math, in: app, maxSwipes: 15), "MATH 122 never came on screen. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(math, in: app, timeout: 15)
         XCTAssertTrue(element("courseDetail.hero", in: app).waitForExistence(timeout: 10),
