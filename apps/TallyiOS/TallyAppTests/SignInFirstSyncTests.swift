@@ -27,6 +27,9 @@ extension AccountLifecycleSuites {
         func signInThroughFirstSyncToTheHome() async throws {
             let ordering = Mutex<[String]>([])
             let box = Mutex<AccountHarness?>(nil)
+            // The box holds the harness, whose gateway closure holds the box: break that cycle on exit
+            // (LeakSanitizer reported the harness's stores as leaked without this).
+            defer { box.withLock { $0 = nil } }
             let harness = try AccountHarness(gateway: { account in
                 FlagshipAccountGateway(account: account.accountKey, onFetch: {
                     // S3 before S5: everything provisioning writes is in place when the first sync fetches.
