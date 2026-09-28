@@ -17,6 +17,11 @@ public actor CanvasClient {
     /// also has to fit in the request's budget (`fetchPage`).
     public static let maxRateLimitRetries = 4
 
+    /// R-5 (resilience.md): the most times one request is retried after a 5xx (architecture §3.3:
+    /// "at most twice"). With `maxRateLimitRetries` and the single token refresh, it bounds
+    /// `fetchPage`'s loop at 1 + 1 + 2 + 4 = 8 requests, whatever the server answers.
+    public static let maxServerErrorRetries = 2
+
     private let host: String
     private let allowedHosts: Set<String>
     private let transport: any HTTPTransport
@@ -110,7 +115,7 @@ public actor CanvasClient {
     /// One request, end to end: attaches the current token; on a 401 carrying
     /// `WWW-Authenticate` refreshes once and retries; on a 401 without it (insufficient
     /// scope) fails without refreshing; on 429 or a rate-limited 403 backs off within
-    /// `budget`; on 5xx retries at most twice with `BackoffPolicy`.
+    /// `budget`; on 5xx retries at most `maxServerErrorRetries` (2) times with `BackoffPolicy`.
     ///
     /// R-1 (resilience.md): `budget` is measured from this call's start, on the injected clock, and
     /// a backoff wait is started only if it ends inside what is left of it. A call therefore
@@ -163,7 +168,7 @@ public actor CanvasClient {
                 throw .unknown // the key lacks the scope: the section is unavailable, never refresh
             case .serverError:
                 serverErrorAttempts += 1
-                guard serverErrorAttempts <= 2,
+                guard serverErrorAttempts <= Self.maxServerErrorRetries,
                       let delay = backoff.delay(attempt: serverErrorAttempts - 1, remainingBudget: retryBudget, using: &rng)
                 else { throw .server }
                 try await pause(for: delay)

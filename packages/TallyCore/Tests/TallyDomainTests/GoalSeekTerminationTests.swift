@@ -9,6 +9,11 @@ import Testing
 /// building the CS7-4 pipeline fuzz found it; before the fix, `points_possible` 480406972144315
 /// never returned (a runner under `timeout 60` was killed, exit 124), while 100 points returned
 /// in 6 ms.
+///
+/// R-5 (resilience.md): `.timeLimit` cannot interrupt synchronous code, so with the progress guard
+/// removed this suite did not fail at its one-minute limit: it hung until killed. The nudge loop
+/// now also stops at `GoalSeek.maxNudgeSteps`, and these cases check that the progress guard, not
+/// that backstop, is what ended it, so removing the guard fails them in milliseconds.
 @Suite("GoalSeek always returns, whatever the magnitude (CS-07)", .timeLimit(.minutes(1)))
 struct GoalSeekTerminationTests {
     private func input(points: Double) -> GradeInput {
@@ -26,13 +31,16 @@ struct GoalSeekTerminationTests {
     @Test(arguments: [480_406_972_144_315.0, 480_406_972_144_314.06, 1e15, 7.3e16, 1e20, 3.3e25, 1e50])
     func aHugePointsPossibleStillReturnsAScoreThatReachesTheTarget(_ points: Double) {
         let input = input(points: points)
-        let result = GoalSeek.solve(assignmentID: "target", targetPercent: 90, in: input)
+        let (result, nudges) = GoalSeek.solveCountingNudges(assignmentID: "target", targetPercent: 90, in: input,
+                                                            branch: .current, precision: 0.01)
+        #expect(result == GoalSeek.solve(assignmentID: "target", targetPercent: 90, in: input))
         guard case .reachable(let minimum) = result.outcome else {
             Issue.record("expected a reachable score, got \(result)")
             return
         }
         #expect(minimum <= points)
         #expect((percent(minimum, input) ?? 0) >= 90, "the reported score really reaches the target")
+        #expect(nudges < GoalSeek.maxNudgeSteps, "\(nudges) nudges: the loop must end by itself, not at the backstop cap")
     }
 
     /// A non-positive `precision` is a caller's mistake, not data, but it spun the same loop
@@ -40,12 +48,14 @@ struct GoalSeekTerminationTests {
     @Test(arguments: [-0.01, -1.0])
     func aNegativePrecisionStillReturns(_ precision: Double) {
         let input = input(points: 100)
-        let result = GoalSeek.solve(assignmentID: "target", targetPercent: 90, in: input, precision: precision)
+        let (result, nudges) = GoalSeek.solveCountingNudges(assignmentID: "target", targetPercent: 90, in: input,
+                                                            branch: .current, precision: precision)
         guard case .reachable(let minimum) = result.outcome else {
             Issue.record("expected a reachable score, got \(result)")
             return
         }
         #expect((percent(minimum, input) ?? 0) >= 90)
+        #expect(nudges < GoalSeek.maxNudgeSteps, "\(nudges) nudges: the loop must end by itself, not at the backstop cap")
     }
 
     /// Ordinary magnitudes are unchanged: the answer is still rounded up to `precision`.

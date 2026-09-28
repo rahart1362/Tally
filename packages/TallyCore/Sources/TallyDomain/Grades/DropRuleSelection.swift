@@ -36,15 +36,30 @@ enum DropRuleSelection {
     /// never-drop). An index can repeat in Canvas's all-unpointed corner case;
     /// the caller sums over this list exactly as the Ruby code does.
     static func keptIndices(_ items: [Candidate], rules: DropRules) -> [Int] {
+        keptIndicesCountingSteps(items, rules: rules).kept
+    }
+
+    /// R-5 (resilience.md): the most steps one bisection takes. Inside `GradeSanitizing`'s bounds
+    /// (every magnitude at most 1e50, every non-zero total at least 1e-6) a bisection needs at most
+    /// about log2(4 n^2 1e156) + 1 steps: 533 at n = 50, and under 650 for any group that fits in
+    /// memory, so the cap never changes a result there. It ends the loop for input that bypasses
+    /// the sanitizer (this type is internal and `GradeEngine`, its only caller, sanitizes), with
+    /// big_f's set at the last midpoint reached, the best estimate so far, instead of running on.
+    static let maxBisectionSteps = 1_024
+
+    /// `keptIndices`, and the most steps either of its bisections took. Internal, for tests, which
+    /// can also lower `maxBisectionSteps` to drive the cap.
+    static func keptIndicesCountingSteps(_ items: [Candidate], rules: DropRules,
+                                         maxBisectionSteps: Int = maxBisectionSteps) -> (kept: [Int], steps: Int) {
         // Negative counts are invalid Canvas input; clamping keeps the loop finite.
         var dropLowest = max(0, rules.dropLowest)
         var dropHighest = max(0, rules.dropHighest)
-        if dropLowest == 0 && dropHighest == 0 { return Array(items.indices) }
+        if dropLowest == 0 && dropHighest == 0 { return (Array(items.indices), 0) }
 
         let neverDrop = Set(rules.neverDrop)
         let cantDrop = items.indices.filter { neverDrop.contains(items[$0].assignmentID) }
         var subs = items.indices.filter { !neverDrop.contains(items[$0].assignmentID) }
-        if subs.isEmpty { return cantDrop }
+        if subs.isEmpty { return (cantDrop, 0) }
 
         if dropLowest >= subs.count { dropLowest = subs.count - 1 }
         // CS-07: `dropLowest + dropHighest >= subs.count`, rearranged. `dropHighest` is a raw
@@ -57,6 +72,7 @@ enum DropRuleSelection {
         subs = stableSorted(subs) { items[$0].assignmentID < items[$1].assignmentID }
 
         let kept: [Int]
+        var steps = 0
         if (cantDrop + subs).contains(where: { items[$0].total > 0 }) {
             let exact = Exact(items: items, indices: cantDrop + subs)
             // Every index in `subs + cantDrop` was just passed to `Exact.init` above, so
@@ -65,13 +81,17 @@ enum DropRuleSelection {
             // exist only so a future bookkeeping bug degrades instead of crashing (CS-01/CS-06:
             // no force-unwrapping in shipping code).
             let maxTotal = (subs + cantDrop).map { exact.total($0) }.max() ?? BigInt(0)
-            let highest = exact.keep(subs, cantDrop: cantDrop, keep: keepHighest, maxTotal: maxTotal, best: true)
-            kept = exact.keep(highest, cantDrop: cantDrop, keep: keepLowest, maxTotal: maxTotal, best: false)
+            let highest = exact.keep(subs, cantDrop: cantDrop, keep: keepHighest, maxTotal: maxTotal, best: true,
+                                     maxSteps: maxBisectionSteps)
+            let lowest = exact.keep(highest.kept, cantDrop: cantDrop, keep: keepLowest, maxTotal: maxTotal, best: false,
+                                    maxSteps: maxBisectionSteps)
+            kept = lowest.kept
+            steps = max(highest.steps, lowest.steps)
         } else {
             let ordered = stableSorted(subs) { items[$0].score < items[$1].score }
             kept = Array(Array(ordered.suffix(keepHighest)).prefix(keepLowest))
         }
-        return kept + cantDrop
+        return (kept + cantDrop, steps)
     }
 
     /// Python `sorted(key=...)`: equal keys keep their input order.
@@ -132,8 +152,9 @@ enum DropRuleSelection {
         func total(_ i: Int) -> BigInt { total[i] ?? BigInt(0) }
 
         /// gradecalc.py `_keep_helper`: keeps `keep` of `subs` (best: highest), never-drop items fixed.
-        func keep(_ subs: [Int], cantDrop: [Int], keep: Int, maxTotal: BigInt, best: Bool) -> [Int] {
-            if subs.count <= keep { return subs }
+        /// Also returns how many bisection steps it took (R-5: at most `maxSteps`).
+        func keep(_ subs: [Int], cantDrop: [Int], keep: Int, maxTotal: BigInt, best: Bool, maxSteps: Int) -> (kept: [Int], steps: Int) {
+            if subs.count <= keep { return (subs, 0) }
             let both = subs + cantDrop
             let unpointed = both.filter { total($0).signum == 0 }
             let pointed = both.filter { total($0).signum != 0 }
@@ -141,13 +162,13 @@ enum DropRuleSelection {
                 // Canvas's "really dumb situation": keep_highest removed every pointed item.
                 // (Unreachable in "highest" mode: the caller checked some total > 0.)
                 let ordered = DropRuleSelection.stableSorted(unpointed) { items[$0].score < items[$1].score }
-                return keep > 0 ? Array(ordered.suffix(keep)) : []
+                return (keep > 0 ? Array(ordered.suffix(keep)) : [], 0)
             }
 
             let grades = pointed.map { Ratio(score($0), total($0)) }
             // `pointed` is non-empty (just checked above), so first/reduce never falls back to
             // `grades[0]` being wrong — this is `min`/`max` written without a force-unwrap.
-            guard let firstGrade = grades.first else { return subs } // unreachable; safe fallback
+            guard let firstGrade = grades.first else { return (subs, 0) } // unreachable; safe fallback
             let lowest = grades.dropFirst().reduce(firstGrade) { $1 < $0 ? $1 : $0 }
             let highestGrade = grades.dropFirst().reduce(firstGrade) { $0 < $1 ? $1 : $0 }
             let highest = estimateQHigh(pointed: pointed, unpointed: unpointed) ?? highestGrade
@@ -177,7 +198,10 @@ enum DropRuleSelection {
             let root = self.root(subs: subs, cantDrop: cantDrop, keep: keep, best: best)
             var (x, kept) = root == nil ? bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best) : (BigInt(0), [])
             var (lastMid, lastDen) = (qMid, den)
-            while !(width < resolution) {
+            var steps = 0
+            // R-5: `maxSteps` bounds the loop whatever the magnitudes; see `maxBisectionSteps`.
+            while !(width < resolution), steps < maxSteps {
+                steps += 1
                 let atLeastZero = root.map { $0.admits(qMid, over: den) } ?? (x.signum >= 0)
                 if atLeastZero { qLow = qMid } else { qHigh = qMid }
                 qMid = qLow + qHigh
@@ -187,7 +211,7 @@ enum DropRuleSelection {
                 if root == nil { (x, kept) = bigF(qMid, den, subs: subs, cantDrop: cantDrop, keep: keep, best: best) }
             }
             if root != nil { kept = bigF(lastMid, lastDen, subs: subs, cantDrop: cantDrop, keep: keep, best: best).1 }
-            return kept
+            return (kept, steps)
         }
 
         /// Where big_f changes sign (R-2b). big_f at q is `den` times F(q): the largest (best) or
