@@ -1,14 +1,10 @@
 import XCTest
 
 /// The WP-E02 smoke test: "the app launches and the root view exists".
-final class TallyLaunchUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
+final class TallyLaunchUITests: TallyUITestCase {
+    @MainActor
     func testAppLaunchesAndRootViewExists() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         // The welcome screen's brand heading and both entry actions, per
         // ux-ui.md §3.2 stage 2. Their presence is the "root view exists"

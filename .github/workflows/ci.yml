@@ -168,6 +168,17 @@ jobs:
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Pick the smallest iOS 26 iPhone simulator
+        id: small
+        run: python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"
+      - name: Welcome CTAs on the smallest iPhone (hittable at launch and at AX XXXL)
+        # perf-app-runtime.md §7 step 3: both pinned CTAs are hittable right after launch on
+        # the smallest available iPhone, at the default size and at the largest text size.
+        run: |
+          echo "Smallest iPhone: ${{ steps.small.outputs.name }} on ${{ steps.small.outputs.runtime }}"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         run: |
