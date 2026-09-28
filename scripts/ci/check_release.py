@@ -16,9 +16,10 @@ check appears in the compliance report, and a pending check that starts passing 
         macOS. A built Tally.app: identity and required Info.plist keys, the widget extension,
         both privacy manifests inside the bundles, and the required-reason API symbols the
         binaries actually import (nm -u, otool) against each bundle's manifest.
-    python3 scripts/ci/check_release.py --flows RESULTS [RESULTS ...] --json OUT
+    python3 scripts/ci/check_release.py --flows RESULTS [RESULTS ...] [--label L] [--only-given] --json OUT
         The critical XCUITest flows (§3.3.1), from `xcresulttool get test-results tests` JSON,
-        each RESULTS given as CONFIGURATION=PATH (e.g. Release=release-tests.json).
+        each RESULTS given as CONFIGURATION=PATH (e.g. Release=release-tests.json). --only-given
+        reports only the flows whose tests ran in a given configuration.
     python3 scripts/ci/check_release.py --result ID pass|fail DETAIL --title TITLE [--due M] --json OUT
         One result a workflow step measured itself (for example the launch smoke test).
     python3 scripts/ci/check_release.py --pending ID MILESTONE OWNER DETAIL --title TITLE --json OUT
@@ -545,9 +546,13 @@ def test_results(document: object) -> dict[str, str]:
     return results
 
 
-def flow_checks(results_by_configuration: dict[str, dict[str, str]]) -> list[Check]:
+def flow_checks(results_by_configuration: dict[str, dict[str, str]], only_given: bool = False) -> list[Check]:
+    """One check per flow. `only_given`: only the flows whose tests ran in a configuration given here
+    (the Xcode 27 job runs the Release flows alone; the main job reports the rest)."""
     checks = []
     for flow in FLOWS:
+        if only_given and (not flow.tests or flow.configuration not in results_by_configuration):
+            continue
         if not flow.tests:
             checks.append(Check(flow.id, flow.title, "ERROR", flow.due, False, "no UI test covers this flow yet", flow.owner))
             continue
@@ -653,11 +658,14 @@ def self_test() -> int:
     assert by_id["REL.flow.05-refresh-over-10s.release-config"].status == "PENDING"
     assert by_id["REL.flow.07-threshold-alert"].status == "PENDING"
     assert by_id["REL.flow.01-first-login"].status == "PENDING"
+    only = {c.id for c in flow_checks({"Release": results}, only_given=True)}
+    assert "REL.flow.03-launch-no-cache" in only and "REL.flow.05-refresh-over-10s" not in only \
+        and "REL.flow.01-first-login" not in only, only
     assert categories_in({"_OBJC_CLASS_$_NSUserDefaults", "_malloc"}, {"activeInputModes", "init"}) == {
         "NSPrivacyAccessedAPICategoryUserDefaults": ["_OBJC_CLASS_$_NSUserDefaults"],
         "NSPrivacyAccessedAPICategoryActiveKeyboards": ["activeInputModes"]}
     assert categories_in({"_malloc"}, {"init"}) == {}
-    print("check_release self-test: 15 checks passed")
+    print("check_release self-test: 16 checks passed")
     return 0
 
 
@@ -686,7 +694,7 @@ def main(argv: list[str]) -> int:
                 configuration, _, path = item.partition("=")
                 results[configuration] = test_results(json.loads(pathlib.Path(path).read_text(encoding="utf-8")))
             label = options.get("--label")
-            checks = flow_checks(results)
+            checks = flow_checks(results, only_given="--only-given" in options)
             if label:
                 for check in checks:
                     check.id = f"{check.id}.{label}"
