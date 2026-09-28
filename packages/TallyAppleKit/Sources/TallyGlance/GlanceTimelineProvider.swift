@@ -38,7 +38,8 @@ public struct GlanceTimelineProvider: TimelineProvider {
         }
         let deliver = OneShot(completion)
         Task { [read] in
-            deliver(GlanceEntry(await Self.plan(read).current))
+            let plan = await Self.plan(read)
+            deliver(GlanceEntry(plan.current))
         }
     }
 
