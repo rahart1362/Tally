@@ -55,7 +55,7 @@ The step numbers match `perf-app-runtime.md` §7. The details there are binding 
 | **5** Sample off-main | `@concurrent SampleDataCanvasGateway.make()`; the `SampleSession` actor; `SampleDataModel` becomes a thin adapter. | — |
 | **6** Projection off-main | `HomeProjector` actor plus `HomeModel`; views read `Equatable` projections only; no `Date()`, `Calendar.current`, sorting or filtering in `body`. `TallyDomain.DashboardBuilder.build(from:digest:digestAsOf:now:)` returns `DashboardProjection`, with the same fields as the old `DashboardViewState`. Call it from the `HomeProjector` actor or a `@concurrent` function. **Not** `Task.detached`, even though `perf-core.md` §5 shows it: the hygiene gate bans it and review §4.1 governs. Two ported strings ("due soon" and the overload-cluster title) now use fixed `HH:mm` and `yyyy-MM-dd` formats. Render user-visible times from the raw `dueAt` and window-start `Date` with the user's locale in the view layer. | Use **`TallyDomain.DashboardProjection`** directly: it exists now, so skip the interim `DashboardBuilder` stage. Before deleting `DashboardBuilder`, add the **real** parity test in `TallyAppTests`: the old builder vs `DashboardProjection` over flagship, large and the in-test stress snapshot, field by field. perf-core could only compare against hand-derived expectations, because the original cannot build on Linux. |
 | **7** Refresh correctness | `TaskBox` (`Mutex`) replaces `nonisolated(unsafe) eventTask`; per-subscriber event streams; `refreshUntilSettledOrDelayed()`; the `AccountRuntime` actor; no side effects in `TallyApp.body`. | Merge `pmo/assessment` again first to pick up sync hardening SH-1 to SH-5 (§5). Consume `events()`, `shutdown()` and `committedSnapshot`, with no interim fan-out. `docs/pmo/reviews/sync-hardening.md` §1 has the migration code for `RefreshStatusModel`. If SH has not landed by then, stop and report. Do not re-implement it in the app. **Cancellation semantics (SH-2):** when *every* waiting caller of `run` is cancelled, the fetch is cancelled and its result discarded. Automatic triggers then stay throttled for `minAutoRefreshInterval` (5 min) from that attempt. So pull-to-refresh must **not** tie the run to the view's `.refreshable` task. `HomeModel` owns the refresh task (`TaskBox`), and `.refreshable` awaits its value without forwarding cancellation. Only background expiry (`.backgroundTask`) and sign-out may cancel a run. Test: start a pull-to-refresh, cancel the view task, and the commit still lands. |
-| **7b** App-layer crash hardening | Items A1–A7 below. | PMO additions. |
+| **7b** App-layer crash hardening | Items A1–A8 below. | PMO additions. |
 
 **Checkpoint:** stop after 7b and report. Do not start Iteration B.
 
@@ -84,6 +84,11 @@ The step numbers match `perf-app-runtime.md` §7. The details there are binding 
 - **A6 — static crash gates cover app code.**
   - Crash-safety's SwiftLint config (CS-06) also runs over `packages/TallyAppleKit/Sources` and `apps/TallyiOS/Tally*`: `force_try`, `force_cast`, `force_unwrapping`, and no `fatalError` outside the DEBUG watchdog.
   - Fix or justify every hit inline.
+- **A8 — the CS-07 app-layer list** (`docs/pmo/reviews/crash-safety-2.md` §8).
+  - `TallyFeatures/Dashboard/DashboardViewState.swift:84/125/142` traps on a repeated ID. It goes away when step 6 deletes the old builder. Until then, copy the `uniquingKeysWith` fix.
+  - `Onboarding/WelcomeFlowView.swift:98/107`: `path.removeLast()` traps on an empty path. Guard it with `if !path.isEmpty`, and add a unit or UI test.
+  - Bridge TallyCore's `TallyLogger`/`LogEvent` (new port, CS-07 D1) into the `OSLogLogger` adapter, and pass it to `LiveCanvasGateway`.
+  - D2(b): every `GradeEngine`/`GoalSeek` call (What-if, goal seek, projections) runs off the main actor and can be cancelled.
 - **A7 — sanitizers on iOS.**
   - `ios-tsan` (TallyAppTests) and `ios-asan` (app and UI tests) run with `-collect-test-diagnostics never`.
   - They are required once they are first green.
