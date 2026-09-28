@@ -3,10 +3,34 @@ import Synchronization
 import TallyCanvasAPI
 import TallyDomain
 
+/// The transport's two timeouts (app-core report O5; resilience.md §11 "Transport hangs"). Nothing
+/// above the transport can interrupt a request that never answers (`CanvasClient.fetchPage` only
+/// bounds its retries), and the ephemeral configuration's defaults are 60 s without data and
+/// 7 days in total. Named here, on the shared `TallyConfig` (as `TallyStore` does for its own
+/// constants), because only this adapter uses them.
+extension TallyConfig {
+    /// `timeoutIntervalForRequest`: how long one request may go without receiving any data
+    /// (URLSession restarts the timer whenever data arrives) before it fails with `.timedOut`.
+    /// A Canvas API page normally starts answering within a few seconds, so a request silent for
+    /// 30 s is stalled. Failing it then, instead of at URLSession's 60 s, frees the refresh's
+    /// single flight sooner, while still giving a slow but live Canvas three times the 10 s live
+    /// budget (`liveRefreshBudget`, after which the breadcrumb shows anyway). How slow the
+    /// slowest institutions' planner queries are is UNVERIFIED; revisit with device telemetry.
+    public static let transportRequestTimeout: Duration = .seconds(30)
+
+    /// `timeoutIntervalForResource`: how long one request may take end to end, however steadily
+    /// its data trickles in. At URLSession's 7-day default, a response sending a byte just often
+    /// enough to beat the idle timeout holds its request indefinitely, and the token exchange, the
+    /// school search and the family-linking writes run outside `RefreshCoordinator`'s ceiling.
+    /// Equal to that ceiling (`foregroundHardCeiling`, 60 s): no single request outlives the
+    /// longest refresh the app would wait for.
+    public static let transportResourceTimeout: Duration = foregroundHardCeiling
+}
+
 /// `HTTPTransport` over `URLSession` (security.md §3.2 item 4 / SEC-08).
 /// Ephemeral configuration — no on-disk `URLCache`, no cookie jar — so a
 /// Canvas response can never persist outside the sealed vault
-/// (encryption.md ENC-07). Each request has its own task delegate
+/// (encryption.md ENC-07), with the two named timeouts above. Each request has its own task delegate
 /// (`TransportTaskDelegate`), which strips `Authorization` the instant a
 /// redirect changes host, so a bearer token can never follow Canvas onto a
 /// CDN or attachment host, and enforces the response-size cap while the body
@@ -41,6 +65,8 @@ public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
+        configuration.timeoutIntervalForRequest = TallyConfig.transportRequestTimeout.timeInterval
+        configuration.timeoutIntervalForResource = TallyConfig.transportResourceTimeout.timeInterval
         if let protocolClasses {
             configuration.protocolClasses = protocolClasses + (configuration.protocolClasses ?? [])
         }

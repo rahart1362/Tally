@@ -56,6 +56,11 @@ targets:
         # 'WidgetBundle' in scope" even though the sibling file in the same
         # target, with the same `import WidgetKit`, compiled cleanly.
         OTHER_SWIFT_FLAGS: -parse-as-library
+        # iPhone only (ASC-F07), set on the target: XcodeGen's iOS platform
+        # preset puts TARGETED_DEVICE_FAMILY '1,2' at target level, which
+        # overrides the project-level "1" above. The release gate's first run
+        # (36465775989) found UIDeviceFamily [1, 2] in both built apps.
+        TARGETED_DEVICE_FAMILY: "1"
     info:
       path: Generated/Tally-Info.plist
       properties:
@@ -116,8 +121,9 @@ targets:
         # require. Built directly from TALLY_BUNDLE_ID_PREFIX (not from
         # $(PRODUCT_BUNDLE_IDENTIFIER)) — see TALLY_SHARED_APP_GROUP_ID above.
         PRODUCT_BUNDLE_IDENTIFIER: $(TALLY_BUNDLE_ID_PREFIX).tally.widgets
-        # See the identical setting (and its comment) on the Tally target.
+        # See the identical settings (and their comments) on the Tally target.
         OTHER_SWIFT_FLAGS: -parse-as-library
+        TARGETED_DEVICE_FAMILY: "1"
     info:
       path: Generated/TallyWidgets-Info.plist
       properties:
@@ -126,11 +132,21 @@ targets:
         CFBundleVersion: "1"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # Plan 06 step 11: what the widget process needs to find the glance
+        # (TallyGlance.GlanceConfiguration). The app's bundle ID names the vault
+        # key's Keychain service; the Team ID prefix ("ABCDE12345.", empty until
+        # GO-LIVE GL-02) plus the App Group ID is that key's access group.
+        TallyAppGroupID: $(TALLY_SHARED_APP_GROUP_ID)
+        TallyAppBundleID: $(TALLY_BUNDLE_ID_PREFIX).tally
+        TallyKeychainAccessGroupPrefix: $(AppIdentifierPrefix)
     dependencies:
       - package: TallyAppleKit
         product: TallyDesignSystem
+      # The glance reader, timeline and views. Not TallyIntents (it links
+      # TallySync and TallyCanvasAPI) and never TallyFeatures or TallyPlatform:
+      # the widget reads the glance only (CI's widget isolation gates).
       - package: TallyAppleKit
-        product: TallyIntents
+        product: TallyGlance
 
   TallyAppTests:
     type: bundle.unit-test
@@ -168,6 +184,9 @@ targets:
       # fails with "Undefined symbols" (confirmed on CI run 36332912599).
       - package: TallyAppleKit
         product: TallyIntents
+      # WidgetGlanceTests: the widget's reader, timeline, Keychain parity and views.
+      - package: TallyAppleKit
+        product: TallyGlance
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore
