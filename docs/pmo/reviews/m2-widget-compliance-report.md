@@ -225,3 +225,18 @@ server is M5 (ASC-11's PMO ruling).
 
 `DashboardView.swift` (TallyFeatures) was changed only inside the mutation run, and restored
 byte-identical.
+
+## Deviations, with reasons
+
+| # | Brief or plan says | Done instead | Why |
+|---|---|---|---|
+| D1 | `SnapshotStore(root: <App Group>, sealer: …, isOwner: false).loadGlance()` | The same, per account directory, with `accountKey:` | The initializer needs an account key (`SnapshotStore.swift:48`); `accounts.json` is M2-C1's and not on `main`. v1 has one active account (R8) |
+| D2 | "One entry per due-item boundary plus the next midnight" | Also an entry at `asOf` + 3 h | insights-at-a-glance.md §1.5: the "as of" footer appears then |
+| D3 | `.after(nextBoundary)` | `.after(first boundary after now)` | "Next boundary" read as perf-app-runtime.md §2.3 reads `validUntil`: the earliest one |
+| D4 | Files: `apps/TallyiOS/TallyWidgets/*` | Also a new target, `packages/TallyAppleKit/Sources/TallyGlance`, and additive edits to `Package.swift`, `project.yml` and `perf/` (see "Shared files") | The extension must stay one file, the hosted tests need an importable module, and the widget's key reader cannot come from TallyPlatform |
+| D5 | The widget linked TallyIntents | It no longer does, and the isolation gates forbid it | TallyIntents links TallySync and TallyCanvasAPI (refresh and network) |
+| D6 | One widget | Two small widgets: Next up and Standing | Makes R10 (grades opt-in, redacted when locked) concrete and testable |
+| D7 | ASC §3.3.1: `scripts/compliance/check_release.py` | `scripts/ci/check_release.py` | The brief's ownership: new scripts under `scripts/ci/` |
+| D8 | ASC §3.3.1: triggers on PRs and nightly; a separate device-archive job; a UITest build configuration | Dispatch only; the archive inside `ios-gate`; hook-free flows on Release (with `ENABLE_TESTABILITY`), hook flows on Debug | Plan 07 §1 (dispatch for M2); shared macOS capacity; the UITest configuration is M5 |
+| D9 | "Dispatch it once" | Run once through a **temporary** `push` trigger on this branch (`82f970e`), removed in the next commit (`release-gate.yml` is dispatch-only again, identical to `3261c32`) | GitHub refuses to dispatch a workflow that is not on the default branch (HTTP 404, "workflow release-gate.yml not found on the default branch"). After the merge it can be dispatched from `main` |
+| D10 | The memory gate on every run of TallyAppTests | The metric test skips under a sanitizer; `oneTimelineEndToEnd` runs the same work there | Sanitizer allocators make memory metrics meaningless; the TSan abort (above). The gate reads the main run |
