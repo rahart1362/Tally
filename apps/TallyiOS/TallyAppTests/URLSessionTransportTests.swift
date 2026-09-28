@@ -2,6 +2,7 @@ import Foundation
 import Synchronization
 import Testing
 import TallyCanvasAPI
+import TallyDomain
 @testable import TallyPlatform
 
 /// SEC-08 / E03a. `.serialized`: every test in this suite drives the shared
@@ -15,6 +16,25 @@ struct URLSessionTransportTests {
         #expect(configuration.urlCache == nil)
         #expect(configuration.httpCookieStorage == nil)
         #expect(configuration.httpShouldSetCookies == false)
+    }
+
+    /// O5: the two timeouts are the named constants, and the constants keep the relations their
+    /// reasoning rests on (`TallyConfig.transportRequestTimeout`/`transportResourceTimeout` docs).
+    @Test("timeouts: 30 s without data, 60 s end to end (the foreground ceiling), never URLSession's defaults")
+    func timeouts() {
+        let configuration = URLSessionTransport().session.configuration
+        #expect(configuration.timeoutIntervalForRequest == TallyConfig.transportRequestTimeout.timeInterval)
+        #expect(configuration.timeoutIntervalForResource == TallyConfig.transportResourceTimeout.timeInterval)
+        #expect(configuration.timeoutIntervalForRequest == 30)
+        #expect(configuration.timeoutIntervalForResource == 60)
+        // The test-only initializer (the stubs' path) configures them the same way.
+        let stubbed = URLSessionTransport(protocolClasses: [StubURLProtocol.self]).session.configuration
+        #expect(stubbed.timeoutIntervalForRequest == configuration.timeoutIntervalForRequest)
+        #expect(stubbed.timeoutIntervalForResource == configuration.timeoutIntervalForResource)
+
+        #expect(TallyConfig.transportResourceTimeout == TallyConfig.foregroundHardCeiling)
+        #expect(TallyConfig.transportRequestTimeout < TallyConfig.transportResourceTimeout)
+        #expect(TallyConfig.transportRequestTimeout > TallyConfig.liveRefreshBudget)
     }
 
     @Test("a successful response round-trips status, headers and body")
