@@ -40,7 +40,10 @@ enum DropRuleSelection {
         if subs.isEmpty { return cantDrop }
 
         if dropLowest >= subs.count { dropLowest = subs.count - 1 }
-        if dropLowest + dropHighest >= subs.count { dropHighest = 0 }
+        // CS-07: `dropLowest + dropHighest >= subs.count`, rearranged. `dropHighest` is a raw
+        // Canvas integer, so the sum overflowed (and trapped) past Int.max; the difference cannot,
+        // since 0 <= dropLowest < subs.count. Same result for every sum that does not overflow.
+        if dropHighest >= subs.count - dropLowest { dropHighest = 0 }
         let keepHighest = subs.count - dropLowest
         let keepLowest = keepHighest - dropHighest
 

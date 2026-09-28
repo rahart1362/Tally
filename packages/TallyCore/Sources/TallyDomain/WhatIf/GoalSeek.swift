@@ -103,7 +103,15 @@ public enum GoalSeek {
         let scale = 1 / precision
         var candidate = min((high * scale).rounded(.up) / scale, possible)
         while candidate < possible, let p = percent(at: candidate), p < targetPercent {
-            candidate = min(candidate + precision, possible)
+            let next = min(candidate + precision, possible)
+            // CS-07: past about 1.4e14 points, `precision` (0.01) is below half an ulp of
+            // `candidate`, so adding it changes nothing and this loop never ended; a negative
+            // `precision` never ended either. `high` reaches the target by construction.
+            guard next > candidate else {
+                candidate = high
+                break
+            }
+            candidate = next
         }
         return Result(outcome: .reachable(minimumScore: candidate))
     }

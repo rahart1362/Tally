@@ -132,7 +132,10 @@ extension PriorityScore {
             let rules = group.rules
             if !group.neverDrop.contains(assignment.id) {
                 let n = group.droppableCount
-                let k = max(0, rules.dropLowest) + max(0, rules.dropHighest)
+                // CS-07: both counts are raw Canvas integers, and `+` overflowed (and trapped)
+                // past Int.max. Saturating leaves the only use below, `min(k, n)`, unchanged.
+                let (sum, overflowed) = max(0, rules.dropLowest).addingReportingOverflow(max(0, rules.dropHighest))
+                let k = overflowed ? Int.max : sum
                 if n > 0, k > 0 {
                     w *= (1 - min(Double(k), Double(n)) / Double(n))
                 }

@@ -19,21 +19,28 @@ public protocol CanvasGateway: Sendable {
 /// `generation` is `(previous?.generation ?? 0) + 1`: a placeholder monotonic counter. The
 /// refresh coordinator (TallySync, out of this work package's scope) owns the real generation
 /// and epoch bookkeeping (architecture §3.4) and may need to re-stamp the value this returns.
+///
+/// CS-07: the returned snapshot never repeats an ID (`SnapshotDeduplication`: the first
+/// occurrence wins). How many repeats each collection lost is logged to `logger`, counts only.
 public actor LiveCanvasGateway: CanvasGateway {
     private let host: String
     private let accountKey: AccountKey
     private let client: CanvasClient
+    private let logger: any TallyLogger
 
-    public init(host: String, accountKey: AccountKey, client: CanvasClient) {
+    public init(host: String, accountKey: AccountKey, client: CanvasClient, logger: any TallyLogger = NoOpLogger()) {
         self.host = host
         self.accountKey = accountKey
         self.client = client
+        self.logger = logger
     }
 
     public func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
         // Required: all-or-nothing. The first failure here propagates and nothing is returned.
         let profile = try await fetchProfile()
-        let courses = try await fetchCourses()
+        // CS-07: a course can come back once per enrollment. Drop repeats before the per-course
+        // requests below, so a repeated course's groups and periods are not fetched twice.
+        let (courses, repeatedCourses) = SnapshotDeduplication.firstOccurrences(try await fetchCourses(), id: \.id)
         let groups = try await fetchAssignmentGroups(for: courses)
         let planner = try await fetchPlanner(now: now)
 
@@ -70,10 +77,19 @@ public actor LiveCanvasGateway: CanvasGateway {
             .colors: colorsStatus,
         ]
 
-        return CanvasSnapshot(generation: (previous?.generation ?? 0) + 1, accountKey: accountKey, host: host, fetchedAt: now,
-                              profile: profile, courses: courses, groups: groups, gradingPeriods: gradingPeriods,
-                              planner: planner, events: events, announcements: announcements, courseColors: colors,
-                              sections: sections)
+        let assembled = CanvasSnapshot(generation: (previous?.generation ?? 0) + 1, accountKey: accountKey, host: host,
+                                       fetchedAt: now, profile: profile, courses: courses, groups: groups,
+                                       gradingPeriods: gradingPeriods, planner: planner, events: events,
+                                       announcements: announcements, courseColors: colors, sections: sections)
+        // CS-07: once, here, for every collection, including sections carried forward from a
+        // `previous` snapshot written before this de-duplication existed.
+        let unique = SnapshotDeduplication.deduplicated(assembled)
+        var dropped = unique.dropped
+        if repeatedCourses > 0 { dropped[.courses, default: 0] += repeatedCourses }
+        for collection in SnapshotCollection.allCases {
+            if let count = dropped[collection], count > 0 { logger.log(.duplicateIDsDropped(collection, count: count)) }
+        }
+        return unique.snapshot
     }
 
     // MARK: Required sections

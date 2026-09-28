@@ -152,7 +152,10 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
             .sorted { $0.id < $1.id }
             .map { NewAnnouncement(courseID: $0.courseID, announcementID: $0.id, postedAt: $0.postedAt) }
 
-        let oldCoursesByID = Dictionary(uniqueKeysWithValues: old.courses.map { ($0.id, $0) })
+        // CS-07: the older snapshot can repeat a course ID (for one written before the gateway
+        // de-duplicated). `Dictionary(uniqueKeysWithValues:)` trapped on that, at every commit.
+        // The first occurrence wins, as in `PriorityScore.WeightContext`.
+        let oldCoursesByID = Dictionary(old.courses.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var courseScoreChanges: [CourseScoreChange] = []
         for course in new.courses.sorted(by: { $0.id < $1.id }) {
             guard let previousCourse = oldCoursesByID[course.id],
