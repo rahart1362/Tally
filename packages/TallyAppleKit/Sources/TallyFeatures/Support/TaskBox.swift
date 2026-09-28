@@ -1,9 +1,9 @@
 import Synchronization
 
 /// One owned, cancellable `Task` (perf-app-runtime.md §4.6): the compiler-checked replacement for
-/// a `nonisolated(unsafe)` stored task. It is `Sendable` and its state sits behind a `Mutex`, so a
-/// main-actor model's nonisolated `deinit` may cancel it, and `replace(with:)` from any context is
-/// race-free.
+/// an unchecked (opted-out-of-isolation) stored task. It is `Sendable` and its state sits behind a
+/// `Mutex`, so a main-actor model's nonisolated `deinit` may cancel it, and `replace(with:)` from
+/// any context is race-free. CI's hygiene job keeps TallyAppleKit free of unchecked stored state.
 ///
 /// - `replace(with:)` cancels the task it held before holding the new one.
 /// - `cancel()` cancels and drops the task.
@@ -34,6 +34,12 @@ public nonisolated final class TaskBox: Sendable {
 
     /// Whether a task is held (tests).
     var isHoldingTask: Bool { task.withLock { $0 != nil } }
+
+    /// Waits for the held task, if any, to finish (tests).
+    func value() async {
+        let held = task.withLock { $0 }
+        await held?.value
+    }
 
     deinit {
         cancel()

@@ -20,18 +20,19 @@ import TallyTestSupport
 struct AppModelTests {
     private static let account = AccountKey("route-test")
 
-    @Test("live() builds synchronously with no coordinator yet (no account exists in this branch)")
-    func liveHasNoCoordinatorYet() {
+    @Test("live() builds synchronously, with one account runtime shared by the UI and the background task, and no coordinator yet")
+    func liveHasNoCoordinatorYet() async {
         let environment = AppEnvironment.live()
-        #expect(environment.appModel.refreshCoordinator == nil)
+        #expect(environment.accountRuntime === environment.appModel.accountRuntime)
+        #expect(await environment.accountRuntime.coordinator() == nil)
         #expect(environment.appModel.refreshStatus.freshness == .noCache)
         #expect(environment.appModel.route == .launching)
     }
 
     @Test("a fresh AppModel starts detached, on the launch route, with the brand moment armed")
-    func freshAppModel() {
+    func freshAppModel() async {
         let model = AppModel()
-        #expect(model.refreshCoordinator == nil)
+        #expect(await model.accountRuntime.coordinator() == nil)
         #expect(model.refreshStatus.freshness == .noCache)
         #expect(model.route == .launching)
         #expect(model.playsBrandMoment)
@@ -128,20 +129,47 @@ struct AppModelTests {
         let coordinator = try RouteTestCoordinator.make()
 
         await model.attach(coordinator)
-        #expect(model.refreshCoordinator === coordinator)
+        #expect(await model.accountRuntime.coordinator() === coordinator)
         #expect(RefreshIntentBridge.coordinator === coordinator)
 
-        model.detach()
-        #expect(model.refreshCoordinator == nil)
+        model.detach() // not sign-out: the runtime keeps the account's coordinator
         #expect(RefreshIntentBridge.coordinator == nil)
+        #expect(await model.accountRuntime.coordinator() === coordinator)
 
         await model.attach(coordinator)
         #expect(RefreshIntentBridge.coordinator === coordinator)
         model.signOut()
         #expect(model.route == .welcome)
-        #expect(model.refreshCoordinator == nil)
-        #expect(RefreshIntentBridge.coordinator == nil)
+        #expect(RefreshIntentBridge.coordinator == nil) // at once, before the teardown
         #expect(model.refreshStatus.freshness == .noCache)
+        await model.awaitTeardown()
+        #expect(await model.accountRuntime.coordinator() == nil)
+    }
+
+    /// perf-app-runtime.md §7 step 7 (and §4.3's sign-out order): the signed-in Home reads the
+    /// account's coordinator; sign-out retires it, and nothing the app holds keeps it alive.
+    @Test("completeSignIn builds the Home over the account; signOut releases the Home and the coordinator")
+    func signOutReleasesTheAccount() async throws {
+        let model = AppModel()
+        model.bootstrap()
+        weak var releasedCoordinator: RefreshCoordinator?
+        weak var releasedHome: HomeModel?
+        do {
+            let coordinator = try RouteTestCoordinator.make()
+            releasedCoordinator = coordinator
+            await model.attach(coordinator)
+        }
+        model.completeSignIn(Self.account)
+        releasedHome = model.home
+        #expect(releasedHome != nil)
+
+        model.signOut()
+        #expect(model.home == nil)
+        #expect(RefreshIntentBridge.coordinator == nil)
+        await model.awaitTeardown()
+        #expect(await model.accountRuntime.coordinator() == nil)
+        #expect(try await HomeTestSupport.waitUntil { releasedHome == nil }, "the Home model outlived sign-out")
+        #expect(try await HomeTestSupport.waitUntil { releasedCoordinator == nil }, "the coordinator outlived sign-out")
     }
 }
 

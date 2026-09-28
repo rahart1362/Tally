@@ -12,6 +12,10 @@ import TallyDomain
 public actor SampleSession: HomeDataSource {
     private let clock: any DateProviding
     private let makeGateway: @Sendable () async throws -> any CanvasGateway
+    /// When an in-flight refresh turns `.delayed` (`TallyConfig.liveRefreshBudget`; tests shorten it).
+    private let liveRefreshBudget: Duration
+    /// The one timer behind `.delayed` (`FreshnessRules.nextTransition`): no polling.
+    private var delayedSignal: Task<Void, Never>?
 
     private var gateway: (any CanvasGateway)?
     private var snapshot: CanvasSnapshot?
@@ -29,9 +33,13 @@ public actor SampleSession: HomeDataSource {
         self.init(clock: clock, makeGateway: { try await SampleDataCanvasGateway.make(dateProvider: clock) })
     }
 
-    /// Tests inject the gateway factory.
-    init(clock: any DateProviding, makeGateway: @escaping @Sendable () async throws -> any CanvasGateway) {
+    /// Tests inject the gateway factory and the live-refresh budget.
+    init(
+        clock: any DateProviding, liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
+        makeGateway: @escaping @Sendable () async throws -> any CanvasGateway
+    ) {
         self.clock = clock
+        self.liveRefreshBudget = liveRefreshBudget
         self.makeGateway = makeGateway
     }
 
@@ -67,6 +75,7 @@ public actor SampleSession: HomeDataSource {
     public func end() {
         hasEnded = true
         inFlight?.cancel()
+        delayedSignal?.cancel()
         let finishing = Array(subscribers.values)
         subscribers.removeAll()
         for continuation in finishing { continuation.finish() }
@@ -80,7 +89,14 @@ public actor SampleSession: HomeDataSource {
         let now = clock.now()
         record.began(trigger, at: now)
         publish()
+        scheduleDelayedSignal()
+        defer { delayedSignal?.cancel() }
         do {
+            #if DEBUG
+            if generation > 0, let latency = Self.debugRefreshLatency {
+                try await Task.sleep(for: latency)
+            }
+            #endif
             let gateway = try await resolvedGateway()
             let fetched = try await gateway.fetchSnapshot(previous: snapshot, now: now)
             guard !hasEnded else { return }
@@ -100,6 +116,37 @@ public actor SampleSession: HomeDataSource {
         publish()
     }
 
+    /// Publishes once the in-flight refresh crosses `liveRefreshBudget`, so subscribers see
+    /// `.delayed` (and the breadcrumb) on time. It re-reads the transition after each sleep, so a
+    /// sleep that wakes a little early against `clock` never loses the signal.
+    private func scheduleDelayedSignal() {
+        delayedSignal?.cancel()
+        delayedSignal = Task { [weak self] in
+            while let wait = await self?.secondsUntilFreshnessTransition() {
+                do { try await Task.sleep(for: .seconds(wait)) } catch { return }
+            }
+            await self?.publish()
+        }
+    }
+
+    /// Seconds until the derived freshness changes without a new event, or `nil` once it has
+    /// (or never will).
+    private func secondsUntilFreshnessTransition() -> TimeInterval? {
+        let now = clock.now()
+        return FreshnessRules.nextTransition(of: record, after: now, budget: liveRefreshBudget)
+            .map { $0.timeIntervalSince(now) }
+    }
+
+    #if DEBUG
+    /// UI tests only: the launch argument `-TallyDebugSampleRefreshLatency <seconds>` delays every
+    /// sample refresh after the first load, to exercise the slow-refresh path (perf-app-runtime.md
+    /// §7 step 7: a 12-s slow refresh shows the breadcrumb, which then self-heals). Debug builds only.
+    private static var debugRefreshLatency: Duration? {
+        let seconds = UserDefaults.standard.double(forKey: "TallyDebugSampleRefreshLatency")
+        return seconds > 0 ? .seconds(seconds) : nil
+    }
+    #endif
+
     private func resolvedGateway() async throws -> any CanvasGateway {
         if let gateway { return gateway }
         let made = try await makeGateway()
@@ -109,7 +156,7 @@ public actor SampleSession: HomeDataSource {
 
     private func currentUpdate() -> HomeUpdate {
         HomeUpdate(generation: generation, snapshot: snapshot, digest: digest, digestAsOf: digestAsOf,
-                   freshness: FreshnessRules.state(of: record, now: clock.now()))
+                   freshness: FreshnessRules.state(of: record, now: clock.now(), budget: liveRefreshBudget))
     }
 
     private func publish() {

@@ -27,16 +27,15 @@ struct TallyApp: App {
         // `.backgroundTask(_:action:)`'s closure does not inherit this
         // (MainActor) context — its whole point is to be able to run
         // without the UI active — so it cannot read the MainActor-isolated
-        // `environment` property directly. Reading `environment.logger`
-        // (and, as of E04, its `appModel.refreshCoordinator`) here, while
-        // still on MainActor, and capturing the results as plain locals lets
-        // both closures use them safely across the isolation boundary
-        // (`RefreshCoordinator` is an actor, so the reference itself is
-        // `Sendable`).
+        // `environment` property directly. Reading `environment.logger` and
+        // `environment.accountRuntime` here, while still on MainActor, and
+        // capturing them as plain locals lets both closures use them safely
+        // across the isolation boundary (`AccountRuntime` is an actor, so the
+        // reference itself is `Sendable`).
         let logger = environment.logger
         let appModel = environment.appModel
         let webAuthPresenter = environment.webAuthPresenter
-        let coordinator = environment.appModel.refreshCoordinator
+        let accountRuntime = environment.accountRuntime
         // "Refresh Tally"'s `RefreshIntentBridge` is set and cleared by
         // `AppModel.attach(_:)`/`detach()` (perf-app-runtime.md §7 step 1),
         // never here: `body` stays free of side effects.
@@ -54,12 +53,12 @@ struct TallyApp: App {
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             logger.log(.backgroundRefreshInvoked)
-            // Real call-through to whatever `RefreshCoordinator` the app has
-            // today (`nil` until sign-in attaches an account — see
-            // `AppEnvironment`'s doc comment): an honest no-op, not a
-            // hardcoded stub, and it starts doing real work the moment a
-            // coordinator exists with no further change at this call site.
-            await coordinator?.run(trigger: .background)
+            // perf-app-runtime.md §7 step 7: one run through the account's
+            // one coordinator (single-flight with the foreground), resolved
+            // lazily by the runtime. With no account it is an honest no-op,
+            // and it does real work the moment sign-in installs one, with no
+            // change at this call site.
+            await accountRuntime.backgroundRefresh()
         }
     }
 }

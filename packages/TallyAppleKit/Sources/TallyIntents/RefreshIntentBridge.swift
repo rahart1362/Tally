@@ -6,8 +6,8 @@ import TallySync
 /// `AppIntentsPackage`/`@Dependency` — but that package-level wiring is explicitly out of this
 /// work package's scope ("`AppIntentsPackage` wiring is deferred to E06", per the M2 app-shell
 /// merge notes in `build/logs/iteration_journal.md`). This bridge is the honest, minimal stand-in
-/// until then: the composition root sets `coordinator` whenever `AppModel.refreshCoordinator`
-/// changes, and the intent reads it. It is real wiring, not a fabricated result — today it is
+/// until then: `AppModel.attach(_:)` sets `coordinator` and `detach()` (and so `signOut()`) clears
+/// it, and the intent reads it. It is real wiring, not a fabricated result — today it is
 /// `nil` (no signed-in account yet), so the intent's `perform()` is a genuine no-op, exactly like
 /// `.backgroundTask`'s.
 @MainActor

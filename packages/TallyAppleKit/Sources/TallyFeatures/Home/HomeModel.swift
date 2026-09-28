@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Synchronization
 import TallyDomain
 
 /// The Home shell's model (perf-app-runtime.md §2.1, §7 step 6). Main-actor and `@Observable`, but
@@ -38,7 +39,12 @@ public final class HomeModel {
     private let clock: any DateProviding
     private let subscription = TaskBox()
     private let timeChanges = TaskBox()
-    private let buttonRefresh = TaskBox()
+    /// Owns the manual refresh run (pull-to-refresh and the hero's button), so it ends with the
+    /// model, never with a view (plan 06 row 7, SH-2: cancelling the only caller of
+    /// `RefreshCoordinator.run` abandons the fetch). `manualRun` lets a second pull or tap join the
+    /// run already going instead of starting, or cancelling, one.
+    private let manualRunOwner = TaskBox()
+    @ObservationIgnored private var manualRun: Task<Void, Never>?
     /// The generation on screen, and the newest one handed to the projector.
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private var installedGeneration: UInt64 = 0
@@ -72,17 +78,58 @@ public final class HomeModel {
         })
     }
 
-    /// Pull-to-refresh: the source's single-flight refresh.
+    /// A manual refresh, awaited to the end. It runs in the task this model owns, so cancelling
+    /// the caller stops only the waiting, never the refresh.
     public func refresh() async {
-        await source.refresh(.manual)
+        await manualRefreshRun().value
     }
 
-    /// The hero's refresh button (perf-app-runtime.md §1.4 H9): the refresh runs in a task this
-    /// model owns, so it never outlives the model, instead of an unstructured `Task` in the view.
+    /// The hero's refresh button (perf-app-runtime.md §1.4 H9): starts the manual refresh, or joins
+    /// the one already going. Never an unstructured `Task` in the view.
     public func requestRefresh() {
-        buttonRefresh.replace(with: Task { [weak self] in
-            await self?.refresh()
-        })
+        _ = manualRefreshRun()
+    }
+
+    /// Pull-to-refresh (perf-app-runtime.md §7 step 7): returns when the refresh settles or after
+    /// `budget` (`TallyConfig.liveRefreshBudget`, 10 s), whichever comes first, so the spinner never
+    /// runs to the 60 s ceiling; by then the freshness is `.delayed` and the breadcrumb takes over.
+    /// The refresh keeps going in the task this model owns and the screen self-heals when it
+    /// lands. If the caller (`.refreshable`'s task) is cancelled, it stops waiting at once and the
+    /// refresh still runs to its commit.
+    public func refreshUntilSettledOrDelayed(budget: Duration = TallyConfig.liveRefreshBudget) async {
+        let run = manualRefreshRun()
+        let gate = ResumeGate()
+        await withTaskCancellationHandler {
+            // Not a task group: a group waits for every child, and `run.value` never ends early,
+            // so a group would always wait for the refresh. Whichever finishes first opens the gate.
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                gate.install(continuation)
+                let timer = Task {
+                    do { try await Task.sleep(for: budget) } catch { return } // cancelled: the run won
+                    gate.open()
+                }
+                Task {
+                    await run.value
+                    timer.cancel()
+                    gate.open()
+                }
+            }
+        } onCancel: {
+            gate.open()
+        }
+    }
+
+    /// The manual refresh in flight, or a new one: `source.refresh(.manual)` in a task this model
+    /// owns (`manualRunOwner`), which only `end()` cancels.
+    private func manualRefreshRun() -> Task<Void, Never> {
+        if let manualRun { return manualRun }
+        let run = Task { [weak self, source] in
+            await source.refresh(.manual)
+            self?.manualRun = nil
+        }
+        manualRun = run
+        manualRunOwner.replace(with: run)
+        return run
     }
 
     /// Re-projects only if `validUntil` has passed (the shell's `.task(id: validUntil)` timer, and
@@ -108,7 +155,8 @@ public final class HomeModel {
     public func end() async {
         subscription.cancel()
         timeChanges.cancel()
-        buttonRefresh.cancel()
+        manualRunOwner.cancel()
+        manualRun = nil
         await source.end()
         await projector.end()
     }
@@ -145,5 +193,36 @@ public final class HomeModel {
         if toDo != projection.toDo { toDo = projection.toDo }
         if validUntil != projection.validUntil { validUntil = projection.validUntil }
         if phase != .loaded { phase = .loaded }
+    }
+}
+
+/// Resumes one continuation exactly once, whoever opens it first: the refresh finishing, the
+/// budget passing or the caller being cancelled. Opening before the continuation is installed
+/// (a caller cancelled up front) resumes it as soon as it is.
+private nonisolated final class ResumeGate: Sendable {
+    private struct State {
+        var continuation: CheckedContinuation<Void, Never>?
+        var isOpen = false
+    }
+
+    private let state = Mutex(State())
+
+    func install(_ continuation: CheckedContinuation<Void, Never>) {
+        let resumeNow = state.withLock { state -> Bool in
+            if state.isOpen { return true }
+            state.continuation = continuation
+            return false
+        }
+        if resumeNow { continuation.resume() }
+    }
+
+    func open() {
+        let pending = state.withLock { state -> CheckedContinuation<Void, Never>? in
+            state.isOpen = true
+            let taken = state.continuation
+            state.continuation = nil
+            return taken
+        }
+        pending?.resume()
     }
 }

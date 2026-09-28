@@ -17,6 +17,9 @@ public actor HomeProjector {
     private var installed: HomeUpdate?
     /// How many projections this projector has built (tests: "recomputes exactly once").
     private(set) var projectionCount = 0
+    /// The snapshot being projected (tests: the signed-in Home projects the coordinator's
+    /// committed value itself).
+    var installedSnapshot: CanvasSnapshot? { installed?.snapshot }
 
     public init(calendar: Calendar = .autoupdatingCurrent, locale: Locale = .autoupdatingCurrent) {
         self.calendar = calendar

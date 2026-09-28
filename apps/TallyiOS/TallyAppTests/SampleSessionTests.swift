@@ -50,6 +50,40 @@ struct SampleSessionTests {
         #expect(lateFirst == nil)
     }
 
+    /// perf-app-runtime.md §7 step 7: the breadcrumb must appear on time while a slow refresh runs,
+    /// from the session's one `nextTransition` timer, and clear when the refresh lands.
+    @Test("a refresh past the live budget publishes .delayed on time, then .fresh when it lands",
+          .timeLimit(.minutes(1)))
+    func slowRefreshTurnsDelayedThenFresh() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Date())
+        let session = SampleSession(clock: SystemDateProvider(), liveRefreshBudget: .milliseconds(200)) {
+            CountingGateway(snapshot: snapshot, latency: .milliseconds(700))
+        }
+        let updates = await session.updates()
+        let started = ContinuousClock.now
+        let refresh = Task { await session.refresh(.manual) }
+
+        var sequence: [String] = []
+        var delayedAfter: Duration?
+        for await update in updates {
+            switch update.freshness {
+            case .noCache: sequence.append("noCache")
+            case .refreshing: sequence.append("refreshing")
+            case .delayed:
+                sequence.append("delayed")
+                delayedAfter = ContinuousClock.now - started
+            case .fresh: sequence.append("fresh")
+            default: sequence.append("other")
+            }
+            if sequence.last == "fresh" { break }
+        }
+        await refresh.value
+        #expect(sequence == ["noCache", "refreshing", "delayed", "fresh"], "\(sequence)")
+        let after = try #require(delayedAfter)
+        #expect(after >= .milliseconds(190) && after < .milliseconds(650), "delayed after \(after)")
+        await session.end()
+    }
+
     @Test("two concurrent refreshes share one run (single-flight)")
     func refreshIsSingleFlight() async throws {
         let calls = Recorder<Int>()

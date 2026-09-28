@@ -9,17 +9,20 @@ import TallyPlatform
 /// TallyPlatform; the app's composition root injects adapters through
 /// protocols").
 ///
-/// E04: `appModel` is the one `AppModel` the whole app shares. Its
-/// `refreshCoordinator` starts `nil` — pure construction can't stand up a
-/// real per-account `RefreshCoordinator` without knowing whether an account
-/// exists, and reading that (Keychain, the store) is I/O this initializer is
-/// forbidden from doing. Sign-in is what will eventually call
-/// `appModel.attach(_:)` once a real account and its coordinator exist.
+/// E04: `appModel` is the one `AppModel` the whole app shares.
+/// `accountRuntime` (perf-app-runtime.md §7 step 7) owns the signed-in
+/// account's one `RefreshCoordinator`, shared by the Home (through
+/// `appModel`) and `.backgroundTask`. It starts with none — pure construction
+/// can't stand up a real per-account `RefreshCoordinator` without knowing
+/// whether an account exists, and reading that (Keychain, the store) is I/O
+/// this initializer is forbidden from doing. The runtime resolves the account
+/// lazily; sign-in installs one through `appModel.attach(_:)`.
 struct AppEnvironment {
     let logger: any TallyPlatformLogger
     /// UX-WP-09: the real `ASWebAuthenticationSession` adapter for the
     /// `WebAuthPresenting` port `SignInHandoffViewModel` (`TallyFeatures`) depends on.
     let webAuthPresenter: any WebAuthPresenting
+    let accountRuntime: AccountRuntime
     let appModel: AppModel
 
     /// `@MainActor`: `WebAuthPresenter` is main-actor isolated (it drives
@@ -30,6 +33,8 @@ struct AppEnvironment {
     /// the right actor.
     @MainActor
     static func live() -> AppEnvironment {
-        AppEnvironment(logger: OSLogPlatformLogger(), webAuthPresenter: WebAuthPresenter(), appModel: AppModel())
+        let accountRuntime = AccountRuntime()
+        return AppEnvironment(logger: OSLogPlatformLogger(), webAuthPresenter: WebAuthPresenter(),
+                              accountRuntime: accountRuntime, appModel: AppModel(accountRuntime: accountRuntime))
     }
 }

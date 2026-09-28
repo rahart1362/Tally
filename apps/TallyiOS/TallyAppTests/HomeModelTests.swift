@@ -33,6 +33,43 @@ actor FakeHomeSource: HomeDataSource {
     }
 }
 
+/// A source whose manual refresh takes `latency`, then lands the next generation (launch refreshes
+/// land nothing). It records how many manual refreshes started, finished and were cancelled.
+actor SlowHomeSource: HomeDataSource {
+    private let fake: FakeHomeSource
+    private let snapshot: CanvasSnapshot
+    private let latency: Duration
+    private var generation: UInt64 = 1
+    private(set) var manualStarted = 0
+    private(set) var manualLanded = 0
+    private(set) var manualCancelled = 0
+
+    init(snapshot: CanvasSnapshot, latency: Duration) {
+        self.snapshot = snapshot
+        self.latency = latency
+        fake = FakeHomeSource(HomeTestSupport.update(snapshot, generation: 1, freshness: .fresh(at: HomeTestSupport.anchor)))
+    }
+
+    func updates() async -> AsyncStream<HomeUpdate> { await fake.updates() }
+
+    func refresh(_ trigger: RefreshTrigger) async {
+        guard trigger == .manual else { return }
+        manualStarted += 1
+        do {
+            try await Task.sleep(for: latency)
+        } catch {
+            manualCancelled += 1
+            return
+        }
+        generation += 1
+        manualLanded += 1
+        await fake.send(HomeTestSupport.update(snapshot, generation: generation,
+                                               freshness: .fresh(at: HomeTestSupport.anchor.addingTimeInterval(60))))
+    }
+
+    func end() async { await fake.end() }
+}
+
 enum HomeTestSupport {
     /// The flagship persona's capture instant, so every section has items.
     static let anchor = Date(timeIntervalSince1970: 1_790_600_400)
@@ -114,5 +151,78 @@ struct HomeModelTests {
         await source.send(HomeTestSupport.update(snapshot, generation: 1, freshness: .fresh(at: HomeTestSupport.anchor)))
         #expect(try await HomeTestSupport.waitUntil { model.freshness == .fresh(at: HomeTestSupport.anchor) })
         #expect(await projector.projectionCount == 1)
+    }
+
+    // MARK: - Pull-to-refresh (perf-app-runtime.md §7 step 7, plan 06 row 7)
+
+    private static func startedModel(latency: Duration) async throws -> (HomeModel, SlowHomeSource) {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: HomeTestSupport.anchor)
+        let source = SlowHomeSource(snapshot: snapshot, latency: latency)
+        let model = HomeModel(source: source)
+        await model.start()
+        #expect(try await HomeTestSupport.waitUntil { model.phase == .loaded })
+        return (model, source)
+    }
+
+    /// Polls an actor-backed count until it reaches `expected`.
+    private static func landed(_ source: SlowHomeSource, _ expected: Int) async throws -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while await source.manualLanded < expected {
+            guard ContinuousClock.now < deadline else { return false }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return true
+    }
+
+    @Test("pull-to-refresh returns at the live budget while a slow refresh runs; the refresh still lands")
+    func pullToRefreshReturnsAtTheBudget() async throws {
+        let (model, source) = try await Self.startedModel(latency: .milliseconds(900))
+        let started = ContinuousClock.now
+        await model.refreshUntilSettledOrDelayed(budget: .milliseconds(200))
+        let waited = ContinuousClock.now - started
+        #expect(waited >= .milliseconds(200) && waited < .milliseconds(800), "returned after \(waited)")
+        #expect(await source.manualLanded == 0, "returned only once the refresh had landed")
+
+        #expect(try await Self.landed(source, 1), "the refresh never landed")
+        #expect(try await HomeTestSupport.waitUntil { model.freshness == .fresh(at: HomeTestSupport.anchor.addingTimeInterval(60)) })
+        #expect(await model.projector.projectionCount == 2)
+    }
+
+    @Test("a fast refresh: pull-to-refresh returns as soon as it settles")
+    func pullToRefreshReturnsWhenSettled() async throws {
+        let (model, source) = try await Self.startedModel(latency: .milliseconds(50))
+        let started = ContinuousClock.now
+        await model.refreshUntilSettledOrDelayed(budget: .seconds(10))
+        #expect(ContinuousClock.now - started < .seconds(3))
+        #expect(await source.manualLanded == 1)
+    }
+
+    /// Plan 06 row 7 (SH-2): cancelling the only caller of `RefreshCoordinator.run` abandons the
+    /// fetch, so the view's `.refreshable` task must never be the run's owner.
+    @Test("cancelling the pull-to-refresh task ends the wait at once; the refresh still commits")
+    func cancellingThePullDoesNotCancelTheRefresh() async throws {
+        let (model, source) = try await Self.startedModel(latency: .milliseconds(500))
+        let pull = Task { await model.refreshUntilSettledOrDelayed(budget: .seconds(10)) }
+        try await Task.sleep(for: .milliseconds(100))
+        let cancelledAt = ContinuousClock.now
+        pull.cancel()
+        await pull.value
+        #expect(ContinuousClock.now - cancelledAt < .milliseconds(300), "the cancelled pull kept waiting")
+
+        #expect(try await Self.landed(source, 1), "the refresh was abandoned with the view's task")
+        #expect(await source.manualCancelled == 0)
+    }
+
+    @Test("a second pull and the hero's button join the refresh in flight; none cancels it")
+    func manualRefreshesJoinTheRunInFlight() async throws {
+        let (model, source) = try await Self.startedModel(latency: .milliseconds(300))
+        model.requestRefresh()
+        model.requestRefresh()
+        async let pull: Void = model.refreshUntilSettledOrDelayed(budget: .seconds(10))
+        await model.refresh()
+        await pull
+        #expect(await source.manualStarted == 1)
+        #expect(await source.manualLanded == 1)
+        #expect(await source.manualCancelled == 0)
     }
 }

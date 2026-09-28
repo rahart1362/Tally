@@ -73,4 +73,42 @@ struct RefreshStatusModelTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(model.freshness == .noCache)
     }
+
+    /// perf-app-runtime.md §7 step 7: with a stream per subscriber (SH-1), a detached model can
+    /// attach again, and a new coordinator's events reach it.
+    @Test("attach -> detach -> attach to a new coordinator: the new coordinator's events arrive")
+    @MainActor
+    func reattachToANewCoordinatorReceivesEvents() async throws {
+        let model = RefreshStatusModel()
+        let first = try makeCoordinator()
+        await model.attach(to: first)
+        model.detach()
+
+        let second = try makeCoordinator()
+        await model.attach(to: second)
+        await model.refresh() // a manual run through `second`
+        #expect(try await HomeTestSupport.waitUntil {
+            if case .fresh = model.freshness { true } else { false }
+        }, "got \(model.freshness)")
+    }
+
+    /// perf-app-runtime.md §7 step 7: the subscription task captures only its stream, so after
+    /// `detach()` nothing in the model keeps the coordinator (and its snapshot) alive.
+    @Test("after detach() and release, the coordinator deallocates")
+    @MainActor
+    func detachLetsTheCoordinatorGo() async throws {
+        let model = RefreshStatusModel()
+        weak var released: RefreshCoordinator?
+        do {
+            let coordinator = try makeCoordinator()
+            released = coordinator
+            await model.attach(to: coordinator)
+            await model.refresh()
+            #expect(try await HomeTestSupport.waitUntil {
+                if case .fresh = model.freshness { true } else { false }
+            })
+        }
+        model.detach()
+        #expect(try await HomeTestSupport.waitUntil { released == nil }, "the detached model kept the coordinator alive")
+    }
 }

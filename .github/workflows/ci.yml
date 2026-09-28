@@ -47,6 +47,14 @@ jobs:
             echo "::error::Banned pattern in shipping code (lines above)"
             exit 1
           fi
+      - name: No nonisolated(unsafe) in TallyAppleKit
+        # perf-app-runtime.md section 7 step 7: TaskBox (a Mutex-backed Sendable box) replaced
+        # the last unchecked stored task, so the compiler checks all of TallyAppleKit's state.
+        run: |
+          if git grep -n "nonisolated(unsafe)" -- packages/TallyAppleKit; then
+            echo "::error::nonisolated(unsafe) in TallyAppleKit (lines above)"
+            exit 1
+          fi
       - name: The Home shell (a TabView) is built only in RootView.swift, as a root route
         # perf-app-runtime.md section 3 item 2. A TabView or NavigationStack pushed as a
         # navigationDestination never renders (2d3131f bisect), so the Home shell may be

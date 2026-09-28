@@ -43,7 +43,9 @@ struct DashboardView: View {
             .padding(.bottom, TallySpacing.xxxl)
         }
         .background(TallyColor.bgCanvas)
-        .refreshable { await model.refresh() }
+        // Awaits the model-owned refresh until it settles or the live budget passes; never ties
+        // the run to this view's task (plan 06 row 7, SH-2).
+        .refreshable { await model.refreshUntilSettledOrDelayed() }
         .navigationTitle("Dashboard")
     }
 

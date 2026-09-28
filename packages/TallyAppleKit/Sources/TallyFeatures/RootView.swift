@@ -8,8 +8,8 @@ import TallyDesignSystem
 ///
 /// - `.launching`: the launch colour, until `AppModel.bootstrap()` resolves the route.
 /// - `.welcome`: `WelcomeFlowView`, onboarding's `NavigationStack` of plain pushed pages.
-/// - `.sample`: `HomeShellView`, the root `TabView` whose tabs own their stacks, over the
-///   `HomeModel` that `AppModel.enterSample()` built (the signed-in Home follows, step 9).
+/// - `.sample` and `.signedIn`: `HomeShellView`, the root `TabView` whose tabs own their stacks,
+///   over the `HomeModel` the route transition built (sample data, or the account's coordinator).
 ///
 /// **Navigation rule** (CONTRIBUTING.md code-review checklist): `TabView` and `NavigationStack`
 /// appear only as a root, or as a tab's root inside the root `TabView` — never inside a pushed
@@ -59,11 +59,11 @@ public struct RootView: View {
                 HomeShellView(model: home, banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })))
             }
         case .signedIn:
-            // The signed-in Home needs the account session from sign-in's first sync
-            // (perf-app-runtime.md §7 step 9); until then this root says so plainly.
-            ContentUnavailableView("Signed in", systemImage: "checkmark.circle.fill",
-                                   description: Text("Your dashboard appears after the first sync."))
-                .background(TallyColor.bgCanvas)
+            // The account's Home over its coordinator (`AccountHomeSource`), built by
+            // `AppModel.completeSignIn(_:)`.
+            if let home = appModel.home {
+                HomeShellView(model: home)
+            }
         }
     }
 }
