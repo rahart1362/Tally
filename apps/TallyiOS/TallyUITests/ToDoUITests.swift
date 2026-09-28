@@ -56,8 +56,9 @@ final class ToDoUITests: TallyUITestCase {
         let picked = [notDone.element(boundBy: 0).label, notDone.element(boundBy: 1).label]
         for label in picked {
             let row = rows.matching(NSPredicate(format: "label == %@", label)).firstMatch
-            XCTAssertTrue(scrollUntilHittable(row, in: app, maxSwipes: 4), "'\(label)' is not on screen. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(bringClearOfTheBottom(row, in: app), "'\(label)' is not clear of the bottom bar. Hierarchy: \(app.debugDescription)")
             row.tap()
+            XCTAssertTrue(eventually(timeout: 5) { row.isSelected }, "'\(label)' was not selected. Hierarchy: \(app.debugDescription)")
         }
         tapWhenHittable(app.buttons["todo.markDone"], in: app)
         // The rows keep their places; the scroll may have moved the first one above the screen.

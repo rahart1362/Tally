@@ -22,6 +22,9 @@ final class CourseDetailUITests: TallyUITestCase {
 
     @MainActor
     func testSegmentsChartsAndTheWhatIfSheet() throws {
+        // The longest screen test: 202.4 s in run 36463736410 (the slider's adjust steps through
+        // its positions), close to the suite's 240 s. The command line's maximum is 300 s.
+        executionTimeAllowance = 300
         let app = launchSample()
         openMath(app)
 

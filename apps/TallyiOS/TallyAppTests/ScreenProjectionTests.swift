@@ -203,6 +203,18 @@ struct ToDoProjectionTests {
         #expect(bands.map { rank[$0] ?? 3 } == bands.map { rank[$0] ?? 3 }.sorted())
     }
 
+    @Test("R16: a done mark says it is Tally's, and says when Canvas still expects a submission")
+    func honestDoneCopy() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let rows = screens.toDo.sections.flatMap(\.byDueDate)
+        let online = try #require(rows.first { $0.needsCanvasSubmission })
+        #expect(online.spokenLabel(isDone: false) == online.accessibilityLabel)
+        #expect(online.spokenLabel(isDone: true)
+                == "\(online.accessibilityLabel), Marked done in Tally, Not submitted in Canvas")
+        let inClass = try #require(rows.first { $0.title == "Participation: September" })
+        #expect(inClass.spokenLabel(isDone: true) == "\(inClass.accessibilityLabel), Marked done in Tally")
+    }
+
     @Test("submitted, graded and excused work is never to-do; in-class work has no online status")
     func notToDo() async throws {
         let (snapshot, screens) = try await ScreenFixtures.projections("flagship")

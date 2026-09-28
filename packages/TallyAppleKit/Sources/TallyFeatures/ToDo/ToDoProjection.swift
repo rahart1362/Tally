@@ -55,6 +55,19 @@ public nonisolated struct ToDoItem: Identifiable, Equatable, Sendable {
 
     /// The priority flag's word, shown for high-priority work only ("High", ux-ui.md §3.7.5).
     public var priorityWord: String? { band == .high ? "High priority" : nil }
+
+    /// "Done" is Tally's own mark (PMO R16), so the row says exactly that (ux-ui.md §3.7.5).
+    public static let markedDoneText = "Marked done in Tally"
+    /// Shown with a done mark while Canvas still expects a submission.
+    public static let notSubmittedText = "Not submitted in Canvas"
+
+    /// The row's VoiceOver label: the projector's words, then the honest done state.
+    public func spokenLabel(isDone: Bool) -> String {
+        guard isDone else { return accessibilityLabel }
+        var parts = [accessibilityLabel, Self.markedDoneText]
+        if needsCanvasSubmission { parts.append(Self.notSubmittedText) }
+        return parts.joined(separator: ", ")
+    }
 }
 
 public nonisolated struct ToDoSection: Identifiable, Equatable, Sendable {

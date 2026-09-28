@@ -162,27 +162,19 @@ struct ToDoRowView: View {
                         .foregroundStyle(TallyColor.textSecondary)
                 }
                 if isDone {
-                    Label("Marked done in Tally", systemImage: "checkmark")
+                    Label(ToDoItem.markedDoneText, systemImage: "checkmark")
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textPrimary)
                     if item.needsCanvasSubmission {
-                        Label("Not submitted in Canvas", systemImage: "exclamationmark.circle")
+                        Label(ToDoItem.notSubmittedText, systemImage: "exclamationmark.circle")
                             .font(TallyTypography.footnote)
                             .foregroundStyle(TallyColor.textPrimary)
                     }
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(label)
+            .accessibilityLabel(item.spokenLabel(isDone: isDone))
             .accessibilityIdentifier("todo.row")
         }
-    }
-
-    /// The projector's label (title, code, status, due, priority), then the honest done state.
-    private var label: String {
-        guard isDone else { return item.accessibilityLabel }
-        var parts = [item.accessibilityLabel, "Marked done in Tally"]
-        if item.needsCanvasSubmission { parts.append("Not submitted in Canvas") }
-        return parts.joined(separator: ", ")
     }
 }

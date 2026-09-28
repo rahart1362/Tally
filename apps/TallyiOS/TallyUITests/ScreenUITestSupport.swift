@@ -48,6 +48,20 @@ extension TallyUITestCase {
         return element.exists && element.isHittable
     }
 
+    /// Swipes up until `element` is hittable and its bottom edge sits `bottomMargin` points above the
+    /// screen's bottom, clear of a bottom bar (a tap near that edge can land on the bar instead:
+    /// run 36463736410's To-Do batch select). `true` when it does.
+    @MainActor
+    @discardableResult
+    func bringClearOfTheBottom(_ element: XCUIElement, in app: XCUIApplication,
+                               bottomMargin: CGFloat = 160, maxSwipes: Int = 4) -> Bool {
+        let clear = { element.exists && element.isHittable && element.frame.maxY < app.frame.maxY - bottomMargin }
+        for _ in 0..<maxSwipes where !clear() {
+            app.swipeUp(velocity: .slow)
+        }
+        return clear()
+    }
+
     /// Flips a Form toggle. The toggle's element spans the whole row, and a tap on the row's centre
     /// lands on the label, which does not flip it; tap the switch itself (the row's inner switch
     /// when the hierarchy has one, else the trailing end of the row where the switch sits).
