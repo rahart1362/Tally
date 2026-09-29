@@ -54,6 +54,18 @@ extension LaunchTestHookOverlay {
     }
 }
 
+/// The `emptyScene` hook's window content: nothing but the launch colour's absence, whose task ends
+/// `Launch.ToTask` the way `AppModel.launch()` does. `TallyPerfUITests` compares that phase with the
+/// real launch's: what is left is the process, the scene and an empty first frame on the simulator.
+public struct EmptyLaunchSceneView: View {
+    public init() {}
+
+    public var body: some View {
+        Color.clear
+            .task { LaunchSignpost.enterPhase(nil) }
+    }
+}
+
 /// "Network blocked · 0 requests before the first paint · N requests": what
 /// `LaunchFromCacheUITests` reads.
 private struct NetworkProbeLabel: View {

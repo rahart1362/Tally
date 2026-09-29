@@ -48,6 +48,10 @@ public nonisolated struct LaunchTestHooks: Sendable {
         public static let demoSignIn = "TallyTestHooks.demoSignIn"
         /// `YES`: a sign-out button on the signed-in Home (Settings' own button is M3-A's).
         public static let signOutButton = "TallyTestHooks.signOutButton"
+        /// `YES`: the window shows an empty view instead of `RootView`, whose task ends
+        /// `Launch.ToTask`; nothing is read. `TallyPerfUITests` measures the phase's floor with it
+        /// (process, scene and first frame on this simulator, with no app content).
+        public static let emptyScene = "TallyTestHooks.emptyScene"
     }
 
     /// The demo school's registration (the flagship persona's host; a synthetic client ID).
@@ -63,6 +67,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public let blockNetwork: Bool
     public let demoSignIn: Bool
     public let signOutButton: Bool
+    public let emptyScene: Bool
 
     /// Parses `-TallyTestHooks.<name> <value>` pairs; anything else is ignored.
     public init(arguments: [String]) {
@@ -89,12 +94,13 @@ public nonisolated struct LaunchTestHooks: Sendable {
         blockNetwork = flag(Key.blockNetwork)
         demoSignIn = flag(Key.demoSignIn)
         signOutButton = flag(Key.signOutButton)
+        emptyScene = flag(Key.emptyScene)
     }
 
     /// Whether any hook is on. `AppEnvironment` keeps no hooks object when none is.
     public var isActive: Bool {
         seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork || demoSignIn
-            || signOutButton
+            || signOutButton || emptyScene
     }
 
     private static func authResult(_ name: String) -> AppLockPolicy.AuthResult? {
