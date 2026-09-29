@@ -1,76 +1,47 @@
 import SwiftUI
-import TallyDesignSystem
+import TallyGlance
 import WidgetKit
 
-/// The WidgetKit extension entry point (architecture.md §3.1). Reads
-/// **only** its own placeholder entry today — no App Group access, no
-/// network, no Keychain — because `glance.v1` (the projection this widget
-/// will eventually read) is written by `TallyStore`, which does not exist
-/// yet (a later work package). WP-E01 scope is proving the extension
-/// target, its entitlement and its Info.plist wiring build and install
-/// correctly.
+/// The WidgetKit extension (plan 06 step 11; perf-app-runtime.md §2.4 W1-W3). Both widgets read the
+/// glance only, through `TallyGlance`: `SnapshotStore(root: <App Group>, sealer: VaultSealer(…,
+/// mayCreateKeys: false), isOwner: false).loadGlance()`, with the widget-audience key alone. They
+/// never decode the snapshot, use the network, build a `RefreshCoordinator` or read a credential,
+/// and this target links no `TallyFeatures` (CI: scripts/ci/check_widget_isolation.py). Without a
+/// Team ID (GO-LIVE GL-02) the App Group Keychain group is unavailable (-34018 on the CI
+/// simulator) and both widgets show their placeholder text.
 ///
-/// Deliberately one file, not two: CI run 36329218945 showed that splitting
-/// the bundle entry point (`@main ...: WidgetBundle`) into its own file
-/// from the `Widget` conformance it references made `Widget`/`WidgetBundle`
-/// unresolvable in that file specifically ("cannot find type 'Widget' in
-/// scope"), even though the sibling file's identical `import WidgetKit`
-/// resolved the same types fine in the same target/compile. That symptom
-/// didn't change after adding `-parse-as-library` (ruled out as the cause)
-/// and points at Swift's explicit-module-build dependency scan rather than
-/// anything in this source; consolidating into one file removes the
-/// multi-file scan path entirely.
+/// Deliberately one file: CI runs 36328840843 and 36329218945 failed to resolve `Widget` in a
+/// second file of this target ("cannot find type 'Widget' in scope"). Everything else lives in the
+/// `TallyGlance` package target.
 @main
 struct TallyWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        TallyGlanceWidget()
+        TallyNextUpWidget()
+        TallyStandingWidget()
     }
 }
 
-struct PlaceholderEntry: TimelineEntry {
-    let date: Date
-}
-
-/// A timeline provider that reads nothing (WP-E01: "a placeholder timeline
-/// that reads nothing"). It never touches the App Group container, so it
-/// cannot race with, or depend on, the store work that lands separately.
-struct PlaceholderTimelineProvider: TimelineProvider {
-    func placeholder(in context: Context) -> PlaceholderEntry {
-        PlaceholderEntry(date: .now)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (PlaceholderEntry) -> Void) {
-        completion(PlaceholderEntry(date: .now))
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PlaceholderEntry>) -> Void) {
-        completion(Timeline(entries: [PlaceholderEntry(date: .now)], policy: .never))
-    }
-}
-
-struct TallyGlanceWidgetView: View {
-    let entry: PlaceholderEntry
-
-    var body: some View {
-        VStack(spacing: TallySpacing.sm) {
-            TMark(size: 32)
-            Text("Tally")
-                .font(TallyTypography.footnote)
-                .foregroundStyle(TallyColor.textOnHero)
-        }
-        .containerBackground(TallyColor.bgBrand, for: .widget)
-    }
-}
-
-struct TallyGlanceWidget: Widget {
-    let kind = "TallyGlanceWidget"
-
+/// "Next up" (insights-at-a-glance.md §1.5): no grades.
+struct TallyNextUpWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PlaceholderTimelineProvider()) { entry in
-            TallyGlanceWidgetView(entry: entry)
+        StaticConfiguration(kind: GlanceWidgetKind.nextUp, provider: GlanceTimelineProvider()) { entry in
+            NextUpWidgetView(entry: entry)
         }
-        .configurationDisplayName("Tally")
-        .description("Placeholder. Live grades and due dates land in a later milestone.")
+        .configurationDisplayName("Next Up")
+        .description("The next thing due in your courses.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
+/// "Standing": the overall grade band, only if the user chose to show grades in widgets, and
+/// hidden while the iPhone is locked (PMO R10).
+struct TallyStandingWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: GlanceWidgetKind.standing, provider: GlanceTimelineProvider()) { entry in
+            StandingWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Standing")
+        .description("Your average grade band, if you choose to show grades in widgets. Hidden while your iPhone is locked.")
         .supportedFamilies([.systemSmall])
     }
 }

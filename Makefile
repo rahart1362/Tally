@@ -159,25 +159,35 @@ ios-asan: ## Tests under AddressSanitizer (IOS_ASAN_ONLY narrows them): fails on
 	! grep -q "ERROR: AddressSanitizer" $(IOS_OUT)/asan.log
 
 # Release, like the charter's budgets; ENABLE_TESTABILITY lets the hosted tests `@testable import`.
-IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests -only-testing:TallyAppTests/MainThreadGuardsTests
+# TallyPerfUITests (plan 07 M2-C1) measures the warm launch of a signed-in account, which needs a
+# seeded store: `TALLY_TEST_HOOKS` compiles the UI-test hooks (`LaunchTestHooks`) into this Release
+# *test* build only. The shipping Release build never sets it, and ios-build's binary gate checks
+# that build for the hooks' launch-argument prefix. `TEST_RUNNER_TALLY_PERF_RUN=1` reaches the UI test
+# runner as `TALLY_PERF_RUN`: TallyPerfUITests skip in every other run (Debug, sanitizers), where
+# they measure nothing the budgets use.
+IOS_PERF_TESTS ?= -only-testing:TallyAppTests/SampleLoadPerformanceTests -only-testing:TallyAppTests/MainThreadGuardsTests \
+	-only-testing:TallyUITests/TallyPerfUITests
+IOS_PERF_CONDITIONS ?= SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TALLY_TEST_HOOKS'
 
 ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
 	@mkdir -p $(IOS_OUT)
 	rm -rf $(IOS_OUT)/Tally-perf.xcresult
-	$(IOS_XCODEBUILD) build-for-testing -configuration Release ENABLE_TESTABILITY=YES \
+	$(IOS_XCODEBUILD) build-for-testing -configuration Release ENABLE_TESTABILITY=YES $(IOS_PERF_CONDITIONS) \
 		-destination 'generic/platform=iOS Simulator' -derivedDataPath $(IOS_OUT)/DerivedData-perf \
 		| tee $(IOS_OUT)/build-perf.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
 	grep -q "BUILD SUCCEEDED" $(IOS_OUT)/build-perf.log
-	$(IOS_XCODEBUILD) test-without-building -configuration Release \
+	TEST_RUNNER_TALLY_PERF_RUN=1 $(IOS_XCODEBUILD) test-without-building -configuration Release \
 		-destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' -derivedDataPath $(IOS_OUT)/DerivedData-perf \
 		$(IOS_PERF_TESTS) -resultBundlePath $(IOS_OUT)/Tally-perf.xcresult $(IOS_TEST_FLAGS) \
 		| tee $(IOS_OUT)/perf.log | grep -E $(IOS_CONSOLE) || true
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-perf.xcresult
-	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/perf.log
+	# The budgets gate, not the test run: a budgeted test that failed fails its budget (--log), and a
+	# diagnostic perf test's failure is reported without hiding the budgets (m2-lifecycle-report O11).
 	xcrun xcresulttool get test-results metrics --path $(IOS_OUT)/Tally-perf.xcresult --compact \
 		> $(IOS_OUT)/perf-metrics.json
-	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json
+	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json \
+		--log $(IOS_OUT)/perf.log
 
 ios-watchdog-log: ## Print the DEBUG main-thread watchdog's lines from IOS_SIM_UDID's log (stalls: phase, ms)
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }

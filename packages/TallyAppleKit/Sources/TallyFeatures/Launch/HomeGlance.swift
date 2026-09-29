@@ -1,0 +1,42 @@
+import Foundation
+import TallyDomain
+import TallyStore
+
+/// The first paint of a signed-in launch (perf-app-runtime.md §2.4 L4; decision D-P1): what the
+/// sealed glance can show before the snapshot is decoded. The hero's course count (its percentage
+/// stays a skeleton until the full projection, D-P1), the due-soon rows with their course codes, and
+/// the "Updated <time>" footer. Built off the main actor by `LaunchBootstrapper`.
+///
+/// The glance holds only the allow-listed fields (encryption.md §3.3): no course names, no grade
+/// values unless the student opted in, titles cut to 40 characters. So every row here is a subset
+/// of what the full projection shows a frame or so later, never something it contradicts.
+public nonisolated struct HomeGlance: Equatable, Sendable {
+    public let generation: UInt64
+    /// The glance's `asOf`: the fetch time of the snapshot it was built from.
+    public let asOf: Date
+    public let dashboard: DashboardProjection
+
+    public var freshness: FreshnessState { .fresh(at: asOf) }
+
+    /// Mirrors `DashboardBuilder`'s "Due soon" rule over the glance's items: due within the next
+    /// 7 days, soonest first, at most 5 (DashboardProjection.swift `dueSoon`).
+    public static func make(from glance: GlanceProjection, now: Date) -> HomeGlance {
+        let horizon = now.addingTimeInterval(dueSoonWindow)
+        let due = glance.dueSoon
+            .filter { item in
+                guard let dueAt = item.dueAt else { return false }
+                return dueAt >= now && dueAt <= horizon
+            }
+            .prefix(dueSoonLimit)
+            .map { DashboardProjection.DueItem(id: $0.id, title: $0.title, courseCode: $0.courseShortCode, dueAt: $0.dueAt) }
+        let hero = DashboardProjection.Hero(courseCount: glance.courses.count, overallPercent: nil,
+                                            overallBand: glance.overallGradeBand)
+        return HomeGlance(generation: glance.generation, asOf: glance.asOf,
+                          dashboard: DashboardProjection(hero: hero, nextUp: [], needsAttention: [], dueSoon: Array(due),
+                                                         weekAhead: [], changeDigestSummary: nil))
+    }
+
+    /// `DashboardBuilder`'s due-soon window (7 days) and row limit (5).
+    static let dueSoonWindow: TimeInterval = 7 * 24 * 3600
+    static let dueSoonLimit = 5
+}

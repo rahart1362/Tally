@@ -103,6 +103,25 @@ jobs:
             echo "::error::A *View.swift file calls .build( (projection belongs in HomeProjector)"
             exit 1
           fi
+      - name: Privacy manifests declare every required-reason API the shipping code uses (ASC-03)
+        # app-store-compliance.md R2: App Store Connect rejects an upload whose code uses a
+        # required-reason API that its bundle's PrivacyInfo.xcprivacy does not declare. The script
+        # scans the code linked into each bundle (app, widget; from project.yml and Package.swift),
+        # checks the reason codes, tracking, and the collected data against the privacy policy.
+        run: |
+          python3 scripts/ci/check_privacy_manifest.py --self-test
+          python3 scripts/ci/check_privacy_manifest.py .
+      - name: The widget reads the glance only (its module closure and its sources)
+        # Plan 06 step 11, perf-app-runtime.md §2.4 W3: the widget never decodes the snapshot, uses
+        # the network, builds a RefreshCoordinator or reads a credential, and links no TallyFeatures.
+        # This checks the widget's module closure (project.yml, Package.swift) and scans its code;
+        # ios-build checks the built binaries' link map and load commands.
+        run: |
+          python3 scripts/ci/check_widget_isolation.py --self-test
+          python3 scripts/ci/check_widget_isolation.py --sources .
+      - name: Release gate checker self-test (scripts/ci/check_release.py; ASC-10)
+        # The release gate (release-gate.yml, manual dispatch) runs the checks themselves.
+        run: python3 scripts/ci/check_release.py --self-test
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
@@ -265,6 +284,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
       - name: Generate Xcode project
+        id: generate
         working-directory: apps/TallyiOS
         run: xcodegen generate --spec project.yml
       - name: Build for iOS Simulator (Debug)
@@ -283,8 +303,10 @@ jobs:
       # (scripts/ci/print_xcresult_failures.py) whatever the result, then fails unless xcodebuild
       # reported success. `ios-test` also sets a per-test hang limit (120 s default, 300 s max).
       - name: Build TallyAppTests + TallyUITests for testing
+        id: build_for_testing
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
       - name: Run TallyAppTests and TallyUITests (every failure printed in full)
+        id: main_tests
         # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **", not plain "TEST
         # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
@@ -292,8 +314,9 @@ jobs:
             IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Main-thread watchdog stalls during the UI tests (phase, length)
         # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
-        # it becomes required): every stall past 250 ms, launch-phase ones included.
-        if: always()
+        # it becomes required): every stall past 250 ms, launch-phase ones included. Needs the
+        # picked simulator (O11: not after a failure that came before the pick).
+        if: ${{ always() && steps.sim.outcome == 'success' }}
         run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the smallest iOS 26 iPhone simulator
         id: small
@@ -309,8 +332,10 @@ jobs:
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         # The floor run below runs even after a red test above, so a failure there never
-        # hides the floor's own result (run 36378109668 skipped it).
-        if: ${{ !cancelled() }}
+        # hides the floor's own result (run 36378109668 skipped it). It needs the built tests:
+        # after an earlier failure (the TallyCore step, the project, the build) it is skipped,
+        # not run against nothing (app-core report O11, run 36411999390).
+        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -320,7 +345,7 @@ jobs:
       # Required since 2026-09-28 (PMO, plan 06 A2): green in runs 36394287625, 36406525219,
       # 36418727234 and 36422438707 after the #88036 fix (b02c05a).
       - name: TallyAppTests on the deployment-floor runtime (iOS 26.x floor, required)
-        if: ${{ !cancelled() && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
+        if: ${{ !cancelled() && steps.floor.outcome == 'success' && steps.floor.outputs.runtime != steps.sim.outputs.runtime }}
         run: |
           echo "Deployment-floor runtime: ${{ steps.floor.outputs.runtime }}"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
@@ -329,6 +354,27 @@ jobs:
       - name: Summarize test counts (PMO evidence requirement)
         if: always()
         run: make ios-summary IOS_RESULT="$RUNNER_TEMP/ios/Tally.xcresult"
+      - name: Export the UI tests' kept screenshots (SEC-07 privacy-cover evidence)
+        # AppLockUITests attaches screenshots of the privacy cover while the app is inactive
+        # (`.keepAlways`); only images are kept, not the screen recordings.
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/ios/attachments"
+          if [ -d "$RUNNER_TEMP/ios/Tally.xcresult" ]; then
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally.xcresult" \
+              --output-path "$RUNNER_TEMP/ios/attachments" || true
+            find "$RUNNER_TEMP/ios/attachments" -type f ! \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \
+              -o -iname '*.heic' -o -name 'manifest.json' \) -delete
+          fi
+          ls -la "$RUNNER_TEMP/ios/attachments"
+      - name: Upload the exported screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ui-test-screenshots
+          path: ${{ runner.temp }}/ios/attachments
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Collect simulator crash reports
         # perf-app-runtime.md §6: a crash (for example the DEBUG main-thread watchdog's
         # deliberate one) leaves an .ips report. ReportCrash writes it a few seconds after the
@@ -359,8 +405,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Build for iOS device (Release, unsigned)
-        # Also after a test failure, so a red test never hides a link or nm regression below.
-        if: ${{ !cancelled() }}
+        id: device_build
+        # Also after a test failure, so a red test never hides a link or nm regression below;
+        # but not without a generated project (O11).
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
@@ -370,7 +418,9 @@ jobs:
             | tee "$RUNNER_TEMP/build-device.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-device.log"
       - name: Shipping binaries link no test code and no isolated deinit (plan 06 A1, A2)
-        if: ${{ !cancelled() }}
+        # Inspects the Release device build and the Debug simulator app: skipped when the
+        # device build did not succeed (O11), instead of failing for lack of a link map.
+        if: ${{ !cancelled() && steps.device_build.outcome == 'success' }}
         # A1: TallyTestSupport (fixture loaders, try!, #filePath, fakes) must not be linked into
         # the Release app; sample mode uses TallyReplay. A2: no binary may reference
         # swift_task_deinitOnExecutor (isolated deinit), which crashes iOS 26.0-26.3 runtimes
@@ -415,6 +465,67 @@ jobs:
           echo "Mach-O binaries checked for swift_task_deinitOnExecutor: $checked (Release and Debug apps, their extensions and debug dylibs)"
           if [ "$checked" -lt 2 ]; then echo "::error::fewer binaries than expected were checked"; fail=1; fi
           exit $fail
+      - name: The shipping Release build has no UI-test hooks (plan 07 M2-C1)
+        # LaunchTestHooks (account seeding, the demo sign-in, a blocked network, a scripted device
+        # authenticator) compiles only under DEBUG or TALLY_TEST_HOOKS, which only `make ios-perf`'s
+        # Release *test* build sets. Every hook's launch argument starts with "TallyTestHooks.". The
+        # Debug app must contain it (the positive control: the check can see a Swift string literal).
+        if: ${{ !cancelled() && steps.device_build.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/dd/Build/Products"
+          # Returns 1 when any binary under $1 contains the marker. `strings` goes to a file first:
+          # `grep -q` on a pipe exits at the first match, and with pipefail the SIGPIPE it leaves
+          # `strings` would read as "not found".
+          scan() {
+            local found=0
+            while IFS= read -r binary; do
+              strings -a "$binary" > "$RUNNER_TEMP/strings.txt" 2>/dev/null || true
+              if grep -q 'TallyTestHooks\.' "$RUNNER_TEMP/strings.txt"; then
+                echo "  $binary: contains TallyTestHooks."
+                found=1
+              fi
+            done < <(find "$1" -type f \( -perm -u+x -o -name '*.dylib' \))
+            return $found
+          }
+          echo "Release-iphoneos (shipping):"
+          if ! scan "$products/Release-iphoneos/Tally.app"; then
+            echo "::error::the shipping Release app contains the UI-test hooks (lines above)"
+            exit 1
+          fi
+          echo "  no binary contains TallyTestHooks."
+          echo "Debug-iphonesimulator (positive control):"
+          if scan "$products/Debug-iphonesimulator/Tally.app"; then
+            echo "::error::the Debug app has no TallyTestHooks. marker, so this check cannot see the hooks"
+            exit 1
+          fi
+      - name: The widget links no TallyFeatures and reads the glance only (plan 06 step 11)
+        # The Release widget's link map names none of TallyFeatures, TallyPlatform, TallySync,
+        # TallyCanvasAPI, TallyIntents, TallyReplay, TallySampleFixtures or TallyTestSupport (and
+        # does name TallyGlance and TallyStore); no Mach-O file in the Release or the Debug
+        # .appex loads one of them (otool -L). The hygiene job checks the sources.
+        if: ${{ !cancelled() && steps.device_build.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          products="$RUNNER_TEMP/dd/Build/Products"
+          map="$(find "$RUNNER_TEMP/dd/Build/Intermediates.noindex" -name 'TallyWidgets-LinkMap-*-arm64.txt' | head -1)"
+          if [ -z "$map" ]; then echo "::error::no link map for the Release widget"; exit 1; fi
+          python3 scripts/ci/check_widget_isolation.py --link-map "$map" \
+            --bundle "$products/Release-iphoneos/Tally.app/PlugIns/TallyWidgets.appex" \
+            --bundle "$products/Debug-iphonesimulator/Tally.app/PlugIns/TallyWidgets.appex"
+      - name: Widget memory budget (WidgetGlanceTests, XCTMemoryMetric delta <= 5 MB)
+        # Plan 06 step 11, perf-app-runtime.md §2.2 item 6: the widget's design budget is a 15 MB
+        # peak. The hosted WidgetGlanceTests measures the glance read, the timeline and a render
+        # of both widgets in the test host; the median "Memory Physical" delta must stay under
+        # 5 MB (perf/widget-budgets.json). Runs whenever the main test run ran, red or green.
+        if: ${{ !cancelled() && (steps.main_tests.outcome == 'success' || steps.main_tests.outcome == 'failure') }}
+        run: |
+          set -euo pipefail
+          xcrun xcresulttool get test-results metrics --path "$RUNNER_TEMP/ios/Tally.xcresult" --compact \
+            > "$RUNNER_TEMP/ios/widget-metrics.json"
+          python3 scripts/ci/check_perf_budgets.py perf/widget-budgets.json "$RUNNER_TEMP/ios/widget-metrics.json"
+          # How the production Keychain group behaved on this runner (WidgetGlanceKeychainTests).
+          grep -h "WIDGET-KEYCHAIN" "$RUNNER_TEMP/ios/Tally-test.log" || echo "no WIDGET-KEYCHAIN line in the test log"
       - name: Verify built app identity
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
@@ -434,12 +545,13 @@ jobs:
           retention-days: 7
 
   ios-tsan:
-    name: iOS ThreadSanitizer (TallyAppTests; report-only until O12 is fixed)
+    name: iOS ThreadSanitizer (TallyAppTests)
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 60
-    # Plan 06 A7: required once it is first green (PMO).
-    continue-on-error: true
+    # Plan 06 A7 and the PMO's O1 ruling: required once O12 was fixed (92b92f9, M2-C2) and the job
+    # was green in two full runs (36457770542, 36488159412). Branch protection must require the
+    # new name.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -462,10 +574,32 @@ jobs:
       - name: make ios-tsan (fails on a test failure or any ThreadSanitizer report)
         run: make ios-tsan IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: ThreadSanitizer reports (count, then the first in full)
+        # Warnings (races) and errors (a deadly signal: run 36453374066's "ERROR: ThreadSanitizer:
+        # BUS", which the old count of warnings alone reported as 0).
         if: always()
         run: |
-          echo "ThreadSanitizer reports: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || echo 0)"
-          grep -n -A40 -m1 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+          echo "ThreadSanitizer warnings: $(grep -c 'WARNING: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || true); errors: $(grep -c 'ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" 2>/dev/null || true)"
+          grep -n -A40 -m1 -E 'WARNING: ThreadSanitizer|ERROR: ThreadSanitizer' "$RUNNER_TEMP/ios/tsan.log" || true
+      - name: Collect simulator crash reports (on failure)
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/ios/crash-reports"
+          sleep 20
+          find "$HOME/Library/Logs/DiagnosticReports" -name '*.ips' -newer "$GITHUB_WORKSPACE/Makefile" \
+            -exec cp {} "$RUNNER_TEMP/ios/crash-reports/" \; 2>/dev/null || true
+          ls -l "$RUNNER_TEMP/ios/crash-reports"
+      - name: Upload the full TSan log, its xcresult and crash reports (on failure)
+        # The console shows only the Makefile's filtered lines; a crash's stack is in these.
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tsan-logs
+          path: |
+            ${{ runner.temp }}/ios/tsan.log
+            ${{ runner.temp }}/ios/Tally-tsan.xcresult
+            ${{ runner.temp }}/ios/crash-reports
+          if-no-files-found: ignore
+          retention-days: 7
 
   ios-asan:
     name: iOS AddressSanitizer (app tests)
@@ -499,7 +633,7 @@ jobs:
       - name: AddressSanitizer reports (count, then the first in full)
         if: always()
         run: |
-          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || true)"
           grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
 
   ios-asan-ui:
@@ -534,17 +668,18 @@ jobs:
       - name: AddressSanitizer reports (count, then the first in full)
         if: always()
         run: |
-          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || echo 0)"
+          echo "AddressSanitizer reports: $(grep -c 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" 2>/dev/null || true)"
           grep -n -A40 -m1 'ERROR: AddressSanitizer' "$RUNNER_TEMP/ios/asan.log" || true
 
   ios-perf:
-    name: iOS perf budgets (Release, non-blocking)
+    name: iOS perf budgets (Release, CI simulator)
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 45
-    # perf-app-runtime.md §6: report-only until five green runs on main, then required (D-P3).
-    # Release build, medians of 5 iterations, compared with perf/budgets.json.
-    continue-on-error: true
+    # Required from the M2 exit (owner decision on O10, 2026-09-28): perf/budgets.json holds budgets
+    # calibrated on this CI simulator; the on-device targets stay in each budget's device_target
+    # until the device calibration (D-P3). Release build, medians of 5 iterations. Only the budgets
+    # gate: a failed diagnostic perf test is reported, not gating (check_perf_budgets.py --log).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode

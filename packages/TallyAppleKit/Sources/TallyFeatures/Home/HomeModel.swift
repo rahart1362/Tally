@@ -24,6 +24,9 @@ public final class HomeModel {
     public enum Phase: Equatable, Sendable {
         /// Waiting for the first projection: the shell shows skeletons.
         case loading
+        /// A signed-in launch's first paint (perf-app-runtime.md §2.4 L4): the sealed glance's
+        /// hero count and due-soon rows, until the full projection replaces it (L8).
+        case glance
         case loaded
         /// The first load failed with nothing to show.
         case failed
@@ -39,6 +42,22 @@ public final class HomeModel {
     public private(set) var freshness: FreshnessState = .noCache
     /// When the on-screen projection goes stale by itself; the shell re-projects then.
     public private(set) var validUntil: Date = .distantFuture
+
+    // MARK: M3-A screens (each its own property, so a screen re-renders only when its rows change)
+
+    /// The Courses tab, in the student's own order (`local.courseOrder`).
+    public private(set) var courseCards: [CourseCard] = []
+    public private(set) var courseDetails: [CanvasID<Course>: CourseDetailProjection] = [:]
+    public private(set) var toDoScreen: ToDoProjection = .empty
+    public private(set) var calendarScreen: CalendarProjection = .empty
+    public private(set) var insightsScreen: InsightsProjection = .empty
+    public private(set) var account: AccountProjection = .empty
+    /// The student's local course order and To-Do "done" marks (never written to Canvas, R16).
+    public let local: ScreenLocalState
+    /// Settings' access to `UserState` (the "What changed" thresholds).
+    public let userState: any UserStateAccess
+    /// Sample mode (ASC-14): links into a real Canvas and the calendar feed have nowhere to go.
+    public var isSampleData: Bool { source is SampleSession }
 
     /// Internal so lifecycle tests can hold weak references.
     let source: any HomeDataSource
@@ -56,25 +75,84 @@ public final class HomeModel {
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private var installedGeneration: UInt64 = 0
     @ObservationIgnored private var hasStarted = false
+    /// The subscription and its first update (`prepare()`); shared by every caller.
+    @ObservationIgnored private var preparation: Task<Void, Never>?
+    @ObservationIgnored private var hasEnded = false
 
+    /// - Parameters:
+    ///   - localStore: where the course order and "done" marks live; in memory by default (sample
+    ///     mode keeps nothing, ASC-14).
+    ///   - userState: Settings' `UserState`; in memory by default. A signed-in account passes an
+    ///     `AccountUserStateAccess` over its `UserStateStore` and `AccountRuntime`.
     public init(source: any HomeDataSource, projector: HomeProjector = HomeProjector(),
-                clock: any DateProviding = SystemDateProvider()) {
+                clock: any DateProviding = SystemDateProvider(),
+                localStore: any LocalScreenStateStoring = InMemoryLocalScreenStateStore(),
+                userState: any UserStateAccess = InMemoryUserStateAccess()) {
         self.source = source
         self.projector = projector
         self.clock = clock
+        self.local = ScreenLocalState(store: localStore)
+        self.userState = userState
     }
 
     /// Subscribes to the source, then loads. Runs once, from the shell's `.task`.
+    ///
+    /// The launch refresh (perf-app-runtime.md §2.4 L9, the handshake) starts only once the
+    /// source's first update has been handled (`prepare()`): with a cached snapshot, that update
+    /// is projected and applied (L7–L8) first, so the network never runs ahead of the cached paint.
     public func start() async {
         guard !hasStarted else { return }
         hasStarted = true
-        let updates = await source.updates()
-        subscription.replace(with: Task { [weak self] in
-            for await update in updates {
-                await self?.receive(update)
-            }
-        })
+        await prepare()
+        guard !hasEnded else { return }
         await source.refresh(.launch)
+    }
+
+    /// Subscribes to the source and handles its first update: the current state, which for a
+    /// signed-in launch carries the cached snapshot (L5–L8). Idempotent: `AppModel` calls it at
+    /// launch, so the projection proceeds while the app lock is still up, and `start()` awaits the
+    /// same work.
+    public func prepare() async {
+        if let preparation {
+            await preparation.value
+            return
+        }
+        let preparing = Task { [weak self] in
+            guard let self else { return }
+            await self.subscribeAndHandleFirstUpdate()
+        }
+        preparation = preparing
+        await preparing.value
+    }
+
+    /// perf-app-runtime.md §2.4 L4: the first paint, from the sealed glance, before the snapshot is
+    /// decoded. Only before any projection: a full projection is never replaced by a glance.
+    public func showGlance(_ glance: HomeGlance) {
+        guard phase == .loading else { return }
+        dashboard = glance.dashboard
+        freshness = glance.freshness
+        phase = .glance
+    }
+
+    private func subscribeAndHandleFirstUpdate() async {
+        // M3-A: the course order first, so the first projection (at launch, `prepare()` runs
+        // before `start()`) already shows the student's order.
+        await local.load()
+        let updates = await source.updates()
+        guard !hasEnded else { return }
+        await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
+            subscription.replace(with: Task { [weak self] in
+                var signalled = false
+                for await update in updates {
+                    await self?.receive(update)
+                    if !signalled {
+                        signalled = true
+                        firstHandled.resume()
+                    }
+                }
+                if !signalled { firstHandled.resume() }
+            })
+        }
     }
 
     /// The day, the wall clock or the time zone changed (the shell forwards the system
@@ -158,8 +236,19 @@ public final class HomeModel {
         await projectIfStale()
     }
 
+    /// Edit mode's move on the Courses tab (UX-WP-14): the list changes at once and the new order
+    /// is kept locally, so every later projection uses it.
+    public func moveCourses(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let order = CourseOrder.moving(courseCards.map(\.id), fromOffsets: source, toOffset: destination)
+        local.setCourseOrder(order)
+        let arranged = CourseOrder.arrange(courseCards, by: order)
+        if courseCards != arranged { courseCards = arranged }
+    }
+
     /// Ends the subscriptions, the source and the projector: the snapshot is released.
     public func end() async {
+        hasEnded = true
+        preparation?.cancel()
         subscription.cancel()
         timeChanges.cancel()
         manualRunOwner.cancel()
@@ -171,7 +260,11 @@ public final class HomeModel {
     /// Freshness-only updates (`.refreshing`, `.delayed`, …) touch `freshness` alone; only a new
     /// snapshot generation is installed and projected.
     private func receive(_ update: HomeUpdate) async {
-        if freshness != update.freshness { freshness = update.freshness }
+        // A glance on screen keeps its "Updated <time>" until the coordinator knows better than
+        // `.noCache` (its first event before the cached snapshot is installed).
+        if freshness != update.freshness, !(phase == .glance && update.freshness == .noCache) {
+            freshness = update.freshness
+        }
         guard update.snapshot != nil else {
             if case .failed = update.freshness, phase == .loading { phase = .failed }
             return
@@ -199,7 +292,19 @@ public final class HomeModel {
         if events != projection.events { events = projection.events }
         if toDo != projection.toDo { toDo = projection.toDo }
         if validUntil != projection.validUntil { validUntil = projection.validUntil }
+        applyScreens(projection.screens)
         if phase != .loaded { phase = .loaded }
+    }
+
+    /// M3-A: each screen's projection, assigned only when it changed.
+    private func applyScreens(_ screens: ScreenProjections) {
+        let cards = CourseOrder.arrange(screens.courseCards, by: local.courseOrder)
+        if courseCards != cards { courseCards = cards }
+        if courseDetails != screens.courseDetails { courseDetails = screens.courseDetails }
+        if toDoScreen != screens.toDo { toDoScreen = screens.toDo }
+        if calendarScreen != screens.calendar { calendarScreen = screens.calendar }
+        if insightsScreen != screens.insights { insightsScreen = screens.insights }
+        if account != screens.account { account = screens.account }
     }
 }
 

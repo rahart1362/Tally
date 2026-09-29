@@ -41,6 +41,18 @@ public struct CanvasSnapshot: Codable, Sendable, Equatable {
     public let announcements: [Announcement]
     public let courseColors: [CanvasID<Course>: String]
     public let sections: [SnapshotSection: SectionStatus]
+    #if DEBUG
+    /// DEBUG only: ties this value's lifetime to `CanvasSnapshotInstances` (not encoded, never
+    /// part of equality). See that type.
+    private let instanceToken: CanvasSnapshotInstanceToken
+    #endif
+
+    /// Exactly the stored fields above, in declaration order: the encoded form is unchanged by the
+    /// DEBUG token, which is not a key.
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, generation, accountKey, host, fetchedAt, profile, courses, groups, gradingPeriods
+        case planner, events, announcements, courseColors, sections
+    }
 
     public init(generation: UInt64, accountKey: AccountKey, host: String, fetchedAt: Date, profile: UserProfile,
                 courses: [Course], groups: [CanvasID<Course>: [AssignmentGroup]],
@@ -52,5 +64,31 @@ public struct CanvasSnapshot: Codable, Sendable, Equatable {
         self.profile = profile; self.courses = courses; self.groups = groups; self.gradingPeriods = gradingPeriods
         self.planner = planner; self.events = events; self.announcements = announcements
         self.courseColors = courseColors; self.sections = sections
+        #if DEBUG
+        instanceToken = CanvasSnapshotInstanceToken(account: accountKey.rawValue)
+        #endif
+    }
+
+    /// The same field-by-field decoding the synthesized conformance performed (every field is
+    /// required), written out only so a DEBUG build can mint the instance token.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        generation = try container.decode(UInt64.self, forKey: .generation)
+        accountKey = try container.decode(AccountKey.self, forKey: .accountKey)
+        host = try container.decode(String.self, forKey: .host)
+        fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+        profile = try container.decode(UserProfile.self, forKey: .profile)
+        courses = try container.decode([Course].self, forKey: .courses)
+        groups = try container.decode([CanvasID<Course>: [AssignmentGroup]].self, forKey: .groups)
+        gradingPeriods = try container.decode([CanvasID<Course>: [GradingPeriod]].self, forKey: .gradingPeriods)
+        planner = try container.decode([PlannerItem].self, forKey: .planner)
+        events = try container.decode([CalendarEvent].self, forKey: .events)
+        announcements = try container.decode([Announcement].self, forKey: .announcements)
+        courseColors = try container.decode([CanvasID<Course>: String].self, forKey: .courseColors)
+        sections = try container.decode([SnapshotSection: SectionStatus].self, forKey: .sections)
+        #if DEBUG
+        instanceToken = CanvasSnapshotInstanceToken(account: accountKey.rawValue)
+        #endif
     }
 }
