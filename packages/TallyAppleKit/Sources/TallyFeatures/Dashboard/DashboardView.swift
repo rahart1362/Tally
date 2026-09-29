@@ -44,6 +44,8 @@ struct DashboardView: View {
                     }
                     NextUpSection(items: model.dashboard.nextUp)
                     NeedsAttentionSection(items: model.dashboard.needsAttention)
+                    // M3-C (UX-WP-12): the reminders tip, once work is due; renders nothing otherwise.
+                    RemindersTip(hasUpcomingDueItem: !model.dashboard.dueSoon.isEmpty, isSampleData: model.isSampleData)
                     WeekAheadSection(days: model.dashboard.weekAhead)
                     DueSoonSection(items: model.dashboard.dueSoon)
                 }
