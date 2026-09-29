@@ -49,6 +49,9 @@ public actor RefreshCoordinator {
     private let foregroundHardCeiling: Duration
     private let backgroundBudget: Duration
     private let minAutoRefreshInterval: Duration
+    /// O5 (PERF-L): where the record is written when a run ends, so the next launch's automatic
+    /// triggers are throttled by this run's attempt. `nil`: the record lives in memory only.
+    private let recordStore: RefreshStateStore?
 
     private var record: RefreshRecord
     /// SH-3: the snapshot this coordinator last committed, or was initialised with, or adopted
@@ -121,9 +124,11 @@ public actor RefreshCoordinator {
         liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
         foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
         backgroundBudget: Duration = TallyConfig.backgroundBudget,
-        minAutoRefreshInterval: Duration = TallyConfig.minAutoRefreshInterval
+        minAutoRefreshInterval: Duration = TallyConfig.minAutoRefreshInterval,
+        recordStore: RefreshStateStore? = nil
     ) {
         self.gateway = gateway
+        self.recordStore = recordStore
         self.store = store
         self.clock = clock
         self.liveRefreshBudget = liveRefreshBudget
@@ -282,11 +287,23 @@ public actor RefreshCoordinator {
                                     myEpoch: UInt64, attemptGeneration: UInt64) async {
         let outcome = await supervise(fetchTask, trigger: trigger)
         await finish(myEpoch: myEpoch, attemptGeneration: attemptGeneration, outcome: outcome)
+        persistRecord(forRunIn: myEpoch)
         inFlight = nil
         currentFetchTask = nil
         let waiting = Array(runWaiters.values)
         runWaiters.removeAll()
         for continuation in waiting { continuation.resume(returning: true) }
+    }
+
+    /// O5 (PERF-L): writes the record as this run left it (its attempt, and its outcome, or none for
+    /// an abandoned run). Synchronous, on this actor: nothing can run between the check and the
+    /// write, and sign-out bumps the epoch here before it purges the store, so a run that ends
+    /// after a sign-out never writes (the write would re-create the purged account's directory and
+    /// mint it a new key). Best effort: a failed write leaves the previous record, and the next
+    /// launch is only throttled less.
+    private func persistRecord(forRunIn myEpoch: UInt64) {
+        guard let recordStore, myEpoch == epoch, !isShutDown else { return }
+        try? recordStore.save(record)
     }
 
     /// Suspends until `runTask`'s run has finished or this caller is cancelled, whichever comes

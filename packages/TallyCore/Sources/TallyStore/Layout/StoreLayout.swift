@@ -38,6 +38,8 @@ public struct StoreLayout: Sendable, Equatable {
         case .glance: return "glance.v1.sealed"
         case .userState: return "user-state.sealed"
         case .ledger: return "sync-ledger.sealed"
+        // Per account and sealed (the PERF-L brief), where §3.2 has one unsealed refresh-state.json.
+        case .refreshState: return "refresh-state.sealed"
         }
     }
 

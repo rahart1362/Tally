@@ -32,4 +32,27 @@ struct AccountPurgerTests {
         #expect(keys.count(KeyScope(account: accountA.rawValue, audience: .app)) == 0)
         #expect(keys.count(KeyScope(account: accountB.rawValue, audience: .app)) == 1)
     }
+
+    /// O5 (PERF-L): the refresh record is one of the account's files, so sign-out's purge removes it
+    /// with the rest, and a copy of it could not be opened afterwards.
+    @Test func purgeRemovesTheRefreshRecord() throws {
+        let root = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-with-record")
+        let sealer = VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true)
+        var record = RefreshRecord()
+        record.began(.launch, at: Date(timeIntervalSince1970: 1_790_600_400))
+        record.failed(.offline)
+        let store = RefreshStateStore(root: root, accountKey: account, sealer: sealer)
+        try store.save(record)
+        let url = StoreLayout(root: root, accountKey: account).url(for: .refreshState)
+        let copy = try #require(try ProtectedFile.read(url))
+
+        try AccountPurger.purge(accountKey: account, root: root, keyring: ring)
+
+        #expect(!FileManager.default.fileExists(atPath: url.path), "the refresh record outlived the purge")
+        #expect(store.load() == .absent)
+        #expect(throws: VaultError.keyMissing) { try sealer.open(copy, file: .refreshState) }
+    }
 }
