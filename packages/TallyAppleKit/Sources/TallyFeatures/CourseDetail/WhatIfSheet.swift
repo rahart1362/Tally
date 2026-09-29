@@ -167,9 +167,14 @@ private struct WhatIfItemRow: View {
     }
 }
 
-/// ±1 point, two 44 × 44 pt buttons (A11Y-04), each with its own label so Voice Control can name
-/// it; `whatif.stepper` is their container.
+/// ±1 point, two buttons of at least 44 × 44 pt on screen (A11Y-04), each with its own label so
+/// Voice Control can name it; `whatif.stepper` is their container.
 private struct ScoreStepper: View {
+    /// Drawn at 46 pt so they still measure at least 44 pt when the system shows the sheet scaled
+    /// by 0.960: CI measured the 44 pt buttons at 42.25 pt on iOS 26.5 and on iOS 27 (PR #6 run
+    /// 36524838684; m3-screens-report O14).
+    static let buttonSide: CGFloat = 46
+
     let item: WhatIfItem
     let model: WhatIfModel
 
@@ -178,7 +183,7 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: false)
             } label: {
-                Image(systemName: "minus").frame(width: 44, height: 44)
+                Image(systemName: "minus").frame(width: Self.buttonSide, height: Self.buttonSide)
             }
             .accessibilityLabel("Lower \(item.title) by 1 point")
             .accessibilityIdentifier("whatif.decrement")
@@ -186,7 +191,7 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: true)
             } label: {
-                Image(systemName: "plus").frame(width: 44, height: 44)
+                Image(systemName: "plus").frame(width: Self.buttonSide, height: Self.buttonSide)
             }
             .accessibilityLabel("Raise \(item.title) by 1 point")
             .accessibilityIdentifier("whatif.increment")
