@@ -642,3 +642,12 @@ Also: `GradingPeriodDTO`; domain and DTO fields for published, gradeable, submis
 PR #3 merged as `516d0f5`. "iOS ThreadSanitizer (TallyAppTests)" was added to `main`'s required checks; the protection was read back: 7 contexts, admins enforced, no force pushes or deletion.
 **Owner decision O10** ("Simulator budget now"): a required CI-simulator launch gate. `perf/budgets.json` `Launch.GlancePaint` `median_max` 3.0 s, calibrated on the three medians (1.9696, 1.5256, 2.0600 s): 1.46× the worst. On the 15 iterations, 2 exceed 3.0 s, so a failing median is about 0.5% per run if independent (UNVERIFIED), against about 6% at 2.5 s. Tighten after five medians on `main`. `ios-perf` is now required and gates on budgets only (`d4bec06`). On run 36488173765's real metrics and log, the checker passes both budgets at 3.0 s.
 **M2 marked complete** in plan 02; plan 07 §3.1 records each exit item's evidence.
+
+## 2026-09-29 | PMO: SlowRefreshUITests breadcrumb window (branch pmo/slow-refresh-window)
+**Trigger**: M3-A's hand-off run 36511691943 failed required `ios-build` in `testSlowRefreshShowsTheBreadcrumbThenSelfHeals`, "the breadcrumb showed within the live budget". The failure's hierarchy footer read "Updated just now": the 12 s refresh had already landed when the check ran. So the tap plus XCUITest's idle wait took more than 10 s, and the app behaved correctly. It was the first failure in about 12 runs of this test. The same 2 s breadcrumb window (10 s to 12 s) was missed on Xcode 27 (M2-C2 OI11).
+**Change** (test only):
+- The refresh takes 20 s (`slowRefreshSeconds`), so the breadcrumb has a 10 s window. The plan's 12 s was an example of "slower than the budget".
+- The "no breadcrumb within the budget" check applies only while less than budget − 1 s has passed since the tap. Otherwise it records a skip activity. The appearance-time check (at least budget − 1 s after the tap) still catches an early breadcrumb whenever the tap returns in time.
+- The self-heal wait is 30 s, keeping the old 20 s margin on top of the 10 s the breadcrumb is up.
+
+Verified only in CI: no Xcode on this host. No CI mutation run was made for the relaxed check (UNVERIFIED); the guard that detects an early breadcrumb is unchanged.
