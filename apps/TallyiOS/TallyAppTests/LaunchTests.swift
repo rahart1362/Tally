@@ -131,7 +131,7 @@ struct LaunchBootstrapperTests {
         // together, and only at its timeout when the reads run one after another.
         let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true),
                                          loadWaitsFor: { glanceStarted.withLock { $0 } })
-        let bootstrapper = LaunchBootstrapper(environment: harness.environment(lockPreferences: lock), threadProbe: { step, _ in
+        let bootstrapper = LaunchBootstrapper(environment: harness.lockEnvironment(lock), threadProbe: { step, _ in
             if step == "glance" { glanceStarted.withLock { $0 = true } }
         })
         let resolution = await bootstrapper.resolve()
@@ -146,7 +146,7 @@ struct LaunchBootstrapperTests {
         // Inherited from an earlier install: the setting is on. The reset waits until a read has
         // begun, so the launch's first read always sees the inherited value.
         let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true), resetWaitsForALoad: true)
-        let resolution = await LaunchBootstrapper(environment: harness.environment(lockPreferences: lock)).resolve()
+        let resolution = await LaunchBootstrapper(environment: harness.lockEnvironment(lock)).resolve()
         #expect(resolution == .welcome, "the inherited lock setting survived the reconcile: \(resolution.lock)")
         #expect(lock.loads == 2, "the setting was not read again after the reconcile")
         #expect(lock.loadsThatWaitedOut == 0)
@@ -477,7 +477,7 @@ nonisolated final class ProbedLockPreferences: AppLockPreferenceStoring {
 
 extension AccountHarness {
     /// This harness's environment with another app-lock setting store.
-    func environment(lockPreferences: any AppLockPreferenceStoring) -> AccountEnvironment {
+    func lockEnvironment(_ lockPreferences: any AppLockPreferenceStoring) -> AccountEnvironment {
         AccountEnvironment(storeRoot: { [root] in root }, credentialStore: credentials, keyring: keyring,
                            lockPreferences: lockPreferences, transport: transport, notifications: notifications,
                            gatewayOverride: { account in FlagshipAccountGateway(account: account.accountKey) })
