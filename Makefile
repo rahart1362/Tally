@@ -182,10 +182,12 @@ ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 		$(IOS_PERF_TESTS) -resultBundlePath $(IOS_OUT)/Tally-perf.xcresult $(IOS_TEST_FLAGS) \
 		| tee $(IOS_OUT)/perf.log | grep -E $(IOS_CONSOLE) || true
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/Tally-perf.xcresult
-	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/perf.log
+	# The budgets gate, not the test run: a budgeted test that failed fails its budget (--log), and a
+	# diagnostic perf test's failure is reported without hiding the budgets (m2-lifecycle-report O11).
 	xcrun xcresulttool get test-results metrics --path $(IOS_OUT)/Tally-perf.xcresult --compact \
 		> $(IOS_OUT)/perf-metrics.json
-	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json
+	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json \
+		--log $(IOS_OUT)/perf.log
 
 ios-watchdog-log: ## Print the DEBUG main-thread watchdog's lines from IOS_SIM_UDID's log (stalls: phase, ms)
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }

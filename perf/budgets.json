@@ -1,5 +1,5 @@
 {
-  "$comment": "Performance budgets checked by scripts/ci/check_perf_budgets.py after `make ios-perf` (perf-app-runtime.md §5.2 and §6). Each gate is the median of the XCTest iterations of a Release build on the CI simulator. XcodeGen regenerates the .xcodeproj, so Xcode's own baselines cannot persist; budgets live here instead. The simulator-to-A13 speed factor is UNVERIFIED until the owner's device calibration (decision D-P3), so each CI gate sits below its device target by the stated margin. `test` matches a substring of the xcresult test identifier; `metric` matches a metric's identifier or display name; `median_max` is in the metric's own unit.",
+  "$comment": "Performance budgets checked by scripts/ci/check_perf_budgets.py after `make ios-perf` (perf-app-runtime.md §5.2 and §6). Each gate is the median of the XCTest iterations of a Release build on the CI simulator. XcodeGen regenerates the .xcodeproj, so Xcode's own baselines cannot persist; budgets live here instead. The simulator-to-A13 speed factor is UNVERIFIED until the owner's device calibration (decision D-P3), so each CI gate states its own calibration: some sit below their device target by a margin, and the launch gate sits above it, calibrated on the CI simulator (owner decision on O10). `test` matches a substring of the xcresult test identifier; `metric` matches a metric's identifier or display name; `median_max` is in the metric's own unit.",
   "budgets": [
     {
       "name": "Sample entry to full projection (flagship)",
@@ -15,9 +15,9 @@
       "test": "TallyPerfUITests/testWarmLaunchGlancePaint",
       "metric": ["com.apple.dt.XCTMetric_OSSignpost-Launch.GlancePaint.duration", "Duration (Launch.GlancePaint)"],
       "unit": "s",
-      "median_max": 0.300,
+      "median_max": 3.0,
       "device_target": "L1 (TallyApp.init) to L4 (the glance painted) <= 300 ms warm, on device (TallyConfig.warmStartBudget)",
-      "source": "perf-app-runtime.md §2.4 and §5.2; plan 07 §3 item 1: Launch.GlancePaint median <= 300 ms on the CI simulator. Identifier and display name as CI run 36454268485 printed them; its median there was 1.9696 s (FAIL; docs/pmo/reviews/m2-lifecycle-report.md §3)"
+      "source": "Owner decision on O10 (2026-09-28): a required CI-simulator budget now; the device target above stays for the device calibration (D-P3). Calibrated on this test's medians: 1.9696 s (run 36454268485), 1.5256 s (36488173765), 2.0600 s (36494900022, the M2 validation run); single iterations 1.136-5.820 s. 3.0 s is about 1.46x the worst median. 2 of those 15 iterations exceed 3.0 s, so a failing median (3 of 5 over) is about 0.5% per run if iterations are independent (UNVERIFIED: a slow runner slows all five), against about 6% at 2.5 s. Tighten to 1.3x the worst of the next five medians on main."
     }
   ]
 }
