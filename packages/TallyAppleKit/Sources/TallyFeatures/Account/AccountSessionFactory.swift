@@ -10,29 +10,41 @@ import TallySync
 public nonisolated enum AccountSessionFactory {
     /// The active account's coordinator, or `nil` when no account is signed in (or the store cannot
     /// be read). `AppEnvironment` makes this `AccountRuntime`'s resolver, so it runs at most once per
-    /// account, for the foreground launch and a background launch alike.
+    /// account, for the foreground launch and a background launch alike. `launchRecords`: the
+    /// refresh record the launch already read (O5), taken instead of reading the file again.
     @concurrent
-    public static func activeCoordinator(_ environment: AccountEnvironment) async -> RefreshCoordinator? {
+    public static func activeCoordinator(_ environment: AccountEnvironment,
+                                         launchRecords: LaunchRecordHandoff? = nil) async -> RefreshCoordinator? {
         guard let root = try? environment.storeRoot(),
-              let account = AccountDirectoryStore(root: root).activeAccount() else { return nil }
-        return await coordinator(for: account, root: root, environment: environment)
+              let account = AccountDirectoryStore(root: root).activeAccount() else {
+            launchRecords?.close() // the first resolution closes the handoff, whatever it finds
+            return nil
+        }
+        return await coordinator(for: account, root: root, environment: environment,
+                                 launchRecord: launchRecords?.take(for: account.accountKey))
     }
 
     /// L5 then L6: the cached snapshot is read, unsealed and decoded **once**, here, and that value
     /// is the coordinator's `initialSnapshot`, which `AccountHomeSource` then hands to the
     /// projector as `committedSnapshot` (perf-app-runtime.md §2.2 rule 1: one decoded snapshot per
-    /// generation). The refresh record starts from the snapshot's `fetchedAt`: no `refresh-state`
-    /// file exists yet (perf-app-runtime.md §8), so the last *attempt* is unknown and the launch
-    /// refresh always runs (after the cached paint).
+    /// generation). The refresh record (O5, PERF-L) is the one the launch read (`launchRecord`), or
+    /// else read here alongside the snapshot, reconciled with the snapshot's `fetchedAt`
+    /// (`RefreshStateStore.startingRecord`); the coordinator writes it back whenever a run ends, so
+    /// the launch refresh obeys `FreshnessRules.shouldStart`. With no record on disk the last
+    /// attempt is unknown and the launch refreshes (after the cached paint), as before.
     @concurrent
-    static func coordinator(for account: AccountRecord, root: URL, environment: AccountEnvironment) async -> RefreshCoordinator {
+    static func coordinator(for account: AccountRecord, root: URL, environment: AccountEnvironment,
+                            launchRecord: LaunchRecordHandoff.Handed? = nil) async -> RefreshCoordinator {
         let store = environment.snapshotStore(for: account.accountKey, root: root)
+        let recordStore = RefreshStateStore(root: root, accountKey: account.accountKey,
+                                            sealer: environment.sealer(for: account.accountKey))
+        async let persisted = persistedRecord(launchRecord, from: recordStore)
         var initialSnapshot: CanvasSnapshot?
-        var record = RefreshRecord()
         if case .loaded(let snapshot) = await store.loadSnapshot() {
             initialSnapshot = snapshot
-            record.succeeded(dataFetchedAt: snapshot.fetchedAt)
         }
+        let record = RefreshStateStore.startingRecord(persisted: await persisted,
+                                                      committedDataFetchedAt: initialSnapshot?.fetchedAt)
         let gateway = await gateway(for: account, environment: environment)
         // M3-A (Settings; M2-C2 OI5): the account's own settings, read here with the snapshot, off
         // the main actor: the widget grade opt-in every commit's glance is built with, and the
@@ -40,9 +52,16 @@ public nonisolated enum AccountSessionFactory {
         let settings = await AccountUserStateAccess.stored(account: account.accountKey, root: root, environment: environment)
         let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: environment.clock,
                                              initialSnapshot: initialSnapshot, initialRecord: record,
-                                             includeGrades: settings.showGradesInGlance)
+                                             includeGrades: settings.showGradesInGlance, recordStore: recordStore)
         await coordinator.updateDigestThresholds(settings.digestThresholds)
         return coordinator
+    }
+
+    /// The record the launch handed over, or else the one on disk (`nil` when there is none).
+    @concurrent
+    private static func persistedRecord(_ handed: LaunchRecordHandoff.Handed?, from store: RefreshStateStore) async -> RefreshRecord? {
+        if let handed { return handed.record }
+        return store.loadRecord()
     }
 
     /// Sign-in's S3, after the token exchange (S2): the credential goes to the Keychain, the

@@ -22,7 +22,9 @@ final class LaunchFromCacheUITests: TallyUITestCase {
     func testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity() throws {
         seedFlagshipAccount()
 
-        let app = launchApp(arguments: TestHooks.blockNetwork)
+        // O5 (PERF-L): the launch refresh obeys the last attempt, and the seeding launch's own
+        // refresh may have been written just now; an attempt an hour ago lets this launch refresh.
+        let app = launchApp(arguments: TestHooks.blockNetwork + TestHooks.lastRefreshStale)
         // A signed-in root: the Home, never Welcome.
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 15),
                       "the cached dashboard never painted. Hierarchy: \(app.debugDescription)")

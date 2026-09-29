@@ -70,9 +70,15 @@ struct AppEnvironment {
         #endif
 
         let resolvedEnvironment = accountEnvironment
-        let accountRuntime = AccountRuntime(resolve: { await AccountSessionFactory.activeCoordinator(resolvedEnvironment) })
+        // O5 (PERF-L): the launch reads the account's refresh record for its first paint and leaves
+        // it here, so the account's coordinator starts from it without reading the file again.
+        let launchRecords = LaunchRecordHandoff()
+        let accountRuntime = AccountRuntime(resolve: {
+            await AccountSessionFactory.activeCoordinator(resolvedEnvironment, launchRecords: launchRecords)
+        })
         let lock = AppLockModel(authenticator: authenticator, preferences: accountEnvironment.lockPreferences)
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
+                                launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
                                 lock: lock)
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
