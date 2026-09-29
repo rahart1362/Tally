@@ -68,12 +68,14 @@ public struct RootView: View {
             case .sample:
                 if let home = appModel.home {
                     HomeShellView(model: home, banner: AnyView(SampleDataBanner(onExit: { appModel.exitSample() })))
+                        .environment(appModel) // M3-A: Settings' "Exit Sample Data"
                 }
             case .signedIn:
                 // The account's Home over its coordinator (`AccountHomeSource`), built by the launch
                 // or by the first sync's root switch.
                 if let home = appModel.home {
                     HomeShellView(model: home)
+                        .environment(appModel) // M3-A: Settings' "Sign Out & Erase" and App Lock
                 }
             }
         }

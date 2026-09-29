@@ -12,11 +12,16 @@ public nonisolated struct LaunchResolution: Sendable, Equatable {
     /// The account's sealed glance, mapped for the first paint. `nil` with an account means the
     /// Home starts from its skeleton (for example, a sign-in whose first sync never finished).
     public let glance: HomeGlance?
+    /// The store root this launch resolved (off the main actor), with an account only: the signed-in
+    /// Home's `UserStateStore` opens under it (M3-A, Settings; M2-C1 O8), so the main actor never
+    /// asks the file system for the App Group container.
+    public let storeRoot: URL?
 
-    public init(account: AccountRecord?, lock: AppLockPreference, glance: HomeGlance?) {
+    public init(account: AccountRecord?, lock: AppLockPreference, glance: HomeGlance?, storeRoot: URL? = nil) {
         self.account = account
         self.lock = lock
         self.glance = glance
+        self.storeRoot = storeRoot
     }
 
     /// Nothing on disk: Welcome, with the lock off.
@@ -87,7 +92,7 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         } else {
             glance = nil
         }
-        return LaunchResolution(account: account, lock: lock, glance: glance)
+        return LaunchResolution(account: account, lock: lock, glance: glance, storeRoot: root)
     }
 
     /// Step 1, also run by the test hooks before they seed a store (a seeded store written before
