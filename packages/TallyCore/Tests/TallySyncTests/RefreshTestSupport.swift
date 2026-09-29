@@ -108,7 +108,7 @@ func eventually(within timeout: Duration = TestTimeBudget.seconds(5), _ conditio
 /// far longer than any test runs, so no timer fires unless a test asks for one.
 func makeCoordinator(
     gateway: any CanvasGateway, clock: TestClock = TestClock(), initialSnapshot: CanvasSnapshot? = nil,
-    liveRefreshBudget: Duration = .seconds(30), ceiling: Duration = .seconds(60)
+    liveRefreshBudget: Duration = .seconds(30), ceiling: Duration = .seconds(60), includeGrades: Bool = false
 ) throws -> (coordinator: RefreshCoordinator, store: SnapshotStore) {
     let accountKey = AccountKey("sync-hardening")
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("tally-sync-hardening-\(UUID().uuidString)")
@@ -116,6 +116,7 @@ func makeCoordinator(
     let sealer = VaultSealer(account: accountKey.rawValue, keyring: VaultKeyring(store: InMemoryVaultKeyStore()), mayCreateKeys: true)
     let store = SnapshotStore(root: root, accountKey: accountKey, sealer: sealer)
     let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: clock, initialSnapshot: initialSnapshot,
+                                         includeGrades: includeGrades,
                                          liveRefreshBudget: liveRefreshBudget, foregroundHardCeiling: ceiling,
                                          backgroundBudget: ceiling)
     return (coordinator, store)

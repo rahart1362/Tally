@@ -88,13 +88,27 @@ public actor RefreshCoordinator {
 
     /// Whether the glance projection built at commit time may include grade values
     /// (`UserState.showGradesInGlance`, encryption.md D-E3, PMO R10 — never defaulted to `true`).
-    /// The composition root keeps this current from `UserStateStore`; that wiring lives outside
-    /// this file, which only ever reads whatever value it was last given.
-    public var includeGrades: Bool
+    /// Set at init from `UserStateStore`, then by `updateIncludeGrades(_:)`.
+    public private(set) var includeGrades: Bool
 
     /// Called when the user changes the "What changed" threshold in Settings; the next commit uses it.
     public func updateDigestThresholds(_ thresholds: DigestThresholds) {
         digestThresholds = thresholds
+    }
+
+    /// Called when the user changes "Show Grades in Widgets" in Settings. The next commit uses it,
+    /// and the glance on disk is rebuilt now from the committed snapshot, so turning grades off
+    /// takes them out of the widget's file at once (PMO R10). Returns true when this call rewrote the
+    /// glance, so the caller can ask WidgetKit to reload. A commit that lands meanwhile already uses
+    /// the new value (and reloads the widget as every commit does); the store then refuses this
+    /// call's rewrite of the older snapshot, and it returns false.
+    @discardableResult
+    public func updateIncludeGrades(_ include: Bool) async -> Bool {
+        guard include != includeGrades else { return false }
+        includeGrades = include
+        guard let committedSnapshot else { return false }
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include)
+        return rewritten != nil
     }
 
     public init(
