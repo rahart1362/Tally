@@ -16,7 +16,7 @@ nonisolated enum SettingsCopy {
     /// M2-C2 OI5: the Standing widget's copy points here ("if you choose to show grades in widgets").
     static let widgetGradesTitle = "Show Grades in Widgets"
     static let widgetGradesFooter = "The Standing widget shows your average grade band. It is hidden while your "
-        + "iPhone is locked. A change reaches the widget the next time Tally starts and refreshes."
+        + "iPhone is locked. A change reaches the widget right away."
 }
 
 /// UX-WP-20: Settings as a `Form` (ux-ui.md §3.7.7), presented as one sheet from the tab roots.
