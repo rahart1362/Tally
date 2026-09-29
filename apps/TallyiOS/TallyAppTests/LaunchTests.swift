@@ -62,8 +62,43 @@ struct LaunchBootstrapperTests {
         })
         _ = await bootstrapper.resolve()
         let recorded = steps.withLock { $0 }
-        #expect(recorded.map(\.0) == ["reconcileInstall", "lockPreference", "accounts", "glance"])
+        let names = recorded.map(\.0)
+        // PERF-L: the lock setting is read alongside the files, so only the dependent steps are
+        // ordered: the reconcile before any file, `accounts.json` before the account's glance.
+        #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall"], "\(names)")
+        let order = { (step: String) in names.firstIndex(of: step) ?? .max }
+        #expect(order("reconcileInstall") < order("accounts") && order("accounts") < order("glance"), "\(names)")
         #expect(recorded.allSatisfy { !$0.1 }, "a launch step ran on the main thread: \(recorded)")
+    }
+
+    @Test("PERF-L: the lock setting's read overlaps the account's file reads")
+    func lockReadOverlapsTheFileReads() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let glanceStarted = Mutex(false)
+        // The lock read waits for the glance step to start: it returns at once when the two run
+        // together, and only at its timeout when the reads run one after another.
+        let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true),
+                                         loadWaitsFor: { glanceStarted.withLock { $0 } })
+        let bootstrapper = LaunchBootstrapper(environment: harness.environment(lockPreferences: lock), threadProbe: { step, _ in
+            if step == "glance" { glanceStarted.withLock { $0 = true } }
+        })
+        let resolution = await bootstrapper.resolve()
+        #expect(resolution.account == harness.record && resolution.glance != nil)
+        #expect(resolution.lock == AppLockPreference(isEnabled: true))
+        #expect(lock.loadsThatWaitedOut == 0, "the lock setting was read before the account's files, not alongside them")
+    }
+
+    @Test("a fresh install's first launch uses the lock setting as its reconcile left it, even when a read raced the reset")
+    func reconcileResetWinsOverARacingLockRead() async throws {
+        let harness = try AccountHarness()
+        // Inherited from an earlier install: the setting is on. The reset waits until a read has
+        // begun, so the launch's first read always sees the inherited value.
+        let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true), resetWaitsForALoad: true)
+        let resolution = await LaunchBootstrapper(environment: harness.environment(lockPreferences: lock)).resolve()
+        #expect(resolution == .welcome, "the inherited lock setting survived the reconcile: \(resolution.lock)")
+        #expect(lock.loads == 2, "the setting was not read again after the reconcile")
+        #expect(lock.loadsThatWaitedOut == 0)
     }
 
     @Test("an unreadable lock setting fails closed: the launch locks")
@@ -206,6 +241,60 @@ struct HomeLaunchOrderTests {
         await model.start()
         #expect(source.phaseAtLaunchRefresh == .loaded, "refresh(.launch) ran before the cached projection")
         await model.end()
+    }
+}
+
+/// A lock-setting store that makes the launch's concurrency observable: `load()` can wait (up to
+/// `timeout`) for a condition, and `reset()` can wait for a `load()` to have begun. A wait that runs
+/// out is counted, never hangs the test.
+nonisolated final class ProbedLockPreferences: AppLockPreferenceStoring {
+    private let stored: Mutex<AppLockPreference?>
+    private let loadWaitsFor: (@Sendable () -> Bool)?
+    private let resetWaitsForALoad: Bool
+    private let counts = Mutex((loads: 0, waitedOut: 0))
+    static let timeout: Duration = .seconds(5)
+
+    init(_ preference: AppLockPreference?, loadWaitsFor: (@Sendable () -> Bool)? = nil, resetWaitsForALoad: Bool = false) {
+        stored = Mutex(preference)
+        self.loadWaitsFor = loadWaitsFor
+        self.resetWaitsForALoad = resetWaitsForALoad
+    }
+
+    var loads: Int { counts.withLock { $0.loads } }
+    var loadsThatWaitedOut: Int { counts.withLock { $0.waitedOut } }
+
+    func load() async -> AppLockPreferenceRead {
+        counts.withLock { $0.loads += 1 }
+        let read = stored.withLock { $0.map(AppLockPreferenceRead.found) ?? .notFound }
+        if let loadWaitsFor, await !Self.poll(loadWaitsFor) { counts.withLock { $0.waitedOut += 1 } }
+        return read
+    }
+
+    func save(_ preference: AppLockPreference) async throws {
+        stored.withLock { $0 = preference }
+    }
+
+    func reset() async {
+        if resetWaitsForALoad, await !Self.poll({ self.loads > 0 }) { counts.withLock { $0.waitedOut += 1 } }
+        stored.withLock { $0 = nil }
+    }
+
+    private static func poll(_ condition: @Sendable () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !condition() {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return true
+    }
+}
+
+extension AccountHarness {
+    /// This harness's environment with another app-lock setting store.
+    func environment(lockPreferences: any AppLockPreferenceStoring) -> AccountEnvironment {
+        AccountEnvironment(storeRoot: { [root] in root }, credentialStore: credentials, keyring: keyring,
+                           lockPreferences: lockPreferences, transport: transport, notifications: notifications,
+                           gatewayOverride: { account in FlagshipAccountGateway(account: account.accountKey) })
     }
 }
 
