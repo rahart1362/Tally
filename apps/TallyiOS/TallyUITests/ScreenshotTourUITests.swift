@@ -46,36 +46,79 @@ final class ScreenshotTourUITests: TallyUITestCase {
         snap(app, "07 Dashboard, further down")
         app.swipeDown(); app.swipeDown()
 
-        for (number, tab) in [("08", "Courses"), ("09", "Calendar"), ("10", "To-Do"), ("11", "Insights")] {
+        // Courses, then one course's detail and its what-if sheet (M3-A).
+        if tap(app.tabBars.buttons["Courses"], in: app) {
+            sleepBriefly()
+            snap(app, "08 Courses")
+            let cards = app.descendants(matching: .any).matching(identifier: "course.card")
+            if cards.count > 1, tap(cards.element(boundBy: 1), in: app) {
+                sleepBriefly()
+                snap(app, "09 Course Detail")
+                if tap(app.buttons["Grades"], in: app) {
+                    sleepBriefly()
+                    snap(app, "10 Course Detail, Grades")
+                    _ = tap(app.buttons["Overview"], in: app)
+                }
+                let whatIf = app.descendants(matching: .any).matching(identifier: "courseDetail.whatIf").firstMatch
+                for _ in 0..<6 where !whatIf.isHittable { app.swipeUp() }
+                if tap(whatIf, in: app) {
+                    sleepBriefly()
+                    snap(app, "11 What-if sheet")
+                    let sheetBar = app.navigationBars["What-If"]
+                    if sheetBar.waitForExistence(timeout: 5) { sheetBar.swipeUp() }
+                    sleepBriefly()
+                    snap(app, "12 What-if sheet, expanded")
+                    sheetBar.swipeDown(velocity: .fast)
+                    sleepBriefly()
+                }
+            }
+        }
+        for (number, tab) in [("13", "Calendar"), ("14", "To-Do"), ("16", "Insights")] {
             if tap(app.tabBars.buttons[tab], in: app) {
                 sleepBriefly()
-                snap(app, "\(number) \(tab) tab")
+                snap(app, "\(number) \(tab)")
+                if tab == "To-Do", tap(app.buttons["todo.select"], in: app) {
+                    sleepBriefly()
+                    snap(app, "15 To-Do, select mode")
+                    _ = tap(app.buttons["todo.select"], in: app) // now "Cancel"
+                }
+                if tab == "Insights" {
+                    app.swipeUp()
+                    sleepBriefly()
+                    snap(app, "17 Insights, scrolled")
+                }
             }
         }
         if tap(app.tabBars.buttons["Dashboard"], in: app) {
             let settings = app.buttons["Settings"]
             if tap(settings, in: app) {
                 sleepBriefly()
-                snap(app, "12 Settings")
-                app.swipeDown(velocity: .fast)
+                snap(app, "18 Settings")
+                app.swipeUp()
+                sleepBriefly()
+                snap(app, "19 Settings, scrolled")
+                app.swipeUp()
+                sleepBriefly()
+                snap(app, "20 Settings, further down")
+                app.swipeDown(velocity: .fast); app.swipeDown(velocity: .fast); app.swipeDown(velocity: .fast)
             }
         }
 
         // The hero's Refresh button starts a manual refresh: the footer shows "Refreshing…".
         let refresh = app.buttons["Refresh"]
         if tap(refresh, in: app) {
-            snap(app, "13 Refreshing")
+            snap(app, "21 Refreshing")
         }
         app.terminate()
 
         // The Dashboard again at the largest accessibility text size.
         let large = launchApp(arguments: Self.accessibilityXXXL)
         _ = large.buttons["Explore with Sample Data"].waitForExistence(timeout: 30)
-        snap(large, "14 Welcome at AX XXXL")
+        snap(large, "22 Welcome at AX XXXL")
         if tap(large.buttons["Explore with Sample Data"], in: large) {
             _ = large.staticTexts["SAMPLE DATA"].waitForExistence(timeout: 30)
             sleepBriefly()
-            snap(large, "15 Dashboard at AX XXXL")
+            snap(large, "23 Dashboard at AX XXXL")
         }
     }
 
