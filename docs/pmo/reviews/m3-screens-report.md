@@ -18,7 +18,10 @@ Every number here comes from a CI log or xcresult summary I read, or from a loca
   - CI: MU9 (missed before) and MU12 (masked before) were re-run after the test fixes, plus MS1 for the new wiring, in run 36508938682. **All 3 were caught**, each by its own test, and the unmutated screen tests passed (§4.4).
   - From the first half of the stream, still on record: 16 of 16 local mutations (§4.1) and CI run 36468704319 (§4.3).
 - **The merge surfaced one real fault, now fixed:** M2-C1's `HomeModel.Phase.glance` made the Courses and To-Do empty-state switches non-exhaustive. The app did not compile in run 36499912209. `a9c4989` treats `.glance` as loading (§3).
-- **Full hand-off run:** on this report's commit. Its ID and every job's result are in the hand-off reply; the PMO's journal takes it from there.
+- **Full hand-off runs.**
+  - The first, 36511691943 on `eb3dfce`, was green in every required job but one. `ios-build` failed one UI test that is not mine: `SlowRefreshUITests`' 12 s test found the breadcrumb already up when its Refresh tap returned. By the time the hierarchy was read, the refresh had landed ("Updated just now"), so more than the 10 s budget had passed inside the tap. That is XCUITest latency; my code is not on this sample-mode path apart from an in-memory `local.load()`.
+  - Per the owner's guidance it gets one re-run: a full run on this report's commit, with its ID and every job's result in the hand-off reply.
+  - Two report-only jobs failed in my Course Detail test (O14, O15).
 
 ## 2. Per screen
 
@@ -89,7 +92,8 @@ This relaunch:
 | 36501479366 | `a9c4989` | quick | Linux jobs success. ios-build: hosted Swift Testing 293 tests in 64 suites (2 known issues); main xcresult 321 total, 315 passed, 3 skipped, 2 expected, **1 failed** (Course Detail's "Overview" tap, a hittability timeout, §2); floor 295 total, 293 passed, 2 expected |
 | **36505512975** | `02ac27f` | quick | **All jobs success.** TallyCore 622 tests (41 + 82 + 8 + 296 + 195), 4 known issues. Hosted 293 tests in 64 suites, 2 known issues, on both simulators. Main xcresult 321 total, **316 passed, 0 failed**, 3 skipped, 2 expected. Floor 295 total, 293 passed, 2 expected. Smallest iPhone 2/2. Screen UI tests: Calendar 80.3 s, Course Detail 106.6 s, Courses 20.5 s, Insights 30.8 s, Settings 66.8 s, Settings signed-in 48.2 s, To-Do 53.3 s |
 | 36508938682 | `d27aef5` (mutations) | quick | Red by design. Linux jobs success. Main xcresult 321 total, 313 passed, 3 failed (MU9, MU12, MS1), 3 skipped, 2 expected; floor 295 total, 293 passed, 2 expected (§4.4) |
-| hand-off | this report's commit | **full** | in the hand-off reply |
+| 36511691943 | `eb3dfce` | **full** | **Required:** hygiene, core-linux (622 tests, 4 known issues), lint and core-sanitizers succeeded. "iOS AddressSanitizer (app tests)": 292 total, 289 passed, 1 skipped, 2 expected; 0 ASan reports. "iOS ThreadSanitizer (TallyAppTests)": 292 total, 289 passed, 1 skipped, 2 expected; 0 warnings, 0 errors. `ios-perf` success: warm launch to the painted glance, median 0.8423 s against 3.0 s (`Launch.GlancePaint` unobserved 0.9611 s: ToTask 0.4248, Resolve 0.1515, HomeRender 0.3245). **`ios-build` failure:** main xcresult 321 total, 315 passed, 1 failed (`SlowRefreshUITests.testSlowRefreshShowsTheBreadcrumbThenSelfHeals`, above), 3 skipped, 2 expected; floor 295 total, 293 passed. **Report-only:** core-perf and Apple-silicon perf succeeded. ASan UI: 26 total, 22 passed, 1 failed (O15), 0 ASan reports. Xcode 27: 321 total, 315 passed, 1 failed (O14) |
+| hand-off (re-run) | this report's commit | **full** | in the hand-off reply |
 
 Local, on the final tree (`d5919d1` onward, which is the tree of `02ac27f` and `eabc40e`):
 - `make core-build`: clean.
@@ -193,6 +197,9 @@ Per the brief, only MU9 and MU12 were re-run; MU1 was not planted again. So the 
 | O11 | PMO / TallySync | **"Show Grades in Widgets" reaches the glance only from the next coordinator** (the next launch, or sign-in). `RefreshCoordinator.includeGrades` is set at `init` and has no update method, unlike `updateDigestThresholds`, and an actor's property cannot be set from outside. Settings' footer says so ("the next time Tally starts and refreshes"). Proposed: `RefreshCoordinator.updateIncludeGrades(_:)` in TallySync; then `AccountUserStateAccess.update` forwards it as it does the thresholds, and that footer sentence can go |
 | O12 | PMO | The `.sample` route's `.environment(appModel)` (Exit Sample Data) is guarded by `SettingsUITests`' existence check. It was not mutated in CI, because in the same test that would have masked MU9. `HomeShellView`'s explicit sheet `.environment(appModel)` is a second path (a sheet may inherit the environment anyway) and was not mutated on its own |
 | O13 | App-core / test owners | `CourseDetailUITests`' "Overview" tap hit one hittability timeout (36501479366) and passed on its re-run. If it recurs, re-tap through `tap(_:expecting:)` (M2-C2 OI13) |
+| O14 | M3-A follow-up / A11Y | **Xcode 27 preview (report-only), run 36511691943:** the what-if ±1 buttons measured 42.25 × 42.25 pt against A11Y-04's 44 (`CourseDetailUITests.swift:96`). Both dimensions shrank by one factor (0.960), which suggests a system scale on the iOS 27 sheet rather than a layout change; on iOS 26 (ios-build and the floor) they measure 44. Not debugged (a first sighting on a preview job); check again on the iOS 27 release |
+| O15 | M3-A follow-up | **ASan UI (report-only), run 36511691943:** `slider.adjust(toNormalizedSliderPosition: 0.5)` left the score at 32, outside the test's 40–60 window (`CourseDetailUITests.swift:84`); 0 ASan reports. The adjust gesture lands less precisely on the slower sanitizer build. If it recurs, check "moved from its start, within 20–80" instead |
+| O16 | App-core / PMO | `SlowRefreshUITests.testSlowRefreshShowsTheBreadcrumbThenSelfHeals` checks for no breadcrumb right after `tap(_:expecting:)`, which can outlast the 10 s budget on a loaded simulator (36511691943; same family as M2-C2 OI11 and OI14). Measure the check against the time the tap returned, as the pull test does |
 
 Deviations from `ux-ui.md` §3.7 are unchanged from the interim report. Each missing feature is left out entirely rather than shown as a dead control:
 - **Courses:** no hide, no term picker, no sparkline.
