@@ -263,11 +263,16 @@ struct ReminderContentTests {
         let planned = try await makePlan(now: later)
         // Overdue work with no closing date stays open (`PriorityScore.isExcluded`), but none is due ahead.
         #expect(!planned.subjects.openItems.contains { $0.dueAt > later })
-        let shown = words(planned, hide: false)
-        let digests = planned.plan.filter { $0.kind == .digest || $0.kind == .weekAhead }
-        #expect(digests.count == 2, "the planner always plans both digests")
-        #expect(digests.allSatisfy { shown[$0.id] == nil }, "a digest with nothing due would have been sent")
+        // Built here rather than taken from the plan: the planner itself stops planning an empty
+        // evening digest once PR #8 (P-2) lands, and the words step must hold either way.
         let format = ReminderTimeFormat(timeZone: ReminderTestSupport.timeZone, locale: ReminderTestSupport.locale)
+        for kind in [NotificationKind.digest, .weekAhead] {
+            let digest = PendingReminder(id: "d-\(kind)", kind: kind, fireDate: later.addingTimeInterval(3600),
+                                         interruptionLevel: .passive, subjectID: "-")
+            #expect(planned.subjects.content(for: digest, accountKey: planned.account, hideCourseNames: false,
+                                             lastSuccess: later, format: format) == nil,
+                    "a \(kind) with nothing due would have been sent")
+        }
         let sentinel = PendingReminder(id: "s", kind: .sentinel, fireDate: later, interruptionLevel: .passive, subjectID: "-")
         let words = planned.subjects.content(for: sentinel, accountKey: planned.account, hideCourseNames: false,
                                              lastSuccess: later.addingTimeInterval(-24 * 3600), format: format)

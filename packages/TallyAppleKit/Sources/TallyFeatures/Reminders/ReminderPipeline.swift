@@ -126,9 +126,10 @@ public nonisolated enum ReminderPipeline {
         var desired: [PendingReminder] = []
         var contents: [String: NotificationContent.Rendered] = [:]
         for reminder in plan {
-            // Never in the past: the planner keeps its reserved reminders whatever their date, so a
-            // pass over a cache more than a day old plans the stale-data warning in the past, which
-            // the adapter would post a second later (M3-C report, planner finding P-1).
+            // Never in the past. Defence in depth: before PR #8 the planner kept its reserved
+            // reminders whatever their date, so a pass over a cache more than a day old planned the
+            // stale-data warning in the past, which the adapter would post a second later (M3-C
+            // report, planner finding P-1, fixed in TallyCore by the PMO).
             guard reminder.fireDate > now,
                   let content = subjects.content(for: reminder, accountKey: accountKey, hideCourseNames: hideCourseNames,
                                                  lastSuccess: refresh.lastSuccessAt, format: format) else { continue }
