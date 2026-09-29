@@ -9,6 +9,11 @@ extension TallyConfig {
     /// At most this many "due soon" items ride along in the glance (encryption.md §3.3 allowlist).
     public static let glanceDueItemLimit = 8
 
+    /// Of those, this many stay for open overdue items when upcoming ones would fill every slot:
+    /// the widget counts them ("N overdue"), and the launch paint's 5 "Due soon" rows
+    /// (`HomeGlance.dueSoonLimit`) still fit in the rest.
+    public static let glanceOverdueItemReserve = 3
+
     /// Planner/assignment titles in the glance are truncated to this length (encryption.md §3.3).
     public static let glanceTitleMaxLength = 40
 }

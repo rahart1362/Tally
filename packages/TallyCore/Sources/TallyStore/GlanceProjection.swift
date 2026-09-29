@@ -80,7 +80,7 @@ public enum GlanceProjectionBuilder {
         let overall = includeGrades ? overallBand(of: snapshot.courses) : nil
         return GlanceProjection(generation: snapshot.generation, asOf: snapshot.fetchedAt,
                                 overallGradeBand: overall, courses: courses,
-                                dueSoon: dueSoon(from: snapshot.planner, courseByID: courseByID))
+                                dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID))
     }
 
     private static func gradeBand(for course: Course, includeGrades: Bool) -> GradeBand? {
@@ -101,11 +101,30 @@ public enum GlanceProjectionBuilder {
         return .fromPercent(visiblePercents.reduce(0, +) / Double(visiblePercents.count))
     }
 
-    private static func dueSoon(from planner: [PlannerItem], courseByID: [CanvasID<Course>: Course]) -> [GlanceDueItem] {
-        planner
-            .filter { !($0.markedComplete && $0.submitted) }
-            .sorted(by: dueBefore)
-            .prefix(TallyConfig.glanceDueItemLimit)
+    /// The glance's due items, chosen for what its two readers show: the launch paint's "Due soon"
+    /// (`HomeGlance`, the dashboard's rule: items due from now on) and the widget's "Next up" (open
+    /// items, and how many are overdue). Past items that were submitted or excused, and undated
+    /// items, serve neither, so they no longer take slots: before, six past submitted items could
+    /// fill the slots and leave the glance with no upcoming item (m2-widget-compliance-report OI3).
+    /// Upcoming items come first; up to `glanceOverdueItemReserve` slots stay for open overdue
+    /// items (the most recent ones); slots one group leaves unused go to the other, then to undated
+    /// items. The result is earliest first, undated last, as before.
+    private static func dueSoon(from planner: [PlannerItem], asOf: Date,
+                                courseByID: [CanvasID<Course>: Course]) -> [GlanceDueItem] {
+        let limit = TallyConfig.glanceDueItemLimit
+        let candidates = planner.filter { !($0.markedComplete && $0.submitted) }
+        let upcoming = candidates.filter { item in item.dueAt.map { $0 >= asOf } ?? false }.sorted(by: dueBefore)
+        let overdue = candidates.filter { item in
+            guard let dueAt = item.dueAt, dueAt < asOf else { return false }
+            return !item.submitted && !item.excused
+        }.sorted(by: dueBefore)
+        let undated = candidates.filter { $0.dueAt == nil }
+
+        let upcomingTaken = min(upcoming.count, max(0, limit - min(overdue.count, TallyConfig.glanceOverdueItemReserve)))
+        let overdueTaken = min(overdue.count, limit - upcomingTaken)
+        let chosen = overdue.suffix(overdueTaken) + upcoming.prefix(upcomingTaken)
+            + undated.prefix(limit - upcomingTaken - overdueTaken)
+        return chosen
             .map { item in
                 GlanceDueItem(
                     id: item.id,
