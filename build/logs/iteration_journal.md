@@ -685,3 +685,9 @@ PR #3 merged as `516d0f5`. "iOS ThreadSanitizer (TallyAppTests)" was added to `m
 - The self-heal wait is 30 s, keeping the old 20 s margin on top of the 10 s the breadcrumb is up.
 
 Verified only in CI: no Xcode on this host. No CI mutation run was made for the relaxed check (UNVERIFIED); the guard that detects an early breadcrumb is unchanged.
+
+## 2026-09-29 | PMO: PR #6 merge fix-ups (m3/screens)
+- `main` @ `8a150f2` (PR #5) merged into the branch: the journal conflict only, both entries kept (`38b7ed8`).
+- **Run 36519966442** (PR #6, `38b7ed8`) failed required ios-build and report-only ASan UI on the same check: `CourseDetailUITests.swift:84`, the what-if slider adjusted to 0.5 set the score to 21, outside the test's 40–60 window. Earlier it landed at 32 (O15), and at about 50 in the passing runs. That is XCUITest's `adjust(toNormalizedSliderPosition:)` landing near, not at, the position; the app set a score and the projection followed.
+- **Fix** (test only): the check is now that the slider set a different valid score (0–100) than before. The planted fault MU12 (the slider sets nothing) still fails it.
+- Xcode 27 (report-only) failed O14 again: the ±1 buttons measure 42.25 pt on iOS 27.

@@ -80,11 +80,16 @@ final class CourseDetailUITests: TallyUITestCase {
         let slider = app.sliders.matching(identifier: "whatif.slider").firstMatch
         XCTAssertTrue(slider.waitForExistence(timeout: 5), "no score slider. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(scrollUntilHittable(slider, in: app, maxSwipes: 3), "Hierarchy: \(app.debugDescription)")
+        let before = Double(field.value as? String ?? "")
         slider.adjust(toNormalizedSliderPosition: 0.5)
+        // XCUITest's adjust lands only near the position asked for (21 and 32 as well as about 50
+        // for 0.5 on CI simulators: PR #6 run 36519966442, M3-A O15), so the check is that the
+        // slider set a different, valid score, not which one. MU12 (the slider sets nothing) still
+        // fails it.
         XCTAssertTrue(eventually {
             guard let text = field.value as? String, let value = Double(text) else { return false }
-            return (40...60).contains(value)
-        }, "adjusting the slider did not set the score: \(String(describing: field.value))")
+            return value != before && (0...100).contains(value)
+        }, "adjusting the slider did not set the score: \(String(describing: field.value)) (was \(String(describing: before)))")
         XCTAssertTrue(eventually(timeout: 15) { !projected.label.contains("the same as your current grade") },
                       "the projection did not follow the slider: '\(projected.label)'")
 
