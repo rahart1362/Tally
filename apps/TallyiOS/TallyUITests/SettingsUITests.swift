@@ -135,7 +135,7 @@ extension TallyUITestCase {
     func assertNoThirdPartyRows(_ app: XCUIApplication, at place: String, file: StaticString = #filePath, line: UInt = #line) {
         let thirdParty = NSPredicate(format: "label CONTAINS[c] 'Microsoft' OR label CONTAINS[c] 'Google' OR label CONTAINS[c] 'Outlook'")
         let found = app.descendants(matching: .any).matching(thirdParty)
-        XCTAssertEqual(found.count, 0, "a third-party row at \(place): \(found.allElementsBoundByIndex.map(\.label))",
+        XCTAssertEqual(found.count, 0, "a third-party row at \(place): \(found.allElementsBoundByIndex.map { $0.label })",
                        file: file, line: line)
     }
 }

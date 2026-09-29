@@ -102,7 +102,8 @@ struct ToDoScreen: View {
     @ViewBuilder
     private var emptyState: some View {
         switch model.phase {
-        case .loading:
+        case .loading, .glance:
+            // The launch's glance carries no rows for this tab (M2-C1 D7): loading until the projection.
             ProgressView("Loading your work…")
         case .loaded, .failed:
             // ux-ui.md §3.2.3 "Nothing due".
