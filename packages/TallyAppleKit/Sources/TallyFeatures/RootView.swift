@@ -75,7 +75,6 @@ public struct RootView: View {
                 // or by the first sync's root switch.
                 if let home = appModel.home {
                     HomeShellView(model: home)
-                        .environment(appModel) // M3-A: Settings' "Sign Out & Erase" and App Lock
                 }
             }
         }
