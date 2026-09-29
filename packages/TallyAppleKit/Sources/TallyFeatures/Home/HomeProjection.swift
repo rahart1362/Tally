@@ -44,6 +44,9 @@ public nonisolated struct HomeProjection: Equatable, Sendable {
     /// The earliest moment this projection can go stale on its own (a due date passes, the day
     /// or the greeting changes, an item enters a window, or `TallyConfig.dashboardMaxStaleness`).
     public let validUntil: Date
+    /// M3-A: the Courses, Course Detail, To-Do, Calendar, Insights and Settings projections of the
+    /// same snapshot, built with the rest (defaulted, so every existing initialiser call is unchanged).
+    public var screens: ScreenProjections = .empty
 
     public static let empty = HomeProjection(
         generation: 0, dashboard: .empty, studentDisplayName: nil, greeting: .morning,

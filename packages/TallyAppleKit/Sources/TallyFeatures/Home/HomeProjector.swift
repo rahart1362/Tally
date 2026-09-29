@@ -50,7 +50,10 @@ public actor HomeProjector {
             toDo: snapshot.planner
                 .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
                 .map { HomeProjection.ToDoRow(id: $0.id, title: $0.title, dueAt: $0.dueAt) },
-            validUntil: Self.validUntil(snapshot: snapshot, now: now, calendar: calendar))
+            validUntil: Self.validUntil(snapshot: snapshot, now: now, calendar: calendar),
+            // M3-A: every screen's rows, in the student's locale, off the main actor.
+            screens: ScreenProjections.build(
+                from: snapshot, formatter: ScreenFormatter(now: now, calendar: calendar, locale: locale)))
     }
 
     /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).

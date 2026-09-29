@@ -34,8 +34,15 @@ public nonisolated enum AccountSessionFactory {
             record.succeeded(dataFetchedAt: snapshot.fetchedAt)
         }
         let gateway = await gateway(for: account, environment: environment)
-        return RefreshCoordinator(gateway: gateway, store: store, clock: environment.clock,
-                                  initialSnapshot: initialSnapshot, initialRecord: record)
+        // M3-A (Settings; M2-C2 OI5): the account's own settings, read here with the snapshot, off
+        // the main actor: the widget grade opt-in every commit's glance is built with, and the
+        // "What changed" thresholds every commit's digest uses.
+        let settings = await AccountUserStateAccess.stored(account: account.accountKey, root: root, environment: environment)
+        let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: environment.clock,
+                                             initialSnapshot: initialSnapshot, initialRecord: record,
+                                             includeGrades: settings.showGradesInGlance)
+        await coordinator.updateDigestThresholds(settings.digestThresholds)
+        return coordinator
     }
 
     /// Sign-in's S3, after the token exchange (S2): the credential goes to the Keychain, the

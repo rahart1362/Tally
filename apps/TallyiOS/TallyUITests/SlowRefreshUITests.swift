@@ -24,16 +24,23 @@ final class SlowRefreshUITests: TallyUITestCase {
     private static let breadcrumbPrefix = "Live refresh is taking longer than expected"
     /// `TallyConfig.liveRefreshBudget` (this bundle does not link TallyCore).
     private static let liveRefreshBudget: TimeInterval = 10
+    /// How long the breadcrumb test's refresh takes: the budget plus a 10 s window for the breadcrumb.
+    private static let slowRefreshSeconds = 20
     /// O8: how soon after the pull returns the breadcrumb must be up. In every correct run it was
     /// already up at the first check (run 36390172728), because the spinner and the breadcrumb
     /// both wait for the live budget; one second allows for a slow accessibility query.
     private static let breadcrumbAfterPullWindow: TimeInterval = 1
 
-    /// The M2 exit criterion itself: a 12 s slow refresh. The breadcrumb appears once the live
-    /// budget has passed, never before, while the refresh is still running, then clears by itself.
+    /// The M2 exit criterion itself: a refresh slower than the live budget. The breadcrumb appears
+    /// once the budget has passed, never before, while the refresh is still running, then clears by
+    /// itself. The plan's example is 12 s, but that leaves the breadcrumb on screen for only 2 s
+    /// (10 s to 12 s), and on a loaded simulator the tap below plus XCUITest's idle wait took long
+    /// enough that the 12 s refresh had already landed by the first check (run 36511691943: the
+    /// footer read "Updated just now"); the same window was missed on Xcode 27 (M2-C2 OI11). So the
+    /// refresh takes `slowRefreshSeconds`, which gives the breadcrumb a 10 s window.
     @MainActor
     func testSlowRefreshShowsTheBreadcrumbThenSelfHeals() throws {
-        let app = launchSampleDashboard(refreshLatency: 12)
+        let app = launchSampleDashboard(refreshLatency: Self.slowRefreshSeconds)
         let breadcrumb = Self.breadcrumb(in: app)
         XCTAssertFalse(breadcrumb.exists, "a breadcrumb before any slow refresh. Hierarchy: \(app.debugDescription)")
 
@@ -48,17 +55,27 @@ final class SlowRefreshUITests: TallyUITestCase {
         // tap, the tap not taken; `tap(_:expecting:)` re-taps once in that case.
         let refreshing = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Refreshing")).firstMatch
         tap(refresh, expecting: refreshing, in: app, timeout: 5)
-        XCTAssertFalse(breadcrumb.exists, "the breadcrumb showed within the live budget. Hierarchy: \(app.debugDescription)")
+        // Meaningful only while the budget has not passed: the check can run later than that when
+        // the tap and its idle wait are slow, and then a breadcrumb is correct. The appearance time
+        // below catches an early breadcrumb whenever the tap returned in time.
+        let breadcrumbShowing = breadcrumb.exists
+        let checkedAfter = Date().timeIntervalSince(tapped)
+        if checkedAfter < Self.liveRefreshBudget - 1 {
+            XCTAssertFalse(breadcrumbShowing, "the breadcrumb showed \(checkedAfter) s after the tap, within the live budget. Hierarchy: \(app.debugDescription)")
+        } else {
+            XCTContext.runActivity(named: "Within-budget check skipped: the tap returned \(checkedAfter) s after it started") { _ in }
+        }
 
-        // The breadcrumb appears once the budget has passed, and before the 12 s refresh lands.
+        // The breadcrumb appears once the budget has passed, and before the slow refresh lands.
         XCTAssertTrue(sample(breadcrumb, until: true, timeout: 20),
                       "the breadcrumb never appeared. Hierarchy: \(app.debugDescription)")
         let shownAfter = Date().timeIntervalSince(tapped)
         XCTAssertGreaterThanOrEqual(shownAfter, Self.liveRefreshBudget - 1,
                                     "the breadcrumb appeared \(shownAfter) s after the tap, before the live budget passed")
 
-        // Self-heal: the refresh lands and the breadcrumb goes away without any interaction.
-        XCTAssertTrue(sample(breadcrumb, until: false, timeout: 20),
+        // Self-heal: the refresh lands and the breadcrumb goes away without any interaction. It is
+        // up for about 10 s first; the timeout keeps the old 20 s margin on top of that.
+        XCTAssertTrue(sample(breadcrumb, until: false, timeout: 30),
                       "the breadcrumb never cleared. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(app.staticTexts["Updated just now"].waitForExistence(timeout: 10),
                       "Hierarchy: \(app.debugDescription)")
@@ -130,8 +147,8 @@ final class SlowRefreshUITests: TallyUITestCase {
     }
 
     /// Samples `element.exists` as often as XCUITest allows, until it equals `expected` or
-    /// `timeout` passes. With a 12 s refresh the breadcrumb is on screen for about 2 s (10 s to
-    /// 12 s), which a coarser wait on a slow CI simulator could miss.
+    /// `timeout` passes, so a short-lived state is not missed between coarser waits on a slow CI
+    /// simulator.
     @MainActor
     private func sample(_ element: XCUIElement, until expected: Bool, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
