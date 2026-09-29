@@ -244,7 +244,6 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent("Microsoft 365", value: "Off")
             LabeledContent("Version", value: AppVersion.text)
                 .accessibilityIdentifier("settings.version")
         } header: {
