@@ -68,7 +68,8 @@ final class ScreenshotTourUITests: TallyUITestCase {
                     if sheetBar.waitForExistence(timeout: 5) { sheetBar.swipeUp() }
                     sleepBriefly()
                     snap(app, "12 What-if sheet, expanded")
-                    sheetBar.swipeDown(velocity: .fast)
+                    // Close it with Done (a swipe on the bar did not dismiss it in run 36530758199).
+                    _ = tap(app.navigationBars["What-If"].buttons["Done"], in: app)
                     sleepBriefly()
                 }
             }
