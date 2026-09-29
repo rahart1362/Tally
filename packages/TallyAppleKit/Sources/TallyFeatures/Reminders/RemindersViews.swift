@@ -71,9 +71,7 @@ private struct RemindersTipCard: View {
                 .accessibilityLabel(RemindersViewCopy.notNow)
                 .accessibilityIdentifier("tip.dismissReminders")
             }
-            Button(RemindersViewCopy.turnOn) {
-                reminders.requestPermission()
-            }
+            Button(RemindersViewCopy.turnOn) {}
             .buttonStyle(.borderedProminent)
             .tint(TallyColor.accent)
             .disabled(reminders.isRequesting)

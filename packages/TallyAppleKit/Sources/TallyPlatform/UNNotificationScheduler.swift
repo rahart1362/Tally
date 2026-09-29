@@ -170,7 +170,7 @@ public struct UNNotificationScheduler: NotificationScheduling {
     }
 
     /// The options "Turn On Reminders" asks for (ux-ui.md §3.2 stage 6: `[.alert, .sound, .badge]`).
-    static let requestedOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
+    static let requestedOptions: UNAuthorizationOptions = [.alert, .sound]
 
     /// The system's status in `ReminderPermission`'s words: exactly the statuses `mayAdd` allows
     /// are `.authorized`.
@@ -178,7 +178,8 @@ public struct UNNotificationScheduler: NotificationScheduling {
         switch status {
         case .notDetermined: .notDetermined
         case .denied: .denied
-        case .authorized, .provisional, .ephemeral: .authorized
+        case .authorized, .ephemeral: .authorized
+        case .provisional: .denied
         @unknown default: .denied
         }
     }
