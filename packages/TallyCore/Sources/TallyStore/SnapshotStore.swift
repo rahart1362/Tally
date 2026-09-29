@@ -73,6 +73,19 @@ public actor SnapshotStore {
         return glance
     }
 
+    /// Rebuilds the glance from `snapshot` with `includeGrades`, for a change of "Show Grades in
+    /// Widgets": turning grades off must take them out of the widget's file now, not at the next
+    /// refresh (PMO R10). Writes only when `snapshot` is the committed one (its generation is the
+    /// one on disk) and returns the new glance; otherwise writes nothing and returns nil, so it can
+    /// never put a glance for an older or newer snapshot on disk.
+    @discardableResult
+    public func rewriteGlance(from snapshot: CanvasSnapshot, includeGrades: Bool) throws -> GlanceProjection? {
+        guard isOwner, currentOnDiskGeneration() == snapshot.generation else { return nil }
+        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades)
+        try writeGlance(glance)
+        return glance
+    }
+
     /// Decodes the on-disk snapshot, discarding (not migrating) an old schema version, and
     /// self-heals the glance if it is missing, corrupt, or behind the snapshot's generation.
     @discardableResult

@@ -30,9 +30,11 @@ public actor InMemoryUserStateAccess: UserStateAccess {
     }
 }
 
-/// A signed-in account's `UserState`: sealed on disk by `UserStateStore`, and every saved
-/// `digestThresholds` is handed to the account's `RefreshCoordinator`
-/// (`updateDigestThresholds`), so the next commit's "What changed" uses it (owner decision DG-1).
+/// A signed-in account's `UserState`: sealed on disk by `UserStateStore`, and every save is handed
+/// to the account's `RefreshCoordinator`: `digestThresholds` (`updateDigestThresholds`), so the
+/// next commit's "What changed" uses it (owner decision DG-1); and `showGradesInGlance`
+/// (`updateIncludeGrades`), which rebuilds the glance on disk at once, then the widget reloads, so
+/// turning grades off takes them off the widget now (PMO R10; M3-A O11).
 public actor AccountUserStateAccess: UserStateAccess {
     public enum AccessError: Error, Equatable {
         /// `UserStateStore.load()` reported a state this build must not overwrite (written by a
@@ -42,10 +44,12 @@ public actor AccountUserStateAccess: UserStateAccess {
 
     private let store: UserStateStore
     private let runtime: AccountRuntime
+    private let reloadWidgets: @Sendable () -> Void
 
-    public init(store: UserStateStore, runtime: AccountRuntime) {
+    public init(store: UserStateStore, runtime: AccountRuntime, reloadWidgets: @escaping @Sendable () -> Void = {}) {
         self.store = store
         self.runtime = runtime
+        self.reloadWidgets = reloadWidgets
     }
 
     public func load() async -> UserState {
@@ -68,7 +72,10 @@ public actor AccountUserStateAccess: UserStateAccess {
         }
         change(&state)
         try await store.save(state)
-        await runtime.coordinator()?.updateDigestThresholds(state.digestThresholds)
+        if let coordinator = await runtime.coordinator() {
+            await coordinator.updateDigestThresholds(state.digestThresholds)
+            if await coordinator.updateIncludeGrades(state.showGradesInGlance) { reloadWidgets() }
+        }
         return state
     }
 }
@@ -79,7 +86,7 @@ extension AccountUserStateAccess {
     /// Construction only: no file is read until Settings loads.
     init(account: AccountKey, root: URL, environment: AccountEnvironment, runtime: AccountRuntime) {
         self.init(store: UserStateStore(root: root, accountKey: account, sealer: environment.sealer(for: account)),
-                  runtime: runtime)
+                  runtime: runtime, reloadWidgets: environment.reloadWidgets)
     }
 
     /// What the account's coordinator starts from (`AccountSessionFactory`): the stored `UserState`,

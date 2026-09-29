@@ -10,7 +10,8 @@ import TallyStore
 ///
 /// Also "Show Grades in Widgets" (M2-C2 OI5): `UserState.showGradesInGlance`, off unless the student
 /// turns it on (PMO R10). The account's coordinator reads it when it is built
-/// (`AccountSessionFactory`), and every commit's glance follows it from then on.
+/// (`AccountSessionFactory`), and each saved change reaches it at once
+/// (`AccountUserStateAccess.update`: the glance on disk is rebuilt and the widget reloaded).
 @MainActor
 @Observable
 public final class SettingsModel {
