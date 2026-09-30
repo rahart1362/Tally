@@ -23,7 +23,10 @@ import TallyDomain
 /// **Only the selected tab is built** (PERF-L, `Launch.HomeRender`): the launch builds the
 /// Dashboard's stack alone, and each other tab's stack is built the first time it is selected.
 /// A built tab stays built, so it keeps its navigation path and scroll position when the student
-/// switches away and back.
+/// switches away and back. On iOS 26.2 and 26.5 `TabView` already defers an unselected tab's
+/// content until it is selected (CI mutation MH1, run 36701247111: with every tab marked built,
+/// only the Dashboard's content was evaluated at launch), so this saves no launch work there; it
+/// makes the behaviour explicit instead of relying on `TabView`'s.
 public struct HomeShellView: View {
     let model: HomeModel
     /// A persistent banner slotted above the tab content (ASC-14's SAMPLE DATA banner); `nil`
