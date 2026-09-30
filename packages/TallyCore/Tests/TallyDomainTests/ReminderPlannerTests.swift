@@ -33,8 +33,10 @@ struct ReminderPlannerTests {
     }
 
     @Test func balancedDefaultsIncludeAnEveningDigestAndSundayWeekAhead() throws {
+        // Due Tuesday 19:00, inside the 48 h after tonight's 19:00 digest (§3.3 #4 needs something due).
+        let dueSoon = ReminderCandidate(assignment: assignment(id: "a1", due: Self.now.addingTimeInterval(30 * 3600)))
         let plan = ReminderPlanner.plan(
-            accountKey: Self.account, candidates: [], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc,
+            accountKey: Self.account, candidates: [dueSoon], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc,
             refresh: RefreshRecord())
         #expect(plan.contains { $0.kind == .digest })
         #expect(plan.contains { $0.kind == .weekAhead })
@@ -42,6 +44,24 @@ struct ReminderPlannerTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = Self.utc
         #expect(calendar.component(.weekday, from: weekAhead.fireDate) == 1, "Sunday")
+    }
+
+    /// M3-C finding P-2 and §3.3 #4: the evening digest only when something is due in the 48 h after
+    /// it fires (tonight 19:00 here, so until Wednesday 19:00).
+    @Test func noEveningDigestUnlessSomethingIsDueInTheNext48h() {
+        func digest(_ candidates: [ReminderCandidate]) -> Bool {
+            ReminderPlanner.plan(accountKey: Self.account, candidates: candidates, settings: ReminderSettings(),
+                                 now: Self.now, timeZone: Self.utc, refresh: RefreshRecord()).contains { $0.kind == .digest }
+        }
+        #expect(!digest([]), "nothing due at all")
+        #expect(!digest([ReminderCandidate(assignment: assignment(id: "far", due: Self.now.addingTimeInterval(60 * 3600)))]),
+                "due after the window (Thursday 01:00)")
+        #expect(!digest([ReminderCandidate(assignment: assignment(id: "early", due: Self.now.addingTimeInterval(2 * 3600)))]),
+                "due before the digest fires (15:00 today)")
+        #expect(!digest([ReminderCandidate(assignment: assignment(id: "done", due: Self.now.addingTimeInterval(30 * 3600), submitted: true))]),
+                "submitted: nothing left to do")
+        #expect(digest([ReminderCandidate(assignment: assignment(id: "soon", due: Self.now.addingTimeInterval(30 * 3600)))]),
+                "due Tuesday 19:00, inside the window")
     }
 
     // MARK: - Final-hour and exam reminders are Time Sensitive
@@ -254,6 +274,31 @@ struct ReminderPlannerTests {
         let sentinel = plan.first { $0.kind == .sentinel }
         #expect(sentinel != nil)
         #expect(sentinel!.fireDate == FreshnessRules.staleWarningDate(of: record))
+    }
+
+    /// M3-C finding P-1: data already older than the warning window must not produce a request dated
+    /// in the past (it would fire at once while the app is open and already shows the stale state).
+    @Test func noSentinelOnceTheDataIsAlreadyStale() {
+        var record = RefreshRecord()
+        record.succeeded(dataFetchedAt: Self.now.addingTimeInterval(-30 * 3600))
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc, refresh: record)
+        #expect(!plan.contains { $0.kind == .sentinel })
+    }
+
+    /// P-1's edge: a warning still ahead (23:30) moves earlier out of quiet hours (to 22:45), which is
+    /// already past at 22:50, so it is dropped rather than scheduled in the past.
+    @Test func noSentinelWhenTheQuietHoursShiftMovesItIntoThePast() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.utc
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 28, hour: 22, minute: 50)))
+        let success = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 27, hour: 23, minute: 30)))
+        var record = RefreshRecord()
+        record.succeeded(dataFetchedAt: success)
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [], settings: ReminderSettings(), now: now, timeZone: Self.utc, refresh: record)
+        #expect(!plan.contains { $0.kind == .sentinel })
+        #expect(plan.allSatisfy { $0.fireDate > now }, "nothing is ever planned in the past")
     }
 
     @Test func noSentinelWithoutAnySuccessfulRefresh() {

@@ -70,10 +70,40 @@ struct UserStateStoreTests {
 
         let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
         guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
-        #expect(migrated.schemaVersion == 3)
+        #expect(migrated.schemaVersion == UserState.currentSchemaVersion)
         #expect(migrated.hideCourseNamesInNotifications == true)
         #expect(migrated.digestThresholds == .default)
         #expect(migrated.digestThresholds.threshold(for: "51845") == .points(0.5))
+    }
+
+    /// v3 → v4 (M3-A O3, M3-C O1): every v3 field survives, and the screens' local state starts empty.
+    @Test func migratesV3PayloadAddingEmptyScreenState() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        let thresholds = DigestThresholds(global: .all)
+        var v3JSON = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            UserState(showGradesInGlance: true, hideCourseNamesInNotifications: true, digestThresholds: thresholds))) as? [String: Any])
+        v3JSON["schemaVersion"] = 3
+        for key in ["courseOrder", "doneAssignments", "reminderTipDismissedUntil"] { v3JSON[key] = nil }
+        let v3Data = try JSONSerialization.data(withJSONObject: v3JSON)
+        try ProtectedFile.atomicWrite(try sealer.seal(v3Data, file: .userState), to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
+        #expect(migrated.schemaVersion == UserState.currentSchemaVersion)
+        #expect(migrated.showGradesInGlance && migrated.hideCourseNamesInNotifications)
+        #expect(migrated.digestThresholds == thresholds)
+        #expect(migrated.courseOrder.isEmpty && migrated.doneAssignments.isEmpty && migrated.reminderTipDismissedUntil == nil)
+    }
+
+    @Test func screenStateRoundTrips() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let state = UserState(courseOrder: ["51842", "51840"], doneAssignments: ["9001", "9002"],
+                              reminderTipDismissedUntil: Date(timeIntervalSince1970: 1_800_000_000))
+        try await store.save(state)
+        #expect(await store.load() == .loaded(state))
     }
 
     @Test func customDigestThresholdsRoundTrip() async throws {
