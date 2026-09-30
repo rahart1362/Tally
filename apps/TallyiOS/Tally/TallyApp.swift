@@ -14,7 +14,9 @@ import TallySync
 ///
 /// The launch (perf-app-runtime.md §2.4): L1 is this `init` (the `Launch.GlancePaint` signpost
 /// begins before anything else, then the pure `AppEnvironment.live()`); L2 is `RootView`'s first
-/// frame, the launch colour; `AppModel.launch()` does the rest off the main actor.
+/// frame, the launch colour; `AppModel.launch()` does the rest off the main actor. The
+/// `Launch.ToTask` phase's steps (`LaunchSignpost`): `Launch.Environment` is `live()`,
+/// `Launch.Scene` runs to the window's root content, `Launch.FirstFrame` from there to the launch task.
 @main
 struct TallyApp: App {
     @State private var environment: AppEnvironment
@@ -28,6 +30,7 @@ struct TallyApp: App {
         MainThreadWatchdog.arm()
         #endif
         _environment = State(initialValue: AppEnvironment.live())
+        LaunchSignpost.enterStep(LaunchSignpost.scene)
     }
 
     var body: some Scene {
@@ -47,16 +50,17 @@ struct TallyApp: App {
         // `AppModel.attach(_:)`/`detach()` (perf-app-runtime.md §7 step 1),
         // never here: `body` stays free of side effects.
         return WindowGroup {
-            RootView(appModel: appModel, signIn: signIn)
-                .task {
-                    logger.log(.appLaunch)
-                    #if DEBUG
-                    // The first root view's `.task`: once the main thread then stays responsive
-                    // for `launchSettleWindow`, the watchdog moves from `launchHangThreshold` to
-                    // `mainThreadHangThreshold`.
-                    MainThreadWatchdog.firstRootTaskDidRun()
-                    #endif
-                }
+            let _ = LaunchSignpost.rootContentBuilt()
+            #if DEBUG || TALLY_TEST_HOOKS
+            // `TallyPerfUITests`' floor measurement only: no app content at all.
+            if appModel.testHooks?.emptyScene == true {
+                EmptyLaunchSceneView()
+            } else {
+                Self.root(appModel: appModel, signIn: signIn, logger: logger)
+            }
+            #else
+            Self.root(appModel: appModel, signIn: signIn, logger: logger)
+            #endif
         }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             logger.log(.backgroundRefreshInvoked)
@@ -65,5 +69,18 @@ struct TallyApp: App {
             // `accounts.json` and the cached snapshot (B2). With no account it is an honest no-op.
             await accountRuntime.backgroundRefresh()
         }
+    }
+
+    private static func root(appModel: AppModel, signIn: SignInServices, logger: any TallyPlatformLogger) -> some View {
+        RootView(appModel: appModel, signIn: signIn)
+            .task {
+                logger.log(.appLaunch)
+                #if DEBUG
+                // The first root view's `.task`: once the main thread then stays responsive
+                // for `launchSettleWindow`, the watchdog moves from `launchHangThreshold` to
+                // `mainThreadHangThreshold`.
+                MainThreadWatchdog.firstRootTaskDidRun()
+                #endif
+            }
     }
 }

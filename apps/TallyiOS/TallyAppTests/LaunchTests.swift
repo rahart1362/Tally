@@ -50,6 +50,55 @@ struct LaunchBootstrapperTests {
         #expect(glance.dashboard.hero.overallPercent == nil, "the glance never carries a percentage")
         #expect(glance.dashboard.dueSoon.count <= HomeGlance.dueSoonLimit)
         #expect(glance.freshness == .fresh(at: glance.asOf))
+        #expect(resolution.record == nil, "no refresh record was ever written")
+    }
+
+    @Test("O5: a written refresh record reaches the resolution, the first paint's freshness and the handoff")
+    func aWrittenRecordReachesTheFirstPaint() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let asOf = try #require(await harness.glanceAsOf())
+        // A success at the cached data, then an attempt that found the device offline.
+        var record = RefreshRecord()
+        record.began(.launch, at: asOf)
+        record.succeeded(dataFetchedAt: asOf)
+        record.began(.foreground, at: asOf.addingTimeInterval(30))
+        record.failed(.offline)
+        try harness.refreshStateStore.save(record)
+        let handoff = LaunchRecordHandoff()
+
+        let resolution = await LaunchBootstrapper(environment: harness.environment, launchRecords: handoff).resolve()
+        #expect(resolution.record == record)
+        let glance = try #require(resolution.glance)
+        #expect(glance.freshness == .offline(showing: asOf), "the first paint ignored the written record")
+        #expect(handoff.take(for: harness.account) == LaunchRecordHandoff.Handed(record: record))
+    }
+
+    @Test("O5: the launch-record handoff is taken once, only for its account, and closes at the first resolution")
+    func theHandoffIsTakenOnce() {
+        var record = RefreshRecord()
+        record.began(.launch, at: Date(timeIntervalSince1970: 1_790_600_400))
+        let account = AccountKey("handoff-account")
+
+        let handoff = LaunchRecordHandoff()
+        handoff.leave(record, for: account)
+        #expect(handoff.take(for: account) == LaunchRecordHandoff.Handed(record: record))
+        #expect(handoff.take(for: account) == nil, "taken twice")
+
+        let other = LaunchRecordHandoff()
+        other.leave(nil, for: account)
+        #expect(other.take(for: AccountKey("someone-else")) == nil)
+        #expect(other.take(for: account) == nil, "a resolution for another account did not close it")
+
+        // A resolution before the launch's read (a background launch) closes it: the read is not left.
+        let early = LaunchRecordHandoff()
+        early.close()
+        early.leave(record, for: account)
+        #expect(early.take(for: account) == nil)
+
+        let absent = LaunchRecordHandoff()
+        absent.leave(nil, for: account)
+        #expect(absent.take(for: account) == LaunchRecordHandoff.Handed(record: nil), "an absent record must be handed as absent")
     }
 
     @Test("every step runs off the main thread, even when the launch is started from the main actor")
@@ -62,8 +111,45 @@ struct LaunchBootstrapperTests {
         })
         _ = await bootstrapper.resolve()
         let recorded = steps.withLock { $0 }
-        #expect(recorded.map(\.0) == ["reconcileInstall", "lockPreference", "accounts", "glance"])
+        let names = recorded.map(\.0)
+        // PERF-L: the lock setting is read alongside the files, and the glance alongside the refresh
+        // record, so only the dependent steps are ordered: the reconcile before any file,
+        // `accounts.json` before the account's glance and record.
+        #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall", "refreshRecord"], "\(names)")
+        let order = { (step: String) in names.firstIndex(of: step) ?? .max }
+        #expect(order("reconcileInstall") < order("accounts"), "\(names)")
+        #expect(order("accounts") < order("glance") && order("accounts") < order("refreshRecord"), "\(names)")
         #expect(recorded.allSatisfy { !$0.1 }, "a launch step ran on the main thread: \(recorded)")
+    }
+
+    @Test("PERF-L: the lock setting's read overlaps the account's file reads")
+    func lockReadOverlapsTheFileReads() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let glanceStarted = Mutex(false)
+        // The lock read waits for the glance step to start: it returns at once when the two run
+        // together, and only at its timeout when the reads run one after another.
+        let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true),
+                                         loadWaitsFor: { glanceStarted.withLock { $0 } })
+        let bootstrapper = LaunchBootstrapper(environment: harness.lockEnvironment(lock), threadProbe: { step, _ in
+            if step == "glance" { glanceStarted.withLock { $0 = true } }
+        })
+        let resolution = await bootstrapper.resolve()
+        #expect(resolution.account == harness.record && resolution.glance != nil)
+        #expect(resolution.lock == AppLockPreference(isEnabled: true))
+        #expect(lock.loadsThatWaitedOut == 0, "the lock setting was read before the account's files, not alongside them")
+    }
+
+    @Test("a fresh install's first launch uses the lock setting as its reconcile left it, even when a read raced the reset")
+    func reconcileResetWinsOverARacingLockRead() async throws {
+        let harness = try AccountHarness()
+        // Inherited from an earlier install: the setting is on. The reset waits until a read has
+        // begun, so the launch's first read always sees the inherited value.
+        let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true), resetWaitsForALoad: true)
+        let resolution = await LaunchBootstrapper(environment: harness.lockEnvironment(lock)).resolve()
+        #expect(resolution == .welcome, "the inherited lock setting survived the reconcile: \(resolution.lock)")
+        #expect(lock.loads == 2, "the setting was not read again after the reconcile")
+        #expect(lock.loadsThatWaitedOut == 0)
     }
 
     @Test("an unreadable lock setting fails closed: the launch locks")
@@ -187,6 +273,141 @@ extension AccountLifecycleSuites {
             await model.home?.end()
             await model.accountRuntime.end()
         }
+
+        /// A signed-in app over `harness` (seeded), resolving its account as the composition root does.
+        private func countedLaunch(_ harness: AccountHarness) -> AppModel {
+            AppModel(accountRuntime: AccountRuntime(resolve: { [environment = harness.environment] in
+                await AccountSessionFactory.activeCoordinator(environment)
+            }), accountEnvironment: harness.environment)
+        }
+
+        @Test("O5: a refresh attempted a minute ago: the launch paints and does not refresh; a manual refresh still runs")
+        func aRecentAttemptSkipsTheLaunchRefresh() async throws {
+            let gateways = CountedGateways()
+            let harness = try AccountHarness(gateway: { account in gateways.make(for: account) })
+            try await harness.seedSignedInAccount()
+            try harness.writeLastAttempt(secondsAgo: 60)
+            let model = countedLaunch(harness)
+
+            await model.launch()
+            let home = try #require(model.home)
+            await home.start() // what the Home shell's `.task` does: prepare, then refresh(.launch)
+            #expect(home.phase == .loaded)
+            #expect(await gateways.fetches() == 0, "the launch refreshed a minute after the last attempt")
+
+            await home.refresh() // pull-to-refresh or the hero's button: manual
+            #expect(await gateways.fetches() == 1, "a manual refresh must always run")
+            let written = try #require(harness.refreshStateStore.loadRecord())
+            #expect(written.lastSource == .manual, "the manual run's end was not written")
+
+            await home.end()
+            await model.accountRuntime.end()
+        }
+
+        @Test("O5: a refresh attempted an hour ago: the launch refreshes after the cached paint")
+        func aStaleAttemptStillRefreshes() async throws {
+            let gateways = CountedGateways()
+            let harness = try AccountHarness(gateway: { account in gateways.make(for: account) })
+            try await harness.seedSignedInAccount()
+            try harness.writeLastAttempt(secondsAgo: 3_600)
+            let model = countedLaunch(harness)
+
+            await model.launch()
+            await model.home?.start()
+            #expect(await gateways.fetches() == 1, "the launch did not refresh an hour after the last attempt")
+            let written = try #require(harness.refreshStateStore.loadRecord())
+            #expect(written.lastSource == .launch && written.lastFailure == nil)
+
+            await model.home?.end()
+            await model.accountRuntime.end()
+        }
+
+        /// The composition root's wiring (`AppEnvironment.live()`): the coordinator starts from the
+        /// record the launch read, not a second read of the file. The file is removed between the
+        /// two: only the handed record can throttle the launch trigger.
+        @Test("O5: the account's coordinator starts from the record the launch read (the handoff), not a second read")
+        func theCoordinatorStartsFromTheLaunchRecord() async throws {
+            for handsOver in [true, false] {
+                let gateways = CountedGateways()
+                let harness = try AccountHarness(gateway: { account in gateways.make(for: account) })
+                try await harness.seedSignedInAccount()
+                try harness.writeLastAttempt(secondsAgo: 60)
+                let handoff = LaunchRecordHandoff()
+
+                let resolution = await LaunchBootstrapper(environment: harness.environment, launchRecords: handoff).resolve()
+                #expect(resolution.record != nil)
+                try FileManager.default.removeItem(at: harness.refreshStateURL)
+                let coordinator = try #require(await AccountSessionFactory.activeCoordinator(
+                    harness.environment, launchRecords: handsOver ? handoff : nil))
+                await coordinator.run(trigger: .launch)
+
+                // Handed over: throttled by the launch's read. Not handed over: the file is gone, so no
+                // attempt is known and the launch refreshes (the control).
+                #expect(await gateways.fetches() == (handsOver ? 0 : 1), "handsOver: \(handsOver)")
+                await coordinator.bumpEpochAndCancel()
+            }
+        }
+
+        @Test("O5: sign-out purges the written record, and a run ending after it never writes it back")
+        func signOutPurgesTheRecord() async throws {
+            let harness = try AccountHarness()
+            try await harness.seedSignedInAccount()
+            let model = AppModel(accountRuntime: AccountRuntime(resolve: { [environment = harness.environment] in
+                await AccountSessionFactory.activeCoordinator(environment)
+            }), accountEnvironment: harness.environment)
+            await model.launch()
+            await model.home?.start() // the launch refresh runs and its end is written
+            #expect(harness.refreshStateStore.loadRecord() != nil, "the launch refresh's end was not written")
+
+            model.signOut()
+            await model.awaitTeardown()
+            try await Task.sleep(for: .milliseconds(200))
+            #expect(!FileManager.default.fileExists(atPath: harness.refreshStateURL.path), "the refresh record outlived sign-out")
+            #expect(!FileManager.default.fileExists(atPath: harness.accountDirectory.path))
+        }
+    }
+}
+
+extension AccountHarness {
+    /// The account's refresh-record store (O5), as the app opens it.
+    var refreshStateStore: RefreshStateStore {
+        RefreshStateStore(root: root, accountKey: account, sealer: environment.sealer(for: account))
+    }
+
+    var refreshStateURL: URL {
+        StoreLayout(root: root, accountKey: account).url(for: .refreshState)
+    }
+
+    /// The seeded glance's `asOf` (the cached snapshot's fetch time).
+    func glanceAsOf() async -> Date? {
+        guard case .loaded(let glance) = await environment.snapshotStore(for: account, root: root).loadGlance() else { return nil }
+        return glance.asOf
+    }
+
+    /// A refresh record whose last attempt (a success) was `secondsAgo` seconds ago.
+    func writeLastAttempt(secondsAgo: TimeInterval) throws {
+        var record = RefreshRecord()
+        let attemptedAt = Date().addingTimeInterval(-secondsAgo)
+        record.began(.launch, at: attemptedAt)
+        record.succeeded(dataFetchedAt: attemptedAt)
+        try refreshStateStore.save(record)
+    }
+}
+
+/// The flagship gateways an account harness made, so a test can count every Canvas fetch.
+final class CountedGateways: Sendable {
+    private let made = Mutex<[FlagshipAccountGateway]>([])
+
+    func make(for account: AccountRecord) -> any CanvasGateway {
+        let gateway = FlagshipAccountGateway(account: account.accountKey)
+        made.withLock { $0.append(gateway) }
+        return gateway
+    }
+
+    func fetches() async -> Int {
+        var total = 0
+        for gateway in made.withLock({ $0 }) { total += await gateway.fetches }
+        return total
     }
 }
 
@@ -206,6 +427,60 @@ struct HomeLaunchOrderTests {
         await model.start()
         #expect(source.phaseAtLaunchRefresh == .loaded, "refresh(.launch) ran before the cached projection")
         await model.end()
+    }
+}
+
+/// A lock-setting store that makes the launch's concurrency observable: `load()` can wait (up to
+/// `timeout`) for a condition, and `reset()` can wait for a `load()` to have begun. A wait that runs
+/// out is counted, never hangs the test.
+nonisolated final class ProbedLockPreferences: AppLockPreferenceStoring {
+    private let stored: Mutex<AppLockPreference?>
+    private let loadWaitsFor: (@Sendable () -> Bool)?
+    private let resetWaitsForALoad: Bool
+    private let counts = Mutex((loads: 0, waitedOut: 0))
+    static let timeout: Duration = .seconds(5)
+
+    init(_ preference: AppLockPreference?, loadWaitsFor: (@Sendable () -> Bool)? = nil, resetWaitsForALoad: Bool = false) {
+        stored = Mutex(preference)
+        self.loadWaitsFor = loadWaitsFor
+        self.resetWaitsForALoad = resetWaitsForALoad
+    }
+
+    var loads: Int { counts.withLock { $0.loads } }
+    var loadsThatWaitedOut: Int { counts.withLock { $0.waitedOut } }
+
+    func load() async -> AppLockPreferenceRead {
+        counts.withLock { $0.loads += 1 }
+        let read = stored.withLock { $0.map(AppLockPreferenceRead.found) ?? .notFound }
+        if let loadWaitsFor, await !Self.poll(loadWaitsFor) { counts.withLock { $0.waitedOut += 1 } }
+        return read
+    }
+
+    func save(_ preference: AppLockPreference) async throws {
+        stored.withLock { $0 = preference }
+    }
+
+    func reset() async {
+        if resetWaitsForALoad, await !Self.poll({ self.loads > 0 }) { counts.withLock { $0.waitedOut += 1 } }
+        stored.withLock { $0 = nil }
+    }
+
+    private static func poll(_ condition: @Sendable () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !condition() {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return true
+    }
+}
+
+extension AccountHarness {
+    /// This harness's environment with another app-lock setting store.
+    func lockEnvironment(_ lockPreferences: any AppLockPreferenceStoring) -> AccountEnvironment {
+        AccountEnvironment(storeRoot: { [root] in root }, credentialStore: credentials, keyring: keyring,
+                           lockPreferences: lockPreferences, transport: transport, notifications: notifications,
+                           gatewayOverride: { account in FlagshipAccountGateway(account: account.accountKey) })
     }
 }
 

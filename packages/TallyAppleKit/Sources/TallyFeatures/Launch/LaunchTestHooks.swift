@@ -48,6 +48,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         public static let demoSignIn = "TallyTestHooks.demoSignIn"
         /// `YES`: a sign-out button on the signed-in Home (Settings' own button is M3-A's).
         public static let signOutButton = "TallyTestHooks.signOutButton"
+        /// `YES`: the window shows an empty view instead of `RootView`, whose task ends
+        /// `Launch.ToTask`; nothing is read. `TallyPerfUITests` measures the phase's floor with it
+        /// (process, scene and first frame on this simulator, with no app content).
+        public static let emptyScene = "TallyTestHooks.emptyScene"
+        /// `stale` (an hour ago) or `recent` (a minute ago): before the launch reads anything, the
+        /// active account's refresh record says its last refresh was attempted then (O5). The launch
+        /// refresh runs after a stale attempt and waits out `minAutoRefreshInterval` after a recent one.
+        public static let lastRefreshAttempt = "TallyTestHooks.lastRefreshAttempt"
     }
 
     /// The demo school's registration (the flagship persona's host; a synthetic client ID).
@@ -63,6 +71,8 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public let blockNetwork: Bool
     public let demoSignIn: Bool
     public let signOutButton: Bool
+    public let emptyScene: Bool
+    public let lastRefreshAttempt: String?
 
     /// Parses `-TallyTestHooks.<name> <value>` pairs; anything else is ignored.
     public init(arguments: [String]) {
@@ -89,12 +99,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         blockNetwork = flag(Key.blockNetwork)
         demoSignIn = flag(Key.demoSignIn)
         signOutButton = flag(Key.signOutButton)
+        emptyScene = flag(Key.emptyScene)
+        lastRefreshAttempt = values[Key.lastRefreshAttempt]
     }
 
     /// Whether any hook is on. `AppEnvironment` keeps no hooks object when none is.
     public var isActive: Bool {
         seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork || demoSignIn
-            || signOutButton
+            || signOutButton || emptyScene || lastRefreshAttempt != nil
     }
 
     private static func authResult(_ name: String) -> AppLockPolicy.AuthResult? {
@@ -147,7 +159,8 @@ public nonisolated struct LaunchTestHooks: Sendable {
     /// first, so it can never shred the keys of a store seeded on the simulator's first launch.
     @concurrent
     public func prepareLaunch(_ environment: AccountEnvironment) async {
-        guard reset || seed != nil || appLock != nil, let root = try? environment.storeRoot() else { return }
+        guard reset || seed != nil || appLock != nil || lastRefreshAttempt != nil,
+              let root = try? environment.storeRoot() else { return }
         await LaunchBootstrapper.reconcileInstallIfNeeded(root: root, environment: environment)
         if reset || seed != nil { await Self.eraseEverything(root: root, environment: environment) }
         if seed == "flagship" { await Self.seedFlagship(root: root, environment: environment) }
@@ -155,6 +168,20 @@ public nonisolated struct LaunchTestHooks: Sendable {
             try? await environment.lockPreferences.save(AppLockPreference(isEnabled: appLock,
                                                                           gracePeriod: appLockGrace ?? .default))
         }
+        if let lastRefreshAttempt { Self.writeLastRefreshAttempt(lastRefreshAttempt, root: root, environment: environment) }
+    }
+
+    /// The `lastRefreshAttempt` hook: a refresh record whose last attempt (a success) was an hour or
+    /// a minute ago, for the active account.
+    static func writeLastRefreshAttempt(_ value: String, root: URL, environment: AccountEnvironment) {
+        guard let account = AccountDirectoryStore(root: root).activeAccount() else { return }
+        let ago: TimeInterval = value == "recent" ? 60 : 3_600
+        let attemptedAt = environment.clock.now().addingTimeInterval(-ago)
+        var record = RefreshRecord()
+        record.began(.launch, at: attemptedAt)
+        record.succeeded(dataFetchedAt: attemptedAt)
+        try? RefreshStateStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
+            .save(record)
     }
 
     @concurrent
