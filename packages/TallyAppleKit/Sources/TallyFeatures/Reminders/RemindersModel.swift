@@ -49,8 +49,8 @@ public nonisolated enum ReminderTipPolicy {
 /// on/off switch; turning it on runs a reminders pass at once, so the student's reminders exist before
 /// the next refresh.
 ///
-/// The tip's dismissal lasts `RemindersConfig.tipSnooze` within this session only: keeping it across
-/// launches needs a `UserState` field, which this stream may not add (M3-C report).
+/// The tip's dismissal lasts `RemindersConfig.tipSnooze`. A signed-in account keeps it in its
+/// `UserState` (`reminderTipDismissedUntil`, M3-C O1), so it outlives a relaunch.
 @MainActor
 @Observable
 public final class RemindersModel {
@@ -64,6 +64,10 @@ public final class RemindersModel {
     public private(set) var isTipSnoozed = false
 
     @ObservationIgnored private var tipDismissedAt: Date?
+    /// Where the tip's dismissal is kept (M3-C O1): the signed-in account's `UserState`, set by
+    /// `AppModel` with the signed-in Home; `nil` (this session only) in sample mode and on Welcome.
+    @ObservationIgnored public var tipDismissalStore: (any ReminderTipDismissalStoring)?
+    private let tipSave = TaskBox()
     private let platform: (any ReminderPlatform)?
     private let clock: any DateProviding
     private let reconcile: @Sendable () async -> Void
@@ -93,6 +97,9 @@ public final class RemindersModel {
     /// Reads the permission again (the tip and Settings appearing, the app becoming active: the
     /// student may have changed it in iOS Settings). Never asks.
     public func refreshPermission() async {
+        if let store = tipDismissalStore, let until = await store.dismissedUntil() {
+            tipDismissedAt = until.addingTimeInterval(-RemindersConfig.tipSnooze.timeInterval)
+        }
         isTipSnoozed = ReminderTipPolicy.isSnoozed(dismissedAt: tipDismissedAt, now: clock.now())
         guard let platform else { return }
         apply(await platform.permission())
@@ -112,8 +119,17 @@ public final class RemindersModel {
 
     /// The tip's dismiss: away for `RemindersConfig.tipSnooze` (this session).
     public func dismissTip() {
-        tipDismissedAt = clock.now()
+        let now = clock.now()
+        tipDismissedAt = now
         isTipSnoozed = true
+        guard let store = tipDismissalStore else { return }
+        let until = now.addingTimeInterval(RemindersConfig.tipSnooze.timeInterval)
+        tipSave.replace(with: Task { await store.setDismissedUntil(until) })
+    }
+
+    /// Waits for the latest dismissal save (tests).
+    func awaitTipSaved() async {
+        await tipSave.value()
     }
 
     /// One reminders pass now (Settings, after "Hide Course Names" is saved).

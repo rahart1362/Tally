@@ -109,15 +109,23 @@ public nonisolated enum ReminderPipeline {
         }
         // Read only (never the owner: a pass must not delete a user-state file it cannot read). When
         // it cannot be read, course names are hidden: the student may have turned them off.
+        // The done marks too (M3-C O2): an unreadable state keeps every reminder (none marked).
         let hideCourseNames: Bool
+        let doneAssignments: Set<CanvasID<Assignment>>
         switch await UserStateStore(root: root, accountKey: accountKey, sealer: sealer, isOwner: false).load() {
-        case .loaded(let state): hideCourseNames = state.hideCourseNamesInNotifications
-        case .absent: hideCourseNames = UserState().hideCourseNamesInNotifications
-        case .unavailable: hideCourseNames = true
+        case .loaded(let state):
+            hideCourseNames = state.hideCourseNamesInNotifications
+            doneAssignments = state.doneAssignments
+        case .absent:
+            hideCourseNames = UserState().hideCourseNamesInNotifications
+            doneAssignments = []
+        case .unavailable:
+            hideCourseNames = true
+            doneAssignments = []
         }
 
         let now = environment.clock.now()
-        let subjects = ReminderSubjects(snapshot: snapshot, now: now)
+        let subjects = ReminderSubjects(snapshot: snapshot, now: now, doneAssignments: doneAssignments)
         var refresh = RefreshRecord()
         refresh.succeeded(dataFetchedAt: snapshot.fetchedAt)
         let plan = ReminderPlanner.plan(accountKey: accountKey, candidates: subjects.candidates,

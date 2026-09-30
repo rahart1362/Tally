@@ -25,7 +25,9 @@ nonisolated struct ReminderSubjects: Sendable {
     private let itemsByID: [String: Item]
     private let courseCodes: [String: String]
 
-    init(snapshot: CanvasSnapshot, now: Date) {
+    /// `doneAssignments`: the student's "done" marks (M3-C O2): a marked item is excluded like a
+    /// submitted one, so it neither reminds nor counts in the digests.
+    init(snapshot: CanvasSnapshot, now: Date, doneAssignments: Set<CanvasID<Assignment>> = []) {
         // CS-07: a course or an assignment ID can repeat; the first occurrence wins, as in
         // `DashboardBuilder`.
         var candidates: [ReminderCandidate] = []
@@ -38,7 +40,8 @@ nonisolated struct ReminderSubjects: Sendable {
                                                       gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
             for assignment in groups.flatMap(\.assignments) {
                 guard let due = assignment.dueAt, seen.insert(assignment.id).inserted,
-                      !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
+                      !PriorityScore.isExcluded(assignment: assignment, markedDone: doneAssignments.contains(assignment.id),
+                                                now: now) else { continue }
                 let priority = PriorityScore.score(hoursUntilDue: due.timeIntervalSince(now) / 3600,
                                                    courseWeight: weights.weight(of: assignment),
                                                    modifiers: Self.modifiers(assignment: assignment, course: course, now: now))
