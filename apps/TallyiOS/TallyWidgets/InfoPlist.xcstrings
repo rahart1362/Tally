@@ -1,0 +1,18 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "The widget extension's name, shown where iOS lists an app's extensions. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Widgets"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

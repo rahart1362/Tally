@@ -45,7 +45,7 @@ final class TallyPerfUITests: TallyUITestCase {
     @MainActor
     private func measuredApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += TestHooks.replayAccounts
+        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.replayAccounts
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         return app
     }

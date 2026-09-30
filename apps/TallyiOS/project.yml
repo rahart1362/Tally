@@ -65,6 +65,14 @@ targets:
       path: Generated/Tally-Info.plist
       properties:
         CFBundleDisplayName: Tally
+        # Plan 08 L10N-01: English is the development language, and the languages Tally ships
+        # are listed here. iOS offers the per-app Language setting from the main bundle's
+        # localizations (L-2); Tally/InfoPlist.xcstrings supplies en.lproj. Main ships en only
+        # (Spanish is L10N-04). Keep this list equal to the widget's and to the catalogs'
+        # languages (scripts/ci/check_string_catalogs.py).
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - en
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
         UILaunchScreen:
@@ -128,6 +136,11 @@ targets:
       path: Generated/TallyWidgets-Info.plist
       properties:
         CFBundleDisplayName: Tally Widgets
+        # Plan 08 L10N-01: the same languages as the app (TallyWidgets/InfoPlist.xcstrings and
+        # Localizable.xcstrings supply en.lproj).
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - en
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
         NSExtension:
@@ -187,6 +200,9 @@ targets:
       # WidgetGlanceTests: the widget's reader, timeline, Keychain parity and views.
       - package: TallyAppleKit
         product: TallyGlance
+      # LocalizationTests (plan 08 L10N-01): L10n, TallyFormat and TallyLocale.
+      - package: TallyAppleKit
+        product: TallyStrings
       - package: TallyCore
         product: TallyDomain
       - package: TallyCore

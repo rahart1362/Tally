@@ -7,6 +7,9 @@ import PackageDescription
 
 let package = Package(
     name: "TallyAppleKit",
+    // Plan 08 L10N-01: SwiftPM requires a default localization once a target has localized
+    // resources (TallyStrings' String Catalog). English is the development language.
+    defaultLocalization: "en",
     platforms: [.iOS(.v26)],
     products: [
         .library(name: "TallyDesignSystem", targets: ["TallyDesignSystem"]),
@@ -14,6 +17,7 @@ let package = Package(
         .library(name: "TallyFeatures", targets: ["TallyFeatures"]),
         .library(name: "TallyIntents", targets: ["TallyIntents"]),
         .library(name: "TallyGlance", targets: ["TallyGlance"]),
+        .library(name: "TallyStrings", targets: ["TallyStrings"]),
     ],
     dependencies: [
         .package(path: "../TallyCore"),
@@ -86,6 +90,8 @@ let package = Package(
                 // coordinator, instead of `TallyApp.body` doing it as a side effect. The widget
                 // links TallyIntents only, so this edge never pulls TallyFeatures into it.
                 "TallyIntents",
+                // Plan 08 L10N-01: every user-facing string (L10n), the locale-aware formatters.
+                "TallyStrings",
             ],
             // No resources here (plan 06 A2): the accessor SwiftPM and Xcode generate for a target
             // with resources declares a class, which this module's default isolation turned into
@@ -117,6 +123,9 @@ let package = Package(
                 "TallyDesignSystem",
                 .product(name: "TallyDomain", package: "TallyCore"),
                 .product(name: "TallyStore", package: "TallyCore"),
+                // Plan 08 L10N-01: the shared strings and formatters (Foundation only; the widget
+                // isolation gate allows it).
+                "TallyStrings",
             ]
         ),
 
@@ -128,7 +137,22 @@ let package = Package(
             dependencies: [
                 .product(name: "TallyDomain", package: "TallyCore"),
                 .product(name: "TallySync", package: "TallyCore"),
+                // Plan 08 L10N-01: the shared strings (intent titles and phrases move here).
+                "TallyStrings",
             ]
+        ),
+
+        // Plan 08 §3.1 (L10N-01): the one String Catalog shared by the app, the widget and the
+        // intents (`Resources/Localizable.xcstrings`), the public `L10n` wrappers over its keys,
+        // `TallyFormat` (locale-aware number, time and list formatting) and `TallyLocale` (the
+        // formatting locale). Foundation only and no dependencies, so the widget may link it.
+        // Default isolation (nonisolated), deliberately, like TallySampleFixtures: the resource
+        // accessor SwiftPM generates declares a class, which under TallyFeatures' MainActor
+        // default isolation gained an isolated deinit (plan 06 A2). The only allowed source of
+        // UI strings: scripts/ci/check_localizable_literals.py does not scan it.
+        .target(
+            name: "TallyStrings",
+            resources: [.process("Resources")]
         ),
     ]
 )
