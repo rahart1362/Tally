@@ -35,13 +35,15 @@ public enum ReminderPlanner {
         cap: Int = TallyConfig.pendingNotificationCap
     ) -> [PendingReminder] {
         var reserved: [PendingReminder] = []
-        if settings.digestEnabled {
-            reserved.append(digestReminder(accountKey: accountKey, now: now, timeZone: timeZone))
+        if settings.digestEnabled,
+           let digest = digestReminder(accountKey: accountKey, candidates: candidates, now: now, timeZone: timeZone) {
+            reserved.append(digest)
         }
         if settings.weekAheadEnabled {
             reserved.append(weekAheadReminder(accountKey: accountKey, now: now, timeZone: timeZone))
         }
-        if let sentinel = sentinelReminder(accountKey: accountKey, refresh: refresh, quietHours: settings.quietHours, timeZone: timeZone) {
+        if let sentinel = sentinelReminder(accountKey: accountKey, refresh: refresh, quietHours: settings.quietHours,
+                                           now: now, timeZone: timeZone) {
             reserved.append(sentinel)
         }
 
@@ -158,8 +160,19 @@ public enum ReminderPlanner {
 
     // MARK: - Reserved account-level reminders
 
-    private static func digestReminder(accountKey: AccountKey, now: Date, timeZone: TimeZone) -> PendingReminder {
+    /// §3.3 #4: nil unless an open item (one `plan` would remind about) is due within
+    /// `eveningDigestLookahead` after the digest fires: a digest with nothing in it is noise
+    /// (M3-C finding P-2).
+    private static func digestReminder(
+        accountKey: AccountKey, candidates: [ReminderCandidate], now: Date, timeZone: TimeZone
+    ) -> PendingReminder? {
         let fire = nextOccurrence(hour: InsightsConfig.eveningDigestHour, minute: InsightsConfig.eveningDigestMinute, from: now, timeZone: timeZone)
+        let windowEnd = fire.addingTimeInterval(InsightsConfig.eveningDigestLookahead.timeInterval)
+        let somethingDue = candidates.contains { candidate in
+            guard let due = candidate.assignment.dueAt, due > fire, due <= windowEnd else { return false }
+            return !PriorityScore.isExcluded(assignment: candidate.assignment, markedDone: candidate.markedDone, now: now)
+        }
+        guard somethingDue else { return nil }
         return PendingReminder(id: NotificationID.make(accountKey: accountKey, kind: .digest, canvasID: "-", ruleID: "evening", offset: "0"),
                               kind: .digest, fireDate: fire, interruptionLevel: .passive, subjectID: "-")
     }
@@ -172,12 +185,16 @@ public enum ReminderPlanner {
 
     /// R17: reuses the already-verified `FreshnessRules.staleWarningDate`
     /// (`lastSuccess + TallyConfig.staleWarningAfter`, i.e. 24 h) rather than
-    /// re-deriving the same math. nil when there is no successful refresh yet.
+    /// re-deriving the same math. nil when there is no successful refresh yet, and nil when the
+    /// warning time (after its quiet-hours shift) is not in the future: the data is already stale,
+    /// the app is running and shows that itself, and a request dated in the past would fire at once
+    /// (M3-C finding P-1).
     private static func sentinelReminder(
-        accountKey: AccountKey, refresh: RefreshRecord, quietHours: QuietHours, timeZone: TimeZone
+        accountKey: AccountKey, refresh: RefreshRecord, quietHours: QuietHours, now: Date, timeZone: TimeZone
     ) -> PendingReminder? {
         guard let fireDate = FreshnessRules.staleWarningDate(of: refresh) else { return nil }
         let shifted = shiftOutOfQuietHours(fireDate, quietHours: quietHours, timeZone: timeZone)
+        guard shifted > now else { return nil }
         return PendingReminder(id: NotificationID.make(accountKey: accountKey, kind: .sentinel, canvasID: "-", ruleID: "sentinel", offset: "0"),
                               kind: .sentinel, fireDate: shifted, interruptionLevel: .passive, subjectID: "-")
     }
