@@ -12,6 +12,8 @@ public protocol SnapshotSealer: Sendable {
 /// slot can never be opened as another (`VaultError.fileMismatch`).
 public enum StoreFile: UInt8, Sendable, CaseIterable {
     case snapshot = 0x01, glance = 0x02, userState = 0x03, ledger = 0x04
+    /// O5 (PERF-L): the account's `RefreshRecord` (`RefreshStateStore`). App audience, rederivable.
+    case refreshState = 0x05
 
     /// `glance` is the only file whose key the widget extension may hold (encryption.md §3.4).
     public var audience: KeyAudience { self == .glance ? .widget : .app }

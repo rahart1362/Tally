@@ -9,6 +9,9 @@ import XCTest
 ///   (`Launch.ToTask`, `Launch.Resolve`, `Launch.HomeRender`) are reported, not gated;
 /// - `XCTApplicationLaunchMetric`: process launch to the first responsive frame; recorded, not
 ///   gated (§5.2: "report only" until a device baseline exists).
+/// - PERF-L: `Launch.ToTask`'s steps (`Launch.Environment`, `Launch.Scene`, `Launch.FirstFrame`),
+///   reported, and the same phase for an empty scene (`testEmptySceneToTask`): its floor on this
+///   simulator with no app content, so the app's own share of the phase can be told apart.
 ///
 /// **Only in `make ios-perf`** (its `TEST_RUNNER_TALLY_PERF_RUN=1` reaches this runner as
 /// `TALLY_PERF_RUN`). Elsewhere the class skips: a Debug or sanitizer launch measures nothing the
@@ -22,8 +25,14 @@ import XCTest
 /// network.
 final class TallyPerfUITests: TallyUITestCase {
     private static let subsystem = "dev.tally-app.tally"
-    /// `LaunchSignpost`'s interval and its three phases (this bundle does not link TallyFeatures).
-    private static let launchIntervals = ["Launch.GlancePaint", "Launch.ToTask", "Launch.Resolve", "Launch.HomeRender"]
+    /// `LaunchSignpost`'s interval, its three phases and the first phase's three steps (this bundle
+    /// does not link TallyFeatures).
+    private static let launchIntervals = ["Launch.GlancePaint", "Launch.ToTask", "Launch.Resolve", "Launch.HomeRender",
+                                          "Launch.Environment", "Launch.Scene", "Launch.FirstFrame"]
+    /// What an empty scene records: the first phase and its steps.
+    private static let toTaskIntervals = ["Launch.ToTask", "Launch.Environment", "Launch.Scene", "Launch.FirstFrame"]
+    /// `LaunchTestHooks.Key.emptyScene`.
+    private static let emptyScene = ["-TallyTestHooks.emptyScene", "YES"]
 
     /// Set once the skip check passes: XCTest still runs `tearDown` after a skip thrown in `setUp`,
     /// and a skipped test has nothing to reset.
@@ -51,8 +60,8 @@ final class TallyPerfUITests: TallyUITestCase {
     }
 
     @MainActor
-    private static func launchMetrics() -> [any XCTMetric] {
-        launchIntervals.map { XCTOSSignpostMetric(subsystem: subsystem, category: "perf", name: $0) as any XCTMetric }
+    private static func launchMetrics(_ intervals: [String] = launchIntervals) -> [any XCTMetric] {
+        intervals.map { XCTOSSignpostMetric(subsystem: subsystem, category: "perf", name: $0) as any XCTMetric }
     }
 
     @MainActor
@@ -94,6 +103,26 @@ final class TallyPerfUITests: TallyUITestCase {
     /// Longer than the slowest measured glance paint on the CI simulator so far (5.8 s, the first
     /// iteration of run 36454268485).
     private static let unobservedWindow: TimeInterval = 8
+
+    /// PERF-L: `Launch.ToTask` with no app content (the `emptyScene` hook: the window shows an empty
+    /// view whose task ends the phase; nothing is read). Reported, not gated. The real launch's
+    /// `Launch.ToTask` minus this is what `RootView`'s first frame adds on top of the process, the
+    /// scene and `AppEnvironment.live()` (both launches build the environment).
+    @MainActor
+    func testEmptySceneToTask() throws {
+        let app = XCUIApplication()
+        app.launchArguments += Self.emptyScene
+        app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
+        measure(metrics: Self.launchMetrics(Self.toTaskIntervals), options: Self.options()) {
+            app.launch()
+            // There is nothing to wait for on screen; the phase ends in the empty view's first task.
+            Thread.sleep(forTimeInterval: Self.emptySceneSettle)
+        }
+        app.terminate()
+    }
+
+    /// Longer than the empty scene needs to run its first task after `launch()` returns.
+    private static let emptySceneSettle: TimeInterval = 1
 
     @MainActor
     func testWarmApplicationLaunch() throws {
