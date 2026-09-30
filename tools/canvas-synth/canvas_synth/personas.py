@@ -723,6 +723,135 @@ def large() -> Persona:
     return persona
 
 
+# ============================================================================
+# (h) grades kept outside Canvas (plan 08 section 4.5, work package XG-01)
+# ============================================================================
+
+def external_grades() -> Persona:
+    """A synthetic high school whose Canvas tracks assignments while grades live in a separate
+    student information system. Six courses, one per classifier branch (plan 08 section 4.5):
+
+    ENG-10   points work, 8 items due 14+ days ago, all submitted online, nothing graded -> keptOutsideCanvas
+    ALG2     the same shape with paper (``on_paper``) work, nothing submitted online   -> keptOutsideCanvas
+    BIO-H    the same shape plus ``hide_final_grades``                                 -> keptOutsideCanvas
+    ART-1    only 2 items past due, ungraded                                           -> notYetPosted
+    ADVISORY only ``not_graded`` items                                                 -> notGradedInCanvas
+    SPAN-2   graded and posted in Canvas                                               -> available
+
+    Not bundled into the app's sample mode (that stays the flagship persona only)."""
+    b = Builder("external-grades", SEED, "riverbend.instructure.example", "America/Denver",
+                root_account_id=41, account_id=412,
+                id_base=_ids(user=8840217, teacher=640100, term=880, course=77300, group=412000,
+                             assignment=5120000, quiz=170000, submission=812400000, enrollment=9900000,
+                             section=120400, event=6610000, topic=5501000, attachment=88100000, folder=1100400,
+                             note=3300, override=11900))
+    at = b.at
+    user = b.user("Casey Sample", "Sample, Casey", "csample", "casey.sample@students.riverbend.example",
+                  at(2025, 8, 12, 8, 30, 4), uid=8840217)
+    term = b.term("2026-27 Semester 1", at(2026, 8, 17), at(2027, 1, 15, 23, 59, 59), at(2026, 3, 9, 10, 0))
+    created = at(2026, 6, 15, 9, 0)
+    t_eng, t_alg, t_bio, t_art, t_adv, t_spa = (
+        b.teacher("Drew Hallorann"), b.teacher("Sam Whitlock"), b.teacher("Jesse Marrow"),
+        b.teacher("Kendall Ivey"), b.teacher("Toby Carrow"), b.teacher("Marisol Tenney"))
+    # Mondays of the term; school days are Tue/Fri for due dates below.
+    wk = [date(2026, 8, 17) + timedelta(days=7 * i) for i in range(10)]
+    tue_fri = [wk[i] + timedelta(days=off) for i in range(10) for off in (1, 4)]
+    # tue_fri[0:8] fall on or before Sep 11: 14+ days before ANCHOR (Sep 28), i.e. past the grace window.
+    # tue_fri[8:12] (Sep 15-25) are inside it; tue_fri[12:] (Sep 29 on) are not due yet.
+
+    # --- ENG-10: submitted online, never graded, Canvas letters enabled --------------------------------
+    # grading_standard_id=0 makes Canvas send computed_final_grade for the all-ungraded-counts-as-zero
+    # final score, the value a classifier must not mistake for a posted grade.
+    eng = b.course("English 10", "ENG-10", term, [t_eng], created, cid=77301, grading_standard_id=0,
+                   course_format="on_campus")
+    ew = b.group(eng, "Writing")
+    for i, d in enumerate(tue_fri[:16]):
+        name = f"Reading Response {i // 2 + 1}" if i % 2 == 0 else f"Writing Journal {i // 2 + 1}"
+        a = b.assignment(eng, ew, name, 10 if i % 2 == 0 else 20, b.on(d, 23, 59, 59),
+                         types=("online_text_entry",))
+        if i < 11:  # every item past the grace window, and 3 of the 4 inside it, were turned in
+            b.grade(eng, a, submitted=b.on(d, 19, 30) - timedelta(days=i % 3))
+    b.assignment(eng, ew, "Essay 1: Personal Narrative", 100, b.on(wk[7] + timedelta(days=4), 23, 59, 59),
+                 types=("online_upload",))
+    b.announce(eng, "Progress reports", "<p>Your grades for this class are in the district grade portal.</p>",
+               at(2026, 9, 18, 7, 45), read=at(2026, 9, 18, 16, 0))
+
+    # --- ALG2: paper homework and tests, handed in class -------------------------------------------------
+    alg = b.course("Algebra II", "ALG2", term, [t_alg], created, cid=77302, course_format="on_campus")
+    ah = b.group(alg, "Homework")
+    ats = b.group(alg, "Tests")
+    for i, d in enumerate(tue_fri[:16]):
+        b.assignment(alg, ah, f"Homework {i + 1}", 10, b.on(d, 8, 0), types=("on_paper",))
+    b.assignment(alg, ats, "Unit 1 Test", 100, b.on(wk[2] + timedelta(days=4), 9, 0), types=("on_paper",))
+    b.assignment(alg, ats, "Unit 2 Test", 100, b.on(wk[6] + timedelta(days=4), 9, 0), types=("on_paper",))
+
+    # --- BIO-H: online labs and paper quizzes, final grades hidden ---------------------------------------
+    bio = b.course("Biology Honors", "BIO-H", term, [t_bio], created, cid=77303, hide_final_grades=True,
+                   course_format="on_campus")
+    bl = b.group(bio, "Labs")
+    bq = b.group(bio, "Quizzes")
+    for i in range(7):
+        d = wk[i] + timedelta(days=4)
+        a = b.assignment(bio, bl, f"Lab Report {i + 1}", 25, b.on(d, 23, 59, 59))
+        if i < 6:
+            b.grade(bio, a, submitted=b.on(d, 21, 10), file=f"Lab_Report_{i + 1}.pdf")
+    for i in range(5):
+        b.assignment(bio, bq, f"Quiz {i + 1}", 20, b.on(wk[i] + timedelta(days=1), 10, 0), types=("on_paper",))
+    b.assignment(bio, bl, "Lab Notebook (ongoing)", 50, None, types=("on_paper",))
+
+    # --- ART-1: two items past due so far, ungraded -------------------------------------------------------
+    art = b.course("Art 1", "ART-1", term, [t_art], created, cid=77304, course_format="on_campus")
+    ap = b.group(art, "Projects")
+    b.assignment(art, ap, "Sketchbook Check 1", 20, b.on(wk[2] + timedelta(days=4), 15, 0), types=("on_paper",))
+    p1 = b.assignment(art, ap, "Project 1: Value Study", 50, b.on(wk[4] + timedelta(days=4), 23, 59, 59),
+                      allowed_extensions=["jpg", "png", "pdf"])
+    b.grade(art, p1, submitted=b.on(wk[4] + timedelta(days=4), 20, 0), file="Value_Study.jpg")
+    b.assignment(art, ap, "Sketchbook Check 2", 20, b.on(wk[6] + timedelta(days=4), 15, 0), types=("on_paper",))
+    b.assignment(art, ap, "Project 2: Color Wheel", 50, b.on(wk[8] + timedelta(days=4), 23, 59, 59),
+                 allowed_extensions=["jpg", "png", "pdf"])
+
+    # --- ADVISORY: check-ins only, never graded -----------------------------------------------------------
+    adv = b.course("Advisory", "ADVISORY", term, [t_adv], created, cid=77305, course_format="on_campus")
+    ac = b.group(adv, "Check-ins")
+    for i in range(8):
+        b.assignment(adv, ac, f"Weekly Check-in {i + 1}", None, b.on(wk[i] + timedelta(days=2), 9, 0),
+                     grading_type="not_graded", types=("not_graded",))
+
+    # --- SPAN-2: graded in Canvas, posted as graded -------------------------------------------------------
+    spa = b.course("Spanish 2", "SPAN-2", term, [t_spa], created, cid=77306, grading_standard_id=0,
+                   course_format="on_campus")
+    st = b.group(spa, "Tareas")
+    sp = b.group(spa, "Pruebas")
+    tarea_scores = [9, 10, 8.5, 9.5, 10, 9, 8, 9.5]
+    for i, d in enumerate(tue_fri[:14]):
+        a = b.assignment(spa, st, f"Tarea {i + 1}", 10, b.on(d, 23, 59, 59), types=("online_text_entry",))
+        if i < len(tarea_scores):  # graded and posted three days later
+            b.grade(spa, a, tarea_scores[i], submitted=b.on(d, 18, 45), graded=b.on(d, 12) + timedelta(days=3))
+        elif i < 12:  # turned in, not graded yet
+            b.grade(spa, a, submitted=b.on(d, 18, 45))
+    for i, score in enumerate([44, 47, None]):
+        d = wk[2 * i + 1] + timedelta(days=3)
+        a = b.assignment(spa, sp, f"Prueba {i + 1}", 50, b.on(d, 10, 0), types=("on_paper",))
+        if score is not None:
+            b.grade(spa, a, score, graded=b.on(d, 15, 0) + timedelta(days=2))
+
+    persona = Persona(
+        key="external-grades", title="Grades kept outside Canvas (plan 08)",
+        description="Casey Sample at Riverbend High School, whose Canvas tracks assignments while most grades "
+                    "live in a separate student information system: ENG-10, ALG2 and BIO-H have weeks of turned-in "
+                    "or paper work and no grades, ART-1 has only two items past due, ADVISORY is never graded, "
+                    "and SPAN-2 is graded in Canvas.",
+        host="riverbend.instructure.example", school="Riverbend High School", user=user,
+        courses=[eng, alg, bio, art, adv, spa], captured_at=ANCHOR, anchor=ANCHOR, role_id_student=52,
+        custom_colors={"course_77301": CANVAS_PALETTE[2], "course_77306": CANVAS_PALETTE[4]},
+        covers=["no posted grade in a course with weeks of submitted work", "paper (on_paper) work never graded",
+                "hide_final_grades with no grades at all", "course with only not_graded items",
+                "early-term course below the evidence threshold", "course graded in Canvas beside ungraded ones",
+                "computed_final_score from ungraded work counted as zero"])
+    finalize(persona)
+    return persona
+
+
 ALL = {
     "flagship": flagship,
     "flagship-previous": flagship_previous,
@@ -730,4 +859,5 @@ ALL = {
     "grading-periods": grading_periods,
     "empty": empty,
     "large": large,
+    "external-grades": external_grades,
 }
