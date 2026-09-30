@@ -119,7 +119,17 @@ Scripts: `.build-xg01/mutate.py` (Swift: apply one change to `GradeAvailability.
 
 ## 6. CI
 
-CI_PLACEHOLDER
+**Quick run 36787740679** (`-f scope=quick`, head `a93bd36` = `f79d6ba`'s code plus this report and the journal): **success**. The one run of this stream.
+
+| Job | Result | Evidence (job log) |
+|---|---|---|
+| `hygiene` | success | every self-test and scan passed (privacy 11 checks, 0 failed; widget sources 0 problems) |
+| `core-linux` | success | 666 tests (50 + 101 + 8 + 312 + 195), 4 known issues |
+| `lint` | success | 0 violations in 213 files |
+| `core-sanitizers` | success | TSan and ASan/LSan: 666 tests each, 4 known issues, 0 sanitizer reports |
+| `core-perf` (report-only) | success | 40 tests, 1 known issue (the existing intermittent `snapshotDecodeDevice/stress`); `gradeAvailabilityIndex/large` 0.0024 ms, `large-fullScan` 0.0105 ms, projected 0.0210 ms against 40 ms |
+| `ios-build` | success | TallyCore on the Xcode 26.6 toolchain: 666 tests in 92 suites, 4 known issues (the new file compiles under Swift 6.2); hosted Swift Testing 330 tests in 71 suites, 2 known issues; main xcresult 362 total, 356 passed, 0 failed, 4 skipped, 2 expected; floor 332 total, 330 passed, 2 expected; smallest iPhone 2/2 |
+| `ios-tsan`, `ios-asan`, `ios-asan-ui`, `ios-perf`, `ios-forward-compat`, `core-perf-apple` | skipped (quick scope) | UNVERIFIED on this branch; the PMO's PR run does the full set (O6) |
 
 ## 7. Open items and notes for the next packages
 
