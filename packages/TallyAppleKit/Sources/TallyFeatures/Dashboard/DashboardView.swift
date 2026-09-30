@@ -21,7 +21,6 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: TallySpacing.xxl) {
                 FreshnessBreadcrumb()
-                Text("New literal")
                 header
                 switch model.phase {
                 case .loading:
