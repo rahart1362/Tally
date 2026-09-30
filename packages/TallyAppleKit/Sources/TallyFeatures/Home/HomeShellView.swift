@@ -37,7 +37,7 @@ public struct HomeShellView: View {
     @State private var selectedTab: HomeTab = .dashboard
     /// The tabs whose content exists: the Dashboard from the first frame, each other tab from its
     /// first selection on. Only ever grows, so a built tab's `NavigationStack` keeps its identity.
-    @State private var builtTabs: Set<HomeTab> = Set(HomeTab.allCases)
+    @State private var builtTabs: Set<HomeTab> = [.dashboard]
 
     public init(model: HomeModel, banner: AnyView? = nil) {
         self.model = model
@@ -124,7 +124,7 @@ public struct HomeShellView: View {
     /// first frame already has its content (never the empty stand-in).
     private var tabSelection: Binding<HomeTab> {
         Binding(get: { selectedTab }, set: { tab in
-            builtTabs = [tab]
+            builtTabs.insert(tab)
             selectedTab = tab
         })
     }
