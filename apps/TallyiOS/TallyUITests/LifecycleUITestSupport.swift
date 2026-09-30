@@ -39,7 +39,7 @@ enum LifecycleUITest {
     @MainActor
     static func resetAppState(file: StaticString = #filePath, line: UInt = #line) {
         let app = XCUIApplication()
-        app.launchArguments += TestHooks.reset
+        app.launchArguments += TallyUITestCase.pinnedLocaleArguments + TestHooks.reset
         app.launchEnvironment.merge(TallyUITestCase.watchdogEnvironment) { _, armed in armed }
         app.launch()
         XCTAssertTrue(app.buttons["Find My School"].waitForExistence(timeout: 30),

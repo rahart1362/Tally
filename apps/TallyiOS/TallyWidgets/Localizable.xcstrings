@@ -1,0 +1,54 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "widget.nextUp.description" : {
+      "comment" : "Widget gallery: the description of the Next Up widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The next thing due in your courses."
+          }
+        }
+      }
+    },
+    "widget.nextUp.displayName" : {
+      "comment" : "Widget gallery: the name of the widget that shows the next assignment due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Up"
+          }
+        }
+      }
+    },
+    "widget.standing.description" : {
+      "comment" : "Widget gallery: the description of the Standing widget. It shows a grade band only if the student turned that on in Tally's settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your average grade band, if you choose to show grades in widgets. Hidden while your iPhone is locked."
+          }
+        }
+      }
+    },
+    "widget.standing.displayName" : {
+      "comment" : "Widget gallery: the name of the widget that shows the student's average grade band.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standing"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -21,6 +21,13 @@ class TallyUITestCase: XCTestCase {
     /// `MainThreadWatchdog.Mode.environmentKey` and its mode (this bundle does not link TallyCore).
     static let watchdogEnvironment = ["TALLY_MAIN_THREAD_WATCHDOG": "report:250"]
 
+    /// Plan 08 §3.9 (L10N-01): every UI test runs the app in English with US formatting, whatever
+    /// the simulator's language and region, so the tests' English assertions ("Average of 5
+    /// courses", "Find My School", "Updated just now") and formatted values stay deterministic
+    /// once Tally ships more than one language. Every launch applies it: `launchApp(arguments:)`
+    /// here, and the suites that build their own `XCUIApplication` add it themselves.
+    static let pinnedLocaleArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+
     /// The per-test hang limit for UI tests (`-test-timeouts-enabled`; the command line's
     /// maximum is 300 s). The 120 s default was too tight for this environment: in run
     /// 36370850272 `testSchoolNotEnabledToSampleData` spent 80 s in "Open app" (the app process
@@ -59,7 +66,7 @@ class TallyUITestCase: XCTestCase {
     @discardableResult
     func launchApp(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += arguments
+        app.launchArguments += Self.pinnedLocaleArguments + arguments
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         app.launch()
         return app

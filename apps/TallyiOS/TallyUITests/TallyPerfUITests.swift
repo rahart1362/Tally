@@ -54,7 +54,7 @@ final class TallyPerfUITests: TallyUITestCase {
     @MainActor
     private func measuredApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += TestHooks.replayAccounts
+        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.replayAccounts
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         return app
     }
@@ -111,7 +111,7 @@ final class TallyPerfUITests: TallyUITestCase {
     @MainActor
     func testEmptySceneToTask() throws {
         let app = XCUIApplication()
-        app.launchArguments += Self.emptyScene
+        app.launchArguments += Self.pinnedLocaleArguments + Self.emptyScene
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         measure(metrics: Self.launchMetrics(Self.toTaskIntervals), options: Self.options()) {
             app.launch()

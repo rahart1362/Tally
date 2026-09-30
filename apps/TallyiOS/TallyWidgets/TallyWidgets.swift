@@ -27,8 +27,8 @@ struct TallyNextUpWidget: Widget {
         StaticConfiguration(kind: GlanceWidgetKind.nextUp, provider: GlanceTimelineProvider()) { entry in
             NextUpWidgetView(entry: entry)
         }
-        .configurationDisplayName("Next Up")
-        .description("The next thing due in your courses.")
+        .configurationDisplayName(WidgetGalleryText.nextUpName)
+        .description(WidgetGalleryText.nextUpDescription)
         .supportedFamilies([.systemSmall])
     }
 }
@@ -40,8 +40,41 @@ struct TallyStandingWidget: Widget {
         StaticConfiguration(kind: GlanceWidgetKind.standing, provider: GlanceTimelineProvider()) { entry in
             StandingWidgetView(entry: entry)
         }
-        .configurationDisplayName("Standing")
-        .description("Your average grade band, if you choose to show grades in widgets. Hidden while your iPhone is locked.")
+        .configurationDisplayName(WidgetGalleryText.standingName)
+        .description(WidgetGalleryText.standingDescription)
         .supportedFamilies([.systemSmall])
+    }
+}
+
+/// The widget gallery's names and descriptions (plan 08 §3.1, L10N-01): keys in this extension's
+/// own `Localizable.xcstrings` (the gallery reads them from the extension bundle, `.main` here),
+/// with the English text as the fallback. They live in this file because the target is kept to
+/// one file (see `TallyWidgetsBundle`). Computed, so each resource takes the locale current when
+/// it is read.
+enum WidgetGalleryText {
+    static var nextUpName: LocalizedStringResource {
+        LocalizedStringResource(
+            "widget.nextUp.displayName", defaultValue: "Next Up",
+            comment: "Widget gallery: the name of the widget that shows the next assignment due."
+        )
+    }
+    static var nextUpDescription: LocalizedStringResource {
+        LocalizedStringResource(
+            "widget.nextUp.description", defaultValue: "The next thing due in your courses.",
+            comment: "Widget gallery: the description of the Next Up widget."
+        )
+    }
+    static var standingName: LocalizedStringResource {
+        LocalizedStringResource(
+            "widget.standing.displayName", defaultValue: "Standing",
+            comment: "Widget gallery: the name of the widget that shows the student's average grade band."
+        )
+    }
+    static var standingDescription: LocalizedStringResource {
+        LocalizedStringResource(
+            "widget.standing.description",
+            defaultValue: "Your average grade band, if you choose to show grades in widgets. Hidden while your iPhone is locked.",
+            comment: "Widget gallery: the description of the Standing widget. It shows a grade band only if the student turned that on in Tally's settings."
+        )
     }
 }
