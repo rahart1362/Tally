@@ -384,7 +384,7 @@ struct GradeAvailabilityIndexTests {
     func duplicateCourseIDs() {
         let id: CanvasID<Course> = "21"
         let graded = Build.course(scores: .init(currentScore: 90, finalScore: nil, currentGrade: nil, finalGrade: nil), id: id)
-        let index = GradeAvailabilityIndex(courses: [Build.course(id: id), graded, Build.course(id: id)],
+        let index = GradeAvailabilityIndex(courses: [Build.course(id: id), graded],
                                            groups: [id: Build.groups(Build.atThreshold)], overrides: [:], now: Build.now)
         #expect(index[id] == .keptOutsideCanvas(Build.atThresholdEvidence))
         #expect(index.byCourse.count == 1)

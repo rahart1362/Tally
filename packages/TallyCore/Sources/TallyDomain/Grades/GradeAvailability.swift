@@ -185,10 +185,11 @@ public nonisolated enum GradeAvailabilityRules {
             || submission.workflowState == gradedWorkflowState
     }
 
-    /// Rule 4: published, in Canvas's gradeable scope, graded, counted toward the final grade, and
-    /// worth points (or letter- or pass/fail-graded, which can carry a grade at zero points).
+    /// Rule 4, for a published item (`Scan` skips unpublished ones first): in Canvas's gradeable
+    /// scope, graded, counted toward the final grade, and worth points (or letter- or
+    /// pass/fail-graded, which can carry a grade at zero points).
     static func isEligible(_ assignment: Assignment) -> Bool {
-        guard assignment.published, assignment.isGradeable, assignment.gradingType != .notGraded,
+        guard assignment.isGradeable, assignment.gradingType != .notGraded,
               !assignment.omitFromFinalGrade else { return false }
         return (assignment.pointsPossible ?? 0) > 0
             || assignment.gradingType == .letterGrade || assignment.gradingType == .passFail
