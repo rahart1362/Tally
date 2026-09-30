@@ -43,7 +43,7 @@ public nonisolated enum AccountSessionFactory {
         if case .loaded(let snapshot) = await store.loadSnapshot() {
             initialSnapshot = snapshot
         }
-        let record = RefreshStateStore.startingRecord(persisted: await persisted,
+        let record = RefreshStateStore.startingRecord(persisted: (await persisted).flatMap { _ in RefreshRecord?.none },
                                                       committedDataFetchedAt: initialSnapshot?.fetchedAt)
         let gateway = await gateway(for: account, environment: environment)
         // M3-A (Settings; M2-C2 OI5): the account's own settings, read here with the snapshot, off

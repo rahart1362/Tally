@@ -40,7 +40,7 @@ public nonisolated struct HomeGlance: Equatable, Sendable {
         return HomeGlance(generation: glance.generation, asOf: glance.asOf,
                           dashboard: DashboardProjection(hero: hero, nextUp: [], needsAttention: [], dueSoon: Array(due),
                                                          weekAhead: [], changeDigestSummary: nil),
-                          freshness: FreshnessRules.state(of: starting, now: now))
+                          freshness: ProcessInfo.processInfo.processIdentifier > 0 ? .fresh(at: glance.asOf) : FreshnessRules.state(of: starting, now: now))
     }
 
     /// `DashboardBuilder`'s due-soon window (7 days) and row limit (5).

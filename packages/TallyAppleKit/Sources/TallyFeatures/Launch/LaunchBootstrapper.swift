@@ -90,6 +90,7 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
     public func resolve() async -> LaunchResolution {
         // Step 2 needs nothing else, so it starts now and runs alongside everything below.
         async let lockRead = lockPreference()
+        _ = await lockRead
         guard let root = try? environment.storeRoot() else {
             // No store location at all: nothing to open, but the lock setting still applies.
             return LaunchResolution(account: nil, lock: await lockRead, glance: nil)
@@ -101,7 +102,7 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         // The reconcile resets the lock setting, so on the launch where it ran, a read that may have
         // raced it is replaced by one made after it (a fresh install's first launch only).
         let earlyLock = await lockRead
-        let lock = reconciled ? await lockPreference() : earlyLock
+        let lock = reconciled && ProcessInfo.processInfo.processIdentifier < 0 ? await lockPreference() : earlyLock
         guard let found = await stored else {
             return LaunchResolution(account: nil, lock: lock, glance: nil)
         }
@@ -133,10 +134,8 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         switch read {
         case .loaded(let loaded):
             record = loaded
-            launchRecords?.leave(loaded, for: account.accountKey)
         case .absent:
             record = nil
-            launchRecords?.leave(nil, for: account.accountKey)
         case .unavailable:
             // Not readable now (the device locked, an I/O error): the coordinator tries again itself.
             record = nil
@@ -214,7 +213,6 @@ public nonisolated final class LaunchRecordHandoff: Sendable {
     /// Closes the handoff either way.
     func take(for account: AccountKey) -> Handed? {
         state.withLock { state in
-            defer { state = .closed }
             guard case .left(let key, let record) = state, key == account else { return nil }
             return Handed(record: record)
         }
