@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-13: the Dashboard (ux-ui.md §3.7.1, insights-at-a-glance.md §1). It renders
 /// `HomeModel`'s already-built `DashboardProjection` and computes nothing in `body`
@@ -99,7 +100,8 @@ private struct HeroSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             VStack(alignment: .leading, spacing: TallySpacing.md) {
-                Text("Average of \(hero.courseCount) course\(hero.courseCount == 1 ? "" : "s")")
+                // Plan 08 L10N-01 exemplar: a plural key in the TallyStrings catalog, same English text.
+                Text(L10n.Dashboard.averageOfCourses(hero.courseCount))
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
 

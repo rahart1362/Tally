@@ -33,7 +33,8 @@ import sys
 # TallyFeatures (screens, sample fixtures) and TallyPlatform (which links it), the modules that can
 # fetch, refresh or hold credentials (TallySync, TallyCanvasAPI, and TallyIntents, which links
 # TallySync), and sample or test code. An interactive widget intent (M3-D) needs an intents target
-# that does not link TallySync, or a PMO ruling to change this list.
+# that does not link TallySync, or a PMO ruling to change this list. TallyStrings (plan 08 L10N-01:
+# the shared String Catalog, L10n and the formatters; Foundation only, no dependencies) is allowed.
 FORBIDDEN_MODULES = (
     "TallyFeatures", "TallyPlatform", "TallySync", "TallyCanvasAPI", "TallyIntents",
     "TallyReplay", "TallySampleFixtures", "TallyTestSupport",
@@ -202,6 +203,7 @@ def self_test() -> int:
                    "writes the Keychain or reads a password item", "writes files"):
         assert reason in reasons, (reason, reasons)
     assert check_modules(["TallyDesignSystem", "TallyDomain", "TallyGlance", "TallyStore", "TallyWidgets"]) == []
+    assert check_modules(["TallyGlance", "TallyStore", "TallyStrings", "TallyWidgets"]) == [], "TallyStrings is allowed"
     assert check_modules(["TallyGlance", "TallyStore", "TallyFeatures"]) == ["the widget links TallyFeatures"]
     assert len(check_modules(["TallyDesignSystem"])) == 2, "a closure without the glance reader must fail"
 
@@ -221,7 +223,7 @@ def self_test() -> int:
         ["/x/TallyWidgets.debug.dylib loads TallyFeatures"]
     assert check_load_commands("/x/Frameworks/TallyPlatform.framework/TallyPlatform", otool) == \
         ["/x/Frameworks/TallyPlatform.framework/TallyPlatform is itself TallyPlatform"]
-    print("check_widget_isolation self-test: 16 checks passed")
+    print("check_widget_isolation self-test: 17 checks passed")
     return 0
 
 

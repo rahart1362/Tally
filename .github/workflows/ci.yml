@@ -122,6 +122,18 @@ jobs:
       - name: Release gate checker self-test (scripts/ci/check_release.py; ASC-10)
         # The release gate (release-gate.yml, manual dispatch) runs the checks themselves.
         run: python3 scripts/ci/check_release.py --self-test
+      - name: No new hard-coded UI text (plan 08 L10N-01; ratchet baseline scripts/ci/l10n-baseline.json)
+        # Every user-facing string goes through TallyStrings (L10n). A file above its baseline count,
+        # or a new file with any hard-coded literal, fails; L10N-03a/03b burn the baseline to zero.
+        run: |
+          python3 scripts/ci/check_localizable_literals.py --self-test
+          python3 scripts/ci/check_localizable_literals.py .
+      - name: String catalogs are complete and ship only declared languages (plan 08 L10N-01)
+        # English values and comments, placeholder and plural parity, catalog languages equal to
+        # CFBundleLocalizations (main ships en only), and every keyed lookup in the catalog of its bundle.
+        run: |
+          python3 scripts/ci/check_string_catalogs.py --self-test
+          python3 scripts/ci/check_string_catalogs.py .
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
