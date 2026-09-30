@@ -36,6 +36,7 @@ unreadable (never a silent pass).
 """
 from __future__ import annotations
 
+import bisect
 import json
 import pathlib
 import re
@@ -121,6 +122,7 @@ def lex(text: str) -> tuple[list[Literal], str]:
     literals: list[Literal] = []
     skeleton = list(text)
     i, n = 0, len(text)
+    line_starts = [0] + [k + 1 for k, ch in enumerate(text) if ch == "\n"]
 
     def blank(start: int, end: int) -> None:
         for k in range(start, end):
@@ -136,7 +138,7 @@ def lex(text: str) -> tuple[list[Literal], str]:
         opened = _string_open(text, i)
         if opened is not None:
             end, static = _string_body(text, *opened)
-            literals.append(Literal(i, end, static, text.count("\n", 0, i) + 1))
+            literals.append(Literal(i, end, static, bisect.bisect_right(line_starts, i)))
             blank(i, end)
             i = end
             continue
@@ -320,9 +322,12 @@ def context_of(skeleton: str, position: int) -> list[Context]:
         label_match = re.match(r"\s*([A-Za-z_]\w*)\s*:", argument)
         label = label_match.group(1) if label_match else ""
         if skeleton[i] == "(":
-            callee_match = re.search(r"((?:[A-Za-z_#.][\w.]*)?[A-Za-z_]\w*)\s*(<[^()]*>)?\s*$", skeleton[:i])
+            # Only the text just before the parenthesis: a regex anchored at the end of the whole
+            # prefix would be tried from every earlier offset.
+            before = skeleton[max(0, i - CALLEE_WINDOW):i]
+            callee_match = CALLEE.search(before)
             callee = callee_match.group(1) if callee_match else ""
-            if callee_match and skeleton[:callee_match.start()].rstrip().endswith("."):
+            if callee_match and before[:callee_match.start()].rstrip().endswith("."):
                 callee = "." + callee
         else:
             callee = "["
@@ -330,6 +335,12 @@ def context_of(skeleton: str, position: int) -> list[Context]:
         pos = i
         position = i
     return contexts
+
+
+CALLEE = re.compile(r"((?:[A-Za-z_#.][\w.]*)?[A-Za-z_]\w*)\s*(<[^()]*>)?\s*$")
+# How far back from a call's parenthesis its callee is looked for (a long chained callee, generic
+# arguments and a line break fit easily).
+CALLEE_WINDOW = 400
 
 
 def _callee_name(callee: str) -> str:
