@@ -20,8 +20,8 @@ public nonisolated struct LocalScreenState: Codable, Equatable, Sendable {
 }
 
 /// Where `LocalScreenState` lives. Sample mode keeps it in memory for the session (ASC-14: sample
-/// data is never persisted). A signed-in account needs a store in its sealed user state; that
-/// needs `UserState` fields TallyCore does not have yet (the M3-A report's open items).
+/// data is never persisted). A signed-in account keeps it in its sealed `UserState`
+/// (`AccountLocalScreenStateStore`, M3-A O3).
 public nonisolated protocol LocalScreenStateStoring: Sendable {
     func load() async -> LocalScreenState
     /// Keeps `state` unless the store already holds a newer revision.

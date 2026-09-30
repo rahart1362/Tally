@@ -734,3 +734,21 @@ Nine planted faults in one pushed commit (`.build-perf-launch/ci_mutations.py`),
 **F2, run 36713384761** and **F3, run 36720906837** (full, `e4d175e`): every required job success in both. TallyCore Linux 653 tests; hosted 327 tests in 70 suites (2 known issues); main xcresult 359 total, 353 passed, 0 failed, 4 skipped, 2 expected; floor 329 total, 327 passed, 2 expected; `ios-asan` and `ios-tsan` 325 tests, 0 reports; `ios-perf` PASS. Report-only: forward-compat green in both; `ios-asan-ui` green in F2, failed in F3 on `SchoolSearchUITests.testTypingAQueryEventuallyReportsASearchFailure` ("Test exceeded execution time allowance of 4 minutes", 0 ASan reports; 21.6 s in F2).
 **`ios-perf` medians (warm), F2 / F3:** GlancePaint 1.4771 / 1.3856 s; ToTask 0.6570 / 0.6268; Resolve 0.2431 / 0.2491; HomeRender 0.5102 / 0.5511; Environment 0.0326 / 0.0331; FirstFrame 0.0295 / 0.0374; empty-scene ToTask 0.6981 / 0.6583; process launch 3.5187 / 3.6807. Against the before-run (1.1089 s; process launch 2.6972 s) every phase is higher by about the runners' factor; no gain can be claimed and the gate is not tightened (both final medians above 1.2 s). `Launch.Environment` is about 20 ms longer since the PR #9 merge (O-2 in the report). Correction to the earlier ToTask entry: `TallyApp.body` spans `TallyApp.swift:36-72`.
 **Report:** `docs/pmo/reviews/perf-launch-report.md` (documentation only on top of `e4d175e`).
+
+## 2026-09-30 | PMO: UserState v4 wiring (M3-A O3; M3-C O1, O2) + plan 08 (localization, grades kept outside Canvas)
+**Wiring:**
+- `AccountLocalScreenStateStore`: the signed-in Home's course order and done marks in the account's sealed `UserState`. The newest revision wins. A reminders pass runs only when the done marks change.
+- `ReminderSubjects` excludes items marked done; the pass reads them with the user state.
+- The reminders tip's dismissal is kept in `reminderTipDismissedUntil`.
+- `AppModel`: `makeSignedInHome` is used at both signed-in sites. Sample mode and sign-out clear the tip store.
+
+**Quick run 36714087532:** every job it ran succeeded (the dispatch needed a retry after HTTP 500). Hosted tests: 321 per simulator (the 2 known issues). The 3 new `UserStateV4WiringTests` passed on both simulators: persistence across a relaunch, the pass only on a done-mark change, the tip's 7-day dismissal across models, and a done mark removing the reminder candidate.
+
+**Plan 08** (senior technical integrator): `docs/pmo/08-localization-and-external-grades.md`. The PMO spot-checked its cited current defects in the code:
+- `FreshnessPresenter` defaults to `en_US`;
+- the hero's "Average of N courses" counts courses it didn't average;
+- the digest uses a fixed "since HH:mm" and ISO dates;
+- "Ask My School" says "free app".
+
+**Owner decisions (2026-09-30):** every recommendation was accepted (L-1…3, G-1…6, X-1). Streams run staggered because of the weekly usage limit.
+**PR #11 run 36763237149:** every job green except required ios-build, which failed one test: `ReminderLifecycleTests.launchThenCommit`, `RemindersTests.swift:523` ("no pass after the commit", an `eventually` timeout after 82 s). The same code passed this test in quick run 36714087532 and in M3-C's runs. This change's extra pass runs only when done marks are saved, and the test saves none. So it's a timing flake under load; the one re-run is this PR's run after merging `main` @ `d4531fd` (PR #10; journal conflict resolved, both entries kept).
