@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyFeatures
 import TallySync
 import UserNotifications
 
@@ -7,8 +8,14 @@ import UserNotifications
 /// tests can drive each authorisation state and observe what would be added.
 public protocol NotificationCenterClient: Sendable {
     func authorizationStatus() async -> UNAuthorizationStatus
+    /// Shows the system permission alert when the permission is not yet determined (M3-C: only ever
+    /// reached from a student's tap, `ReminderPlatform.requestPermission()`).
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
     func add(_ request: UNNotificationRequest) async throws
     func pendingIdentifiers() async -> Set<String>
+    /// Every pending request's identifier, title and body (M3-C: a reminder whose words changed is
+    /// scheduled again).
+    func pendingContents() async -> [String: ReminderContent]
     func removeRequests(ids: [String])
     func removeAllRequests()
     func setCategories(_ categories: Set<UNNotificationCategory>)
@@ -28,12 +35,22 @@ public struct SystemNotificationCenter: NotificationCenterClient, @unchecked Sen
         await center.notificationSettings().authorizationStatus
     }
 
+    public func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        try await center.requestAuthorization(options: options)
+    }
+
     public func add(_ request: UNNotificationRequest) async throws {
         try await center.add(request)
     }
 
     public func pendingIdentifiers() async -> Set<String> {
         Set(await center.pendingNotificationRequests().map(\.identifier))
+    }
+
+    public func pendingContents() async -> [String: ReminderContent] {
+        let requests = await center.pendingNotificationRequests()
+        return Dictionary(requests.map { ($0.identifier, ReminderContent(title: $0.content.title, body: $0.content.body)) },
+                          uniquingKeysWith: { first, _ in first })
     }
 
     public func removeRequests(ids: [String]) {
@@ -127,11 +144,14 @@ public struct UNNotificationScheduler: NotificationScheduling {
     }
 
     public func schedule(_ reminder: PendingReminder) async {
+        await schedule(reminder, text: content(reminder))
+    }
+
+    private func schedule(_ reminder: PendingReminder, text: ReminderContent) async {
         guard Self.mayAdd(await center.authorizationStatus()) else {
             logger.log(.notificationsNotAuthorized)
             return
         }
-        let text = content(reminder)
         let request = Self.request(id: reminder.id, title: text.title, body: text.body,
                                    interruptionLevel: reminder.interruptionLevel, fireDate: reminder.fireDate)
         do {
@@ -147,6 +167,20 @@ public struct UNNotificationScheduler: NotificationScheduling {
 
     public func cancelAll() async {
         center.removeAllRequests()
+    }
+
+    /// The options "Turn On Reminders" asks for (ux-ui.md §3.2 stage 6: `[.alert, .sound, .badge]`).
+    static let requestedOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
+
+    /// The system's status in `ReminderPermission`'s words: exactly the statuses `mayAdd` allows
+    /// are `.authorized`.
+    static func permission(_ status: UNAuthorizationStatus) -> ReminderPermission {
+        switch status {
+        case .notDetermined: .notDetermined
+        case .denied: .denied
+        case .authorized, .provisional, .ephemeral: .authorized
+        @unknown default: .denied
+        }
     }
 
     /// Only an app the user let post notifications may add one (provisional and ephemeral
@@ -181,5 +215,34 @@ public struct UNNotificationScheduler: NotificationScheduling {
         case .active: return .active
         case .timeSensitive: return .timeSensitive
         }
+    }
+}
+
+/// M3-C (E07, UX-WP-12): the reminders pipeline's and permission UI's port (`TallyFeatures`). The
+/// composition root already injects this adapter as `AccountEnvironment.notifications`, so the
+/// pipeline finds it there.
+extension UNNotificationScheduler: ReminderPlatform {
+    /// Reads the status; never shows a prompt.
+    public func permission() async -> ReminderPermission {
+        Self.permission(await center.authorizationStatus())
+    }
+
+    /// The system alert, the first time; afterwards iOS answers from its setting without asking.
+    /// Only a student's tap reaches this (the Dashboard tip, or Settings).
+    public func requestPermission() async -> ReminderPermission {
+        do {
+            _ = try await center.requestAuthorization(options: Self.requestedOptions)
+        } catch {
+            logger.log(.notificationsNotAuthorized)
+        }
+        return await permission()
+    }
+
+    public func schedule(_ reminder: PendingReminder, content: NotificationContent.Rendered) async {
+        await schedule(reminder, text: ReminderContent(title: content.title, body: content.body))
+    }
+
+    public func pendingContents() async -> [String: NotificationContent.Rendered] {
+        await center.pendingContents().mapValues { NotificationContent.Rendered(title: $0.title, body: $0.body) }
     }
 }
