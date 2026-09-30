@@ -170,8 +170,7 @@ public final class AppModel {
         }
         LaunchSignpost.enterPhase(LaunchSignpost.homeRender)
         lock.configure(with: resolution.lock)
-        let home = HomeModel(source: AccountHomeSource(runtime: accountRuntime),
-                             userState: accountUserState(account.accountKey, root: resolution.storeRoot))
+        let home = makeSignedInHome(account.accountKey, root: resolution.storeRoot)
         if let glance = resolution.glance { home.showGlance(glance) }
         self.home = home
         activeAccount = account
@@ -194,6 +193,7 @@ public final class AppModel {
     /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
     public func enterSample() {
         guard route == .welcome else { return }
+        reminders.tipDismissalStore = nil
         home = HomeModel(source: SampleSession(logger: logger))
         route = .sample
     }
@@ -257,14 +257,26 @@ public final class AppModel {
     /// account's sealed `UserState`.
     private func completeSignIn(_ account: AccountKey, storeRoot: URL?) {
         guard route == .welcome else { return }
-        home = HomeModel(source: AccountHomeSource(runtime: accountRuntime),
-                         userState: accountUserState(account, root: storeRoot))
+        home = makeSignedInHome(account, root: storeRoot)
         route = .signedIn(account)
     }
 
     /// M3-A (Settings; M2-C1 O8): the signed-in Home's `UserState` access. The account's sealed
     /// store when the root was resolved (off the main actor, by the launch or the sign-in); in
     /// memory otherwise (tests and previews with no account environment). Construction only.
+    /// The signed-in Home (M3-A O3; M3-C O1, O2): Settings, the course order and the done marks all
+    /// read and write the account's `UserState`; a done-mark change runs one reminders pass; the
+    /// reminders tip keeps its dismissal there too.
+    private func makeSignedInHome(_ account: AccountKey, root: URL?) -> HomeModel {
+        let userState = accountUserState(account, root: root)
+        let reminders = reminders
+        reminders.tipDismissalStore = UserStateTipDismissalStore(access: userState)
+        let localStore = AccountLocalScreenStateStore(access: userState, onDoneMarksChanged: {
+            await reminders.reconcileNow()
+        })
+        return HomeModel(source: AccountHomeSource(runtime: accountRuntime), localStore: localStore, userState: userState)
+    }
+
     private func accountUserState(_ account: AccountKey, root: URL?) -> any UserStateAccess {
         guard let root, let accountEnvironment else { return InMemoryUserStateAccess() }
         return AccountUserStateAccess(account: account, root: root, environment: accountEnvironment, runtime: accountRuntime)
@@ -366,6 +378,7 @@ public final class AppModel {
         recordSignOutStep(.refreshStatus)
         let endingHome = home
         home = nil
+        reminders.tipDismissalStore = nil // nothing may write the purged account's user state
         activeAccount = nil
         let runtime = accountRuntime
         let environment = accountEnvironment
