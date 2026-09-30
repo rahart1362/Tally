@@ -36,7 +36,26 @@ Instead, a new pure domain classifier, `GradeAvailability`, labels each course f
 
 ---
 
-## 2. Owner decisions needed
+## 2. Owner decisions (decided 2026-09-30)
+
+**Decided by the owner on 2026-09-30: every recommendation below was accepted as written.**
+- **L-1:** English + Spanish, with a machine first pass and a paid native-speaker review.
+- **L-2:** the iOS per-app language setting, reached from a Settings → Language row. No custom picker.
+- **L-3:** Spanish is not a launch gate.
+- **G-1:** no SIS integration; backlog item BL-27.
+- **G-2:** the strict detection threshold.
+- **G-3:** yes to the per-course override (XG-04).
+- **G-4, G-5, G-6:** adopted.
+- **X-1:** the "free app" wording is removed.
+
+The work packages in §5 are now binding.
+
+**PMO scheduling note:** the account's weekly usage limit allows about one agent stream at a time next to PMO work. So §6's parallel phases run **staggered**:
+- XG-01 (Linux-only) runs next to one iOS stream.
+- Two iOS agent streams never run at once.
+
+The order in §6 is unchanged.
+
 
 Doc-local IDs (L = localization, G = grades), to avoid clashing with O1–O10.
 
