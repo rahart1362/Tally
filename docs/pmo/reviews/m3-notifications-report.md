@@ -77,7 +77,61 @@ Local (Linux harness): 214 tests in 51 suites passed 3 of 3 (194 before + 20 new
 
 ## 4. CI evidence
 
-(Filled in below as runs complete.)
+### 4.1 Quick run 36541707985 on `523e531` (the feature commit): every job success
+
+Read from the job logs (`.build-m3n/evidence-36541707985.txt`):
+
+- **hygiene:** success. View bodies clean; ASC-03 privacy manifests 11 checks, 0 failed; widget isolation 0 problems.
+- **core-linux:** 627 tests (43 + 85 + 8 + 296 + 195), the 4 known issues.
+- **lint:** 0 violations in 210 files.
+- **core-sanitizers:** success (TSan and ASan/LSan).
+- **ios-build:** success.
+  - TallyCore on the Xcode toolchain: 627 tests in 87 suites, the 4 known issues.
+  - Hosted Swift Testing: **318 tests in 69 suites** passed on both the main simulator and the iOS 26 floor, the 2 known Keychain issues (GL-02). Every M3-C suite passed on both: reminder words, the pipeline, the permission and tip, the lifecycle (3.7 s and 19.0 s), and `UNNotificationScheduler` with its 5 new tests.
+  - Main xcresult: 347 total, 342 passed, **0 failed**, 3 skipped, 2 expected. Floor: 320 total, 318 passed, 0 failed, 2 expected. Smallest iPhone: 2 of 2.
+  - **`RemindersUITests.testTipAsksInContextAndSettingsShowsTheReminderState` passed (45.9 s)**, with no system alert (the permission was scripted).
+  - Release gates: no shipping binary contains `TallyTestHooks.` (so `ReminderTestHooks` stays out of Release; the Debug positive control holds); 38 Mach-O binaries checked for isolated deinits.
+- The iOS sanitizer, perf and Xcode 27 jobs do not run in a quick run; they are in the full hand-off run (§4.3).
+
+### 4.2 Mutation checks
+
+**Local, 13 of 13 caught** (`.build-m3n/mutate.py`: apply, sync, build, run the M3-C suites on the Linux harness, restore). Every file was restored byte-identical and equal to the committed blob:
+
+| # | Guard broken | Caught by |
+|---|---|---|
+| M1 | the pass's permission guard | `unauthorisedPassDoesNothing` (both arguments), `deniedLaunch` |
+| M2 | `ReminderPipeline.drain()` before the sign-out purge | `signOutLeavesNothing` |
+| M3 | a changed reminder's ledger entry dropped | `hidingNamesRewritesPendingWords` |
+| M4 | Hide Course Names read from `UserState` | `hidingNamesRewritesPendingWords` |
+| M5 | no tip for sample data | `tipPolicy`, `sampleModeNeverAsks` |
+| M6 | the 7-day snooze | `tipReturnsAfterSevenDays` |
+| M7 | nothing scheduled in the past | `nothingInThePast` |
+| M8 | an empty digest has no words | `emptyDigestsAreDropped` |
+| M9 | a granted permission schedules at once | `turnOnAsksOnceAndSchedules`, `deniedThenAllowedInSettings` |
+| M10 | a request at `attach` (A11Y-11) | `onlyATapAsks`, `deniedLaunch` |
+| M11 | the final reminder's "if you haven't submitted yet." | `finalReminderIsConditional` |
+| M12 | saving Hide Course Names runs a pass | `hideCourseNamesSavesThenReconciles` |
+| M13 | denied shown as Off | `deniedThenAllowedInSettings`, `deniedLaunch` |
+
+sha256 after restore:
+- `ReminderPipeline.swift` `c81a8e8e…` (`523e531`); after the P-1 comment update, M1, M3, M4 and M7 were re-run: `e39ac9f4…` (`12c218a`).
+- `RemindersModel.swift` `d34a0761…`; `ReminderSubjects.swift` `f9a8146b…`; `AppModel.swift` `3064fb20…`; `SettingsModel.swift` `3e4afe10…`.
+
+**CI, 3 of 3 caught:** run 36546299596 on `b99713a`, reverted in `c3ffc2b`; the PMO read the logs.
+
+| # | Fault planted | Caught by |
+|---|---|---|
+| C1 | the adapter maps provisional to denied | "the permission is .authorized exactly when mayAdd allows adding" (`UNNotificationSchedulerTests.swift:215`, `:218`) |
+| C2 | the permission request drops `.badge` | "reading the permission never asks; a request asks once for alert, sound and badge" (both arguments) |
+| C3 | the tip's Turn On does nothing | "A11Y-11: only a tap asks" (the source scan, `RemindersTests.swift:478`) and `RemindersUITests.testTipAsksInContextAndSettingsShowsTheReminderState` |
+
+Nothing else failed: 318 tests on each simulator, 7 issues including the 2 known. After the revert, `apps/` and `packages/` equal `12c218a`.
+
+**Hand-off.** The stream's agent stopped at the account's weekly usage limit, after the mutation run and before its hand-off run. The PMO completed the hand-off:
+- verified the mutation run (above);
+- merged `origin/main` @ `52df284` (PR #8: the planner fixes and `UserState` v4);
+- ran the local checks;
+- used the pull request's full CI run as the hand-off run. It is recorded in the pull request, not here, so the tested commit stays the branch head.
 
 ## 5. TallyCore findings
 
@@ -122,4 +176,8 @@ func noDigestWithNothingDue() {
 
 ## 7. Commits
 
-(Filled in at hand-off.)
+- `523e531`: the feature: the pipeline, the permission tip, Settings → Reminders, and the tests.
+- `12c218a`: the PMO update (P-1/P-2 fixed in TallyCore), and `emptyDigestsAreDropped` made independent of the planner's digest rule.
+- `b99713a`: the CI mutation run, C1–C3.
+- `c3ffc2b`: its revert.
+- The report, and the merge of `main` @ `52df284`, by the PMO.
