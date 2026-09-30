@@ -125,6 +125,9 @@ public enum InsightsConfig {
     /// §3.3 #4/#5: the evening digest and Sunday week-ahead default times.
     public static let eveningDigestHour = 19
     public static let eveningDigestMinute = 0
+    /// §3.3 #4: the evening digest is planned "only if something is due in the next 48 h", counted
+    /// from the digest's own fire time.
+    public static let eveningDigestLookahead: Duration = .seconds(48 * 60 * 60)
     public static let weekAheadHour = 18
     public static let weekAheadMinute = 0
 

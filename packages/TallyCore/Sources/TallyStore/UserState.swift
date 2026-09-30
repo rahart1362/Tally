@@ -28,10 +28,12 @@ public struct ManualClassTime: Codable, Sendable, Equatable, Identifiable {
 public struct UserState: Codable, Sendable, Equatable {
     /// Schema history: v1 shipped `showGradesInGlance` + `manualClassTimes` only; v2 adds
     /// `hideCourseNamesInNotifications`, defaulted `false` on migration (`UserStateMigration`);
-    /// v3 adds `digestThresholds` (owner decision 2026-09-27), defaulted to 0.5 pt everywhere.
+    /// v3 adds `digestThresholds` (owner decision 2026-09-27), defaulted to 0.5 pt everywhere;
+    /// v4 adds the screens' local state, `courseOrder` and `doneAssignments` (M3-A O3), and
+    /// `reminderTipDismissedUntil` (M3-C O1), empty or nil on migration.
     /// Owner decision D-E4 (2026-09-27): user state is NOT backed up; a new install or data wipe
     /// starts from these defaults while Canvas data is fetched fresh.
-    public static let currentSchemaVersion = 3
+    public static let currentSchemaVersion = 4
 
     public let schemaVersion: Int
     public var showGradesInGlance: Bool
@@ -39,14 +41,26 @@ public struct UserState: Codable, Sendable, Equatable {
     public var manualClassTimes: [ManualClassTime]
     /// "What changed" course-grade threshold: "All" or points, globally or per course.
     public var digestThresholds: DigestThresholds
+    /// The student's course order (Courses → Edit, UX-WP-14). Opaque IDs only; empty means
+    /// Canvas's order.
+    public var courseOrder: [CanvasID<Course>]
+    /// To-Do items marked done in Tally (UX-WP-18; PMO R16: local only, never written to Canvas).
+    public var doneAssignments: Set<CanvasID<Assignment>>
+    /// The Dashboard's reminders tip stays hidden until this time (UX-WP-12); nil shows it.
+    public var reminderTipDismissedUntil: Date?
 
     public init(showGradesInGlance: Bool = false, hideCourseNamesInNotifications: Bool = false,
-                manualClassTimes: [ManualClassTime] = [], digestThresholds: DigestThresholds = .default) {
+                manualClassTimes: [ManualClassTime] = [], digestThresholds: DigestThresholds = .default,
+                courseOrder: [CanvasID<Course>] = [], doneAssignments: Set<CanvasID<Assignment>> = [],
+                reminderTipDismissedUntil: Date? = nil) {
         schemaVersion = Self.currentSchemaVersion
         self.showGradesInGlance = showGradesInGlance
         self.hideCourseNamesInNotifications = hideCourseNamesInNotifications
         self.manualClassTimes = manualClassTimes
         self.digestThresholds = digestThresholds
+        self.courseOrder = courseOrder
+        self.doneAssignments = doneAssignments
+        self.reminderTipDismissedUntil = reminderTipDismissedUntil
     }
 }
 
@@ -56,6 +70,15 @@ enum UserStateMigration {
         let schemaVersion: Int
         let showGradesInGlance: Bool
         let manualClassTimes: [ManualClassTime]
+    }
+
+    /// The v3 shape: everything before the screens' local state.
+    private struct V3: Decodable {
+        let schemaVersion: Int
+        let showGradesInGlance: Bool
+        let hideCourseNamesInNotifications: Bool
+        let manualClassTimes: [ManualClassTime]
+        let digestThresholds: DigestThresholds
     }
 
     /// The v2 shape: everything except `digestThresholds`.
@@ -70,6 +93,11 @@ enum UserStateMigration {
         switch try peekSchemaVersion(data) {
         case UserState.currentSchemaVersion:
             return try JSONDecoder().decode(UserState.self, from: data)
+        case 3:
+            let v3 = try JSONDecoder().decode(V3.self, from: data)
+            return UserState(showGradesInGlance: v3.showGradesInGlance,
+                              hideCourseNamesInNotifications: v3.hideCourseNamesInNotifications,
+                              manualClassTimes: v3.manualClassTimes, digestThresholds: v3.digestThresholds)
         case 2:
             let v2 = try JSONDecoder().decode(V2.self, from: data)
             return UserState(showGradesInGlance: v2.showGradesInGlance,
