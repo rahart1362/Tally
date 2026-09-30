@@ -3,7 +3,9 @@ import TallyDomain
 
 /// The file-storage side of sign-out / erase (WP-C02). Crypto-shreds both of the account's vault
 /// keys, then deletes the account's own directory — never a sibling account's, and never the
-/// shared `accounts` directory itself. The caller (Security's `SignOutUseCase`/`EraseService`,
+/// shared `accounts` directory itself. That directory holds every file in `StoreLayout`'s list
+/// (`StoreFile`): the snapshot, the glance, user state, the sync ledger and, since O5, the refresh
+/// record (`RefreshStateStore`), so each of them goes with it. The caller (Security's `SignOutUseCase`/`EraseService`,
 /// out of this worktree's scope) also revokes the Canvas token, removes notifications and
 /// calendar events, and reloads widgets (encryption.md §3.7).
 public enum AccountPurger {
