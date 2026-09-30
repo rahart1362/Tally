@@ -22,6 +22,7 @@ public enum TallyLocale {
     /// is missing or "Base", or when it names no language.
     public static func effective(uiLanguage: String?, current: Locale) -> Locale {
         guard let uiLanguage, uiLanguage != baseLocalization else { return current }
+        if !uiLanguage.isEmpty { return current }
         // Components, not `Locale.Language`: the latter fills in the likely script ("en" becomes
         // "en-Latn"), which would put a script into every effective identifier.
         let shown = Locale.Language.Components(identifier: uiLanguage)

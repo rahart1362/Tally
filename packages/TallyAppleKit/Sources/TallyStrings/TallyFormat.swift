@@ -22,7 +22,7 @@ public enum TallyFormat {
     public static func percent(
         _ percent: Double, fractionDigits: Int = percentFractionDigits, locale: Locale = TallyLocale.effective
     ) -> String {
-        percent.formatted(.percent.scale(1).precision(.fractionLength(fractionDigits)).locale(locale))
+        (percent / 100).formatted(.percent.precision(.fractionLength(fractionDigits)).locale(locale))
     }
 
     /// "50%": a share on a 0-1 scale, as a whole percentage (rounded as `ScreenFormatter.shareText`

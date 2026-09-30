@@ -31,7 +31,7 @@ public enum L10n {
             LocalizedStringResource(
                 "dashboard.hero.averageOfCourses",
                 defaultValue: "Average of \(count) courses",
-                bundle: #bundle,
+                bundle: Bundle.main,
                 comment: "Dashboard hero caption above the average percentage. The number is how many courses are in the average."
             )
         }
