@@ -42,6 +42,9 @@ public nonisolated enum AccountSessionFactory {
                                              initialSnapshot: initialSnapshot, initialRecord: record,
                                              includeGrades: settings.showGradesInGlance)
         await coordinator.updateDigestThresholds(settings.digestThresholds)
+        // M3-C (E07): the account's reminders are planned from the cached snapshot now, and again
+        // after every commit, whichever trigger started it (the Home, `.backgroundTask`, the intent).
+        await ReminderPipeline.attach(to: coordinator, account: account.accountKey, environment: environment)
         return coordinator
     }
 

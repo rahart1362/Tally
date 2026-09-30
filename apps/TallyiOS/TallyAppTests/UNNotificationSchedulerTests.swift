@@ -1,12 +1,14 @@
 import Foundation
 import Synchronization
 import TallyDomain
+import TallyFeatures
+import TallySync
 import Testing
 import UserNotifications
 @testable import TallyPlatform
 
-/// A `NotificationCenterClient` a test drives: a fixed authorisation status, an optional add
-/// failure, and a record of every call.
+/// A `NotificationCenterClient` a test drives: an authorisation status (which a request can answer,
+/// M3-C), an optional add failure, and a record of every call.
 ///
 /// An `NSLock`, not a `Mutex`: `UNNotificationRequest` and `UNNotificationCategory` are not
 /// `Sendable`, and `Mutex.withLock` only accepts values from a disconnected region, which a
@@ -14,29 +16,47 @@ import UserNotifications
 /// with "'inout sending' parameter '$0' cannot be task-isolated", CI run 36389673529).
 /// `@unchecked Sendable`: every stored `var` is read and written only under `lock`.
 final class FakeNotificationCenterClient: NotificationCenterClient, @unchecked Sendable {
-    private let status: UNAuthorizationStatus
     private let addError: (any Error)?
+    /// What `requestAuthorization` turns a not-determined status into (M3-C); `nil` leaves it.
+    private let answer: UNAuthorizationStatus?
     private let lock = NSLock()
+    private var currentStatus: UNAuthorizationStatus
     private var addedRequests: [UNNotificationRequest] = []
     private var removedIDs: [[String]] = []
     private var removedAllCount = 0
     private var registeredCategories: Set<UNNotificationCategory> = []
+    private var authorizationRequests: [UNAuthorizationOptions] = []
 
-    init(status: UNAuthorizationStatus, addError: (any Error)? = nil) {
-        self.status = status
+    init(status: UNAuthorizationStatus, addError: (any Error)? = nil, answer: UNAuthorizationStatus? = nil) {
+        currentStatus = status
         self.addError = addError
+        self.answer = answer
     }
 
     var added: [UNNotificationRequest] { lock.withLock { addedRequests } }
     var removed: [[String]] { lock.withLock { removedIDs } }
     var categories: Set<UNNotificationCategory> { lock.withLock { registeredCategories } }
+    var requests: [UNAuthorizationOptions] { lock.withLock { authorizationRequests } }
 
-    func authorizationStatus() async -> UNAuthorizationStatus { status }
+    func authorizationStatus() async -> UNAuthorizationStatus { lock.withLock { currentStatus } }
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        lock.withLock {
+            authorizationRequests.append(options)
+            if currentStatus == .notDetermined, let answer { currentStatus = answer }
+            return UNNotificationScheduler.mayAdd(currentStatus)
+        }
+    }
     func add(_ request: UNNotificationRequest) async throws {
         if let addError { throw addError }
         lock.withLock { addedRequests.append(request) }
     }
     func pendingIdentifiers() async -> Set<String> { lock.withLock { Set(addedRequests.map(\.identifier)) } }
+    func pendingContents() async -> [String: ReminderContent] {
+        lock.withLock {
+            Dictionary(addedRequests.map { ($0.identifier, ReminderContent(title: $0.content.title, body: $0.content.body)) },
+                       uniquingKeysWith: { _, last in last })
+        }
+    }
     func removeRequests(ids: [String]) { lock.withLock { removedIDs.append(ids) } }
     func removeAllRequests() { lock.withLock { removedAllCount += 1 } }
     func setCategories(_ categories: Set<UNNotificationCategory>) { lock.withLock { registeredCategories = categories } }
@@ -176,5 +196,58 @@ struct UNNotificationSchedulerTests {
         #expect(UNNotificationScheduler.unInterruptionLevel(.passive) == .passive)
         #expect(UNNotificationScheduler.unInterruptionLevel(.active) == .active)
         #expect(UNNotificationScheduler.unInterruptionLevel(.timeSensitive) == .timeSensitive)
+    }
+
+    // MARK: - M3-C: the ReminderPlatform port (E07, UX-WP-12)
+
+    @Test("M3-C: the composition root's adapter is a ReminderPlatform, so the pipeline finds it in the environment")
+    func isAReminderPlatform() {
+        let injected: any NotificationScheduling = UNNotificationScheduler(center: FakeNotificationCenterClient(status: .notDetermined),
+                                                                           logger: RecordingPlatformLogger())
+        #expect(injected is any ReminderPlatform)
+    }
+
+    @Test("M3-C: the permission is .authorized exactly when mayAdd allows adding (mutation-guarded)")
+    func permissionMapping() {
+        #expect(UNNotificationScheduler.permission(.notDetermined) == .notDetermined)
+        #expect(UNNotificationScheduler.permission(.denied) == .denied)
+        #expect(UNNotificationScheduler.permission(.authorized) == .authorized)
+        #expect(UNNotificationScheduler.permission(.provisional) == .authorized)
+        #expect(UNNotificationScheduler.permission(.ephemeral) == .authorized)
+        for status: UNAuthorizationStatus in [.notDetermined, .denied, .authorized, .provisional, .ephemeral] {
+            #expect((UNNotificationScheduler.permission(status) == .authorized) == UNNotificationScheduler.mayAdd(status))
+        }
+    }
+
+    @Test("M3-C: reading the permission never asks; a request asks once for alert, sound and badge",
+          arguments: [UNAuthorizationStatus.authorized, .denied])
+    func requestAsksOnlyWhenCalled(_ answer: UNAuthorizationStatus) async {
+        let center = FakeNotificationCenterClient(status: .notDetermined, answer: answer)
+        let scheduler = UNNotificationScheduler(center: center, logger: RecordingPlatformLogger())
+        #expect(await scheduler.permission() == .notDetermined)
+        #expect(center.requests.isEmpty, "reading the permission asked for it")
+
+        let result = await scheduler.requestPermission()
+        #expect(result == UNNotificationScheduler.permission(answer))
+        #expect(center.requests == [[.alert, .sound, .badge]])
+    }
+
+    @Test("M3-C: schedule(_:content:) adds the resolved words when allowed, nothing when not")
+    func scheduleWithContent() async throws {
+        let allowed = FakeNotificationCenterClient(status: .authorized)
+        let scheduler = UNNotificationScheduler(center: allowed, logger: RecordingPlatformLogger())
+        let rendered = NotificationContent.Rendered(title: "Lab Report 4 · BIO 101", body: "Due today at 6:00 PM.")
+        await scheduler.schedule(Self.reminder("tally.tests.content", level: .active), content: rendered)
+        let request = try #require(allowed.added.first)
+        #expect(request.content.title == rendered.title && request.content.body == rendered.body)
+        #expect(request.content.categoryIdentifier == UNNotificationScheduler.reminderCategoryIdentifier)
+        #expect(request.content.interruptionLevel == .active)
+        #expect(await scheduler.pendingContents() == ["tally.tests.content": rendered])
+
+        let denied = FakeNotificationCenterClient(status: .denied)
+        let logger = RecordingPlatformLogger()
+        await UNNotificationScheduler(center: denied, logger: logger).schedule(Self.reminder(), content: rendered)
+        #expect(denied.added.isEmpty)
+        #expect(logger.names == ["notificationsNotAuthorized"])
     }
 }

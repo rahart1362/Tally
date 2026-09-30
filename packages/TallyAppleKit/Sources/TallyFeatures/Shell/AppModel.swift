@@ -62,6 +62,9 @@ public final class AppModel {
     public let accountRuntime: AccountRuntime
     /// SEC-07: the app lock and the privacy cover (`RootView` renders them).
     public let lock: AppLockModel
+    /// M3-C (UX-WP-12): the reminders permission, asked in context from the Dashboard tip or
+    /// Settings, and a reminders pass when it is granted.
+    public let reminders: RemindersModel
     /// The Home shell's model: over a `SampleSession` while `route == .sample`, over the account's
     /// coordinator (`AccountHomeSource`) while `.signedIn`. Built by the route transition (pure
     /// construction); every fetch, digest and projection then runs off the main actor.
@@ -110,6 +113,21 @@ public final class AppModel {
             self.launcher = NoAccountLaunch()
         }
         self.lock = lock ?? AppLockModel()
+        reminders = Self.makeReminders(runtime: accountRuntime, environment: accountEnvironment)
+    }
+
+    /// M3-C: the reminders model over the injected notification adapter (the composition root's
+    /// `UNNotificationScheduler` is a `ReminderPlatform`), whose pass reaches the signed-in account
+    /// through the runtime (none in sample mode or on Welcome, so it is then a no-op).
+    private static func makeReminders(runtime: AccountRuntime, environment: AccountEnvironment?) -> RemindersModel {
+        var platform = environment?.notifications as? any ReminderPlatform
+        #if DEBUG || TALLY_TEST_HOOKS
+        platform = ReminderTestHooks.platform(replacing: platform)
+        #endif
+        return RemindersModel(platform: platform, clock: environment?.clock ?? SystemDateProvider(), reconcile: {
+            guard let environment, let coordinator = await runtime.coordinator() else { return }
+            await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
+        })
     }
 
     // MARK: - Launch (plan 06 step 8; perf-app-runtime.md §2.4 L1–L9)
@@ -267,6 +285,7 @@ public final class AppModel {
         let runtime = accountRuntime
         teardown.replace(with: Task {
             let retired = installed == nil ? nil : await runtime.end()
+            await ReminderPipeline.drain() // M3-C: see `signOut()`
             await AccountSignOut.purge(account: record, retired: retired ?? installed, environment: environment)
         })
     }
@@ -303,7 +322,10 @@ public final class AppModel {
         let (record, coordinator) = provisioned
         let storeRoot = await environment.resolvedStoreRoot() // M3-A: before the check, never after it
         guard pendingSignIn?.id == id else {
-            // Abandoned while provisioning: remove what it wrote.
+            // Abandoned while provisioning: remove what it wrote. M3-C: its reminders pass (if it had
+            // a cached snapshot) finishes first, as in `signOut()`.
+            await coordinator.bumpEpochAndCancel()
+            await ReminderPipeline.drain()
             await AccountSignOut.purge(account: record, retired: coordinator, environment: environment)
             return nil
         }
@@ -353,6 +375,9 @@ public final class AppModel {
             RefreshIntentBridge.coordinator = nil
             self?.recordSignOutStep(.intentBridge)
             let retired = await runtime.end()
+            // M3-C: a reminders pass already running finishes before the purge cancels the
+            // account's notifications; any later pass finds the retired coordinator's snapshot gone.
+            await ReminderPipeline.drain()
             self?.recordSignOutStep(.runtime)
             if let account, let environment {
                 await AccountSignOut.purge(account: account, retired: retired, environment: environment)
@@ -371,6 +396,8 @@ public final class AppModel {
         await accountRuntime.install(coordinator)
         RefreshIntentBridge.coordinator = coordinator
         await refreshStatus.attach(to: coordinator)
+        // M3-C: the reminders permission is read (never asked) so the Dashboard's tip can decide.
+        await reminders.refreshPermission()
     }
 
     /// Stops mirroring the coordinator and clears the intent's reference to it. The coordinator

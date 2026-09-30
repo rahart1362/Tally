@@ -33,13 +33,21 @@ public final class SettingsModel {
     public private(set) var saveFailed = false
     /// The same, for the widget setting.
     public private(set) var widgetSaveFailed = false
+    /// M3-C (PMO R10, insights-at-a-glance.md §3.6): `UserState.hideCourseNamesInNotifications`.
+    public private(set) var hideCourseNamesInNotifications = false
+    /// The same, for the notification-names setting.
+    public private(set) var hideCourseNamesSaveFailed = false
 
     private let userState: any UserStateAccess
+    /// M3-C: runs a reminders pass once a notification setting is saved, so pending reminders are
+    /// rewritten with the new words now rather than at the next refresh.
+    private let notificationSettingsSaved: @MainActor () -> Void
     /// Saves run one after another, each writing the whole thresholds value, so the last change wins.
     @ObservationIgnored private var lastSave: Task<Void, Never>?
 
-    public init(userState: any UserStateAccess) {
+    public init(userState: any UserStateAccess, notificationSettingsSaved: @escaping @MainActor () -> Void = {}) {
         self.userState = userState
+        self.notificationSettingsSaved = notificationSettingsSaved
     }
 
     public func load() async {
@@ -47,7 +55,19 @@ public final class SettingsModel {
         let state = await userState.load()
         thresholds = state.digestThresholds
         showGradesInWidgets = state.showGradesInGlance
+        hideCourseNamesInNotifications = state.hideCourseNamesInNotifications
         hasLoaded = true
+    }
+
+    /// "Hide Course Names" in notifications on or off (R10): once saved, the pending reminders are
+    /// rewritten ("a course", "An assignment").
+    public func setHideCourseNamesInNotifications(_ hide: Bool) {
+        guard hide != hideCourseNamesInNotifications else { return }
+        hideCourseNamesInNotifications = hide
+        save({ $0.hideCourseNamesInNotifications = hide }, failed: { model, failed in
+            model.hideCourseNamesSaveFailed = failed
+            if !failed { model.notificationSettingsSaved() }
+        })
     }
 
     /// "Show Grades in Widgets" on or off.

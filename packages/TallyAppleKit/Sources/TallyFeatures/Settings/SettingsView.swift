@@ -47,6 +47,9 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 accountSection
+                // M3-C (UX-WP-12): the reminders permission and "Hide Course Names".
+                RemindersSettingsSection(reminders: app?.reminders, isSampleData: home.isSampleData,
+                                         settings: isSignedIn ? settings : nil)
                 thresholdSection
                 dataSection
                 calendarSection
@@ -78,7 +81,10 @@ struct SettingsView: View {
         .task {
             backgroundRefresh = BackgroundRefreshState(UIApplication.shared.backgroundRefreshStatus)
             if settings == nil {
-                let model = SettingsModel(userState: home.userState)
+                // M3-C: once "Hide Course Names" is saved, the pending reminders are rewritten.
+                let reminders = app?.reminders
+                let model = SettingsModel(userState: home.userState,
+                                          notificationSettingsSaved: { reminders?.reconcileNow() })
                 settings = model
                 await model.load()
             }
