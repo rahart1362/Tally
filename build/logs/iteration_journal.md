@@ -704,3 +704,20 @@ Verified only in CI: no Xcode on this host. No CI mutation run was made for the 
 **Local mutations** (`.build-m3n/mutate.py`, Linux harness, the M3-C suites): **13 of 13 caught**, each by its intended test, every file restored byte-identical and equal to `523e531`'s blobs: M1 no permission guard; M2 no drain before the sign-out purge; M3 no rescheduling of changed words; M4 Hide Course Names not read; M5 no sample-data guard on the tip; M6 no 7-day snooze; M7 no past-date guard; M8 an empty digest sent; M9 a granted permission does not schedule; M10 a request at attach (the A11Y-11 source scan and the denied launch both fail); M11 the final reminder not conditional; M12 saving Hide Course Names runs no pass; M13 denied shown as Off.
 **Planner findings** P-1 (sentinel planned in the past; observed 2026-09-19 for a now of 2026-09-21) and P-2 (evening digest with no candidates) fail on `main` @ `2e8df00` (scratch `PlannerFindingsTests`, not committed into TallyCore).
 **PMO update** (coordinator message): P-1 and P-2 fixed in TallyCore on PR #8 (`222619a`), which also adds `UserState` v4 (`courseOrder`, `doneAssignments`, `reminderTipDismissedUntil`); not wired here, by instruction. The guards stay. `emptyDigestsAreDropped` now builds its digests itself (it asserted the planner always plans both, which PR #8 makes false); M8 still caught. The pipeline's P-1 comment updated; M1, M3, M4, M7 re-run on it: 4 of 4 caught, restored byte-identical (sha256 e39ac9f4…). **Pre-merge check against PR #8's TallyCore** (`git archive origin/pmo/reminder-planner-fixes`, scratch `.build-m3n/pr8/`): 214 tests in 51 suites passed. Report draft committed with O1/O2 "schema ready in PR #8; wiring by the PMO" and O4 "fixed in TallyCore by the PMO (PR #8)".
+
+## 2026-09-30 | PMO: UserState v4 wiring (M3-A O3; M3-C O1, O2) + plan 08 (localization, grades kept outside Canvas)
+**Wiring:**
+- `AccountLocalScreenStateStore`: the signed-in Home's course order and done marks in the account's sealed `UserState`. The newest revision wins. A reminders pass runs only when the done marks change.
+- `ReminderSubjects` excludes items marked done; the pass reads them with the user state.
+- The reminders tip's dismissal is kept in `reminderTipDismissedUntil`.
+- `AppModel`: `makeSignedInHome` is used at both signed-in sites. Sample mode and sign-out clear the tip store.
+
+**Quick run 36714087532:** every job it ran succeeded (the dispatch needed a retry after HTTP 500). Hosted tests: 321 per simulator (the 2 known issues). The 3 new `UserStateV4WiringTests` passed on both simulators: persistence across a relaunch, the pass only on a done-mark change, the tip's 7-day dismissal across models, and a done mark removing the reminder candidate.
+
+**Plan 08** (senior technical integrator): `docs/pmo/08-localization-and-external-grades.md`. The PMO spot-checked its cited current defects in the code:
+- `FreshnessPresenter` defaults to `en_US`;
+- the hero's "Average of N courses" counts courses it didn't average;
+- the digest uses a fixed "since HH:mm" and ISO dates;
+- "Ask My School" says "free app".
+
+**Owner decisions (2026-09-30):** every recommendation was accepted (L-1…3, G-1…6, X-1). Streams run staggered because of the weekly usage limit.
