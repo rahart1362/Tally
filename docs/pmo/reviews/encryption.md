@@ -105,7 +105,8 @@ Architecture's layout (`architecture.md:128-135`) is kept. The changes are marke
 ### 3.3 Widget projection (`glance`) and Lock Screen
 
 - **Content allowlist.** The glance is built only from the snapshot by Architecture WP-C03:
-  - `generation`, `asOf`, overall grade band, per-course short code plus current grade, and at most N due items (opaque ID, course code, title truncated to 40 characters, due date, status flags).
+  - `generation`, `asOf`, `gradeSummary` (schema 2; `.notOptedIn`, `.band(GradeBand)`, `.noneYet` or `.notInCanvas`, which replaces the overall grade band), per-course short code plus current grade band, per-course `gradeStatus`, and at most N due items (opaque ID, course code, title truncated to 40 characters, due date, status flags).
+  - **Grade values stay opt-in (D-E3):** the overall and per-course bands are present only when the student opted in. `gradeStatus` is a **state**, never a grade or score (whether a course's grades are in Canvas, plan 08 XG-02), so it is stored whether or not the student opted in: the launch paint and the widget must match the full screen. Updated 2026-10-01 with glance schema 2 (PR #15).
   - **Never included:** instructor names or emails, comments, announcements, submission content, the user's name, the institution host, or tokens.
   - A unit test asserts the Codable key set.
 - **Lock Screen.**

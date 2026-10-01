@@ -672,7 +672,7 @@ jobs:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 45 # at 30 the limit cancelled it before it reported in PR runs for #9, #10, #12 and #14
     continue-on-error: true # preview image; must never gate the required checks above
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
