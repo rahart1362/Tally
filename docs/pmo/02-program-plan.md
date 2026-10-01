@@ -148,16 +148,22 @@ What changed:
 | **PMO** | An event-driven wait (a CI completion, or a stall with no run active) replaces 30-min polling. | — |
 | **PMO** | Weekly-usage pacing: launch a package only when the remaining weekly budget covers its estimated cost plus about 10% for the PMO. Otherwise hold it for the reset, rather than strand it mid-task. | — |
 
-**Streams: two rolling slots, not waves.** A slot takes its next package as soon as that package's inputs have merged.
+**Streams (owner, 2026-10-01 evening: "deploy subagents… to accelerate… final M3 delivery").** Four agents on disjoint files, each brief naming every stream's files:
 
-| Slot | Packages |
-|---|---|
-| **Opus** (critical path) | XG-04/06 → **M3-B1** (subscription engine, no UI; enforcement off on `main`) → **M3-B2** (paywall, placement, Settings → Subscription, sample-mode purchase, notices) → **M3-D** → **M3-E** |
-| **Sonnet** | L10N-03a → **L10N-03b** (the last 20 files; baseline to 0) → MVP-gate prep that needs no account → **L10N-04** after the English freeze |
+| Stream | Model | Scope | Starts after |
+|---|---|---|---|
+| **M3-B1** | Opus | Subscription engine, no UI: PAY-01–04, PAY-07; gating off on `main` until M3-B2. Also XG-04's O1 (reminders honour the per-course answer) | XG-04/06 merged |
+| **M3-D** | Opus | UX-WP-29 widgets, StandBy, rendering modes, App Shortcuts, Control, Focus filter, interactive Done. The subscription "unlocked?" check is a stub until M3-B1 merges | now |
+| **M3-E1** | Sonnet | Family core: FAM-08 parent-notification planner (R10a property test), FAM-14 sample-family data | now |
+| **L10N-03b** | Sonnet | The last 18 literal files and the §3.3 fixes. M3-D sweeps the 2 widget files | XG-04/06 merged |
+| **M3-B2** | Opus | Paywall, placement, Settings → Subscription, sample-mode purchase, notices; switches gating on | M3-B1 merged |
+| **M3-E2** | Opus | FAM-09 switcher, FAM-10 Family settings, FAM-11 widgets with `StudentEntity`, FAM-14 UI path | M3-D, M3-E1, L10N-03b merged |
 
-This keeps plan 08 §6's dependencies:
-- M3-D needs M3-B merged or well along.
-- M3-E follows M3-D (FAM-11 builds on its widgets and intents) and L10N-03b (FAM-09 touches every tab).
+Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6's dependencies:
+- M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
+- M3-D wires the entitlement field last.
+
+The PMO checks weekly and 5-hour usage at each hand-off. It holds a launch when the 5-hour window passes about 80%, or when the weekly remainder falls under the reserve.
 
 ## 3. Roadmap (milestones and exit gates)
 
