@@ -94,10 +94,15 @@ IOS_XCODEBUILD   = xcodebuild -project $(IOS_PROJECT_DIR)/Tally.xcodeproj -schem
 # 600-second `simctl diagnose` runs after a failure.
 IOS_TEST_FLAGS   = -collect-test-diagnostics never -test-timeouts-enabled YES \
                    -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
+# One automatic retry for a failed test (owner rule: a flake gets one re-run). Main went red on
+# three pushes in a row (runs 36840852145, 36858306203, 36870261498): each time one UI test failed,
+# a different one each time, on code whose PR runs were green and on the same runner image. A
+# test that passes only on retry is listed as a warning annotation (ios-retried), so it stays visible.
+IOS_RETRY        ?= -retry-tests-on-failure -test-iterations 2
 IOS_TEST_SUCCESS = "\*\* TEST (EXECUTE )?SUCCEEDED \*\*"
 IOS_CONSOLE      = "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed"
 
-.PHONY: ios-project ios-build-for-testing ios-test ios-tsan ios-asan ios-perf ios-summary ios-watchdog-log
+.PHONY: ios-project ios-build-for-testing ios-test ios-retried ios-tsan ios-asan ios-perf ios-summary ios-watchdog-log
 
 ios-project: ## Generate apps/TallyiOS/Tally.xcodeproj with XcodeGen
 	cd $(IOS_PROJECT_DIR) && xcodegen generate --spec project.yml
@@ -114,10 +119,15 @@ ios-test: ## Run the built tests on IOS_SIM_UDID with hang limits; print every f
 	rm -rf $(IOS_OUT)/$(IOS_RESULT_NAME).xcresult
 	$(IOS_XCODEBUILD) test-without-building -destination 'platform=iOS Simulator,id=$(IOS_SIM_UDID)' \
 		-derivedDataPath $(IOS_DERIVED) $(IOS_ONLY_TESTING) \
-		-resultBundlePath $(IOS_OUT)/$(IOS_RESULT_NAME).xcresult $(IOS_TEST_FLAGS) \
+		-resultBundlePath $(IOS_OUT)/$(IOS_RESULT_NAME).xcresult $(IOS_TEST_FLAGS) $(IOS_RETRY) \
 		| tee $(IOS_OUT)/$(IOS_RESULT_NAME)-test.log | grep -E $(IOS_CONSOLE) || true
 	@$(MAKE) --no-print-directory ios-summary IOS_RESULT=$(IOS_OUT)/$(IOS_RESULT_NAME).xcresult
+	@$(MAKE) --no-print-directory ios-retried IOS_LOG=$(IOS_OUT)/$(IOS_RESULT_NAME)-test.log
 	grep -qE $(IOS_TEST_SUCCESS) $(IOS_OUT)/$(IOS_RESULT_NAME)-test.log
+
+ios-retried: ## Annotate every test that failed an attempt in IOS_LOG (whether or not its retry passed)
+	@grep -E "Test Case '-\[[^]]+\]' failed|✘ Test .* failed after" $(IOS_LOG) | sed -E 's/^.*(Test Case|✘ Test)/\1/' \
+		| cut -c1-200 | sort -u | sed 's/^/::warning title=Failed attempt (retried once)::/' || true
 
 # Sanitizer runs skip the tests whose assertion is a wall-clock budget (a stall, an overhead or a
 # threshold of tens of milliseconds): TSan and ASan slow the process several-fold, and those runs
