@@ -1,6 +1,126 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "courseDetail.notInCanvas.line" : {
+      "comment" : "Course Detail, in place of the recent grades and the category percentages, when the school does not appear to enter this course's grades into Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades for this course aren't in Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.button" : {
+      "comment" : "Button that opens the what-if calculator, where the student tries scores on work that isn't graded yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try What-If Scores"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.hiddenTotals" : {
+      "comment" : "Why the what-if calculator is not offered: the instructor hides the course total in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What-if isn't available: your instructor has hidden course totals."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.lettersOnly" : {
+      "comment" : "Why the what-if calculator is not offered: the course shows letter grades, not percentages.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What-if isn't available for a course that shows letter grades only."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.noGradePosted" : {
+      "comment" : "Why the what-if calculator is not offered: a letter-grade course with no grade posted yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What-if isn't available: no grade has been posted yet."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.notInCanvas" : {
+      "comment" : "Under the disabled what-if button: the what-if calculator works from Canvas grades, and this course's grades are not in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What-if needs grades in Canvas, and this course's grades don't appear to be kept there."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.nothingToTry" : {
+      "comment" : "Why the what-if calculator is not offered: every assignment already has a score.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everything in this course has a score, so there is nothing to try."
+          }
+        }
+      }
+    },
+    "courses.health.atRisk" : {
+      "comment" : "A course's status chip: several missing items, or the grade is well below the goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At risk"
+          }
+        }
+      }
+    },
+    "courses.health.needsAttention" : {
+      "comment" : "A course's status chip: missing work, or the grade is close to a cutoff.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs attention"
+          }
+        }
+      }
+    },
+    "courses.health.onTrack" : {
+      "comment" : "A course's status chip: nothing needs the student's attention.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On track"
+          }
+        }
+      }
+    },
     "dashboard.attention.dueSoon.title" : {
       "comment" : "Needs Attention row: an assignment is due soon. 1: its title from Canvas. 2: the time it is due, such as '2:30 PM'.",
       "extractionState" : "manual",
@@ -141,6 +261,126 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "dashboard.hero.noGrades" : {
+      "comment" : "Dashboard hero when no course has a grade to average yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grades to show yet"
+          }
+        }
+      }
+    },
+    "dashboard.hero.notInCanvas" : {
+      "comment" : "Dashboard hero caption when the student's school does not appear to keep grades in Canvas, so there is no average to show. An info button follows it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades aren't in Canvas"
+          }
+        }
+      }
+    },
+    "dashboard.hero.notInCanvas.button" : {
+      "comment" : "VoiceOver label of the info button after 'Grades aren't in Canvas' on the Dashboard hero.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About grades not in Canvas"
+          }
+        }
+      }
+    },
+    "dashboard.hero.notIncluded" : {
+      "comment" : "Dashboard hero, under the average: how many courses are left out of the average (no grade in Canvas yet, letters only, hidden by the instructor, or grades kept outside Canvas). An info button follows it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld course not included"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld courses not included"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dashboard.hero.notIncluded.button" : {
+      "comment" : "VoiceOver label of the info button after 'N courses not included' on the Dashboard hero. It opens a list of those courses and why each is left out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About the courses not included"
+          }
+        }
+      }
+    },
+    "dashboard.hero.notIncluded.title" : {
+      "comment" : "Title of the bubble that lists the courses left out of the Dashboard's average, each with the reason.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in your average"
+          }
+        }
+      }
+    },
+    "dashboard.hero.reason.hiddenByInstructor" : {
+      "comment" : "In the list of courses left out of the Dashboard's average: the instructor hides the course's total grade.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden by your instructor"
+          }
+        }
+      }
+    },
+    "dashboard.hero.reason.lettersOnly" : {
+      "comment" : "In the list of courses left out of the Dashboard's average: the course shows letter grades, not percentages.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letter grades only"
+          }
+        }
+      }
+    },
+    "dashboard.hero.reason.noPercentage" : {
+      "comment" : "In the list of courses left out of the Dashboard's average: Canvas shows this course's grade without a percentage to average.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No percentage in Canvas"
           }
         }
       }
@@ -321,6 +561,186 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Grades aren't in Canvas"
+          }
+        }
+      }
+    },
+    "grades.hidden.instructor" : {
+      "comment" : "Why a course shows no grade: the instructor hides the course total in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your instructor has hidden course totals."
+          }
+        }
+      }
+    },
+    "grades.hidden.notPosted" : {
+      "comment" : "Why a course shows no grade: Canvas has no posted grade for it yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grade has been posted yet."
+          }
+        }
+      }
+    },
+    "grades.info.body.course" : {
+      "comment" : "Info bubble body for one course whose grades the school does not appear to enter into Canvas. 'Grade portal' is the school's own grading website or app.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school doesn't appear to enter grades for this course into Canvas, so Tally can't show them. Your assignments, due dates and reminders still work. Check your school's grade portal for this grade."
+          }
+        }
+      }
+    },
+    "grades.info.body.school" : {
+      "comment" : "Info bubble body when none of the student's courses appear to have grades in Canvas. It leads to the 'Tell My School' button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school doesn't appear to enter your grades directly into Canvas. Tally can show only grades that are posted in Canvas. Your assignments, due dates and reminders still work. If you'd like to see your grades in Tally, you can let your school know."
+          }
+        }
+      }
+    },
+    "grades.info.button" : {
+      "comment" : "VoiceOver label of the info button next to a course whose grades are not in Canvas. The placeholder is the course code from Canvas, such as 'ENG-10'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About grades for %@"
+          }
+        }
+      }
+    },
+    "grades.info.shareText" : {
+      "comment" : "A message the student sends to their school from the share sheet, in the student's own voice. The placeholder is the school's name. Keep it free of links and prices.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hello, I'm a student at %@. I use Canvas to keep track of my assignments, but my grades don't appear there. Would the school consider entering grades in Canvas too? I could then see my grades next to my work, in Canvas and in apps I use with it, like Tally. Thank you."
+          }
+        }
+      }
+    },
+    "grades.info.shareText.noSchool" : {
+      "comment" : "The same message the student sends to their school, used when the school's name is not known. Keep it free of links and prices.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hello, I'm a student at your school. I use Canvas to keep track of my assignments, but my grades don't appear there. Would the school consider entering grades in Canvas too? I could then see my grades next to my work, in Canvas and in apps I use with it, like Tally. Thank you."
+          }
+        }
+      }
+    },
+    "grades.info.tellMySchool" : {
+      "comment" : "Button that opens the share sheet with a message the student can send to their school, asking it to enter grades in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell My School"
+          }
+        }
+      }
+    },
+    "grades.info.title" : {
+      "comment" : "Title of the info bubble explaining that the student's school does not appear to enter grades into Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades aren't in Canvas"
+          }
+        }
+      }
+    },
+    "grades.noGradeYet" : {
+      "comment" : "Shown where a course's grade goes when Canvas has posted no grade yet. Also a course status.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grade yet"
+          }
+        }
+      }
+    },
+    "grades.notGradedInCanvas.caption" : {
+      "comment" : "Short caption under a dash shown instead of a course grade, for a course with no graded work in Canvas (such as advisory or homeroom).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not graded in Canvas"
+          }
+        }
+      }
+    },
+    "grades.notGradedInCanvas.detail" : {
+      "comment" : "Explains why a course (such as advisory or homeroom) shows no grade: it has no graded work in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This course doesn't have graded work in Canvas."
+          }
+        }
+      }
+    },
+    "grades.notInCanvas.caption" : {
+      "comment" : "Short caption under a dash shown instead of a course grade, when the school does not appear to enter this course's grades into Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in Canvas"
+          }
+        }
+      }
+    },
+    "grades.notInCanvas.status" : {
+      "comment" : "A course's status, and what VoiceOver reads for the dash shown instead of its grade: the school does not appear to enter this course's grades into Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grade not in Canvas"
+          }
+        }
+      }
+    },
+    "insights.trend.notInCanvas" : {
+      "comment" : "Insights, in place of the performance trend chart, when the student's grades are not in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trends appear when grades are posted in Canvas."
           }
         }
       }

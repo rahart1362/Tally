@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// Course Detail's segments (ux-ui.md §3.7.3): no "People" tab; instructor contact is in Overview.
 nonisolated enum CourseDetailSegment: String, CaseIterable, Identifiable {
@@ -86,13 +87,26 @@ struct CourseDetailView: View {
 
     @ViewBuilder
     private func overview(_ detail: CourseDetailProjection) -> some View {
+        // Plan 08 §4.4 row 5 and §4.5: the bubble's content, inline, for a course whose grades are
+        // kept outside Canvas (the hero shows the dash).
+        if case .keptOutside(let scope) = detail.grade.notInCanvas {
+            Section {
+                GradeInfoBubble(scope: scope)
+                    .padding(.vertical, TallySpacing.sm)
+            }
+        }
         if let next = detail.nextDueText {
             Section("Next due") {
                 Text(next).font(TallyTypography.body)
             }
         }
-        if !detail.recentGraded.isEmpty {
+        if !detail.recentGraded.isEmpty || detail.recentGradesNote != nil {
             Section("Recent grades") {
+                if let note = detail.recentGradesNote {
+                    Text(verbatim: note)
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textSecondary)
+                }
                 ForEach(detail.recentGraded) { item in
                     HStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
@@ -136,11 +150,17 @@ struct CourseDetailView: View {
                 Button {
                     whatIf = WhatIfModel(setup: setup)
                 } label: {
-                    Label("Try What-If Scores", systemImage: "flask")
+                    whatIfLabel
                 }
                 .accessibilityIdentifier("courseDetail.whatIf")
-            } else {
-                Text(Self.whatIfUnavailable(detail))
+            } else if let reason = detail.whatIfUnavailable {
+                // Plan 08 §4.4 row 6: disabled, with its explanation, rather than gone without a word.
+                if reason.showsDisabledButton {
+                    Button {} label: { whatIfLabel }
+                        .disabled(true)
+                        .accessibilityIdentifier("courseDetail.whatIf.disabled")
+                }
+                Text(verbatim: reason.text)
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
             }
@@ -159,6 +179,14 @@ struct CourseDetailView: View {
             } header: {
                 Text(detail.instructors.count == 1 ? "Instructor" : "Instructors")
             }
+        }
+    }
+
+    private var whatIfLabel: some View {
+        Label {
+            Text(L10n.CourseDetail.whatIfButton())
+        } icon: {
+            Image(systemName: "flask")
         }
     }
 
@@ -213,24 +241,36 @@ struct CourseDetailView: View {
                 HStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
                     VStack(alignment: .leading, spacing: TallySpacing.xs) {
                         Text(category.name).font(TallyTypography.body)
-                        Text(category.weightText)
-                            .font(TallyTypography.footnote)
-                            .foregroundStyle(TallyColor.textSecondary)
+                        if let weightText = category.weightText {
+                            Text(weightText)
+                                .font(TallyTypography.footnote)
+                                .foregroundStyle(TallyColor.textSecondary)
+                        }
                     }
                     Spacer(minLength: TallySpacing.sm)
-                    Text(categoryPercent(category, in: detail))
-                        .font(TallyTypography.subheadline)
-                        .foregroundStyle(TallyColor.textPrimary)
-                        .monospacedDigit()
+                    // Plan 08 §4.4 row 5: names only for a course whose grades are not in Canvas.
+                    if detail.grade.notInCanvas == nil {
+                        Text(categoryPercent(category, in: detail))
+                            .font(TallyTypography.subheadline)
+                            .foregroundStyle(TallyColor.textPrimary)
+                            .monospacedDigit()
+                    }
                 }
                 .accessibilityElement(children: .combine)
             }
         } header: {
             Text("Categories")
         } footer: {
-            Text(detail.showsCategoryPercentages
-                 ? "Current grade counts graded work only."
-                 : (detail.grade.hiddenReason ?? "This course shows letter grades only."))
+            switch detail.grade.notInCanvas {
+            case .keptOutside?:
+                Text(L10n.CourseDetail.notInCanvasLine())
+            case .notGraded?:
+                Text(L10n.Grades.notGradedDetail())
+            case nil:
+                Text(detail.showsCategoryPercentages
+                     ? "Current grade counts graded work only."
+                     : (detail.grade.hiddenReason ?? "This course shows letter grades only."))
+            }
         }
     }
 
@@ -242,16 +282,6 @@ struct CourseDetailView: View {
 
     private static func percent(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(1))) + "%"
-    }
-
-    private static func whatIfUnavailable(_ detail: CourseDetailProjection) -> String {
-        if let reason = detail.grade.hiddenReason, !detail.showsCategoryPercentages {
-            return "What-if isn't available: \(reason.lowercased())"
-        }
-        if !detail.showsCategoryPercentages {
-            return "What-if isn't available for a course that shows letter grades only."
-        }
-        return "Everything in this course has a score, so there is nothing to try."
     }
 }
 
@@ -288,7 +318,7 @@ struct CourseHeroCard: View {
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
                 grade
-                if detail.health != .noGradeYet {
+                if !detail.health.isSaidByTheGrade {
                     Label(detail.health.label, systemImage: detail.health.symbol)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textOnHero2)
@@ -306,7 +336,18 @@ struct CourseHeroCard: View {
 
     @ViewBuilder
     private var grade: some View {
-        if let percent = detail.grade.percentText {
+        if let notInCanvas = detail.grade.notInCanvas {
+            // Plan 08 §4.4 row 5: the dash and its caption; the card below explains (the hero is
+            // one VoiceOver element, whose label says "Grade not in Canvas").
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                Text(verbatim: GradeNotInCanvas.dash)
+                    .font(.system(.largeTitle, design: .serif).bold())
+                    .foregroundStyle(TallyColor.textOnHero)
+                Text(verbatim: notInCanvas.caption)
+                    .font(TallyTypography.footnote)
+                    .foregroundStyle(TallyColor.textOnHero2)
+            }
+        } else if let percent = detail.grade.percentText {
             HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
                 Text(percent)
                     .font(.system(.largeTitle, design: .serif).bold())
@@ -324,7 +365,7 @@ struct CourseHeroCard: View {
                 .foregroundStyle(TallyColor.textOnHero)
         } else {
             VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                Text("No grade yet")
+                Text(L10n.Grades.noGradeYet())
                     .font(TallyTypography.sectionHeader)
                     .foregroundStyle(TallyColor.textOnHero)
                 if let reason = detail.grade.hiddenReason {

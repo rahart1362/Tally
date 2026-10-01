@@ -12,6 +12,8 @@ import TallyDomain
 struct CoursesScreen: View {
     @Environment(HomeModel.self) private var model
     @State private var editMode: EditMode = .inactive
+    /// Plan 08 §4.5: the card whose ⓘ bubble is open (its button, or the card's VoiceOver action).
+    @State private var infoCourse: CanvasID<Course>?
 
     var body: some View {
         Group {
@@ -22,10 +24,20 @@ struct CoursesScreen: View {
                     ForEach(model.courseCards) { card in
                         // One VoiceOver element per card (ux-ui.md §3.7.2): the link's own label.
                         NavigationLink(value: card.id) {
-                            CourseCardView(card: card)
+                            CourseCardView(card: card, isInfoPresented: infoBinding(for: card.id))
                         }
                         .accessibilityLabel(card.accessibilityLabel)
                         .accessibilityIdentifier("course.card")
+                        // The card is one element, so its ⓘ button is reached as the card's action.
+                        .accessibilityActions {
+                            if let label = card.infoButtonLabel {
+                                Button {
+                                    infoCourse = card.id
+                                } label: {
+                                    Text(verbatim: label)
+                                }
+                            }
+                        }
                     }
                     .onMove { source, destination in
                         model.moveCourses(fromOffsets: source, toOffset: destination)
@@ -53,6 +65,10 @@ struct CoursesScreen: View {
         }
     }
 
+    private func infoBinding(for id: CanvasID<Course>) -> Binding<Bool> {
+        Binding(get: { infoCourse == id }, set: { infoCourse = $0 ? id : nil })
+    }
+
     @ViewBuilder
     private var emptyState: some View {
         switch model.phase {
@@ -73,9 +89,11 @@ struct CoursesScreen: View {
 }
 
 /// One course card (ux-ui.md §3.7.2): colour bar, name, code, grade, next due and the health chip.
-/// From the accessibility sizes up, the grade moves under the name instead of beside it.
+/// From the accessibility sizes up, the grade moves under the name instead of beside it. A course
+/// whose grades are not in Canvas shows "—" and its caption instead (plan 08 §4.4 row 3).
 struct CourseCardView: View {
     let card: CourseCard
+    var isInfoPresented: Binding<Bool> = .constant(false)
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -98,8 +116,8 @@ struct CourseCardView: View {
                             .font(TallyTypography.footnote)
                             .foregroundStyle(TallyColor.textSecondary)
                     }
-                    // "No grade yet" is already said where the grade goes.
-                    if card.health != .noGradeYet {
+                    // "No grade yet" and "Grade not in Canvas" are already said where the grade goes.
+                    if !card.health.isSaidByTheGrade {
                         StatusChip(symbol: card.health.symbol, text: card.health.label, tone: card.health.tone)
                     }
                 }
@@ -112,6 +130,17 @@ struct CourseCardView: View {
 
     @ViewBuilder
     private var grade: some View {
+        if let notInCanvas = card.notInCanvas {
+            GradeNotInCanvasValue(notInCanvas: notInCanvas, infoButtonLabel: card.infoButtonLabel,
+                                  isInfoPresented: isInfoPresented,
+                                  alignment: typeSize.isAccessibilitySize ? .leading : .trailing)
+        } else {
+            gradeInCanvas
+        }
+    }
+
+    @ViewBuilder
+    private var gradeInCanvas: some View {
         VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: TallySpacing.xs) {
             if let letter = card.letter {
                 Text(letter)

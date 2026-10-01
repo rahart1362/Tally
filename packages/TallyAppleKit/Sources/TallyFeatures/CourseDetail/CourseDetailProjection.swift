@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// One category's share of a course grade: the category-weights chart (`chart.weights`, ux-ui.md
 /// §3.5 "horizontal BarMark with direct labels") and the Grades table.
@@ -52,8 +53,44 @@ public nonisolated struct CourseAssignmentSection: Identifiable, Equatable, Send
 public nonisolated struct CategoryRow: Identifiable, Equatable, Sendable {
     public let id: CanvasID<AssignmentGroup>
     public let name: String
-    /// "30% of grade", or "Points-based" when the course sums points.
-    public let weightText: String
+    /// "30% of grade", or "Points-based" when the course sums points; `nil` for a course whose
+    /// grades are not in Canvas (plan 08 §4.4 row 5: Canvas's weights don't describe an external
+    /// gradebook).
+    public let weightText: String?
+}
+
+/// Why the what-if calculator is not offered (plan 08 §4.4 row 6). Each is a whole sentence.
+public nonisolated enum WhatIfUnavailable: Equatable, Sendable {
+    /// The course's grades are kept outside Canvas (G-4's sentence).
+    case notInCanvas
+    /// The course has no graded work in Canvas (advisory, homeroom).
+    case notGradedInCanvas
+    case hiddenTotals
+    /// A letters-only course with no grade posted yet.
+    case noGradePosted
+    case lettersOnly
+    /// Every item already has a score.
+    case nothingToTry
+
+    /// Plan 08 §4.4 row 6: for a course whose grades are not in Canvas the button stays on screen,
+    /// disabled, above the explanation, rather than disappearing without a word.
+    public var showsDisabledButton: Bool {
+        switch self {
+        case .notInCanvas, .notGradedInCanvas: true
+        case .hiddenTotals, .noGradePosted, .lettersOnly, .nothingToTry: false
+        }
+    }
+
+    public var text: String {
+        switch self {
+        case .notInCanvas: String(localized: L10n.CourseDetail.whatIfNotInCanvas())
+        case .notGradedInCanvas: String(localized: L10n.Grades.notGradedDetail())
+        case .hiddenTotals: String(localized: L10n.CourseDetail.whatIfHiddenTotals())
+        case .noGradePosted: String(localized: L10n.CourseDetail.whatIfNoGradePosted())
+        case .lettersOnly: String(localized: L10n.CourseDetail.whatIfLettersOnly())
+        case .nothingToTry: String(localized: L10n.CourseDetail.whatIfNothingToTry())
+        }
+    }
 }
 
 /// The what-if sheet's rows (UX-WP-16): work that has no posted score yet, grouped by category.
@@ -117,6 +154,11 @@ public nonisolated struct CourseDetailProjection: Identifiable, Equatable, Senda
     /// The Grades segment's source for category percentages: the same input the what-if uses.
     public let gradeInput: GradeInput?
     public let whatIf: WhatIfSetup?
+    /// Why there is no what-if, when there is none.
+    public let whatIfUnavailable: WhatIfUnavailable?
+    /// Plan 08 §4.4 row 5: "Grades for this course aren't in Canvas.", in place of the recent
+    /// grades, for a course whose grades are kept outside Canvas.
+    public let recentGradesNote: String?
     public let canvasURL: URL?
     public let distribution: GradeDistribution?
 }
@@ -126,53 +168,89 @@ public nonisolated enum CourseDetailBuilder {
     /// "Recent graded items" on the Overview.
     static let recentGradedLimit = 5
 
-    public static func details(from snapshot: CanvasSnapshot, formatter: ScreenFormatter)
+    /// - Parameter gradeAvailability: the projection's `GradeAvailabilityIndex` (plan 08 §4.3);
+    ///   `nil` classifies the snapshot at `formatter.now` with no override.
+    public static func details(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
+                               gradeAvailability: GradeAvailabilityIndex? = nil)
         -> [CanvasID<Course>: CourseDetailProjection] {
+        let availability = gradeAvailability
+            ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
         var details: [CanvasID<Course>: CourseDetailProjection] = [:]
         for (index, course) in snapshot.courses.enumerated() where details[course.id] == nil {
-            details[course.id] = detail(course: course, paletteIndex: index, snapshot: snapshot, formatter: formatter)
+            details[course.id] = detail(course: course, paletteIndex: index, snapshot: snapshot,
+                                        availability: availability[course.id], school: availability.school,
+                                        formatter: formatter)
         }
         return details
     }
 
+    /// Plan 08 §4.4 rows 5 and 6 (XG-03): for a course whose grades are not in Canvas the hero
+    /// shows the dash, the recent grades become one line, the categories keep their names only,
+    /// and there is no category chart, no category percentage and no what-if.
     static func detail(course: Course, paletteIndex: Int, snapshot: CanvasSnapshot,
+                       availability: GradeAvailability? = nil, school: SchoolGradeSummary = .undetermined,
                        formatter: ScreenFormatter) -> CourseDetailProjection {
         let groups = snapshot.groups[course.id] ?? []
         let periods = snapshot.gradingPeriods[course.id] ?? []
-        let grade = GradeDisplay(course: course, formatter: formatter)
+        let grade = GradeDisplay(course: course, availability: availability, school: school, formatter: formatter)
         let health = CourseHealthRules.evaluate(course: course, groups: groups, gradingPeriods: periods,
-                                                formatter: formatter).health
+                                                availability: availability, formatter: formatter).health
         let next = CourseCardBuilder.nextDue(in: groups, now: formatter.now)
-        let weights = categoryWeights(course: course, groups: groups, formatter: formatter)
+        let inCanvas = grade.notInCanvas == nil
+        let weights = inCanvas ? categoryWeights(course: course, groups: groups, formatter: formatter) : []
         let lettersOnly = course.gradeVisibility == .lettersOnly
-        let percentagesVisible = course.gradeVisibility == .visible
+        let percentagesVisible = course.gradeVisibility == .visible && inCanvas
         let input = GradeInput(course: course, groups: groups, gradingPeriods: periods)
+        let whatIf = percentagesVisible ? whatIfSetup(course: course, groups: groups, input: input, formatter: formatter) : nil
 
         var heroWords = [course.name, course.courseCode, grade.spoken]
         if percentagesVisible, course.scores?.currentScore != nil {
             heroWords.append("current grade counts graded work only")
         }
-        heroWords.append(health.label)
+        // The dash's own words already say "Grade not in Canvas".
+        if health != .gradeNotInCanvas { heroWords.append(health.label) }
+
+        var keptOutside = false
+        if case .keptOutside = grade.notInCanvas { keptOutside = true }
 
         return CourseDetailProjection(
             id: course.id, name: course.name, code: course.courseCode, paletteIndex: paletteIndex, grade: grade,
             health: health, heroLabel: heroWords.joined(separator: ", "),
             nextDueText: next.map { "\($0.name) · \(formatter.dueText($0.dueAt ?? formatter.now))" },
-            recentGraded: recentGraded(groups: groups, lettersOnly: lettersOnly, formatter: formatter),
+            recentGraded: keptOutside ? [] : recentGraded(groups: groups, lettersOnly: lettersOnly, formatter: formatter),
             weights: weights, weightsAreInstructorSet: course.appliesGroupWeights,
             weightsSummary: weights.map { "\($0.name) \($0.shareText)" }.joined(separator: ", "),
             instructors: course.teachers.map(\.displayName),
             sections: sections(groups: groups, lettersOnly: lettersOnly, formatter: formatter),
             categories: groups.map { group in
                 CategoryRow(id: group.id, name: group.name,
-                            weightText: course.appliesGroupWeights
+                            weightText: !inCanvas ? nil : course.appliesGroupWeights
                                 ? "\(formatter.pointsText(group.weight ?? 0))% of grade" : "Points-based")
             },
             showsCategoryPercentages: percentagesVisible,
             gradeInput: percentagesVisible ? input : nil,
-            whatIf: percentagesVisible ? whatIfSetup(course: course, groups: groups, input: input, formatter: formatter) : nil,
+            whatIf: whatIf,
+            whatIfUnavailable: whatIf != nil ? nil
+                : whatIfUnavailable(course: course, grade: grade, percentagesVisible: percentagesVisible),
+            recentGradesNote: keptOutside ? String(localized: L10n.CourseDetail.notInCanvasLine()) : nil,
             canvasURL: course.htmlURL,
             distribution: nil)
+    }
+
+    /// The reason the what-if is not offered: the grades are not in Canvas (plan 08 §4.4 row 6),
+    /// the instructor hides the totals, the course shows letters only (with or without a posted
+    /// grade), or nothing is left without a score.
+    static func whatIfUnavailable(course: Course, grade: GradeDisplay, percentagesVisible: Bool) -> WhatIfUnavailable {
+        switch grade.notInCanvas {
+        case .keptOutside?: return .notInCanvas
+        case .notGraded?: return .notGradedInCanvas
+        case nil: break
+        }
+        guard !percentagesVisible else { return .nothingToTry }
+        switch course.gradeVisibility {
+        case .hiddenTotals: return .hiddenTotals
+        case .lettersOnly, .visible: return grade.letter == nil ? .noGradePosted : .lettersOnly
+        }
     }
 
     // MARK: - Category weights

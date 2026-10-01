@@ -92,17 +92,26 @@ private struct DashboardLoadingView: View {
 
 /// Its freshness line and refresh button are a separate leaf (`FreshnessFooter`), so a change of
 /// freshness re-renders that footer only.
-private struct HeroSection: View {
+///
+/// Plan 08 G-5 (XG-03): under the figures, "2 courses not included ⓘ" when some courses are left
+/// out of the average (the bubble lists each with its reason), or, when nothing can be averaged and
+/// the school does not appear to keep grades in Canvas, a dash and "Grades aren't in Canvas ⓘ".
+/// A11Y-07's single hero element keeps its label ("Average of 5 courses, 88.3%"); in the
+/// not-in-Canvas variant the dash is hidden from VoiceOver, which reads the caption and then the
+/// labelled ⓘ button (a control is never combined into the figures' element).
+struct HeroSection: View {
     let hero: DashboardProjection.Hero
     /// The launch's glance paint: the percentage is a skeleton until the full projection.
     var isGlance = false
+    @State private var showsInfo = false
 
     var body: some View {
+        let caption = HeroCaption(hero)
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             VStack(alignment: .leading, spacing: TallySpacing.md) {
                 // Plan 08 L10N-01 exemplar: a plural key in the TallyStrings catalog, same English text.
                 // Plan 08 G-5 (XG-02): N counts only the courses averaged; with none, there is no
-                // average to caption (XG-03 draws the "not included" and "not in Canvas" rows).
+                // average to caption.
                 if hero.averagedCount > 0 {
                     Text(L10n.Dashboard.averageOfCourses(hero.averagedCount))
                         .font(TallyTypography.footnote)
@@ -128,8 +137,12 @@ private struct HeroSection: View {
                                 .foregroundStyle(TallyColor.brandGold)
                         }
                     }
+                } else if caption == .notInCanvas {
+                    Text(verbatim: GradeNotInCanvas.dash)
+                        .font(.system(.largeTitle, design: .serif).bold())
+                        .foregroundStyle(TallyColor.textOnHero)
                 } else {
-                    Text("No grades to show yet")
+                    Text(L10n.Dashboard.noGradesYet())
                         .font(TallyTypography.body)
                         .foregroundStyle(TallyColor.textOnHero2)
                 }
@@ -137,12 +150,51 @@ private struct HeroSection: View {
             // The figures read as one element; the footer's refresh button stays its own element
             // (perf-app-runtime.md §3 item 7: never combine children that include a control).
             .accessibilityElement(children: .combine)
+            // The dash says nothing VoiceOver should read: the caption below does.
+            .accessibilityHidden(caption == .notInCanvas)
+
+            if caption != .noRow {
+                captionRow(caption)
+            }
 
             FreshnessFooter()
         }
         .padding(TallySpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func captionRow(_ caption: HeroCaption) -> some View {
+        switch caption {
+        case .noRow:
+            EmptyView()
+        case .notIncluded(let count):
+            HStack(spacing: 0) {
+                Text(L10n.Dashboard.coursesNotIncluded(count))
+                    .font(TallyTypography.footnote)
+                    .foregroundStyle(TallyColor.textOnHero2)
+                GradeInfoButton(label: Text(L10n.Dashboard.notIncludedButton()), isPresented: $showsInfo) {
+                    GradeInfoBubble(title: L10n.Dashboard.notIncludedTitle(),
+                                    offersTellMySchool: hero.exclusions[.keptOutsideCanvas] != nil) {
+                        HeroExclusionList()
+                    }
+                }
+                .tint(TallyColor.textOnHero)
+                // The glance has no course rows to list: the button waits for the projection.
+                .disabled(isGlance)
+            }
+        case .notInCanvas:
+            HStack(spacing: 0) {
+                Text(L10n.Dashboard.heroNotInCanvas())
+                    .font(TallyTypography.footnote)
+                    .foregroundStyle(TallyColor.textOnHero2)
+                GradeInfoButton(label: Text(L10n.Dashboard.notInCanvasButton()), isPresented: $showsInfo) {
+                    GradeInfoBubble(scope: .school)
+                }
+                .tint(TallyColor.textOnHero)
+            }
+        }
     }
 
     private func bandLabel(_ band: GradeBand) -> String {
@@ -155,6 +207,54 @@ private struct HeroSection: View {
         case .passing: "Passing"
         case .failing: "Failing"
         case .unknown: ""
+        }
+    }
+}
+
+/// Which caption row the hero shows under its figures (plan 08 G-5). Pure, so hosted tests pin it.
+nonisolated enum HeroCaption: Equatable, Sendable {
+    /// Every course is averaged (the flagship), or there is nothing to caption.
+    case noRow
+    /// Some courses are averaged and `count` are left out: "2 courses not included ⓘ".
+    case notIncluded(Int)
+    /// Nothing is averaged and the school does not appear to keep grades in Canvas: the dash and
+    /// "Grades aren't in Canvas ⓘ".
+    case notInCanvas
+
+    init(_ hero: DashboardProjection.Hero) {
+        let excluded = hero.courseCount - hero.averagedCount
+        if hero.averagedCount > 0 {
+            self = excluded > 0 ? .notIncluded(excluded) : .noRow
+        } else {
+            self = hero.school == .noneInCanvas ? .notInCanvas : .noRow
+        }
+    }
+}
+
+/// The courses left out of the average, each with its reason: the Home course rows (plan 08 §4.4
+/// row 17) through `HeroExclusion`, in Canvas order. Read when the bubble opens, never in the
+/// Dashboard's own body.
+struct HeroExclusionList: View {
+    @Environment(HomeModel.self) private var model: HomeModel?
+
+    var body: some View {
+        let courses = model?.courses ?? []
+        VStack(alignment: .leading, spacing: TallySpacing.sm) {
+            ForEach(courses.indices, id: \.self) { index in
+                if let reason = HeroExclusion.reason(HeroExclusion.status(of: courses[index])) {
+                    HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                        Text(verbatim: courses[index].code)
+                            .font(TallyTypography.cardTitle)
+                            .foregroundStyle(TallyColor.textPrimary)
+                        Spacer(minLength: TallySpacing.sm)
+                        Text(reason)
+                            .font(TallyTypography.footnote)
+                            .foregroundStyle(TallyColor.textSecondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
     }
 }

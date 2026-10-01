@@ -60,10 +60,14 @@ public nonisolated struct InsightsProjection: Equatable, Sendable {
     public let streak: StreakInsight
     public let risks: [CourseRisk]
     public let heavyStretches: [HeavyStretch]
-    /// What grades are made of, across every course (`chart.weights`).
+    /// What grades are made of, across every course whose grades are in Canvas (`chart.weights`).
     public let categoryShares: [CategoryWeight]
     public let categorySummary: String
     public let trendInput: TrendInput
+    /// Plan 08 §4.4 row 7 (XG-03): no course qualifies for the trend, and at least one is left out
+    /// because its grades are kept outside Canvas. The trend card then says "Trends appear when
+    /// grades are posted in Canvas." instead of drawing an empty chart.
+    public var trendIsNotInCanvas = false
 
     public static let empty = InsightsProjection(
         completion: nil, streak: StreakInsight(days: 0, headline: "No current streak"), risks: [],
@@ -75,15 +79,24 @@ public nonisolated enum InsightsBuilder {
     /// Categories shown in the breakdown before the rest are summed as "Other".
     static let categoryLimit = 5
 
-    public static func projection(from snapshot: CanvasSnapshot, formatter: ScreenFormatter) -> InsightsProjection {
-        let (shares, summary) = categoryShares(snapshot, formatter: formatter)
-        return InsightsProjection(
+    /// - Parameter gradeAvailability: the projection's `GradeAvailabilityIndex` (plan 08 §4.3);
+    ///   `nil` classifies the snapshot at `formatter.now` with no override. Completion, momentum
+    ///   and heavy stretches are submission-based and do not read it (§4.4 row 9).
+    public static func projection(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
+                                  gradeAvailability: GradeAvailabilityIndex? = nil) -> InsightsProjection {
+        let index = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
+        let (shares, summary) = categoryShares(snapshot, gradeAvailability: index, formatter: formatter)
+        let trend = trendInput(snapshot, gradeAvailability: index, now: formatter.now)
+        var projection = InsightsProjection(
             completion: completion(snapshot, now: formatter.now),
             streak: streak(snapshot, formatter: formatter),
-            risks: risks(snapshot, formatter: formatter),
+            risks: risks(snapshot, gradeAvailability: index, formatter: formatter),
             heavyStretches: heavyStretches(snapshot, formatter: formatter),
             categoryShares: shares, categorySummary: summary,
-            trendInput: trendInput(snapshot, now: formatter.now))
+            trendInput: trend)
+        projection.trendIsNotInCanvas = trend.courses.isEmpty
+            && index.byCourse.values.contains { if case .keptOutsideCanvas = $0 { true } else { false } }
+        return projection
     }
 
     // MARK: - Completion: on time this term
@@ -129,13 +142,17 @@ public nonisolated enum InsightsBuilder {
 
     // MARK: - At risk
 
-    static func risks(_ snapshot: CanvasSnapshot, formatter: ScreenFormatter) -> [CourseRisk] {
+    /// Plan 08 §4.4 row 10: the grade reasons (below the goal, near a cutoff) only for a course
+    /// whose grades are in Canvas as percentages; the missing-work reasons for every course.
+    static func risks(_ snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex,
+                      formatter: ScreenFormatter) -> [CourseRisk] {
         var seen = Set<CanvasID<Course>>()
         let rows = snapshot.courses.compactMap { course -> CourseRisk? in
             guard seen.insert(course.id).inserted else { return nil }
             let evaluation = CourseHealthRules.evaluate(
                 course: course, groups: snapshot.groups[course.id] ?? [],
-                gradingPeriods: snapshot.gradingPeriods[course.id] ?? [], formatter: formatter)
+                gradingPeriods: snapshot.gradingPeriods[course.id] ?? [],
+                availability: gradeAvailability[course.id], formatter: formatter)
             guard evaluation.health == .atRisk || evaluation.health == .needsAttention else { return nil }
             let spoken = ([course.name, course.courseCode, evaluation.health.label] + evaluation.reasons)
                 .joined(separator: ", ")
@@ -190,9 +207,20 @@ public nonisolated enum InsightsBuilder {
     /// Each category's average share of a course grade across every course: a course without the
     /// category counts as 0, so the shares add up to the whole. Categories are matched by name,
     /// ignoring case; beyond `categoryLimit`, the rest are summed as "Other".
-    static func categoryShares(_ snapshot: CanvasSnapshot, formatter: ScreenFormatter) -> ([CategoryWeight], String) {
+    ///
+    /// Plan 08 §4.4 row 8: a course whose grades are kept outside Canvas, or that has no graded
+    /// work in Canvas, is left out (Canvas's group weights don't describe its grade). With nothing
+    /// left, the section is hidden.
+    static func categoryShares(_ snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex,
+                               formatter: ScreenFormatter) -> ([CategoryWeight], String) {
         var seen = Set<CanvasID<Course>>()
-        let courses = snapshot.courses.filter { seen.insert($0.id).inserted }
+        let courses = snapshot.courses.filter { course in
+            guard seen.insert(course.id).inserted else { return false }
+            switch gradeAvailability[course.id] {
+            case .keptOutsideCanvas?, .notGradedInCanvas?: return false
+            case .available?, .lettersOnly?, .hiddenByInstructor?, .notYetPosted?, nil: return true
+            }
+        }
         guard !courses.isEmpty else { return ([], "") }
         var totals: [String: (name: String, share: Double, order: Int)] = [:]
         var contributing = 0
@@ -226,11 +254,13 @@ public nonisolated enum InsightsBuilder {
 
     // MARK: - Trend input (R9)
 
-    static func trendInput(_ snapshot: CanvasSnapshot, now: Date) -> TrendInput {
+    /// Plan 08 §4.4 row 7: only courses whose grades are in Canvas as percentages (`.available`).
+    static func trendInput(_ snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex, now: Date) -> TrendInput {
         var seen = Set<CanvasID<Course>>()
         var courses: [TrendInput.CourseHistory] = []
         var termStart: Date?
-        for course in snapshot.courses where seen.insert(course.id).inserted && course.gradeVisibility == .visible {
+        for course in snapshot.courses
+        where seen.insert(course.id).inserted && gradeAvailability[course.id] == .available {
             let groups = snapshot.groups[course.id] ?? []
             var posted: [CanvasID<Assignment>: Date] = [:]
             for assignment in groups.flatMap(\.assignments) {
