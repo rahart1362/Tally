@@ -762,3 +762,36 @@ Nine planted faults in one pushed commit (`.build-perf-launch/ci_mutations.py`),
 **CI mutation run 36772964490 (`b970904`, quick; reverted in `72c97aa`, the 5 files' sha256 back, `git diff --quiet 3dcebf7 72c97aa -- apps packages scripts .github`)**: **5 of 5 caught**. MU1 (the PMO mutation, `Text("New literal")` in DashboardView): hygiene failed at "No new hard-coded UI text", `DashboardView.swift: 18 hard-coded literals (baseline 17)` with `:24: ui-api: "New literal"`. In ios-build (7 failed tests on both simulators, all in the L10N-01 suite; main xcresult 356 total, 344 passed, 7 failed; floor 329, 320 passed, 7 failed; every UI test passed): MU2 (`bundle: Bundle.main`) "Average of 1 courses" and the bundle `atURL(…/Tally.app/)`; MU3 (percent divided by 100) the en_US parity test ("percent 0.35: 0.4% vs 0.3%" …); MU4 (effective = current) three effective-locale cases, the de_DE+en matrix row ("gestern, heute, morgen") and the mixed-language test; MU5 (widget InfoPlist.xcstrings removed) the widget's localized display name nil. A local slip on the revert (`git revert -q` is not an option, and the `--amend` that followed relabelled the mutation commit locally) was caught by the sha256 check before any push; the branch was reset to origin's `b970904` (same tree) and reverted properly; nothing was force-pushed.
 **Spike** (`l10n/spike`: es values, `CFBundleLocalizations [en, es]`, a probe line in the app and the widget, `L10nSpikeUITests`, ios-build narrowed to the spike tests). Runs 36768204834 (`3e43114`; the widget-gallery navigation failed), 36770738392 (`4629276`, success), 36775064980 (`e4f23be`, success; the simulator given a second preferred language). Answers in the report §2: `#bundle` and the nonisolated resource target work from main-actor callers (app and widget); the Language row appears with [en, es] only once the iPhone has a second preferred language, and choosing Español there switched the app to Spanish; the widget follows the per-app language (gallery "Lo próximo", preview probe `main=es str=es cur=es_US`); with `-AppleLanguages (de) -AppleLocale de_DE` and English UI, `Locale.current` is `en_DE` (English words, German numbers).
 **Merge**: `origin/main` @ `d4531fd` (PR #10, PERF-L) merged (`991b8d7`), journal conflict only; PERF-L's new `testEmptySceneToTask` launch pinned too (`d640428`). Gates on the merged tree: lint 476 / baseline 476, catalogs PASS, widget isolation, privacy manifest and view bodies clean; `make lint` 0 violations in 214 files.
+
+## 2026-10-01 | L10N-02 string-free TallyCore (branch core/l10n02): values in TallyDomain, renderers in TallyStrings
+**Built** (plan 08 §3.2/§5 L10N-02):
+- `NotificationContent` builders became `NotificationMessage`: names, dates, counts and flags; no score or grade payload; `.hidden` names when "Hide course names" is on.
+- `NextUpItem.reason` became `reasonFactors`, with `PriorityScore.ReasonPart` keeping the rounding and the CS guard in TallyDomain.
+- `AttentionItem.Content`; `ChangeSummary(count:asOf:)`. `shortTime`/`shortDate` and `InstitutionEnablementError.message` are deleted.
+- `TallyStrings/Render/{NotificationText,DashboardText,RenderSupport}.swift` add 39 catalog keys; `TallyStrings` now depends on `TallyDomain`.
+- `ReminderSubjects` builds the messages and renders them; `HomeProjector.localized` is removed; `DashboardView` renders the rows.
+- Literal baseline 476 → 440 (`--update`); the TallyDomain files are at 0.
+
+**Before the change**, a temporary Linux test captured 628ee09's English (`.build-l10n02/golden-628ee09.txt`, 523 lines, sha256 `41d7be30…0f19`): 23 notification outputs, 432 reasons, and every persona's dashboard at two instants.
+
+**Local** (`c772c88`):
+- `make core-build` clean (warnings are errors); `make core-test`: 649 tests, all pass, 4 known issues; `make lint`: 0 violations in 218 files.
+- Hygiene gates: lint 440/440, catalogs PASS (4 catalogs, 46 keys), view bodies clean, privacy, widget isolation (modules now include TallyDomain via TallyStrings; PASS).
+- **Local mutations, 8 of 8 caught** (`.build-l10n02/mutate_local.py`; each file restored, sha256 equal):
+  - LM1 a `score: Double?` payload on `.gradePosted`;
+  - LM2 `Subject` ignores Hide course names;
+  - LM3 the non-finite guard removed;
+  - LM4 the 1-minute floor removed;
+  - LM5 the overload row given the wrong date;
+  - LM6 the change count off by one;
+  - LM7 an English sentence back in `DashboardProjection.swift`;
+  - LM8 a new TallyDomain file with English.
+- A scratch harness compiled the renderers, `ReminderSubjects` and the golden support on Linux against the real TallyDomain, with a catalog emulation. Its sweeps had 0 mismatches (4,352 reminder strings, 256 dashboard strings, 1,008 reasons, 93 chips).
+
+**Quick run 36795199706** (`c772c88`): hygiene, core-linux (649 tests), lint, core-sanitizers and core-perf passed; the iOS Debug build and the test build passed. ios-build failed on 2 of my own locale-sample expectations, identically on both simulators. ICU's en_GB and en_DE short times have no leading zero: "Due 1 Oct at 8:30." and "Due tomorrow at 9:00.", where I had written "08:30" and "09:00". Every other check passed:
+- the en_US literal goldens and all four differential sweeps;
+- every key resolving, and "1 change since 2:13 PM" (the catalog's plural form);
+- the en_GB dates ("2 Oct 2026") and the en_DE "~11 % of BIO 101";
+- `RemindersTests` and every UI test.
+
+Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 347 total, 343 passed, 2 failed, 2 expected. The 2 expectations are corrected in the next commit.

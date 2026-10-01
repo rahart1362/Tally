@@ -221,13 +221,14 @@ struct RendererGoldenTests {
 
     // MARK: - A locale sample
 
-    /// en_GB: 24-hour times and day-first dates, English words.
+    /// en_GB: 24-hour times and day-first dates, English words. (ICU's short time for en_GB and
+    /// en_DE has no leading zero: "8:30", "9:00", as run 36795199706 showed.)
     @Test("en_GB: 24-hour times, day-first dates, the same words")
     func britishEnglish() {
         let gb = Locale(identifier: "en_GB")
         #expect(Self.render(.due(Self.lab, dueAt: Self.at(1_790_031_600), isFinalReminder: false), locale: gb)
                     == ["Lab Report 4 · BIO 101", "Due today at 18:00."])
-        #expect(Self.render(.examReminder(Self.lab, dueAt: Self.at(1_790_861_400)), locale: gb)[1] == "Due 1 Oct at 08:30.")
+        #expect(Self.render(.examReminder(Self.lab, dueAt: Self.at(1_790_861_400)), locale: gb)[1] == "Due 1 Oct at 8:30.")
         #expect(Self.render(.sentinel(lastSuccess: Self.at(1_789_931_640)), locale: gb)[0] == "Tally hasn't refreshed since yesterday at 14:14")
         let chicago = Self.calendar(Self.chicago)
         #expect(Self.plain(DashboardText.attentionTitle(.dueSoon(title: "Exam 1", dueAt: Self.at(1_790_016_600), courseCode: "PSY 101"),
@@ -246,7 +247,7 @@ struct RendererGoldenTests {
         #expect(locale.identifier == "en_DE")
         #expect(Self.render(.due(Self.lab, dueAt: Self.at(1_790_031_600), isFinalReminder: false), locale: locale)[1]
                     == "Due today at 18:00.")
-        #expect(Self.render(.examReminder(Self.lab, dueAt: Self.at(1_790_085_600)), locale: locale)[1] == "Due tomorrow at 09:00.")
+        #expect(Self.render(.examReminder(Self.lab, dueAt: Self.at(1_790_085_600)), locale: locale)[1] == "Due tomorrow at 9:00.")
         #expect(Self.plain(DashboardText.reason([.overdue, .courseWeight(0.11)], courseCode: "BIO 101", locale: locale))
                     == "Overdue · ~11 % of BIO 101")
         #expect(Self.plain(DashboardText.changeSummary(.init(count: 1, asOf: Self.at(1_790_017_980)),
