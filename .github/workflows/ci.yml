@@ -223,7 +223,7 @@ jobs:
   ios-build:
     name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
-    # 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
+    # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
     timeout-minutes: 90 # 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
     steps:
