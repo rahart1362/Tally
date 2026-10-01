@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-17 / ARC E05d: Calendar (ux-ui.md §3.7.4). A week strip with dots for how busy each day
 /// is (today ringed), then the agenda: classes with their time range and place, items due, and a
@@ -13,7 +14,7 @@ struct CalendarScreen: View {
     nonisolated enum Mode: String, CaseIterable, Identifiable {
         case agenda, timeline
         var id: Self { self }
-        var title: String { self == .agenda ? "Agenda" : "Day" }
+        var title: LocalizedStringResource { self == .agenda ? L10n.Calendar.modeAgenda() : L10n.Calendar.modeDay() }
     }
 
     @Environment(HomeModel.self) private var model
@@ -38,7 +39,7 @@ struct CalendarScreen: View {
                     ForEach(calendar.days) { day in
                         Section {
                             if day.items.isEmpty {
-                                Text("Nothing scheduled")
+                                Text(L10n.Calendar.nothingScheduled())
                                     .font(TallyTypography.subheadline)
                                     .foregroundStyle(TallyColor.textSecondary)
                             }
@@ -75,7 +76,7 @@ struct CalendarScreen: View {
                 if let today = calendar.todayID, selectedDay == nil { proxy.scrollTo(today, anchor: .top) }
             }
         }
-        .navigationTitle(calendar.monthTitle.isEmpty ? "Calendar" : calendar.monthTitle)
+        .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -83,19 +84,19 @@ struct CalendarScreen: View {
                         Button {
                             subscribe(calendar.subscribeURL)
                         } label: {
-                            Label("Subscribe to Canvas Calendar…", systemImage: "calendar.badge.plus")
+                            Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
                         }
                     }
                     // ux-ui.md §3.7.4: the timeline only below the accessibility sizes.
                     if Self.offersTimeline(at: typeSize) {
-                        Picker("View", selection: $mode) {
+                        Picker(String(localized: L10n.Calendar.viewPickerLabel()), selection: $mode) {
                             ForEach(Mode.allCases) { mode in
                                 Text(mode.title).tag(mode)
                             }
                         }
                     }
                 } label: {
-                    Label("Calendar options", systemImage: "ellipsis.circle")
+                    Label(String(localized: L10n.Calendar.optionsMenuLabel()), systemImage: "ellipsis.circle")
                 }
                 .accessibilityIdentifier("calendar.options")
             }
@@ -104,10 +105,10 @@ struct CalendarScreen: View {
             AddToCalendarView(draft: draft) { self.draft = nil }
                 .ignoresSafeArea()
         }
-        .alert("Subscribing needs your school's Canvas", isPresented: $showsSampleFeedNote) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
+            Button(String(localized: L10n.Calendar.subscribeAlertOK()), role: .cancel) {}
         } message: {
-            Text("Sample data has no real calendar feed. Once you sign in, this adds your own Canvas calendar to the Calendar app, and it stays up to date there.")
+            Text(L10n.Calendar.subscribeSampleNote())
         }
     }
 
@@ -237,7 +238,7 @@ private struct AgendaRow: View {
                         .foregroundStyle(TallyColor.textSecondary)
                 }
                 if item.isExam {
-                    StatusChip(symbol: "graduationcap", text: "Exam", tone: .warning)
+                    StatusChip(symbol: "graduationcap", text: L10n.Calendar.examChip(), tone: .warning)
                 }
                 if let conflict = item.conflictText {
                     Label(conflict, systemImage: "exclamationmark.triangle")
@@ -255,7 +256,7 @@ private struct AgendaRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("Add \(item.title) to Calendar")
+            .accessibilityLabel(String(localized: L10n.Calendar.addToCalendar(item.title)))
             .accessibilityIdentifier("calendar.add")
         }
     }

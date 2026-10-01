@@ -72,19 +72,38 @@ struct CourseColorMark: View {
 /// An icon plus words on a tinted capsule (ux-ui.md §3.6 StatusChip): the icon's shape and the words
 /// carry the meaning; the tint only reinforces it. The words are primary-text colour, so the chip
 /// reads at full contrast whatever its tint.
+///
+/// Plan 08 §3.1/§5 (L10N-03a): this component takes `LocalizedStringResource` where it takes text.
+/// The `String` initializer stays, additively, for callers not yet swept to `L10n.*` (Courses,
+/// CourseDetail, Insights, ToDo: L10N-03b, later) — none of them pass a string literal, so there is
+/// no literal at a call site that could be ambiguous between the two initializers.
 struct StatusChip: View {
     enum Tone { case positive, warning, danger, neutral }
 
     let symbol: String
-    let text: String
+    private let label: Text
     var tone: Tone = .neutral
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
 
+    init(symbol: String, text: LocalizedStringResource, tone: Tone = .neutral) {
+        self.symbol = symbol
+        self.label = Text(text)
+        self.tone = tone
+    }
+
+    /// Not yet localized at the call site (plan 08 L10N-03b sweeps `Courses/*`, `CourseDetail/*`,
+    /// `Insights/*`, `ToDo/*`): kept so this shared component stays additive for that stream.
+    init(symbol: String, text: String, tone: Tone = .neutral) {
+        self.symbol = symbol
+        self.label = Text(text)
+        self.tone = tone
+    }
+
     var body: some View {
         let tint = ScreenPalette.color(swatch, scheme: scheme, contrast: contrast)
         Label {
-            Text(text).foregroundStyle(TallyColor.textPrimary)
+            label.foregroundStyle(TallyColor.textPrimary)
         } icon: {
             Image(systemName: symbol).foregroundStyle(tint)
         }

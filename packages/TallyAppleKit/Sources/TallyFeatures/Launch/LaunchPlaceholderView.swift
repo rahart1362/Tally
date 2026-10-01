@@ -27,7 +27,8 @@ struct LaunchPlaceholderView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(role == .privacyCover ? "Tally" : "")
+        // "Tally" is the brand name, never translated (plan 08 §3.7): verbatim, not a catalog key.
+        .accessibilityLabel(role == .privacyCover ? Text(verbatim: "Tally") : Text(verbatim: ""))
         .accessibilityIdentifier(role == .privacyCover ? "privacy.cover" : "launch.placeholder")
     }
 }

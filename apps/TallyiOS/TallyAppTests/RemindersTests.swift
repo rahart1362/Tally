@@ -4,6 +4,7 @@ import Synchronization
 import Testing
 import TallyDomain
 import TallyStore
+import TallyStrings
 import TallySync
 import TallyTestSupport
 @testable import TallyFeatures
@@ -383,6 +384,36 @@ struct ReminderPipelineTests {
         await coordinator.bumpEpochAndCancel()
         #expect(await rig.pass(coordinator) == .noSnapshot)
         #expect(rig.platform.scheduledIDs.isEmpty)
+    }
+
+    /// Plan 08 §3.3 fix (L10N-03a): `ReminderPipeline.reconcile`/`attach` used to default `locale:`
+    /// to `Locale.current`; it is now `TallyLocale.effective` (`ReminderPipeline.swift`). Two
+    /// otherwise-identical passes, one with the default and one with `locale: TallyLocale.effective`
+    /// explicit, must schedule the same words.
+    ///
+    /// UNVERIFIED by mutation in this CI environment specifically, for the same reason noted on
+    /// `FreshnessPresenterTests.defaultLocaleMatchesTallyLocaleEffective`: on iOS 26 the L10N-01
+    /// spike found `Locale.current` for an English-shipping app already equal to
+    /// `TallyLocale.effective` in every case it observed (`l10n-infra-report.md` §2 row 4), so a
+    /// revert to the old `Locale.current` default would not change this test's result here. It still
+    /// pins the intended, documented behaviour (`l10n02-report.md` §8 "For L10N-03a").
+    @Test("the default locale is TallyLocale.effective: same reminder words as passing it explicitly")
+    func defaultLocaleMatchesTallyLocaleEffective() async throws {
+        let defaultRig = try ReminderRig()
+        let defaultCoordinator = try await defaultRig.coordinator()
+        _ = await ReminderPipeline.reconcile(coordinator: defaultCoordinator, environment: defaultRig.environment,
+                                             timeZone: ReminderTestSupport.timeZone)
+
+        let explicitRig = try ReminderRig()
+        let explicitCoordinator = try await explicitRig.coordinator()
+        _ = await ReminderPipeline.reconcile(coordinator: explicitCoordinator, environment: explicitRig.environment,
+                                             timeZone: ReminderTestSupport.timeZone, locale: TallyLocale.effective)
+
+        // Compared by words, not by identifier (each rig's account, and so each notification ID, differs).
+        let defaultWords = Set(defaultRig.platform.pending.values.map { "\($0.title)|\($0.body)" })
+        let explicitWords = Set(explicitRig.platform.pending.values.map { "\($0.title)|\($0.body)" })
+        #expect(!defaultWords.isEmpty)
+        #expect(defaultWords == explicitWords)
     }
 }
 } // AccountLifecycleSuites

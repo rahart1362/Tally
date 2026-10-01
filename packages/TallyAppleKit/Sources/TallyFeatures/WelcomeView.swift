@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 
 /// The redesigned first-run welcome screen (ux-ui.md §3.2 stages 1-2, "Brand
 /// moment" + "Value proposition"). A brand panel with the vector T-mark,
@@ -78,13 +79,13 @@ struct WelcomeView: View {
                 .scaleEffect(revealed ? 1 : motion.markStartScale)
                 .offset(y: revealed ? 0 : motion.markStartOffsetY)
 
-            Text("Tally")
+            Text(verbatim: "Tally")
                 .font(.system(.largeTitle, design: .serif).bold())
                 .foregroundStyle(TallyColor.brandCream)
                 .opacity(revealed ? 1 : 0)
                 .animation(motion.wordmarkAnimation, value: revealed)
 
-            Text("Every class, grade and deadline from Canvas — at a glance")
+            Text(L10n.Welcome.tagline())
                 .font(TallyTypography.body)
                 .foregroundStyle(TallyColor.textOnHero2)
                 .multilineTextAlignment(.center)
@@ -99,12 +100,12 @@ struct WelcomeView: View {
 
     private var benefitRows: some View {
         VStack(alignment: .leading, spacing: TallySpacing.lg) {
-            BenefitRow(symbol: "chart.xyaxis.line", text: "See where you stand")
-            BenefitRow(symbol: "bell", text: "Stay ahead of deadlines")
+            BenefitRow(symbol: "chart.xyaxis.line", text: L10n.Welcome.benefitStanding())
+            BenefitRow(symbol: "bell", text: L10n.Welcome.benefitDeadlines())
             BenefitRow(
                 symbol: "checkmark.shield",
-                text: "Private by design",
-                detail: "No Tally account. Your data stays on this iPhone."
+                text: L10n.Welcome.benefitPrivate(),
+                detail: L10n.Welcome.benefitPrivateDetail()
             )
         }
         .padding(.top, TallySpacing.xxl)
@@ -112,11 +113,11 @@ struct WelcomeView: View {
 
     private var actions: some View {
         VStack(spacing: TallySpacing.md) {
-            Button("Find My School", action: onFindSchool)
+            Button(String(localized: L10n.Account.findMySchool()), action: onFindSchool)
                 .buttonStyle(.tallyPrimary)
                 .frame(maxWidth: .infinity)
 
-            Button("Explore with Sample Data", action: onExploreSampleData)
+            Button(String(localized: L10n.Account.exploreWithSampleData()), action: onExploreSampleData)
                 .buttonStyle(.tallySecondary)
                 .frame(maxWidth: .infinity)
         }
@@ -125,20 +126,17 @@ struct WelcomeView: View {
     private var footer: some View {
         // app-store-compliance.md R10: the exact disclaimer wording, always
         // visible, never gated behind a tap.
-        Text(
-            "Tally is an independent app and is not affiliated with, endorsed by, " +
-            "or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc."
-        )
-        .font(TallyTypography.caption)
-        .foregroundStyle(TallyColor.textSecondary)
-        .multilineTextAlignment(.center)
+        Text(L10n.Account.disclaimer())
+            .font(TallyTypography.caption)
+            .foregroundStyle(TallyColor.textSecondary)
+            .multilineTextAlignment(.center)
     }
 }
 
 private struct BenefitRow: View {
     let symbol: String
-    let text: String
-    var detail: String? = nil
+    let text: LocalizedStringResource
+    var detail: LocalizedStringResource? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {

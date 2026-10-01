@@ -1,4 +1,5 @@
 import TallyDomain
+import TallyStrings
 
 /// The four phases of a first sync (ux-ui.md §3.2 stage 5: "Phases come
 /// from the refresh coordinator: profile+courses → grades → assignments/due
@@ -13,10 +14,10 @@ public nonisolated enum FirstSyncPhase: Sendable, Equatable, CaseIterable {
     /// "VoiceOver gets an `AccessibilityNotification.Announcement` per phase").
     var announcementText: String {
         switch self {
-        case .profileAndCourses: "Found your courses"
-        case .grades: "Loaded grades"
-        case .dueItems: "Loaded your due dates"
-        case .calendar: "Loaded your calendar"
+        case .profileAndCourses: String(localized: L10n.Onboarding.FirstSync.announceCourses())
+        case .grades: String(localized: L10n.Onboarding.FirstSync.announceGrades())
+        case .dueItems: String(localized: L10n.Onboarding.FirstSync.announceDueDates())
+        case .calendar: String(localized: L10n.Onboarding.FirstSync.announceCalendar())
         }
     }
 }

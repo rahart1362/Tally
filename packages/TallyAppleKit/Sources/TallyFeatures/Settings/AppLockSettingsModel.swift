@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TallyDomain
+import TallyStrings
 
 /// Settings' App Lock rows (UX-WP-20, ux-ui.md §3.7.7 "App Lock (Face ID with passcode fallback)"),
 /// over M2-C1's `AppLockModel` API. The rules stay there and in TallyDomain's `AppLockPolicy`; this
@@ -60,20 +61,19 @@ public final class AppLockSettingsModel {
         }
     }
 
-    public var title: String { "App Lock" }
+    public var title: String { String(localized: L10n.Lock.settingsTitle()) }
 
     /// The line under the rows: what the lock asks for, or why it cannot be used.
     public var footer: String {
         switch availability {
         case .available(let biometry):
-            return "Tally asks for \(Self.credential(biometry)) when it opens, and after it has been in the background "
-                + "longer than the time you choose."
+            return String(localized: L10n.Lock.footerAsks(Self.credential(biometry)))
         case .passcodeNotSet:
             return lock.isEnabled
-                ? "Set a passcode for this iPhone, or sign out."
-                : "To use App Lock, set a passcode for this iPhone in the Settings app."
+                ? String(localized: L10n.Lock.footerPasscodeNotSetLockOn())
+                : String(localized: L10n.Lock.footerPasscodeNotSetLockOff())
         case .unavailable:
-            return "App Lock isn't available on this iPhone right now."
+            return String(localized: L10n.Lock.footerUnavailable())
         }
     }
 
@@ -129,19 +129,19 @@ public final class AppLockSettingsModel {
 
     public static func label(for period: AppLockPolicy.GracePeriod) -> String {
         switch period {
-        case .immediately: "Immediately"
-        case .oneMinute: "After 1 minute"
-        case .fiveMinutes: "After 5 minutes"
-        case .fifteenMinutes: "After 15 minutes"
+        case .immediately: String(localized: L10n.Lock.graceImmediately())
+        case .oneMinute: String(localized: L10n.Lock.graceOneMinute())
+        case .fiveMinutes: String(localized: L10n.Lock.graceFiveMinutes())
+        case .fifteenMinutes: String(localized: L10n.Lock.graceFifteenMinutes())
         }
     }
 
     private static func credential(_ biometry: AppLockBiometry) -> String {
         switch biometry {
-        case .faceID: "Face ID or your passcode"
-        case .touchID: "Touch ID or your passcode"
-        case .opticID: "Optic ID or your passcode"
-        case .noBiometry: "your passcode"
+        case .faceID: String(localized: L10n.Lock.credentialFaceID())
+        case .touchID: String(localized: L10n.Lock.credentialTouchID())
+        case .opticID: String(localized: L10n.Lock.credentialOpticID())
+        case .noBiometry: String(localized: L10n.Lock.credentialPasscodeOnly())
         }
     }
 }

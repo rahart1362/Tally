@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 
 /// UX-WP-09: the sign-in hand-off screen (ux-ui.md §3.2 stage 4 / prototype
 /// step 5). Sets expectations before any system UI appears, then starts the
@@ -32,7 +33,7 @@ struct SignInHandoffView: View {
     private var header: some View {
         VStack(spacing: TallySpacing.md) {
             TMark(size: 58)
-            Text("Sign in to \(viewModel.schoolDisplayName)")
+            Text(L10n.Onboarding.SignIn.signInTo(viewModel.schoolDisplayName))
                 .font(TallyTypography.screenTitle)
                 .foregroundStyle(TallyColor.textPrimary)
                 .multilineTextAlignment(.center)
@@ -52,15 +53,15 @@ struct SignInHandoffView: View {
     private var statusBanner: some View {
         switch viewModel.phase {
         case .cancelledNotice:
-            Text("Sign-in cancelled. Nothing was shared.")
+            Text(L10n.Onboarding.SignIn.cancelledNotice())
                 .font(TallyTypography.footnote)
                 .foregroundStyle(TallyColor.textSecondary)
         case .failed(.accessDenied):
-            InlineNotice(text: "Tally needs read access to show your courses. You can try again any time.")
+            InlineNotice(text: L10n.Onboarding.SignIn.accessDenied())
         case .failed(.networkFailure):
-            InlineNotice(text: "Couldn't reach \(viewModel.schoolDisplayName). Check your connection and try again.")
+            InlineNotice(text: L10n.Onboarding.SignIn.networkFailure(viewModel.schoolDisplayName))
         case .failed(.other):
-            InlineNotice(text: "Something went wrong signing in. You can try again.")
+            InlineNotice(text: L10n.Onboarding.SignIn.otherFailure())
         case .idle, .presenting:
             EmptyView()
         }
@@ -71,26 +72,26 @@ struct SignInHandoffView: View {
         VStack(spacing: 0) {
             ExpectationRow(
                 symbol: "key.fill",
-                title: "Use your usual school login",
-                detail: "You sign in on your school's page. Tally never sees your password."
+                title: L10n.Onboarding.SignIn.expectation1Title(),
+                detail: L10n.Onboarding.SignIn.expectation1Detail()
             )
             Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
             ExpectationRow(
                 symbol: "bubble.left.fill",
-                title: "iOS will ask first",
-                detail: "You'll see \u{201c}Tally Wants to Use \(viewModel.host) to Sign In\u{201d}. Choose Continue."
+                title: L10n.Onboarding.SignIn.expectation2Title(),
+                detail: L10n.Onboarding.SignIn.expectation2Detail(viewModel.host)
             )
             Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
             ExpectationRow(
                 symbol: "checkmark.shield.fill",
-                title: "Approve read access",
-                detail: "Canvas asks you to authorize Tally. Tally only reads your courses, grades and due dates."
+                title: L10n.Onboarding.SignIn.expectation3Title(),
+                detail: L10n.Onboarding.SignIn.expectation3Detail()
             )
             Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
             ExpectationRow(
                 symbol: "arrow.uturn.left.circle.fill",
-                title: "Then you're back here",
-                detail: "Tally loads your courses straight away."
+                title: L10n.Onboarding.SignIn.expectation4Title(),
+                detail: L10n.Onboarding.SignIn.expectation4Detail()
             )
         }
         .padding(.vertical, TallySpacing.xs)
@@ -104,14 +105,14 @@ struct SignInHandoffView: View {
             } label: {
                 HStack {
                     if viewModel.phase == .presenting { ProgressView().tint(TallyColor.accentOnFill) }
-                    Text("Continue to \(viewModel.schoolDisplayName)")
+                    Text(L10n.Onboarding.SignIn.continueTo(viewModel.schoolDisplayName))
                 }
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.tallyPrimary)
             .disabled(viewModel.phase == .presenting)
 
-            Button("Choose a Different School", action: onChooseDifferentSchool)
+            Button(String(localized: L10n.Onboarding.chooseDifferentSchool()), action: onChooseDifferentSchool)
                 .buttonStyle(.tallySecondary)
                 .frame(maxWidth: .infinity)
                 .disabled(viewModel.phase == .presenting)
@@ -121,8 +122,8 @@ struct SignInHandoffView: View {
 
 private struct ExpectationRow: View {
     let symbol: String
-    let title: String
-    let detail: String
+    let title: LocalizedStringResource
+    let detail: LocalizedStringResource
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
@@ -145,7 +146,7 @@ private struct ExpectationRow: View {
 }
 
 private struct InlineNotice: View {
-    let text: String
+    let text: LocalizedStringResource
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.sm) {

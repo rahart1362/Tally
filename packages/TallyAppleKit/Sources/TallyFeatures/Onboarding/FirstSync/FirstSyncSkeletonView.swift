@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-10: the first-sync skeleton (ux-ui.md §3.2 stage 5 / prototype
 /// `heroSkeleton`). The real Dashboard hero card (with its ring, sparkline
@@ -38,7 +39,7 @@ struct FirstSyncSkeletonView: View {
                 if viewModel.showsSlowLoadNotice {
                     // "Large course loads can take a minute — you can keep exploring"
                     // (ux-ui.md §3.2 stage 5), not the stale breadcrumb: nothing is saved yet.
-                    Text("Large course loads can take a minute — you can keep exploring")
+                    Text(L10n.Onboarding.FirstSync.slowLoadNotice())
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textSecondary)
                         .multilineTextAlignment(.center)
@@ -59,7 +60,7 @@ struct FirstSyncSkeletonView: View {
 
     private var heroPlaceholder: some View {
         VStack(spacing: TallySpacing.lg) {
-            Text("Setting up Tally")
+            Text(L10n.Onboarding.FirstSync.settingUpTally())
                 .font(TallyTypography.sectionHeader)
                 .foregroundStyle(TallyColor.textSecondary)
 
@@ -93,34 +94,34 @@ struct FirstSyncSkeletonView: View {
 
             ProgressView(value: viewModel.progress)
                 .tint(TallyColor.brandGold)
-                .accessibilityLabel("Setting up Tally")
-                .accessibilityValue("\(Int(viewModel.progress * 100)) percent")
+                .accessibilityLabel(String(localized: L10n.Onboarding.FirstSync.settingUpTally()))
+                .accessibilityValue(String(localized: L10n.Onboarding.FirstSync.progressPercent(Int(viewModel.progress * 100))))
         }
     }
 
     private func failureState(_ failure: RefreshFailure) -> some View {
         ContentUnavailableView {
-            Label("Couldn't set up Tally", systemImage: "exclamationmark.triangle")
+            Label(String(localized: L10n.Onboarding.FirstSync.failedTitle()), systemImage: "exclamationmark.triangle")
         } description: {
             Text(Self.message(for: failure))
         } actions: {
-            Button("Retry", action: onRetry)
+            Button(String(localized: L10n.Onboarding.retry()), action: onRetry)
                 .buttonStyle(.tallyPrimary)
-            Button("Choose a Different School", action: onChooseDifferentSchool)
+            Button(String(localized: L10n.Onboarding.chooseDifferentSchool()), action: onChooseDifferentSchool)
                 .buttonStyle(.tallySecondary)
         }
     }
 
-    private static func message(for failure: RefreshFailure) -> String {
+    private static func message(for failure: RefreshFailure) -> LocalizedStringResource {
         switch failure {
         case .offline:
-            "You're offline. Connect to the internet to load your courses."
+            L10n.Onboarding.FirstSync.failureOffline()
         case .authExpired:
-            "Your sign-in expired before setup finished. Sign in again to continue."
+            L10n.Onboarding.FirstSync.failureAuthExpired()
         case .rateLimited, .server:
-            "Your school's Canvas is taking too long to respond. Try again in a moment."
+            L10n.Onboarding.FirstSync.failureServerSlow()
         case .contract, .unknown:
-            "Something went wrong setting up Tally. Try again."
+            L10n.Onboarding.FirstSync.failureUnknown()
         }
     }
 }

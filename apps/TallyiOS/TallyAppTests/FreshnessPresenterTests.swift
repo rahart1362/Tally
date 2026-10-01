@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TallyDomain
+import TallyStrings
 @testable import TallyFeatures
 
 /// UX-WP-06: "Unit-test every state" (ux-ui.md §3.3's freshness table). Uses a fixed `now` and
@@ -107,5 +108,58 @@ struct FreshnessPresenterTests {
     func failedNoData() {
         let p = FreshnessPresenter.present(.failed(.server, showing: nil), now: now, locale: locale, timeZone: utc)
         #expect(!p.showsBreadcrumb)
+    }
+
+    // MARK: - Plan 08 §3.3 fix: the formatting locale (L10N-03a)
+
+    /// The named fix: `present(…)` used to default to a hard-coded `en_US`, so an en-GB user
+    /// always saw 12-hour times here. This drives the formatter with `en_GB` directly (as
+    /// `TallyLocale.effective` would resolve it on an en-GB device) and checks for 24-hour time:
+    /// no "AM"/"PM", and a colon in the clock time.
+    @Test("fresh, aging, en_GB: 24-hour time, not 12-hour")
+    func freshAgingEnGBUses24HourTime() {
+        let earlier = now.addingTimeInterval(-3600) // 1h ago, same UTC day
+        let enGB = Locale(identifier: "en_GB")
+        let p = FreshnessPresenter.present(.fresh(at: earlier), now: now, locale: enGB, timeZone: utc)
+        #expect(p.shortText.hasPrefix("Updated "))
+        #expect(p.shortText.contains(":"))
+        #expect(!p.shortText.contains("AM"))
+        #expect(!p.shortText.contains("PM"))
+    }
+
+    /// The breadcrumb's "showing saved data from …" time is the same `when(...)` formatter, so it
+    /// is 24-hour for en_GB too.
+    @Test("delayed breadcrumb, en_GB: the saved-data time is 24-hour")
+    func delayedBreadcrumbEnGBUses24HourTime() {
+        let showing = now.addingTimeInterval(-3600)
+        let enGB = Locale(identifier: "en_GB")
+        let p = FreshnessPresenter.present(.delayed(showing: showing), now: now, locale: enGB, timeZone: utc)
+        #expect(p.longText?.contains("AM") == false)
+        #expect(p.longText?.contains("PM") == false)
+    }
+
+    /// `FreshnessPresenter.swift:31`'s default used to be the literal `Locale(identifier: "en_US")`
+    /// (plan 08 §3.3). It is now `TallyLocale.effective`: calling with no `locale:` argument must
+    /// behave identically to calling with `locale: TallyLocale.effective` explicitly, for every
+    /// case that produces locale-formatted text.
+    ///
+    /// UNVERIFIED by mutation in this CI environment specifically: `TallyLocale.effective` reduces
+    /// to `Locale.current` while Tally ships English only (`TallyLocale.swift`'s `sameLanguage`
+    /// branch), and CI's simulator locale is itself en_US (matching the L10N-01 hand-off's own
+    /// documented limit on its UI-test pin, `l10n-infra-report.md` §8 item 3), so a revert of this
+    /// default back to the `en_US` literal would not change this test's result in that environment.
+    /// It still pins the intended behaviour, and would catch the mutation on any other locale.
+    @Test("the default locale is TallyLocale.effective, not a hard-coded en_US", arguments: [
+        FreshnessState.fresh(at: Date(timeIntervalSince1970: 1_790_000_000 - 3600)),
+        .delayed(showing: Date(timeIntervalSince1970: 1_790_000_000 - 600)),
+        .offline(showing: Date(timeIntervalSince1970: 1_790_000_000 - 600)),
+        .authExpired(showing: Date(timeIntervalSince1970: 1_790_000_000 - 600)),
+        .failed(.server, showing: Date(timeIntervalSince1970: 1_790_000_000 - 600)),
+    ])
+    func defaultLocaleMatchesTallyLocaleEffective(_ state: FreshnessState) {
+        let withDefault = FreshnessPresenter.present(state, now: now, timeZone: utc)
+        let withEffective = FreshnessPresenter.present(state, now: now, locale: TallyLocale.effective, timeZone: utc)
+        #expect(withDefault.shortText == withEffective.shortText)
+        #expect(withDefault.longText == withEffective.longText)
     }
 }

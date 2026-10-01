@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyCanvasAPI
 import TallyDesignSystem
+import TallyStrings
 
 /// UX-WP-08: school search over `InstitutionDirectory` and `ClientRegistry`.
 /// Every state in ux-ui.md §3.2.1's table: idle, searching (300 ms debounce,
@@ -42,14 +43,14 @@ struct SchoolSearchView: View {
         content
             .listStyle(.plain)
             .background(TallyColor.bgCanvas)
-            .navigationTitle("Find your school")
+            .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: queryBinding, prompt: "School name or Canvas address")
+            .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
             .searchFocused($searchFieldFocused)
             .onAppear { searchFieldFocused = true }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Can't find it?") { showAddressHelp = true }
+                    Button(String(localized: L10n.Onboarding.SchoolSearch.cantFindIt())) { showAddressHelp = true }
                         .font(TallyTypography.footnote)
                 }
             }
@@ -81,7 +82,7 @@ struct SchoolSearchView: View {
             ScrollView {
                 VStack(spacing: TallySpacing.lg) {
                     ContentUnavailableView.search(text: viewModel.query)
-                    Text("Try your Canvas web address instead, e.g. myschool.instructure.com.")
+                    Text(L10n.Onboarding.SchoolSearch.noMatchHint())
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textSecondary)
                         .multilineTextAlignment(.center)
@@ -91,17 +92,17 @@ struct SchoolSearchView: View {
             }
         case .offline:
             ContentUnavailableView(
-                "You're offline",
+                String(localized: L10n.Onboarding.SchoolSearch.offlineTitle()),
                 systemImage: "wifi.slash",
-                description: Text("Connect to the internet to find your school.")
+                description: Text(L10n.Onboarding.SchoolSearch.offlineDescription())
             )
         case .searchFailed:
             ContentUnavailableView {
-                Label("Couldn't search", systemImage: "exclamationmark.triangle")
+                Label(String(localized: L10n.Onboarding.SchoolSearch.searchFailedTitle()), systemImage: "exclamationmark.triangle")
             } description: {
-                Text("Something went wrong. Try again.")
+                Text(L10n.Onboarding.SchoolSearch.searchFailedDescription())
             } actions: {
-                Button("Retry", action: viewModel.retry)
+                Button(String(localized: L10n.Onboarding.retry()), action: viewModel.retry)
             }
         }
     }
@@ -109,13 +110,13 @@ struct SchoolSearchView: View {
     private var idleList: some View {
         List {
             if let recentSchool = viewModel.recentSchool {
-                Section("Recent") {
+                Section(String(localized: L10n.Onboarding.SchoolSearch.recentSectionTitle())) {
                     Button { select(recentSchool) } label: { schoolRow(recentSchool) }
                         .buttonStyle(.plain)
                 }
             }
             Section {
-                Text("Type at least 2 letters of your school's name.")
+                Text(L10n.Onboarding.SchoolSearch.typeAtLeast2Letters())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
             }
@@ -125,7 +126,7 @@ struct SchoolSearchView: View {
     private var searchingRow: some View {
         HStack(spacing: TallySpacing.sm) {
             ProgressView()
-            Text("Searching…")
+            Text(L10n.Onboarding.SchoolSearch.searching())
                 .font(TallyTypography.body)
                 .foregroundStyle(TallyColor.textSecondary)
         }
@@ -166,7 +167,7 @@ struct SchoolSearchView: View {
                     .font(.system(.title3))
                     .foregroundStyle(TallyColor.accent)
                     .frame(width: 28)
-                (Text("Use ") + Text(host).italic())
+                (Text(L10n.Onboarding.SchoolSearch.useAddressPrefix()) + Text(host).italic())
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textPrimary)
                 Spacer()
@@ -179,7 +180,7 @@ struct SchoolSearchView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Use \(host)")
+        .accessibilityLabel(String(localized: L10n.Onboarding.SchoolSearch.useAddressAccessibilityLabel(host)))
     }
 
     private func select(_ match: InstitutionMatch) {
@@ -204,21 +205,16 @@ private struct AddressHelpSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(
-                    "Your Canvas address is the web address you already use to sign in on a " +
-                    "computer — usually something like **canvas.yourschool.edu** or " +
-                    "**yourschool.instructure.com**. You can find it in your school's Canvas " +
-                    "mobile app under School Search, or by asking your instructor or IT help desk."
-                )
-                .font(TallyTypography.body)
-                .foregroundStyle(TallyColor.textPrimary)
-                .padding(TallySpacing.screenMargin)
+                Text(L10n.Onboarding.SchoolSearch.addressHelpBody())
+                    .font(TallyTypography.body)
+                    .foregroundStyle(TallyColor.textPrimary)
+                    .padding(TallySpacing.screenMargin)
             }
-            .navigationTitle("Finding your Canvas address")
+            .navigationTitle(Text(L10n.Onboarding.SchoolSearch.addressHelpTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: L10n.Account.done())) { dismiss() }
                 }
             }
         }
