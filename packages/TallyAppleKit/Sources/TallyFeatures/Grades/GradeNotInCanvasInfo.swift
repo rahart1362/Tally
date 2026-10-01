@@ -19,7 +19,7 @@ nonisolated enum GradeInfoPresentation {
     /// A11Y-02: at the accessibility text sizes the bubble is a `.medium`/`.large` sheet, so its
     /// text never clips; below them, a popover (`.presentationCompactAdaptation(.popover)`).
     static func usesSheet(at size: DynamicTypeSize) -> Bool {
-        false
+        size.isAccessibilitySize
     }
 }
 
@@ -39,7 +39,7 @@ nonisolated enum GradeInfoText {
     /// directory at sign-in); without one (sample data), the message says "your school".
     static func shareText(school: String?) -> String {
         let name = school?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return false
+        return name.isEmpty
             ? String(localized: L10n.Grades.shareTextNoSchool())
             : String(localized: L10n.Grades.shareText(school: name))
     }
@@ -51,7 +51,7 @@ nonisolated enum GradeInfoText {
 nonisolated enum HeroExclusion {
     static func status(of row: HomeProjection.CourseRow) -> CourseGradeStatus {
         switch row.gradeAvailability {
-        case .available: .averaged
+        case .available: row.percent != nil ? .averaged : .noPercentage
         case .lettersOnly: .lettersOnly
         case .hiddenByInstructor: .hiddenByInstructor
         case .notYetPosted: .notYetPosted
@@ -89,10 +89,12 @@ struct GradeInfoButton<Content: View>: View {
         } label: {
             Image(systemName: "info.circle")
                 .font(TallyTypography.body)
+                .frame(minWidth: GradeInfoPresentation.minimumTapTarget, minHeight: GradeInfoPresentation.minimumTapTarget)
                 .contentShape(Rectangle())
         }
         // Its own tap target inside a list row or a navigation link's label.
         .buttonStyle(.borderless)
+        .accessibilityLabel(label)
         .accessibilityIdentifier("grades.info")
         .popover(isPresented: Binding(get: { isPresented && !asSheet }, set: { isPresented = $0 })) {
             content()
@@ -125,6 +127,7 @@ struct GradeInfoBubble<Extra: View>: View {
                 .font(TallyTypography.sectionHeader)
                 .foregroundStyle(TallyColor.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
             if let message {
                 Text(message)
                     .font(TallyTypography.body)
@@ -132,7 +135,7 @@ struct GradeInfoBubble<Extra: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             extra()
-            if false, offersTellMySchool {
+            if offersTellMySchool {
                 TellMySchoolLink()
             }
         }
@@ -186,6 +189,8 @@ struct GradeNotInCanvasValue: View {
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: notInCanvas.spoken))
             if let infoButtonLabel, case .keptOutside(let scope) = notInCanvas {
                 GradeInfoButton(label: Text(verbatim: infoButtonLabel), isPresented: $isInfoPresented) {
                     GradeInfoBubble(scope: scope)
