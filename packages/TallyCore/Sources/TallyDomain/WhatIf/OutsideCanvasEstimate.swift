@@ -64,7 +64,7 @@ public nonisolated enum OutsideCanvasEstimate {
             for group in input.groups where byGroup[group.id] == nil {
                 byGroup[group.id] = GradeSanitizing.saneWeightOrZero(group.weight)
             }
-            return Dictionary(uniqueKeysWithValues: groups.map { ($0, max(0, byGroup[$0] ?? 0)) })
+            return Dictionary(groups.map { ($0, max(0, byGroup[$0] ?? 0)) }, uniquingKeysWith: { first, _ in first })
         case .points:
             var points: [CanvasID<AssignmentGroup>: Double] = [:]
             var seenItems = Set<CanvasID<Assignment>>()
@@ -72,8 +72,8 @@ public nonisolated enum OutsideCanvasEstimate {
                 points[item.groupID, default: 0] += GradeSanitizing.sanePoints(item.pointsPossible) ?? 0
             }
             let total = groups.reduce(0) { $0 + (points[$1] ?? 0) }
-            guard total > 0, total.isFinite else { return Dictionary(uniqueKeysWithValues: groups.map { ($0, 0) }) }
-            return Dictionary(uniqueKeysWithValues: groups.map { ($0, (points[$0] ?? 0) / total * 100) })
+            guard total > 0, total.isFinite else { return Dictionary(groups.map { ($0, 0) }, uniquingKeysWith: { first, _ in first }) }
+            return Dictionary(groups.map { ($0, (points[$0] ?? 0) / total * 100) }, uniquingKeysWith: { first, _ in first })
         }
     }
 
@@ -109,7 +109,7 @@ public nonisolated enum OutsideCanvasEstimate {
                                        in input: GradeInput) -> [CanvasID<AssignmentGroup>: Double] {
         let set = usableWeights(weights, in: input)
         let defaults = defaultWeights(for: input)
-        return Dictionary(uniqueKeysWithValues: weighableGroups(in: input).map { ($0, set[$0] ?? defaults[$0] ?? 0) })
+        return Dictionary(weighableGroups(in: input).map { ($0, set[$0] ?? defaults[$0] ?? 0) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The estimate's input with the student's `weights` (percent, by category); entries that are
