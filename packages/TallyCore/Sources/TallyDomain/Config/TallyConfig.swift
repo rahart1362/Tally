@@ -88,6 +88,11 @@ public enum TallyConfig {
     // "at most 5 invite codes per student per day" — enforced locally before W1 is ever called.
     public static let maxInvitesPerDay = 5
     public static let invitesPerDayWindow: Duration = .seconds(24 * 60 * 60)
+
+    // Family notifications (family-linking.md §6.4/§6.5, FAM-08): the parent's own 64-slot
+    // budget split across however many students they observe, weighted by due-item count,
+    // "with a floor of 4 per subject" so an idle student is never crowded out entirely.
+    public static let familyNotificationFloorPerSubject = 4
 }
 
 extension Duration {
