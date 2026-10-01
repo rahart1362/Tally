@@ -7,7 +7,8 @@ import TallyTestSupport
 
 /// Plan 08 §4.3 (XG-02): at commit the coordinator builds one `GradeAvailabilityIndex`, with the
 /// student's overrides (G-3), and hands it to the digest and the glance. The overrides arrive the
-/// way the digest thresholds do and apply from the next commit; a grades opt-in rewrite uses them too.
+/// way the digest thresholds do; since XG-04 a change also rewrites the glance at once, as "Show
+/// Grades in Widgets" does, and a grades opt-in rewrite uses them too.
 @Suite("RefreshCoordinator: grade availability at commit, and the override input",
        .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct RefreshCoordinatorGradeAvailabilityTests {
@@ -59,9 +60,11 @@ struct RefreshCoordinatorGradeAvailabilityTests {
         _ = await coordinator.run(trigger: .manual)
         #expect(await glance(store)?.gradeSummary == .band(.aRange), "SPAN-2 alone, at 90")
 
-        await coordinator.updateGradeAvailabilityOverrides([spanish.id: .keptOutsideCanvas])
+        #expect(await coordinator.updateGradeAvailabilityOverrides([spanish.id: .keptOutsideCanvas]))
         #expect(await coordinator.gradeAvailabilityOverrides == [spanish.id: .keptOutsideCanvas])
-        #expect(await glance(store)?.gradeSummary == .band(.aRange), "nothing changes before the next commit")
+        let rewritten = try #require(await glance(store))
+        #expect(rewritten.generation == 2, "XG-04: the committed snapshot's glance, rewritten at once")
+        #expect(rewritten.gradeSummary == .notInCanvas)
 
         _ = await coordinator.run(trigger: .manual)
         let third = try #require(await glance(store))
@@ -81,6 +84,68 @@ struct RefreshCoordinatorGradeAvailabilityTests {
             [.init(courseID: spanish.id, previousScore: 80, newScore: 90)],
             [], // 90 -> 99, but the student said SPAN-2's grades are kept outside Canvas
         ])
+    }
+
+    /// XG-04: a change reaches the widget's file at once (the `rewriteGlance` pattern of "Show
+    /// Grades in Widgets", PR #7), so the widget never disagrees with the Dashboard until the next
+    /// refresh; an unchanged map writes nothing.
+    @Test func anOverrideChangeRewritesTheGlanceAtOnce() async throws {
+        let base = try await PersonaSnapshotHarness.fetchSnapshot(persona: "external-grades", now: Self.anchor)
+        let spanish = try #require(base.courses.first { $0.courseCode == "SPAN-2" })
+        let english = try #require(base.courses.first { $0.courseCode == "ENG-10" })
+        let gateway = ScriptedGateway { previous, _ in Self.persona(base, previous: previous, spanish: 91) }
+        let (coordinator, store) = try makeCoordinator(gateway: gateway, includeGrades: true)
+
+        #expect(!(await coordinator.updateGradeAvailabilityOverrides([english.id: .inCanvas])),
+                "nothing committed yet: stored for the first commit, nothing to rewrite")
+        _ = await coordinator.run(trigger: .manual)
+        let first = try #require(await glance(store))
+        #expect(first.gradeSummary == .band(.aRange))
+        #expect(first.courses.first { $0.id == english.id }?.gradeStatus == .notYetPosted, "the first commit used the stored No")
+
+        #expect(await coordinator.updateGradeAvailabilityOverrides([english.id: .inCanvas, spanish.id: .keptOutsideCanvas]))
+        let yes = try #require(await glance(store))
+        #expect(yes.generation == first.generation)
+        #expect(yes.gradeSummary == .notInCanvas)
+        #expect(yes.courses.first { $0.id == spanish.id }?.gradeStatus == .keptOutsideCanvas)
+        #expect(yes.courses.first { $0.id == spanish.id }?.currentGrade == nil, "no band for a course kept outside Canvas")
+
+        #expect(!(await coordinator.updateGradeAvailabilityOverrides([english.id: .inCanvas, spanish.id: .keptOutsideCanvas])),
+                "the same answers: no rewrite, no widget reload")
+        #expect(await coordinator.updateGradeAvailabilityOverrides([:]), "back to Automatic")
+        let automatic = try #require(await glance(store))
+        #expect(automatic.gradeSummary == .band(.aRange))
+        #expect(automatic.courses.first { $0.id == english.id }?.gradeStatus == .keptOutsideCanvas)
+        #expect(automatic.courses.first { $0.id == spanish.id }?.gradeStatus == .averaged)
+    }
+
+    /// XG-04: the account's coordinator starts from the stored answers (`AccountSessionFactory`),
+    /// and starting writes nothing: the glance on disk was written with them.
+    @Test func theStoredOverridesAtInitClassifyCommitsWithoutARewrite() async throws {
+        let base = try await PersonaSnapshotHarness.fetchSnapshot(persona: "external-grades", now: Self.anchor)
+        let spanish = try #require(base.courses.first { $0.courseCode == "SPAN-2" })
+        let first = Self.persona(base, previous: nil, spanish: 91)
+        let accountKey = AccountKey("xg04-init")
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("tally-xg04-\(UUID().uuidString)")
+        try ProtectedFile.prepareDirectory(root, excludeFromBackup: true)
+        let sealer = VaultSealer(account: accountKey.rawValue, keyring: VaultKeyring(store: InMemoryVaultKeyStore()),
+                                 mayCreateKeys: true)
+        let store = SnapshotStore(root: root, accountKey: accountKey, sealer: sealer)
+        try await store.commit(first, includeGrades: true)
+        #expect(await glance(store)?.gradeSummary == .band(.aRange), "written before the student's answer was known")
+
+        let overrides: [CanvasID<Course>: GradeAvailabilityOverride] = [spanish.id: .keptOutsideCanvas]
+        let gateway = ScriptedGateway { previous, _ in Self.persona(base, previous: previous, spanish: 92) }
+        let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: TestClock(), initialSnapshot: first,
+                                             includeGrades: true, gradeAvailabilityOverrides: overrides)
+        #expect(await coordinator.gradeAvailabilityOverrides == overrides)
+        #expect(await glance(store)?.gradeSummary == .band(.aRange), "starting rewrites nothing")
+        #expect(!(await coordinator.updateGradeAvailabilityOverrides(overrides)), "the same answers again: no rewrite")
+
+        _ = await coordinator.run(trigger: .manual)
+        let committed = try #require(await glance(store))
+        #expect(committed.generation == 2)
+        #expect(committed.gradeSummary == .notInCanvas, "the first commit classifies with the stored answers")
     }
 
     @Test func aGradesOptInRewriteUsesTheOverrides() async throws {
