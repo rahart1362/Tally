@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// A To-Do row's Canvas status, shown as a chip with an icon and a word (ux-ui.md §3.6
 /// StatusChip; never colour alone).
@@ -8,12 +9,12 @@ public nonisolated enum WorkStatus: String, Equatable, Sendable {
 
     public var label: String {
         switch self {
-        case .missing: "Missing"
-        case .notSubmitted: "Not submitted"
-        case .submitted: "Submitted"
-        case .graded: "Graded"
-        case .excused: "Excused"
-        case .late: "Late"
+        case .missing: String(localized: L10n.ToDo.statusMissing())
+        case .notSubmitted: String(localized: L10n.ToDo.statusNotSubmitted())
+        case .submitted: String(localized: L10n.ToDo.statusSubmitted())
+        case .graded: String(localized: L10n.ToDo.statusGraded())
+        case .excused: String(localized: L10n.ToDo.statusExcused())
+        case .late: String(localized: L10n.ToDo.statusLate())
         }
     }
 
@@ -54,12 +55,14 @@ public nonisolated struct ToDoItem: Identifiable, Equatable, Sendable {
     public let accessibilityLabel: String
 
     /// The priority flag's word, shown for high-priority work only ("High", ux-ui.md §3.7.5).
-    public var priorityWord: String? { band == .high ? "High priority" : nil }
+    public var priorityWord: String? { band == .high ? String(localized: L10n.ToDo.priorityWord()) : nil }
 
-    /// "Done" is Tally's own mark (PMO R16), so the row says exactly that (ux-ui.md §3.7.5).
-    public static let markedDoneText = "Marked done in Tally"
+    /// "Done" is Tally's own mark (PMO R16), so the row says exactly that (ux-ui.md §3.7.5). A
+    /// computed `static var`, not `static let`: like `WhatIfCopy.noGradeSpoken`, a localized value
+    /// is never cached across a possible language change for the process's lifetime.
+    public static var markedDoneText: String { String(localized: L10n.ToDo.markedDoneInTally()) }
     /// Shown with a done mark while Canvas still expects a submission.
-    public static let notSubmittedText = "Not submitted in Canvas"
+    public static var notSubmittedText: String { String(localized: L10n.ToDo.notSubmittedInCanvas()) }
 
     /// The row's VoiceOver label: the projector's words, then the honest done state.
     public func spokenLabel(isDone: Bool) -> String {
@@ -97,9 +100,9 @@ public nonisolated enum ToDoSortOrder: String, Equatable, Sendable, CaseIterable
     public var id: Self { self }
     public var label: String {
         switch self {
-        case .dueDate: "Due Date"
-        case .priority: "Priority"
-        case .course: "Course"
+        case .dueDate: String(localized: L10n.ToDo.sortDueDate())
+        case .priority: String(localized: L10n.ToDo.sortPriority())
+        case .course: String(localized: L10n.ToDo.sortCourse())
         }
     }
 }
@@ -156,9 +159,9 @@ public nonisolated enum ToDoBuilder {
             }
         }
 
-        let sections = [(ToDoSection.Kind.missing, "Missing & overdue", missing),
-                        (.thisWeek, "Due this week", thisWeek),
-                        (.later, "Due later", later)]
+        let sections = [(ToDoSection.Kind.missing, String(localized: L10n.ToDo.sectionMissingOverdue()), missing),
+                        (.thisWeek, String(localized: L10n.ToDo.sectionDueThisWeek()), thisWeek),
+                        (.later, String(localized: L10n.ToDo.sectionDueLater()), later)]
             .filter { !$0.2.isEmpty }
             .map { kind, title, entries in
                 ToDoSection(kind: kind, title: title,
@@ -239,13 +242,13 @@ public nonisolated enum ToDoBuilder {
         let spokenLateNote: String?
         switch placement.late {
         case .stillAccepted(let lock?):
-            lateNote = "Still accepted until \(formatter.untilText(lock))"
-            spokenLateNote = "Still accepted until \(formatter.untilText(lock, spoken: true))"
+            lateNote = String(localized: L10n.ToDo.stillAcceptedUntil(formatter.untilText(lock)))
+            spokenLateNote = String(localized: L10n.ToDo.stillAcceptedUntil(formatter.untilText(lock, spoken: true)))
         case .stillAccepted(nil):
-            lateNote = "Still accepted"
+            lateNote = String(localized: L10n.ToDo.stillAccepted())
             spokenLateNote = lateNote
         case .closed:
-            lateNote = "Closed — talk to your instructor"
+            lateNote = String(localized: L10n.ToDo.closedTalkToInstructor())
             spokenLateNote = lateNote
         case nil:
             lateNote = nil
@@ -256,7 +259,7 @@ public nonisolated enum ToDoBuilder {
         if let status = placement.status { spoken.append(status.label) }
         if let due = assignment.dueAt { spoken.append(formatter.dueText(due, spoken: true)) }
         if let spokenLateNote { spoken.append(spokenLateNote) }
-        if band == .high { spoken.append("High priority") }
+        if band == .high { spoken.append(String(localized: L10n.ToDo.priorityWord())) }
         return ToDoItem(
             assignmentID: assignment.id, courseID: course.id, title: assignment.name, courseCode: course.courseCode,
             paletteIndex: paletteIndex, dueText: dueText, status: placement.status, lateNote: lateNote, band: band,

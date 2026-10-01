@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-18 / ARC E05c: To-Do (ux-ui.md §3.7.5). Missing and overdue work first, then this week,
 /// then later; each section's rows arrive sorted three ways from the projector, so the Sort menu
@@ -38,23 +39,23 @@ struct ToDoScreen: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
-        .navigationTitle("To-Do")
+        .navigationTitle(String(localized: L10n.ToDo.navigationTitle()))
         .toolbar {
             if !model.toDoScreen.sections.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Picker("Sort by", selection: $sortOrder) {
+                        Picker(String(localized: L10n.ToDo.sortByLabel()), selection: $sortOrder) {
                             ForEach(ToDoSortOrder.allCases) { order in
                                 Text(order.label).tag(order)
                             }
                         }
                     } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                        Label(String(localized: L10n.ToDo.sortMenuLabel()), systemImage: "arrow.up.arrow.down")
                     }
                     .accessibilityIdentifier("todo.sort")
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(editMode.isEditing ? "Cancel" : "Select") {
+                    Button(editMode.isEditing ? String(localized: L10n.ToDo.selectModeCancel()) : String(localized: L10n.ToDo.selectModeSelect())) {
                         selection.removeAll()
                         withAnimation { editMode = editMode.isEditing ? .inactive : .active }
                     }
@@ -63,7 +64,7 @@ struct ToDoScreen: View {
             }
             if editMode.isEditing {
                 ToolbarItem(placement: .bottomBar) {
-                    Button("Mark Done") {
+                    Button(String(localized: L10n.ToDo.markDoneButton())) {
                         model.local.setDone(selection, done: true)
                         selection.removeAll()
                         withAnimation { editMode = .inactive }
@@ -84,7 +85,8 @@ struct ToDoScreen: View {
             Button {
                 model.local.setDone([item.id], done: !isDone)
             } label: {
-                Label(isDone ? "Not Done" : "Done", systemImage: isDone ? "arrow.uturn.backward" : "checkmark")
+                Label(isDone ? String(localized: L10n.ToDo.swipeNotDone()) : String(localized: L10n.ToDo.swipeDone()),
+                      systemImage: isDone ? "arrow.uturn.backward" : "checkmark")
             }
             .tint(TallyColor.accent)
             // Sample data has no real Canvas to open (ASC-14).
@@ -93,7 +95,10 @@ struct ToDoScreen: View {
                     // A one-shot open: the Canvas Student app, else the browser (R20).
                     Task { await CanvasLinkOpener.open(url) }
                 } label: {
-                    Label("Open in Canvas", systemImage: "safari")
+                    // L10N-03a's finding (its report §1.2): a bare LocalizedStringResource is never
+                    // passed to another SwiftUI initializer directly, to avoid an unverified-overload
+                    // compile risk with no local Xcode to check it.
+                    Label { Text(L10n.CourseDetail.openInCanvas()) } icon: { Image(systemName: "safari") }
                 }
             }
         }
@@ -104,11 +109,11 @@ struct ToDoScreen: View {
         switch model.phase {
         case .loading, .glance:
             // The launch's glance carries no rows for this tab (M2-C1 D7): loading until the projection.
-            ProgressView("Loading your work…")
+            ProgressView(String(localized: L10n.ToDo.loading()))
         case .loaded, .failed:
             // ux-ui.md §3.2.3 "Nothing due".
-            ContentUnavailableView("You're all caught up", systemImage: "checkmark.circle",
-                                   description: Text("Nothing is missing, and nothing is due."))
+            ContentUnavailableView(String(localized: L10n.ToDo.emptyTitle()), systemImage: "checkmark.circle",
+                                   description: Text(L10n.ToDo.emptyDescription()))
         }
     }
 }
@@ -131,7 +136,8 @@ struct ToDoRowView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(isDone ? "Marked done. Mark \(item.title) not done" : "Mark \(item.title) done")
+            .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
+                                : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
             .accessibilityIdentifier("todo.complete")
 
             VStack(alignment: .leading, spacing: TallySpacing.xs) {

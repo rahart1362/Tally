@@ -1,6 +1,7 @@
 import Foundation
 import TallyDomain
 import TallyFeatures
+import TallyStrings
 import TallySync
 import UserNotifications
 
@@ -84,14 +85,30 @@ public struct ReminderContent: Sendable, Equatable {
     /// default).
     public static func generic(for kind: NotificationKind) -> ReminderContent {
         switch kind {
-        case .due: ReminderContent(title: "Due soon", body: "Open Tally to see what's due.")
-        case .followup: ReminderContent(title: "Still to do", body: "Open Tally to see what's left.")
-        case .exam: ReminderContent(title: "Exam coming up", body: "Open Tally for the details.")
-        case .digest: ReminderContent(title: "What changed", body: "Open Tally to see your updates.")
-        case .weekAhead: ReminderContent(title: "Your week ahead", body: "Open Tally to plan your week.")
-        case .gradePosted: ReminderContent(title: "New grade posted", body: "Open Tally to see it.")
-        case .belowGoal: ReminderContent(title: "Below your goal", body: "Open Tally to see where you stand.")
-        case .sentinel: ReminderContent(title: "Tally hasn't refreshed", body: "Open Tally to update your data.")
+        case .due:
+            ReminderContent(title: String(localized: L10n.Notifications.dueTitle()),
+                            body: String(localized: L10n.Notifications.dueBody()))
+        case .followup:
+            ReminderContent(title: String(localized: L10n.Notifications.followupTitle()),
+                            body: String(localized: L10n.Notifications.followupBody()))
+        case .exam:
+            ReminderContent(title: String(localized: L10n.Notifications.examTitle()),
+                            body: String(localized: L10n.Notifications.examBody()))
+        case .digest:
+            ReminderContent(title: String(localized: L10n.Notifications.digestTitle()),
+                            body: String(localized: L10n.Notifications.digestBody()))
+        case .weekAhead:
+            ReminderContent(title: String(localized: L10n.Notifications.weekAheadTitle()),
+                            body: String(localized: L10n.Notifications.weekAheadBody()))
+        case .gradePosted:
+            ReminderContent(title: String(localized: L10n.Notifications.gradePostedTitle()),
+                            body: String(localized: L10n.Notifications.gradePostedBody()))
+        case .belowGoal:
+            ReminderContent(title: String(localized: L10n.Notifications.belowGoalTitle()),
+                            body: String(localized: L10n.Notifications.belowGoalBody()))
+        case .sentinel:
+            ReminderContent(title: String(localized: L10n.Notifications.sentinelTitle()),
+                            body: String(localized: L10n.Notifications.sentinelBody()))
         }
     }
 }
@@ -133,7 +150,7 @@ public struct UNNotificationScheduler: NotificationScheduling {
             identifier: Self.reminderCategoryIdentifier,
             actions: [],
             intentIdentifiers: [],
-            hiddenPreviewsBodyPlaceholder: "Tally reminder",
+            hiddenPreviewsBodyPlaceholder: String(localized: L10n.Notifications.hiddenPreviewPlaceholder()),
             options: [])
         center.setCategories([category])
         logger.log(.notificationCategoriesRegistered(count: 1))
