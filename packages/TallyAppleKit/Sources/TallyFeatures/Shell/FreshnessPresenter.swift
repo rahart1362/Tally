@@ -33,7 +33,7 @@ public nonisolated enum FreshnessPresenter {
     /// (`FreshnessViews.swift:25, 53, 74`; `SettingsView.swift:182`), so this now defaults to the
     /// one formatting locale the rest of the app uses (plan 08 §3.3).
     public static func present(
-        _ state: FreshnessState, now: Date, locale: Locale = Locale(identifier: "en_US"), timeZone: TimeZone = .current
+        _ state: FreshnessState, now: Date, locale: Locale = TallyLocale.effective, timeZone: TimeZone = .current
     ) -> Presentation {
         switch state {
         case .noCache:
@@ -107,7 +107,7 @@ public nonisolated enum FreshnessPresenter {
         calendar.timeZone = timeZone
         calendar.locale = locale
         if calendar.isDate(date, inSameDayAs: now) {
-            return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: Locale(identifier: "en_US"), calendar: calendar, timeZone: timeZone))
+            return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar, timeZone: timeZone))
         }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
         if days >= 0, days < 7 {
