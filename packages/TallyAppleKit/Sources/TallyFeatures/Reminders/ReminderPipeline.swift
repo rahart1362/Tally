@@ -56,7 +56,7 @@ public nonisolated enum ReminderPipeline {
     /// `AppModel.swift:129`) passes `locale:`.
     @concurrent
     public static func attach(to coordinator: RefreshCoordinator, account: AccountKey, environment: AccountEnvironment,
-                              timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async {
+                              timeZone: TimeZone = .current, locale: Locale = .current) async {
         guard let platform = environment.notifications as? any ReminderPlatform else { return }
         let events = await coordinator.events()
         Task(priority: .utility) { [weak coordinator] in
@@ -76,7 +76,7 @@ public nonisolated enum ReminderPipeline {
     @concurrent
     @discardableResult
     public static func reconcile(coordinator: RefreshCoordinator, environment: AccountEnvironment,
-                                 timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async -> ReminderPassOutcome? {
+                                 timeZone: TimeZone = .current, locale: Locale = .current) async -> ReminderPassOutcome? {
         guard let platform = environment.notifications as? any ReminderPlatform else { return nil }
         return await pass(coordinator, account: nil, platform: platform, environment: environment,
                           timeZone: timeZone, locale: locale)
