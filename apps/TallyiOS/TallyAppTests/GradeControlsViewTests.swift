@@ -110,6 +110,200 @@ struct GradeOverrideTests {
         return calendar
     }
 
+    // MARK: One guard per test (a CI mutation run reports one failure per test)
+
+    @Test("HomeProjector classifies with the answers it holds")
+    func projectorUsesTheAnswers() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let projector = ScreenModelSupport.projector()
+        await projector.install(HomeUpdate(generation: 1, snapshot: snapshot, digest: nil, digestAsOf: nil, freshness: .noCache))
+        #expect(await projector.setGradeAvailabilityOverrides([spanish.id: .keptOutsideCanvas], revision: 1))
+        let projection = try #require(await projector.project(now: ExternalGrades.anchor))
+        let row = try #require(projection.courses.first { $0.id == spanish.id })
+        #expect(!row.gradeAvailability.isInCanvas && row.percent == nil)
+        #expect(projection.screens.courseDetails[spanish.id]?.grade.notInCanvas == .keptOutside(.school))
+        #expect(projection.dashboard.hero.averagedCount == 0)
+    }
+
+    @Test("HomeProjector: an older hand-over of the answers never replaces a newer one")
+    func projectorKeepsTheNewestAnswers() async {
+        let projector = ScreenModelSupport.projector()
+        let spanish: CanvasID<Course> = "77306"
+        #expect(await projector.setGradeAvailabilityOverrides([spanish: .keptOutsideCanvas], revision: 2))
+        #expect(!(await projector.setGradeAvailabilityOverrides([:], revision: 1)), "older: ignored")
+        #expect(await projector.gradeAvailabilityOverrides == [spanish: .keptOutsideCanvas])
+    }
+
+    @Test("HomeProjector: the same answers again report no change, so nothing is projected again")
+    func projectorReportsNoChangeForTheSameAnswers() async {
+        let projector = ScreenModelSupport.projector()
+        let spanish: CanvasID<Course> = "77306"
+        #expect(await projector.setGradeAvailabilityOverrides([spanish: .inCanvas], revision: 1))
+        #expect(!(await projector.setGradeAvailabilityOverrides([spanish: .inCanvas], revision: 2)))
+    }
+
+    @Test("HomeModel: a change hands the answers to the projector and projects again once")
+    func aChangeProjectsAgainOnce() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let model = try await Self.startedModel(snapshot)
+        let before = await model.projector.projectionCount
+        model.setGradeAvailabilityOverride(.keptOutsideCanvas, for: spanish.id)
+        await model.awaitGradeAvailabilityOverrideApplied()
+        #expect(await model.projector.projectionCount == before + 1)
+        #expect(await model.projector.gradeAvailabilityOverrides == [spanish.id: .keptOutsideCanvas])
+        await model.end()
+    }
+
+    /// Counts saves (the same answer twice must not save twice).
+    private actor CountingLocalStore: LocalScreenStateStoring {
+        private let inner = InMemoryLocalScreenStateStore()
+        private(set) var saves = 0
+        func load() async -> LocalScreenState { await inner.load() }
+        func save(_ state: LocalScreenState) async {
+            saves += 1
+            await inner.save(state)
+        }
+    }
+
+    @Test("HomeModel: the same answer again saves nothing")
+    func theSameAnswerSavesNothing() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let store = CountingLocalStore()
+        let model = try await Self.startedModel(snapshot, localStore: store)
+        model.setGradeAvailabilityOverride(.keptOutsideCanvas, for: spanish.id)
+        await model.local.awaitSaved()
+        #expect(await store.saves == 1)
+        model.setGradeAvailabilityOverride(.keptOutsideCanvas, for: spanish.id)
+        await model.local.awaitSaved()
+        #expect(await store.saves == 1, "the same answer: no second save")
+        await model.end()
+    }
+
+    @Test("HomeModel: at launch the stored answers reach the projector before the first update")
+    func launchHandsTheStoredAnswersToTheProjector() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let store = InMemoryLocalScreenStateStore()
+        await store.save(LocalScreenState(gradeAvailabilityOverrides: [spanish.id: .keptOutsideCanvas], revision: 1))
+        let model = HomeModel(source: OneUpdateHomeSource(snapshot: snapshot), projector: ScreenModelSupport.projector(),
+                              clock: TestClock(ExternalGrades.anchor), localStore: store)
+        await model.prepare()
+        #expect(await model.projector.gradeAvailabilityOverrides == [spanish.id: .keptOutsideCanvas])
+        await model.end()
+    }
+
+    /// An account's sealed `UserState` and a coordinator that committed the persona, opted in to
+    /// grades in widgets.
+    private static func signedIn() async throws
+        -> (snapshot: CanvasSnapshot, userState: UserStateStore, glance: SnapshotStore, runtime: AccountRuntime) {
+        let snapshot = try await ExternalGrades.snapshot()
+        let account = AccountKey("xg04-\(UUID().uuidString)")
+        let (directory, sealer) = try ScreenModelSupport.sealer(account)
+        let userStateStore = UserStateStore(root: directory, accountKey: account, sealer: sealer)
+        try await userStateStore.save(UserState(showGradesInGlance: true))
+        let snapshotStore = SnapshotStore(root: directory, accountKey: account, sealer: sealer)
+        let coordinator = RefreshCoordinator(gateway: ServingGateway(snapshot), store: snapshotStore,
+                                             clock: SystemDateProvider(), initialSnapshot: nil, includeGrades: true)
+        let runtime = AccountRuntime()
+        await runtime.install(coordinator)
+        _ = await coordinator.run(trigger: .manual)
+        return (snapshot, userStateStore, snapshotStore, runtime)
+    }
+
+    @Test("A signed-in save hands the answers to the coordinator: the glance is rewritten at once", .timeLimit(.minutes(2)))
+    func aSavedAnswerRewritesTheGlance() async throws {
+        let account = try await Self.signedIn()
+        let spanish = try #require(account.snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let access = AccountUserStateAccess(store: account.userState, runtime: account.runtime)
+        try await access.update { $0.gradeAvailabilityOverrides = [spanish.id: .keptOutsideCanvas] }
+        guard case .loaded(let glance) = await account.glance.loadGlance() else { Issue.record("no glance"); return }
+        #expect(glance.gradeSummary == .notInCanvas)
+        #expect(glance.courses.first { $0.id == spanish.id }?.gradeStatus == .keptOutsideCanvas)
+    }
+
+    @Test("The widget is reloaded exactly when an answer rewrote the glance", .timeLimit(.minutes(2)))
+    func theWidgetReloadsWhenTheGlanceWasRewritten() async throws {
+        let account = try await Self.signedIn()
+        let spanish = try #require(account.snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let reloads = Reloads()
+        let access = AccountUserStateAccess(store: account.userState, runtime: account.runtime, reloadWidgets: { reloads.record() })
+        try await access.update { $0.gradeAvailabilityOverrides = [spanish.id: .keptOutsideCanvas] }
+        guard case .loaded(let glance) = await account.glance.loadGlance() else { Issue.record("no glance"); return }
+        let rewritten = glance.gradeSummary == .notInCanvas
+        #expect(reloads.value == (rewritten ? 1 : 0), "rewritten: \(rewritten), reloads: \(reloads.value)")
+    }
+
+    @Test("A signed-in answer is sealed in UserState v5")
+    func anAnswerIsSealed() async throws {
+        let account = AccountKey("xg04-seal-\(UUID().uuidString)")
+        let (directory, sealer) = try ScreenModelSupport.sealer(account)
+        let store = UserStateStore(root: directory, accountKey: account, sealer: sealer)
+        let local = ScreenLocalState(store: AccountLocalScreenStateStore(access: AccountUserStateAccess(store: store, runtime: AccountRuntime())))
+        await local.load()
+        local.setGradeAvailabilityOverride(.inCanvas, for: "77301")
+        await local.awaitSaved()
+        guard case .loaded(let stored) = await store.load() else { Issue.record("no UserState"); return }
+        #expect(stored.gradesOutsideCanvasOverride == ["77301": "inCanvas"])
+    }
+
+    @Test("A relaunch reads the sealed answers back")
+    func aRelaunchReadsTheAnswers() async throws {
+        let account = AccountKey("xg04-read-\(UUID().uuidString)")
+        let (directory, sealer) = try ScreenModelSupport.sealer(account)
+        let store = UserStateStore(root: directory, accountKey: account, sealer: sealer)
+        try await store.save(UserState(gradeAvailabilityOverrides: ["77301": .inCanvas, "77306": .keptOutsideCanvas]))
+        let local = ScreenLocalState(store: AccountLocalScreenStateStore(access: AccountUserStateAccess(store: store, runtime: AccountRuntime())))
+        await local.load()
+        #expect(local.gradeAvailabilityOverrides == ["77301": .inCanvas, "77306": .keptOutsideCanvas])
+    }
+
+    @Test("Reminders: the course modifiers follow the Dashboard's rule (a score only for .available)")
+    func reminderModifierRule() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let assignment = try #require(snapshot.groups[spanish.id]?.first?.assignments.first)
+        for state in [GradeAvailability.available, .lettersOnly, .hiddenByInstructor, .notYetPosted, .notGradedInCanvas,
+                      .keptOutsideCanvas(.init(pastDueItems: 5, submittedOrOfflineItems: 5)), nil] {
+            let modifiers = ReminderSubjects.modifiers(assignment: assignment, course: spanish, availability: state,
+                                                       now: ExternalGrades.anchor)
+            #expect(modifiers.nearBoundary == (state == .available), "\(String(describing: state))")
+        }
+    }
+
+    @Test("Reminders: every candidate's priority uses the course's availability with the student's answers")
+    func reminderPrioritiesUseTheAnswers() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let answers: [CanvasID<Course>: GradeAvailabilityOverride] = [spanish.id: .keptOutsideCanvas]
+        let now = ExternalGrades.anchor
+        let index = GradeAvailabilityIndex(snapshot: snapshot, overrides: answers, now: now)
+        var firstCourse: [CanvasID<Assignment>: Course] = [:]
+        for course in snapshot.courses {
+            for assignment in (snapshot.groups[course.id] ?? []).flatMap(\.assignments) where firstCourse[assignment.id] == nil {
+                firstCourse[assignment.id] = course
+            }
+        }
+        let courseOf = firstCourse
+        let candidates = ReminderSubjects(snapshot: snapshot, now: now, gradeAvailabilityOverrides: answers).candidates
+        #expect(candidates.contains { courseOf[$0.assignment.id]?.id == spanish.id })
+        for candidate in candidates {
+            let course = try #require(courseOf[candidate.assignment.id])
+            let due = try #require(candidate.assignment.dueAt)
+            let weights = PriorityScore.WeightContext(course: course, groups: snapshot.groups[course.id] ?? [],
+                                                      gradingPeriods: snapshot.gradingPeriods[course.id] ?? [])
+            let expected = PriorityScore.score(
+                hoursUntilDue: due.timeIntervalSince(now) / 3600, courseWeight: weights.weight(of: candidate.assignment),
+                modifiers: ReminderSubjects.modifiers(assignment: candidate.assignment, course: course,
+                                                      availability: index[course.id], now: now))
+            #expect(candidate.priority == expected, "\(candidate.assignment.name)")
+        }
+    }
+
+    // MARK: End to end
+
     @Test("Signed in: the answer is sealed in UserState v5, rewrites the glance at once and reloads the widget once",
           .timeLimit(.minutes(2)))
     func signedInAnswerReachesTheGlance() async throws {
@@ -273,8 +467,7 @@ struct OutsideCanvasWhatIfViewTests {
         #expect(fitted.height >= WhatIfWeightInput.minimumHeight && WhatIfWeightInput.minimumHeight * 0.96 >= 44, "\(fitted)")
     }
 
-    @Test("Kept outside Canvas: the disclaimer and a labelled field per category; graded in Canvas: neither",
-          .enabled(if: !TestRuntime.sanitized))
+    @Test("Kept outside Canvas: the disclaimer, then a labelled field per category", .enabled(if: !TestRuntime.sanitized))
     func sheetTree() async throws {
         let details = GradeNotInCanvasDetailTests.details(try await ExternalGrades.snapshot())
         let algebra = WhatIfModel(setup: try #require(details["ALG2"]?.whatIf))
@@ -289,7 +482,11 @@ struct OutsideCanvasWhatIfViewTests {
         let disclaimerIndex = try #require(elements.firstIndex { $0.label == Self.disclaimer })
         let firstField = try #require(elements.firstIndex { $0.label.hasPrefix("Weight for") })
         #expect(disclaimerIndex < firstField, "the disclaimer comes first")
+    }
 
+    @Test("Graded in Canvas: no disclaimer and no weights in the sheet", .enabled(if: !TestRuntime.sanitized))
+    func canvasSheetTree() async throws {
+        let details = GradeNotInCanvasDetailTests.details(try await ExternalGrades.snapshot())
         let spanish = WhatIfModel(setup: try #require(details["SPAN-2"]?.whatIf))
         let spanishElements = try await AccessibilityTree.elements(of: WhatIfSheet(model: spanish).frame(width: 390)) {
             $0.contains { $0.label.contains("Simulation") }
