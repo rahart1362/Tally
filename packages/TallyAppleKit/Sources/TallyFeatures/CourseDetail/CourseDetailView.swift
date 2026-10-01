@@ -339,7 +339,7 @@ nonisolated enum GradeOverrideChoice: String, CaseIterable, Identifiable, Sendab
     var override: GradeAvailabilityOverride? {
         switch self {
         case .automatic: nil
-        case .yes: .inCanvas
+        case .yes: .keptOutsideCanvas
         case .no: .inCanvas
         }
     }

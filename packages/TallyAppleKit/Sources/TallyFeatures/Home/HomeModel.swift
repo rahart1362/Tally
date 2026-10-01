@@ -144,6 +144,7 @@ public final class HomeModel {
         // before `start()`) already shows the student's order; and (XG-04) the "grades kept
         // outside Canvas" answers, so it classifies every course as the glance on disk does.
         await local.load()
+        await projector.setGradeAvailabilityOverrides(local.gradeAvailabilityOverrides, revision: overridesRevision)
         let updates = await source.updates()
         guard !hasEnded else { return }
         await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
@@ -269,6 +270,7 @@ public final class HomeModel {
         let projector = projector
         overrideChanges.replace(with: Task { [weak self] in
             guard await projector.setGradeAvailabilityOverrides(overrides, revision: revision) else { return }
+            await self?.reproject()
         })
     }
 
