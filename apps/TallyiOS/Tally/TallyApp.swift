@@ -17,9 +17,16 @@ import TallySync
 /// frame, the launch colour; `AppModel.launch()` does the rest off the main actor. The
 /// `Launch.ToTask` phase's steps (`LaunchSignpost`): `Launch.Environment` is `live()`,
 /// `Launch.Scene` runs to the window's root content, `Launch.FirstFrame` from there to the launch task.
+///
+/// PAY-03 (M3-B1): the subscription engine starts here, once, at app init, never in a view: the
+/// `Transaction.updates` listener and the launch's verification (the Keychain record, then StoreKit).
+/// Each time the scene becomes active StoreKit re-verifies; when it enters the background, and
+/// after each background run, the background refresh is requested again while the subscription
+/// allows it (perf-app-runtime.md §2.4 B6).
 @main
 struct TallyApp: App {
     @State private var environment: AppEnvironment
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         LaunchSignpost.begin()
@@ -29,7 +36,9 @@ struct TallyApp: App {
         // calibration showed a fatal UI-test threshold cannot be both meaningful and green).
         MainThreadWatchdog.arm()
         #endif
-        _environment = State(initialValue: AppEnvironment.live())
+        let live = AppEnvironment.live()
+        live.appModel.subscription.start() // PAY-03: once, at app init
+        _environment = State(initialValue: live)
         LaunchSignpost.enterStep(LaunchSignpost.scene)
     }
 
@@ -46,6 +55,8 @@ struct TallyApp: App {
         let appModel = environment.appModel
         let signIn = environment.signIn
         let accountRuntime = environment.accountRuntime
+        let subscription = environment.appModel.subscription
+        let subscriptionEngine = subscription.engine
         // "Refresh Tally"'s `RefreshIntentBridge` is set and cleared by
         // `AppModel.attach(_:)`/`detach()` (perf-app-runtime.md §7 step 1),
         // never here: `body` stays free of side effects.
@@ -62,12 +73,22 @@ struct TallyApp: App {
             Self.root(appModel: appModel, signIn: signIn, logger: logger)
             #endif
         }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active: subscription.foreground()
+            case .background: subscription.sceneDidEnterBackground()
+            default: break
+            }
+        }
         .backgroundTask(.appRefresh(BackgroundRefresh.taskIdentifier)) {
             logger.log(.backgroundRefreshInvoked)
             // perf-app-runtime.md §7 step 7: one run through the account's one coordinator
             // (single-flight with the foreground), resolved lazily by the runtime from
             // `accounts.json` and the cached snapshot (B2). With no account it is an honest no-op.
+            // PAY-07: the coordinator asks the entitlement gate first.
             await accountRuntime.backgroundRefresh()
+            // B6: the next background refresh, while the subscription allows it.
+            await subscriptionEngine?.backgroundRunFinished()
         }
     }
 

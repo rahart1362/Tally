@@ -65,6 +65,10 @@ public final class AppModel {
     /// M3-C (UX-WP-12): the reminders permission, asked in context from the Dashboard tip or
     /// Settings, and a reminders pass when it is granted.
     public let reminders: RemindersModel
+    /// PAY-07 (M3-B1): the subscription's state, for M3-B2's paywall, locks and notices
+    /// (`subscriptionState` is the session's). The engine behind it gates refresh, reminders and
+    /// the background schedule, and mirrors the entitlement into the glance.
+    public let subscription: SubscriptionModel
     /// The Home shell's model: over a `SampleSession` while `route == .sample`, over the account's
     /// coordinator (`AccountHomeSource`) while `.signedIn`. Built by the route transition (pure
     /// construction); every fetch, digest and projection then runs off the main actor.
@@ -101,8 +105,9 @@ public final class AppModel {
 
     public init(accountRuntime: AccountRuntime = AccountRuntime(), logger: any TallyLogger = NoOpLogger(),
                 accountEnvironment: AccountEnvironment? = nil, launcher: (any LaunchBootstrapping)? = nil,
-                lock: AppLockModel? = nil) {
+                lock: AppLockModel? = nil, subscription: SubscriptionModel? = nil) {
         self.accountRuntime = accountRuntime
+        self.subscription = subscription ?? SubscriptionModel()
         self.logger = logger
         self.accountEnvironment = accountEnvironment
         if let launcher {
@@ -128,6 +133,14 @@ public final class AppModel {
             guard let environment, let coordinator = await runtime.coordinator() else { return }
             await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
         })
+    }
+
+    /// PAY-07: the entitlement as this session shows it (`EntitlementState.inSession`): `.demo` in
+    /// sample mode; signed in, the account's state (the Home exists only after the first sync or
+    /// for an account on disk); before that, a lapse reads as `.preview` (the first sync is free).
+    public var subscriptionState: EntitlementState {
+        let signedIn: Bool = if case .signedIn = route { true } else { false }
+        return subscription.state(isSampleMode: route == .sample, firstSyncSucceeded: signedIn)
     }
 
     // MARK: - Launch (plan 06 step 8; perf-app-runtime.md §2.4 L1–L9)
@@ -382,6 +395,7 @@ public final class AppModel {
         activeAccount = nil
         let runtime = accountRuntime
         let environment = accountEnvironment
+        let subscriptionEngine = subscription.engine
         teardown.replace(with: Task { [weak self] in
             await endingHome?.end()
             self?.recordSignOutStep(.home)
@@ -391,6 +405,7 @@ public final class AppModel {
             // M3-C: a reminders pass already running finishes before the purge cancels the
             // account's notifications; any later pass finds the retired coordinator's snapshot gone.
             await ReminderPipeline.drain()
+            await subscriptionEngine?.accountDetached() // PAY-07: no effect reaches the purged account
             self?.recordSignOutStep(.runtime)
             if let account, let environment {
                 await AccountSignOut.purge(account: account, retired: retired, environment: environment)
@@ -411,6 +426,9 @@ public final class AppModel {
         await refreshStatus.attach(to: coordinator)
         // M3-C: the reminders permission is read (never asked) so the Dashboard's tip can decide.
         await reminders.refreshPermission()
+        // PAY-07: the subscription engine's effects reach this account from now on, and its glance
+        // carries the gate's expiry.
+        await subscription.engine?.accountAttached(coordinator, environment: accountEnvironment)
     }
 
     /// Stops mirroring the coordinator and clears the intent's reference to it. The coordinator

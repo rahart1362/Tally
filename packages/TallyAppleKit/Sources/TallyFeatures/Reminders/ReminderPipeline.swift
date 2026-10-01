@@ -18,6 +18,10 @@ public nonisolated enum ReminderPassOutcome: Sendable, Equatable {
     /// The platform now holds exactly the plan: `scheduled` requests were added or replaced and
     /// `cancelled` identifiers removed. Both are 0 when nothing changed (the pass is idempotent).
     case reconciled(scheduled: Int, cancelled: Int)
+    /// PAY-07 (M3-B1): reminders need the trial or the subscription, and the entitlement gate said
+    /// no, so the pass planned nothing: every pending Tally reminder of the account (`cancelled`)
+    /// was withdrawn, and the ledger is empty.
+    case withdrawn(cancelled: Int)
 }
 
 /// The post-commit reminders pipeline (M3-C, E07; architecture.md §3.4 step 2): `ReminderPlanner`
@@ -36,6 +40,12 @@ public nonisolated enum ReminderPassOutcome: Sendable, Equatable {
 /// `drain()` waits for every pass queued so far; sign-out calls it after retiring the coordinator and
 /// before `SignOutUseCase` cancels the account's notifications, so no pass can schedule after that
 /// cancel or write a ledger after the purge.
+///
+/// **Entitlement (PAY-07, M3-B1).** Reminders need the trial or the subscription. A pass asks the
+/// account's entitlement gate (`AccountEnvironment.entitlement`); when it says no, the pass plans
+/// nothing and so withdraws every pending Tally reminder (`.withdrawn`). The subscription engine
+/// runs one pass when the answer changes, so a lapse withdraws them at once and a purchase plans
+/// them again.
 ///
 /// **Idempotent.** The planner's IDs are deterministic and the reconciler keys every decision by
 /// them, so a second pass over the same snapshot at the same time schedules and cancels nothing.
@@ -143,9 +153,13 @@ public nonisolated enum ReminderPipeline {
                                         gradeAvailabilityOverrides: gradeAvailabilityOverrides)
         var refresh = RefreshRecord()
         refresh.succeeded(dataFetchedAt: snapshot.fetchedAt)
-        let plan = ReminderPlanner.plan(accountKey: accountKey, candidates: subjects.candidates,
-                                        settings: ReminderSettings(preset: .balanced, hideCourseNames: hideCourseNames),
-                                        now: now, timeZone: format.timeZone, refresh: refresh)
+        // PAY-07 (M3-B1): on a lapse (the gate says no) the pass plans nothing, so the reconcile below
+        // withdraws every pending Tally reminder of the account: the ledger's and the platform's.
+        let remindersAllowed = await environment.entitlement.allows(.reminders)
+        let plan = !remindersAllowed ? [] : ReminderPlanner.plan(
+            accountKey: accountKey, candidates: subjects.candidates,
+            settings: ReminderSettings(preset: .balanced, hideCourseNames: hideCourseNames),
+            now: now, timeZone: format.timeZone, refresh: refresh)
         var desired: [PendingReminder] = []
         var contents: [String: NotificationContent.Rendered] = [:]
         for reminder in plan {
@@ -174,6 +188,7 @@ public nonisolated enum ReminderPipeline {
         } catch {
             // The platform already holds the plan; the next pass rebuilds the ledger from it.
         }
+        guard remindersAllowed else { return .withdrawn(cancelled: scheduler.cancelledCount) }
         return .reconciled(scheduled: scheduler.scheduledCount, cancelled: scheduler.cancelledCount)
     }
 }

@@ -20,6 +20,9 @@ import TallyStore
 ///   `accounts.json`, then the cached snapshot, decoded once).
 /// - `appModel` is the one `AppModel` the whole app shares; its `launch()` runs the launch
 ///   bootstrapper (perf-app-runtime.md §7 step 8).
+/// - PAY-03/04/07 (M3-B1): the subscription engine over StoreKit (`StoreKitEntitlementSource`), the
+///   Keychain record and `BGTaskScheduler`, with the app's one `EntitlementGate`, which the account
+///   environment hands to every coordinator and reminders pass. `TallyApp.init` starts it.
 struct AppEnvironment {
     let logger: any TallyPlatformLogger
     let accountRuntime: AccountRuntime
@@ -38,6 +41,9 @@ struct AppEnvironment {
         let logger = OSLogPlatformLogger()
         let transport = URLSessionTransport()
         let appGroupID = StoreLocation.appGroupID
+        // PAY-07: the one entitlement gate. Enforcement follows `SubscriptionConfig.isGatingEnforced`
+        // (off until M3-B2 ships the paywall).
+        let entitlementGate = EntitlementGate(clock: SystemDateProvider())
         // No explicit Keychain access groups yet: an explicit group fails with
         // errSecMissingEntitlement under CI's ad-hoc signing (KeychainVaultKeyStoreTests' known
         // issue), so every key lives in the app's default group until a real Team ID exists
@@ -54,7 +60,8 @@ struct AppEnvironment {
             reloadWidgets: { WidgetReloader().reloadAllTimelines() },
             logger: logger,
             clock: SystemDateProvider(),
-            removeLegacyCredentials: { _ = KeychainCredentialStore() })
+            removeLegacyCredentials: { _ = KeychainCredentialStore() },
+            entitlement: entitlementGate)
         var signIn = SignInServices(webAuthPresenter: WebAuthPresenter(),
                                     makeTokenExchange: SignInServices.canvasTokenExchange(transport: transport))
         var authenticator: any AppLockAuthenticating = LocalAuthenticationAdapter()
@@ -77,9 +84,14 @@ struct AppEnvironment {
             await AccountSessionFactory.activeCoordinator(resolvedEnvironment, launchRecords: launchRecords)
         })
         let lock = AppLockModel(authenticator: authenticator, preferences: accountEnvironment.lockPreferences)
+        // PAY-01: the product IDs derive from the bundle ID (`Identity.xcconfig`).
+        let products = SubscriptionProducts(bundleID: Bundle.main.bundleIdentifier ?? "dev.tally-app.tally")
+        let subscription = SubscriptionModel(engine: SubscriptionEngine(
+            source: StoreKitEntitlementSource(products: products), records: KeychainEntitlementStore(),
+            gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
-                                lock: lock)
+                                lock: lock, subscription: subscription)
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif
