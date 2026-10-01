@@ -1,28 +1,43 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// A course's health (insights-at-a-glance.md §5.4), shown on the course card as a chip with an
 /// icon and a word, never colour alone (ux-ui.md §3.1 rule 4).
 public nonisolated enum CourseHealth: String, Equatable, Sendable, CaseIterable {
     case onTrack, needsAttention, atRisk, noGradeYet
+    /// Plan 08 §4.4 row 4 (XG-03): the course's grades are kept outside Canvas and nothing else
+    /// needs attention. Missing work still makes it "Needs attention" or "At risk".
+    case gradeNotInCanvas
 
     /// The chip's words; VoiceOver reads the same text.
     public var label: String {
         switch self {
-        case .onTrack: "On track"
-        case .needsAttention: "Needs attention"
-        case .atRisk: "At risk"
-        case .noGradeYet: "No grade yet"
+        case .onTrack: String(localized: L10n.Courses.healthOnTrack())
+        case .needsAttention: String(localized: L10n.Courses.healthNeedsAttention())
+        case .atRisk: String(localized: L10n.Courses.healthAtRisk())
+        case .noGradeYet: String(localized: L10n.Grades.noGradeYet())
+        case .gradeNotInCanvas: String(localized: L10n.Grades.notInCanvasStatus())
         }
     }
 
-    /// The chip's SF Symbol (ux-ui.md §3.7.2): a distinct shape per state.
+    /// The chip's SF Symbol (ux-ui.md §3.7.2). The two "no grade" states share `minus.circle`
+    /// (plan 08 §4.4 row 4); their words differ.
     public var symbol: String {
         switch self {
         case .onTrack: "checkmark.circle"
         case .needsAttention: "exclamationmark.circle"
         case .atRisk: "exclamationmark.triangle"
-        case .noGradeYet: "minus.circle"
+        case .noGradeYet, .gradeNotInCanvas: "minus.circle"
+        }
+    }
+
+    /// The states the grade's own place already says ("No grade yet", the dash and "Not in
+    /// Canvas"): a card or hero shows no chip for them, and VoiceOver does not hear them twice.
+    public var isSaidByTheGrade: Bool {
+        switch self {
+        case .noGradeYet, .gradeNotInCanvas: true
+        case .onTrack, .needsAttention, .atRisk: false
         }
     }
 }
@@ -36,7 +51,13 @@ public nonisolated enum CourseHealth: String, Equatable, Sendable, CaseIterable 
 ///   letter cutoff, or at least one open missing item.
 /// - **No grade yet**: nothing above applies and there is no grade the student can see (hidden
 ///   totals, or no score yet).
+/// - **Grade not in Canvas** (plan 08 §4.4 row 4): nothing above applies and the course's grades
+///   are kept outside Canvas.
 /// - **On track**: otherwise.
+///
+/// Plan 08 §4.4 rows 4 and 10: the score (and so every grade and goal rule) is used only for a
+/// course whose grades are in Canvas as percentages (`.available`); for every other course only
+/// the missing-work rules run.
 ///
 /// Two §5.4 inputs are not available to this build, so their rules cannot fire: the student's
 /// goals (no goal is stored in `UserState`), and "a drop of 3 points over 14 days" (TallyCore keeps
@@ -52,10 +73,14 @@ public nonisolated enum CourseHealthRules {
         public let openMissingCount: Int
     }
 
+    /// - Parameter availability: the course's state in the projection's `GradeAvailabilityIndex`;
+    ///   `nil` classifies the course here, at `formatter.now`, with no override.
     public static func evaluate(
         course: Course, groups: [AssignmentGroup], gradingPeriods: [GradingPeriod], goal: Double? = nil,
-        formatter: ScreenFormatter
+        availability: GradeAvailability? = nil, formatter: ScreenFormatter
     ) -> Evaluation {
+        let availability = availability
+            ?? GradeAvailabilityRules.classify(course: course, groups: groups, now: formatter.now, override: nil)
         let weights = PriorityScore.WeightContext(course: course, groups: groups, gradingPeriods: gradingPeriods)
         var openMissing = 0
         var heavyOpenMissing = 0
@@ -67,7 +92,7 @@ public nonisolated enum CourseHealthRules {
                 heavyOpenMissing += 1
             }
         }
-        let score = course.gradeVisibility == .visible ? course.scores?.currentScore : nil
+        let score = availability == .available ? course.scores?.currentScore : nil
         let missingReason = openMissing == 1
             ? "1 missing item is still accepted"
             : "\(openMissing) missing items are still accepted"
@@ -91,6 +116,9 @@ public nonisolated enum CourseHealthRules {
         }
         if !reasons.isEmpty {
             return Evaluation(health: .needsAttention, reasons: reasons, openMissingCount: openMissing)
+        }
+        if case .keptOutsideCanvas = availability {
+            return Evaluation(health: .gradeNotInCanvas, reasons: [], openMissingCount: openMissing)
         }
         guard score != nil else {
             return Evaluation(health: .noGradeYet, reasons: [], openMissingCount: openMissing)
