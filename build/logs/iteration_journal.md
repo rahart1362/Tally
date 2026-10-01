@@ -866,3 +866,14 @@ Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 34
 **Local mutations, 26 of 26 caught** (`.build-xg02/mutate.py`; every file restored to its `HEAD` blob). XM26 (the commit index at the clock's time instead of the fetch time) survived the first pass because `TestClock` defaults to the persona's fetch instant; `bf13f54` runs the test's clock 20 days earlier, and XM26 is then caught. XM15 (schema 1's overall rule) is caught by the letters-only test and the override tests; no persona has a letters-only course, so the per-persona rule test cannot see it.
 
 **Local, on `bf13f54`:** `make core-perf` 40 tests passed (`dashboardBuild/stress` 4.35 ms); `make core-tsan` 694 tests, 0 ThreadSanitizer reports.
+
+## 2026-10-01 | XG-02: CI mutation run (IM1-IM5), the report
+**Mutation run 36818267151** (`0c4dac9`, quick; reverted in `8b0d78e`; the five files are back to their sha256 and to their blobs at `2859df3`, and the tree equals `2859df3`, per `.build-xg02/ci_mutations.py verify`): **5 of 5 caught**.
+- IM1 (course row back to the visibility rule): `HomeGradeAvailabilityTests.swift:52, 58`.
+- IM2 (To-Do priority back to the visibility rule): `HomeGradeAvailabilityTests.swift:116`.
+- IM3 (an opted-in `.notInCanvas` student told to "choose to show grades"): `WidgetStandingStatesTests.swift:104` and `:124` (3 distinct images for 4 states), also `:73`, `:143`.
+- IM4 (the timeline drops the summary's reason): `WidgetStandingStatesTests.swift:88` (`.notOptedIn` where `.noneYet`), also `:71`, `:142`.
+- IM5 (the launch paint counts every course): `HomeGradeAvailabilityTests.swift:82, 84-86`.
+- Main xcresult 390 total, 376 passed, 8 failed, 4 skipped, 2 expected; floor 360 total, 350 passed, 8 failed, 2 expected: in each, the 8 failures are exactly those tests. Linux jobs and hygiene green; TallyCore on Xcode 694 tests.
+
+**Report:** `docs/pmo/reviews/xg02-report.md`. The hand-off full run is on the report's commit.
