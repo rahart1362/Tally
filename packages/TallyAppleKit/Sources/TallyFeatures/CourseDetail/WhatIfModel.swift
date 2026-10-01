@@ -298,11 +298,13 @@ public final class WhatIfModel {
 /// VoiceOver reads for both. Pure, so the spoken form is unit-tested.
 public nonisolated enum WhatIfCopy {
     /// "Simulation — not your real grade" (ux-ui.md §3.7.3), shown with the `flask` symbol.
-    public static let simulationLabel = "Simulation \u{2014} not your real grade"
+    public static var simulationLabel: String { String(localized: L10n.CourseDetail.simulationLabel()) }
 
-    /// "91.4%", or "…" while the first answer is being worked out.
-    public static func percent(_ value: Double?) -> String {
-        value.map { $0.formatted(.number.precision(.fractionLength(1))) + "%" } ?? "\u{2026}"
+    /// "91.4%" (§3.3 "Percent": `.percent` FormatStyle, so the sign's position and spacing follow
+    /// `locale`, matching the old `.number.precision(.fractionLength(1)) + "%"` for en_US), or "…"
+    /// while the first answer is being worked out.
+    public static func percent(_ value: Double?, locale: Locale = TallyLocale.effective) -> String {
+        value.map { $0.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale)) } ?? "\u{2026}"
     }
 
     /// XG-06: the summary when there is no grade to show (`WhatIfModel.hasNoGrade`): a dash on
@@ -323,15 +325,19 @@ public nonisolated enum WhatIfCopy {
     }
 
     /// The summary as one sentence: "Projected 91.4 percent, up 1.3 points from your current 90.1
-    /// percent", or "…, the same as your current grade".
-    public static func spoken(projected: Double?, baseline: Double?) -> String {
-        guard let projected else { return "Projected grade: working it out" }
-        let value = projected.formatted(.number.precision(.fractionLength(1)))
-        guard let baseline else { return "Projected \(value) percent" }
+    /// percent", or "…, the same as your current grade". Whole-sentence keys (§3.3 "Sentence
+    /// assembly"): "up"/"down" are never spliced into a shared template, because word order varies;
+    /// each direction is its own key, like `Insights`' trend summary.
+    public static func spoken(projected: Double?, baseline: Double?, locale: Locale = TallyLocale.effective) -> String {
+        guard let projected else { return String(localized: L10n.CourseDetail.whatIfWorkingItOut()) }
+        let value = projected.formatted(.number.precision(.fractionLength(1)).locale(locale))
+        guard let baseline else { return String(localized: L10n.CourseDetail.whatIfProjected(value)) }
         let delta = projected - baseline
-        guard abs(delta) >= 0.05 else { return "Projected \(value) percent, the same as your current grade" }
-        let points = abs(delta).formatted(.number.precision(.fractionLength(1)))
-        return "Projected \(value) percent, \(delta > 0 ? "up" : "down") \(points) points from your current "
-            + "\(baseline.formatted(.number.precision(.fractionLength(1)))) percent"
+        guard abs(delta) >= 0.05 else { return String(localized: L10n.CourseDetail.whatIfProjectedSame(value)) }
+        let points = abs(delta).formatted(.number.precision(.fractionLength(1)).locale(locale))
+        let baselineText = baseline.formatted(.number.precision(.fractionLength(1)).locale(locale))
+        return delta > 0
+            ? String(localized: L10n.CourseDetail.whatIfProjectedUp(value, points, baselineText))
+            : String(localized: L10n.CourseDetail.whatIfProjectedDown(value, points, baselineText))
     }
 }

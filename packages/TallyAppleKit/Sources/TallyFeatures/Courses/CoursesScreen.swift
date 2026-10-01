@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-14 / ARC E05a: the Courses tab (ux-ui.md §3.7.2). A plain list of `HomeModel.courseCards`,
 /// already built, ordered and formatted off the main actor; the body only lays them out.
@@ -49,14 +50,14 @@ struct CoursesScreen: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
-        .navigationTitle("Courses")
+        .navigationTitle(String(localized: L10n.Courses.navigationTitle()))
         .navigationDestination(for: CanvasID<Course>.self) { id in
             CourseDetailView(courseID: id)
         }
         .toolbar {
             if !model.courseCards.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(editMode.isEditing ? "Done" : "Edit") {
+                    Button(editMode.isEditing ? String(localized: L10n.Courses.editDoneButton()) : String(localized: L10n.Courses.editButton())) {
                         withAnimation { editMode = editMode.isEditing ? .inactive : .active }
                     }
                     .accessibilityIdentifier("courses.edit")
@@ -74,15 +75,15 @@ struct CoursesScreen: View {
         switch model.phase {
         case .loading, .glance:
             // The launch's glance carries no rows for this tab (M2-C1 D7): loading until the projection.
-            ProgressView("Loading your courses…")
+            ProgressView(String(localized: L10n.Courses.loading()))
         case .loaded, .failed:
             // ux-ui.md §3.2.3 "No courses".
             ContentUnavailableView {
-                Label("No courses yet", systemImage: "books.vertical")
+                Label(String(localized: L10n.Courses.emptyTitle()), systemImage: "books.vertical")
             } description: {
-                Text("When your school adds you to courses in Canvas, they'll appear here.")
+                Text(L10n.Courses.emptyDescription())
             } actions: {
-                Button("Refresh") { model.requestRefresh() }
+                Button(String(localized: L10n.Courses.emptyRefresh())) { model.requestRefresh() }
             }
         }
     }

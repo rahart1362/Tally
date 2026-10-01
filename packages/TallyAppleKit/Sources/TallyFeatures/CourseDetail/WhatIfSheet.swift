@@ -38,7 +38,7 @@ struct WhatIfSheet: View {
                         if model.setup.estimate != nil {
                             Text(verbatim: group.name)
                         } else {
-                            Text("\(group.name) · \(group.weightText)")
+                            Text(L10n.CourseDetail.whatIfGroupHeader(group.weightText))
                         }
                     }
                 }
@@ -48,14 +48,14 @@ struct WhatIfSheet: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 WhatIfSummary(model: model)
             }
-            .navigationTitle("What-If")
+            .navigationTitle(String(localized: L10n.CourseDetail.whatIfHeader()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: L10n.Account.done())) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Reset") { model.reset() }
+                    Button(String(localized: L10n.CourseDetail.whatIfResetButton())) { model.reset() }
                         .disabled(!model.canReset)
                         .accessibilityIdentifier("whatif.reset")
                 }
@@ -70,6 +70,7 @@ struct WhatIfSheet: View {
 private struct WhatIfSummary: View {
     let model: WhatIfModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
@@ -82,10 +83,10 @@ private struct WhatIfSummary: View {
                 .accessibilityLabel(WhatIfCopy.simulationLabel)
                 .accessibilityIdentifier("whatif.simulationLabel")
             HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                Text("Projected")
+                Text(L10n.CourseDetail.whatIfSummaryLabel())
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
-                Text(verbatim: model.hasNoGrade ? WhatIfCopy.noGradeDash : WhatIfCopy.percent(model.projected))
+                Text(verbatim: model.hasNoGrade ? WhatIfCopy.noGradeDash : WhatIfCopy.percent(model.projected, locale: locale))
                     .font(.system(.title, design: .serif).bold())
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
@@ -99,7 +100,7 @@ private struct WhatIfSummary: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(model.hasNoGrade ? WhatIfCopy.noGradeSpoken
-                                : WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline))
+                                : WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline, locale: locale))
             .accessibilityIdentifier("whatif.projected")
         }
         .padding(.horizontal, TallySpacing.screenMargin)
@@ -133,11 +134,11 @@ private struct WhatIfItemRow: View {
                 : AnyLayout(HStackLayout(spacing: TallySpacing.sm))
             controls {
                 HStack(spacing: TallySpacing.sm) {
-                    TextField("Score", text: $text)
+                    TextField(String(localized: L10n.CourseDetail.whatIfScoreFieldPrompt()), text: $text)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120)
-                        .accessibilityLabel("Score for \(item.title), \(item.outOfText)")
+                        .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfScoreFieldAccessibility(item.title, item.outOfText)))
                         .accessibilityIdentifier("whatif.field")
                     Text(item.outOfText)
                         .font(TallyTypography.body)
@@ -151,7 +152,7 @@ private struct WhatIfItemRow: View {
             // technology treats it as the standard slider it is.
             Slider(value: Binding(get: { model.scores[item.id] ?? 0 }, set: { model.setScore($0, for: item.id) }),
                    in: 0...max(item.pointsPossible, 1), step: WhatIfModel.stepPoints) {
-                Text("Score for \(item.title)")
+                Text(L10n.CourseDetail.whatIfSliderAccessibility(item.title))
             }
             .tint(TallyColor.accent)
             .accessibilityIdentifier("whatif.slider")
@@ -160,10 +161,13 @@ private struct WhatIfItemRow: View {
                 : AnyLayout(HStackLayout(spacing: TallySpacing.sm))
             chips {
                 ForEach(WhatIfModel.quickFillPercents, id: \.self) { percent in
-                    Button("\(Int(percent))%") { model.fill(item.id, percent: percent) }
+                    // §3.3 "Percent": the sign's position and spacing follow the locale.
+                    Button(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))) {
+                        model.fill(item.id, percent: percent)
+                    }
                         .buttonStyle(.bordered)
                         .frame(minHeight: 44)
-                        .accessibilityLabel("Set \(item.title) to \(Int(percent)) percent")
+                        .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
                 }
             }
             .sensoryFeedback(.selection, trigger: model.scores[item.id])
@@ -313,7 +317,7 @@ private struct ScoreStepper: View {
             } label: {
                 Image(systemName: "minus").frame(width: Self.buttonSide, height: Self.buttonSide)
             }
-            .accessibilityLabel("Lower \(item.title) by 1 point")
+            .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfLowerByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.decrement")
             Divider().frame(height: 24)
             Button {
@@ -321,7 +325,7 @@ private struct ScoreStepper: View {
             } label: {
                 Image(systemName: "plus").frame(width: Self.buttonSide, height: Self.buttonSide)
             }
-            .accessibilityLabel("Raise \(item.title) by 1 point")
+            .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfRaiseByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.increment")
         }
         .buttonStyle(.borderless)
@@ -335,10 +339,11 @@ private struct ScoreStepper: View {
 /// from `GoalSeek` through `GradeWork`.
 private struct WhatIfGoalSection: View {
     let model: WhatIfModel
+    @Environment(\.locale) private var locale
 
     var body: some View {
         Section {
-            Picker("Assignment", selection: Binding(
+            Picker(String(localized: L10n.CourseDetail.whatIfGoalAssignmentPicker()), selection: Binding(
                 get: { model.goalAssignmentID },
                 set: { if let id = $0 { model.setGoal(assignment: id) } })) {
                 ForEach(model.setup.groups) { group in
@@ -349,32 +354,40 @@ private struct WhatIfGoalSection: View {
             }
             Stepper(value: Binding(get: { model.goalPercent }, set: { model.setGoal(percent: $0) }),
                     in: 50...100, step: 1) {
-                Text("Target: \(Int(model.goalPercent))%")
+                Text(L10n.CourseDetail.whatIfGoalTarget(goalPercentText))
             }
             Text(answer)
                 .font(TallyTypography.cardTitle)
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityIdentifier("whatif.goal")
         } header: {
-            Text("Goal")
+            Text(L10n.CourseDetail.whatIfGoalHeader())
         } footer: {
-            Text("Other assignments keep the scores you entered above.")
+            Text(L10n.CourseDetail.whatIfGoalFooter())
         }
     }
 
+    /// "90%" (§3.3 "Percent"): `model.goalPercent` is already a whole number (the stepper's step is 1).
+    private var goalPercentText: String {
+        model.goalPercent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))
+    }
+
     private var answer: String {
-        guard let id = model.goalAssignmentID, let outcome = model.goalOutcome else { return "Working it out…" }
+        guard let id = model.goalAssignmentID, let outcome = model.goalOutcome else {
+            return String(localized: L10n.CourseDetail.whatIfGoalWorkingItOut())
+        }
         let possible = model.pointsPossible(for: id) ?? 0
-        let outOf = possible.formatted(.number.precision(.fractionLength(0...2)))
+        let outOf = possible.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
         switch outcome {
         case .reachable(let minimum) where minimum <= 0:
-            return "Any score reaches \(Int(model.goalPercent))%."
+            return String(localized: L10n.CourseDetail.whatIfGoalAnyScoreReaches(goalPercentText))
         case .reachable(let minimum):
-            return "\(minimum.formatted(.number.precision(.fractionLength(0...2))))/\(outOf) or more"
+            let minimumText = minimum.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
+            return String(localized: L10n.CourseDetail.whatIfGoalMinimumOrMore(minimumText, outOf))
         case .impossible(.unreachableEvenAtMaxScore):
-            return "Not reachable, even with \(outOf)/\(outOf)."
+            return String(localized: L10n.CourseDetail.whatIfGoalUnreachableEvenAtMax(outOf))
         case .impossible:
-            return "This assignment can't change your grade."
+            return String(localized: L10n.CourseDetail.whatIfGoalCannotChangeGrade())
         }
     }
 }

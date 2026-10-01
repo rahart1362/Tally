@@ -93,12 +93,11 @@ public nonisolated enum CourseHealthRules {
             }
         }
         let score = availability == .available ? course.scores?.currentScore : nil
-        let missingReason = openMissing == 1
-            ? "1 missing item is still accepted"
-            : "\(openMissing) missing items are still accepted"
+        let missingReason = String(localized: L10n.Courses.missingItemsStillAccepted(openMissing))
 
         if let score, let goal, score < goal - InsightsConfig.courseHealthAtRiskGoalGap {
-            return Evaluation(health: .atRisk, reasons: ["Below your \(formatter.pointsText(goal))% goal"]
+            let reason = String(localized: L10n.Courses.belowGoalReason(formatter.trimmedPercentText(goal)))
+            return Evaluation(health: .atRisk, reasons: [reason]
                               + (openMissing > 0 ? [missingReason] : []), openMissingCount: openMissing)
         }
         if heavyOpenMissing >= InsightsConfig.courseHealthAtRiskMissingCount {
@@ -131,19 +130,24 @@ public nonisolated enum CourseHealthRules {
     static func nearCutoff(score: Double, goal: Double?, letterCutoffs: Bool = true, formatter: ScreenFormatter) -> String? {
         let window = InsightsConfig.courseHealthNeedsAttentionWindow
         if let goal, score >= goal, score - goal <= window {
-            return "\(gapText(score - goal, formatter)) your \(formatter.pointsText(goal))% goal"
+            return String(localized: L10n.Courses.aboveGoalReason(gapText(score - goal, formatter), formatter.trimmedPercentText(goal)))
         }
         // Descending, so the first cutoff at or below the score is the nearest one below it.
         guard letterCutoffs,
               let cutoff = InsightsConfig.standardLetterBoundaries.first(where: { score >= $0 }),
               score - cutoff <= window else { return nil }
-        return "\(gapText(score - cutoff, formatter)) the \(formatter.pointsText(cutoff))% cutoff"
+        return String(localized: L10n.Courses.aboveCutoffReason(gapText(score - cutoff, formatter), formatter.trimmedPercentText(cutoff)))
     }
 
-    /// "0.4 points above", "1 point above", or "Just above" under a tenth of a point.
+    /// "0.4 points above", "1 point above", or "Just above" under a tenth of a point. `tenths == 1`
+    /// is a fixed pair with `pointsAboveCount`, not a catalog plural (the same choice L10N-03a
+    /// documented for settings.threshold.pointsOne/pointsOther): `gap` is an unrounded Double, not a
+    /// clean plural count.
     private static func gapText(_ gap: Double, _ formatter: ScreenFormatter) -> String {
         let tenths = (gap * 10).rounded() / 10
-        if tenths < 0.1 { return "Just above" }
-        return tenths == 1 ? "1 point above" : "\(formatter.pointsText(tenths)) points above"
+        if tenths < 0.1 { return String(localized: L10n.Courses.justAbove()) }
+        return tenths == 1
+            ? String(localized: L10n.Courses.pointAbove())
+            : String(localized: L10n.Courses.pointsAboveCount(formatter.pointsText(tenths)))
     }
 }

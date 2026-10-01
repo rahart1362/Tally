@@ -63,12 +63,15 @@ public nonisolated enum CourseCardBuilder {
                                                 availability: availability, formatter: formatter)
         let grade = GradeDisplay(course: course, availability: availability, school: school, formatter: formatter)
         let next = nextDue(in: groups, now: formatter.now)
-        let nextText = next.map { "Next: \($0.name) · \(formatter.dueText($0.dueAt ?? formatter.now))" }
+        let nextText = next.map {
+            String(localized: L10n.Courses.cardNextDue($0.name, formatter.dueText($0.dueAt ?? formatter.now)))
+        }
 
         var spoken = [course.name, course.courseCode, grade.spoken]
         if !health.health.isSaidByTheGrade { spoken.append(health.health.label) }
         if let next {
-            spoken.append("next \(next.name), \(formatter.dueText(next.dueAt ?? formatter.now, spoken: true))")
+            spoken.append(String(localized: L10n.Courses.cardNextDueSpoken(
+                next.name, formatter.dueText(next.dueAt ?? formatter.now, spoken: true))))
         }
         return CourseCard(
             id: course.id, name: course.name, code: course.courseCode, paletteIndex: paletteIndex,
