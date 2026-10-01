@@ -54,7 +54,6 @@ public nonisolated enum AccountSessionFactory {
         let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: environment.clock,
                                              initialSnapshot: initialSnapshot, initialRecord: record,
                                              includeGrades: settings.showGradesInGlance,
-                                             gradeAvailabilityOverrides: settings.gradeAvailabilityOverrides,
                                              recordStore: recordStore)
         await coordinator.updateDigestThresholds(settings.digestThresholds)
         // M3-C (E07): the account's reminders are planned from the cached snapshot now, and again

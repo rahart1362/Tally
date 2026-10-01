@@ -19,7 +19,7 @@ struct WhatIfSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let estimate = model.setup.estimate {
+                if let estimate = Optional(model.setup.estimate ?? WhatIfEstimateSetup(categories: [])) {
                     Section {
                         Text(L10n.WhatIfEstimate.disclaimer())
                             .font(TallyTypography.footnote)
@@ -264,15 +264,15 @@ struct WhatIfWeightInput: View {
 
     var body: some View {
         TextField(text: $text, prompt: Text(verbatim: category.defaultText)) {
-            Text(L10n.WhatIfEstimate.weightLabel(category.name))
+            Text(verbatim: category.name)
         }
         .keyboardType(.decimalPad)
         .textFieldStyle(.roundedBorder)
         .focused($isFocused)
-        .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
+        .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
         .onTapGesture { isFocused = true }
-        .accessibilityLabel(Text(L10n.WhatIfEstimate.weightLabel(category.name)))
+        .accessibilityLabel(Text(verbatim: category.name))
         .accessibilityIdentifier("whatif.weight")
     }
 }
