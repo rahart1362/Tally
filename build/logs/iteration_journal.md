@@ -834,3 +834,16 @@ Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 34
 **Merge:** `origin/main` @ `799c62e` (PR #13, XG-01) merged as `37a1143`. The journal conflict only; main's journal is a byte-identical prefix. On the merged tree: `make core-build` clean; `make core-test` 662 tests (4 known issues); `make lint` 0 violations in 219 files; literals 440/440; catalogs PASS.
 
 **Report:** `docs/pmo/reviews/l10n02-report.md`. The hand-off full run is on the report's commit.
+
+## 2026-10-01 | L10N-02: the hand-off full run
+**Full run 36804743119** (`a859ea7`: the report's commit, on `origin/main` @ `799c62e` merged): **all 12 jobs success**.
+- Required:
+  - hygiene: literals 440/440; catalogs PASS (4 catalogs, 46 keys); widget isolation PASS (modules TallyDesignSystem, TallyDomain, TallyGlance, TallyStore, TallyStrings, TallyWidgets).
+  - core-linux: 662 tests (50 + 101 + 8 + 308 + 195), 4 known issues.
+  - lint; core-sanitizers: TSan and ASan/LSan, 662 each.
+  - ios-build: TallyCore on Xcode 662 tests (4 known issues); hosted Swift Testing 345 tests in 73 suites on both simulators (2 known issues). Main xcresult **377 total, 371 passed, 0 failed, 4 skipped, 2 expected**; floor 347 total, 345 passed, 0 failed, 2 expected; smallest iPhone 2/2. Release device build, shipping-binary checks, widget link map and widget memory budget: success.
+  - ios-asan: 344 total, 341 passed, 1 skipped, 2 expected, 0 ASan reports.
+  - ios-tsan: 344 total, 341 passed, 1 skipped, 2 expected, 0 TSan warnings or errors.
+  - ios-perf: `Launch.GlancePaint` median **1.1262 s ≤ 3.0 s**; sample entry median 0.0995 s ≤ 0.15 s; 6/6.
+- Report-only, all success: forward-compat (iOS 27 SDK: 377 total, 371 passed, 0 failed); ios-asan-ui (30 total, 26 passed, 4 skipped, 0 reports); core-perf; perf on Apple silicon.
+- `LaunchFromCacheUITests` passed: the one re-run of the flake candidate from run 36801207636.
