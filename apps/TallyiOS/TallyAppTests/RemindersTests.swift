@@ -532,14 +532,18 @@ extension AccountLifecycleSuites {
         func launchThenCommit() async throws {
             // Diagnostic (PMO, 2026-10-01): this test intermittently waits ~30 s for a reminders pass
             // (PR #11, #16, XG-03 runs; 30.377 s in PR #17's run even with the suites serialized).
-            // The REMINDER-TIMING lines show which step the time goes to; remove once explained.
+            // The step timings go into the waits' failure messages, which reach the CI log (the iOS job's
+            // console filter drops print output: Makefile IOS_CONSOLE). Remove once explained.
             let rig = try ReminderRig()
             let clock = ContinuousClock()
             let started = clock.now
-            func mark(_ step: String) { print("REMINDER-TIMING \(step) +\(clock.now - started) reads=\(rig.platform.pendingReads)") }
+            var timings: [String] = []
+            func mark(_ step: String) { timings.append("\(step) +\(clock.now - started) reads=\(rig.platform.pendingReads)") }
             let model = try await launched(rig)
             mark("launched")
-            #expect(try await AccountTestSupport.eventually { rig.platform.pendingReads >= 1 }, "no pass at launch")
+            let launchPassRead = try await AccountTestSupport.eventually { rig.platform.pendingReads >= 1 }
+            let atLaunch = timings + ["checked +\(clock.now - started)"]
+            #expect(launchPassRead, "no pass at launch; REMINDER-TIMING \(atLaunch)")
             mark("launch pass read")
             await ReminderPipeline.drain()
             let coordinator = try #require(await model.accountRuntime.coordinator())
@@ -551,8 +555,19 @@ extension AccountLifecycleSuites {
             await model.home?.start() // the launch refresh commits generation 2 (the same work)
             mark("home started")
             #expect(await coordinator.committedSnapshot?.generation == 2)
-            #expect(try await AccountTestSupport.eventually { rig.platform.pendingReads >= 2 }, "no pass after the commit")
+            let commitPassRead = try await AccountTestSupport.eventually { rig.platform.pendingReads >= 2 }
+            let afterCommit = timings + ["checked +\(clock.now - started)"]
+            #expect(commitPassRead, "no pass after the commit; REMINDER-TIMING \(afterCommit)")
             mark("commit pass read")
+            // A pass that comes but slowly (PR #17's run: 30.377 s, just inside the wait) is recorded as a
+            // known issue so its timings reach the log; the message contains "error:" only so the iOS job's
+            // console filter keeps the line. Diagnostic, not a failure.
+            if clock.now - started > .seconds(10) {
+                let slow = timings
+                withKnownIssue("slow reminders pass (diagnostic)") {
+                    Issue.record("REMINDER-TIMING slow pass, diagnostic only (not an error: \(slow))")
+                }
+            }
             await ReminderPipeline.drain()
             let again = Set(rig.platform.scheduledIDs.dropFirst(fromCache.count))
             // Only the stale-data warning moves: each commit pushes it a day past the new fetch (R17).
