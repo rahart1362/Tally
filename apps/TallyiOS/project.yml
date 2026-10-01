@@ -167,6 +167,10 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TallyAppTests
+      # PAY-01/PAY-03 (M3-B1): StoreKit Testing's products (`SKTestSession(contentsOf:)` reads it
+      # from this bundle). The scheme's run action names the same file below.
+      - path: Config/Products.storekit
+        buildPhase: resources
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
@@ -236,6 +240,8 @@ schemes:
         TallyUITests: [test]
     run:
       config: Debug
+      # PAY-01 (M3-B1): local StoreKit Testing when run from Xcode; never part of an App Store build.
+      storeKitConfiguration: Config/Products.storekit
     test:
       config: Debug
       targets:

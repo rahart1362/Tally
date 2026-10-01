@@ -1,0 +1,115 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "7A11E500",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "7A11E501",
+      "localizations" : [],
+      "name" : "Tally",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [
+            {
+              "displayPrice" : "4.99",
+              "eligibility" : [
+                "new",
+                "expired",
+                "existing"
+              ],
+              "internalID" : "7A11E5C1",
+              "isStackable" : false,
+              "numberOfPeriods" : 1,
+              "paymentMode" : "payUpFront",
+              "referenceName" : "Pilot school offer code, first year at 4.99",
+              "subscriptionPeriod" : "P1Y"
+            }
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "7A11E511",
+          "introductoryOffer" : {
+            "internalID" : "7A11E5F1",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "Ongoing Canvas refresh, every screen, reminders, widgets and Shortcuts.",
+              "displayName" : "Tally Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.tally-app.tally.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Tally Annual",
+          "subscriptionGroupID" : "7A11E501",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+            {
+              "displayPrice" : "4.99",
+              "internalID" : "7A11E5B1",
+              "isEligible" : true,
+              "numberOfPeriods" : 1,
+              "offerID" : "dev.tally-app.tally.annual.winback",
+              "paymentMode" : "payUpFront",
+              "referenceName" : "Win-back, first year at 4.99",
+              "subscriptionPeriod" : "P1Y"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id" : "7A11E502",
+      "localizations" : [],
+      "name" : "Tally Parent",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "7A11E512",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "A live, read-only view of your linked students' courses, grades and due dates.",
+              "displayName" : "Tally Parent",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.tally-app.tally.parent.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Tally Parent",
+          "subscriptionGroupID" : "7A11E502",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
