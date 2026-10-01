@@ -117,6 +117,33 @@ public nonisolated struct WhatIfSetup: Equatable, Sendable {
     public let courseName: String
     public let input: GradeInput
     public let groups: [WhatIfGroup]
+    /// Plan 08 XG-06: set for a course whose grades are kept outside Canvas. Then `input` holds no
+    /// Canvas score (`OutsideCanvasEstimate.estimateInput`), every item that counts is a row, the
+    /// sheet opens with the approved disclaimer, and the student may set each category's weight.
+    public let estimate: WhatIfEstimateSetup?
+
+    public init(courseName: String, input: GradeInput, groups: [WhatIfGroup], estimate: WhatIfEstimateSetup? = nil) {
+        self.courseName = courseName
+        self.input = input
+        self.groups = groups
+        self.estimate = estimate
+    }
+}
+
+/// Plan 08 XG-06: the categories whose weights the student may set in the what-if for a course
+/// whose grades are kept outside Canvas, each with the weight it has when left blank.
+public nonisolated struct WhatIfEstimateSetup: Equatable, Sendable {
+    public let categories: [WhatIfWeightCategory]
+}
+
+public nonisolated struct WhatIfWeightCategory: Identifiable, Equatable, Sendable {
+    public let id: CanvasID<AssignmentGroup>
+    /// The category's name in Canvas.
+    public let name: String
+    /// Its weight when the student leaves it blank, in percent (`OutsideCanvasEstimate.defaultWeights`).
+    public let defaultWeight: Double
+    /// `defaultWeight` as the field's placeholder: "40", "16.67".
+    public let defaultText: String
 }
 
 /// Grade distribution (ux-ui.md §3.5: "only if Canvas returns score statistics; otherwise hide it,
@@ -201,7 +228,14 @@ public nonisolated enum CourseDetailBuilder {
         let lettersOnly = course.gradeVisibility == .lettersOnly
         let percentagesVisible = course.gradeVisibility == .visible && inCanvas
         let input = GradeInput(course: course, groups: groups, gradingPeriods: periods)
-        let whatIf = percentagesVisible ? whatIfSetup(course: course, groups: groups, input: input, formatter: formatter) : nil
+        var keptOutside = false
+        if case .keptOutside = grade.notInCanvas { keptOutside = true }
+        // Plan 08 XG-06 (owner, 2026-10-01): a course whose grades are kept outside Canvas has the
+        // what-if again, as an estimate from the scores the student types; a course with no
+        // graded work in Canvas still has none.
+        let whatIf = keptOutside
+            ? estimateSetup(course: course, groups: groups, input: input, formatter: formatter)
+            : percentagesVisible ? whatIfSetup(course: course, groups: groups, input: input, formatter: formatter) : nil
 
         var heroWords = [course.name, course.courseCode, grade.spoken]
         if percentagesVisible, course.scores?.currentScore != nil {
@@ -209,9 +243,6 @@ public nonisolated enum CourseDetailBuilder {
         }
         // The dash's own words already say "Grade not in Canvas".
         if health != .gradeNotInCanvas { heroWords.append(health.label) }
-
-        var keptOutside = false
-        if case .keptOutside = grade.notInCanvas { keptOutside = true }
 
         return CourseDetailProjection(
             id: course.id, name: course.name, code: course.courseCode, paletteIndex: paletteIndex, grade: grade,
@@ -237,9 +268,10 @@ public nonisolated enum CourseDetailBuilder {
             distribution: nil)
     }
 
-    /// The reason the what-if is not offered: the grades are not in Canvas (plan 08 §4.4 row 6),
-    /// the instructor hides the totals, the course shows letters only (with or without a posted
-    /// grade), or nothing is left without a score.
+    /// The reason the what-if is not offered: the grades are not in Canvas (plan 08 §4.4 row 6;
+    /// since XG-06 a course kept outside Canvas gets here only when nothing in it is worth
+    /// points), the instructor hides the totals, the course shows letters only (with or without a
+    /// posted grade), or nothing is left without a score.
     static func whatIfUnavailable(course: Course, grade: GradeDisplay, percentagesVisible: Bool) -> WhatIfUnavailable {
         switch grade.notInCanvas {
         case .keptOutside?: return .notInCanvas
@@ -389,11 +421,47 @@ public nonisolated enum CourseDetailBuilder {
                                   dueText: assignment.dueAt.map { formatter.dueText($0) })
             }
             guard !items.isEmpty else { return nil }
-            let weightText = course.appliesGroupWeights
-                ? "\(formatter.pointsText(group.weight ?? 0))% of grade" : "Points-based"
-            return WhatIfGroup(id: group.id, name: group.name, weightText: weightText, items: items)
+            return WhatIfGroup(id: group.id, name: group.name,
+                               weightText: whatIfWeightText(course: course, group: group, formatter: formatter), items: items)
         }
         guard !whatIfGroups.isEmpty else { return nil }
         return WhatIfSetup(courseName: course.name, input: input, groups: whatIfGroups)
+    }
+
+    /// A what-if section's weight: "30% of grade", or "Points-based" when the course sums points.
+    static func whatIfWeightText(course: Course, group: AssignmentGroup, formatter: ScreenFormatter) -> String {
+        course.appliesGroupWeights ? "\(formatter.pointsText(group.weight ?? 0))% of grade" : "Points-based"
+    }
+
+    /// Plan 08 XG-06: the what-if for a course whose grades are kept outside Canvas. The student
+    /// types their real scores (from the school's grade portal), so every item that counts is a
+    /// row, whatever Canvas shows for it, and the engine's input holds none of Canvas's scores
+    /// (`OutsideCanvasEstimate.estimateInput`): an estimate never shows a grade Tally hides
+    /// elsewhere. Each category the rows belong to may be weighted; blank, it keeps its default.
+    static func estimateSetup(course: Course, groups: [AssignmentGroup], input: GradeInput,
+                              formatter: ScreenFormatter) -> WhatIfSetup? {
+        var seen = Set<CanvasID<Assignment>>()
+        let whatIfGroups = groups.compactMap { group -> WhatIfGroup? in
+            let items = group.assignments.compactMap { assignment -> WhatIfItem? in
+                guard counts(assignment), seen.insert(assignment.id).inserted,
+                      let possible = assignment.pointsPossible else { return nil }
+                return WhatIfItem(id: assignment.id, title: assignment.name, pointsPossible: possible,
+                                  outOfText: "/ \(formatter.pointsText(possible))",
+                                  dueText: assignment.dueAt.map { formatter.dueText($0) })
+            }
+            guard !items.isEmpty else { return nil }
+            return WhatIfGroup(id: group.id, name: group.name,
+                               weightText: whatIfWeightText(course: course, group: group, formatter: formatter), items: items)
+        }
+        guard !whatIfGroups.isEmpty else { return nil }
+        let estimateInput = OutsideCanvasEstimate.estimateInput(from: input)
+        let defaults = OutsideCanvasEstimate.defaultWeights(for: estimateInput)
+        let categories = whatIfGroups.map { group in
+            let weight = defaults[group.id] ?? 0
+            return WhatIfWeightCategory(id: group.id, name: group.name, defaultWeight: weight,
+                                        defaultText: formatter.pointsText(weight))
+        }
+        return WhatIfSetup(courseName: course.name, input: estimateInput, groups: whatIfGroups,
+                           estimate: WhatIfEstimateSetup(categories: categories))
     }
 }

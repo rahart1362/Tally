@@ -47,12 +47,15 @@ public nonisolated enum AccountSessionFactory {
                                                       committedDataFetchedAt: initialSnapshot?.fetchedAt)
         let gateway = await gateway(for: account, environment: environment)
         // M3-A (Settings; M2-C2 OI5): the account's own settings, read here with the snapshot, off
-        // the main actor: the widget grade opt-in every commit's glance is built with, and the
-        // "What changed" thresholds every commit's digest uses.
+        // the main actor: the widget grade opt-in every commit's glance is built with, the "What
+        // changed" thresholds every commit's digest uses, and the student's "grades kept outside
+        // Canvas" answers (plan 08 XG-04) both of them classify with.
         let settings = await AccountUserStateAccess.stored(account: account.accountKey, root: root, environment: environment)
         let coordinator = RefreshCoordinator(gateway: gateway, store: store, clock: environment.clock,
                                              initialSnapshot: initialSnapshot, initialRecord: record,
-                                             includeGrades: settings.showGradesInGlance, recordStore: recordStore)
+                                             includeGrades: settings.showGradesInGlance,
+                                             gradeAvailabilityOverrides: settings.gradeAvailabilityOverrides,
+                                             recordStore: recordStore)
         await coordinator.updateDigestThresholds(settings.digestThresholds)
         // M3-C (E07): the account's reminders are planned from the cached snapshot now, and again
         // after every commit, whichever trigger started it (the Home, `.backgroundTask`, the intent).
