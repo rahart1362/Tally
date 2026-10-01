@@ -124,8 +124,37 @@ not a loosened test.
 2. **Fixture decode** — renamed `sample-family/observees.json`'s first `"id"` key. `make
    core-test`: `sampleFamilySnapshotsNeverLeakAScoreOrGrade` failed with `.network(.contract)`
    (the decode-failure path). Reverted; `sha256` matches exactly.
+3. **Repeated-subject crash guard** (added after a PMO crash-safety review of this PR; see §5a) —
+   removed the new de-duplication call and reverted one `Dictionary(_:uniquingKeysWith:)` back to
+   `Dictionary(uniqueKeysWithValues:)`. Running the new test directly **crashed the process**
+   (exit 1, full backtrace): `Swift/NativeDictionary.swift:823: Fatal error: Duplicate values for
+   key: 'a'` — the same signature `crash-safety-2.md` §8 documents for the six earlier sites.
+   Reverted; `sha256` matches exactly.
 
-Full `make core-test` after both restores: clean, same counts as §4.
+Full `make core-test` after all restores: clean, same counts as §4.
+
+## 5a. PMO crash-safety review (post-open, before the first PR run completed)
+
+While `36942145121` was still queued, a PMO review found `FamilySubjectBudget.swift` building
+three dictionaries with `Dictionary(uniqueKeysWithValues:)` (traps on a duplicate key) and
+`FamilyNotificationPlanner.swift`'s `weights` built from the caller's `subjects` with no
+de-duplication — the same student appearing twice in an observee list would crash the app.
+**Verified independently before acting** (treating the finding as a hypothesis, per rule 8, not
+as a command): all three call sites and the missing de-duplication were confirmed by reading the
+files directly; `docs/pmo/reviews/crash-safety-2.md` §8 documents the identical historical
+pattern (six sites, same trap, all already removed from shipping code, same fix); PR #24 (real,
+open, authored by the repo owner) adds the `no_unique_keys_with_values` SwiftLint rule exactly as
+described.
+
+**Fix** (`FamilyNotificationPlanner.swift`, `FamilySubjectBudget.swift`): `plan` now
+de-duplicates `subjects` by `subjectID` (keeping the first) before building `weights` or
+planning; `allocate` does the same for its own `weights`, so the public API is safe to call
+directly too; all three `uniqueKeysWithValues` sites now use
+`uniquingKeysWith: { first, _ in first }`. New tests:
+`aRepeatedSubjectDoesNotTrapAndMatchesTheDeduplicatedSplit` and
+`aRepeatedSubjectIsPlannedOnceAndNeverTraps`. Verified exactly as §4/§5 (`make core-build`,
+`make core-test` — 359/44 + 195/26 — `make core-tsan`, `make lint`, all clean); mutation check in
+§5 item 3. Committed and pushed once, superseding the still-queued run as anticipated.
 
 ## 6. CI
 
