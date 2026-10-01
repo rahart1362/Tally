@@ -13,7 +13,6 @@
     "packages/TallyAppleKit/Sources/TallyFeatures/Courses/ScreenFormatter.swift": 7,
     "packages/TallyAppleKit/Sources/TallyFeatures/Dashboard/DashboardView.swift": 17,
     "packages/TallyAppleKit/Sources/TallyFeatures/Home/FreshnessViews.swift": 1,
-    "packages/TallyAppleKit/Sources/TallyFeatures/Home/HomeProjector.swift": 3,
     "packages/TallyAppleKit/Sources/TallyFeatures/Home/HomeShellView.swift": 1,
     "packages/TallyAppleKit/Sources/TallyFeatures/Insights/GradeTrend.swift": 9,
     "packages/TallyAppleKit/Sources/TallyFeatures/Insights/InsightsProjection.swift": 10,
@@ -28,7 +27,6 @@
     "packages/TallyAppleKit/Sources/TallyFeatures/Onboarding/SchoolSearch/SchoolNotEnabledView.swift": 8,
     "packages/TallyAppleKit/Sources/TallyFeatures/Onboarding/SchoolSearch/SchoolSearchView.swift": 20,
     "packages/TallyAppleKit/Sources/TallyFeatures/Onboarding/SignIn/SignInHandoffView.swift": 15,
-    "packages/TallyAppleKit/Sources/TallyFeatures/Reminders/ReminderSubjects.swift": 2,
     "packages/TallyAppleKit/Sources/TallyFeatures/Reminders/RemindersViews.swift": 19,
     "packages/TallyAppleKit/Sources/TallyFeatures/SampleData/SampleDataBanner.swift": 2,
     "packages/TallyAppleKit/Sources/TallyFeatures/Settings/AppLockSettingsModel.swift": 13,
@@ -39,9 +37,6 @@
     "packages/TallyAppleKit/Sources/TallyFeatures/WelcomeView.swift": 10,
     "packages/TallyAppleKit/Sources/TallyGlance/GlanceWidgetViews.swift": 24,
     "packages/TallyAppleKit/Sources/TallyIntents/RefreshTallyIntent.swift": 3,
-    "packages/TallyAppleKit/Sources/TallyPlatform/UNNotificationScheduler.swift": 17,
-    "packages/TallyCore/Sources/TallyDomain/Dashboard/DashboardProjection.swift": 8,
-    "packages/TallyCore/Sources/TallyDomain/Insights/PriorityScore.swift": 6,
-    "packages/TallyCore/Sources/TallyDomain/Reminders/NotificationContent.swift": 17
+    "packages/TallyAppleKit/Sources/TallyPlatform/UNNotificationScheduler.swift": 17
   }
 }

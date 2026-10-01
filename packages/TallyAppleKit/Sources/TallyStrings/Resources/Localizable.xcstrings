@@ -1,6 +1,126 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "dashboard.attention.dueSoon.title" : {
+      "comment" : "Needs Attention row: an assignment is due soon. 1: its title from Canvas. 2: the time it is due, such as '2:30 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ due %2$@"
+          }
+        }
+      }
+    },
+    "dashboard.attention.missingClosed.subtitle" : {
+      "comment" : "Needs Attention row, second line, for closed missing work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Talk to your instructor"
+          }
+        }
+      }
+    },
+    "dashboard.attention.missingClosed.title" : {
+      "comment" : "Needs Attention row: in this course (its code from Canvas), missing work can no longer be submitted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: missing work is closed"
+          }
+        }
+      }
+    },
+    "dashboard.attention.missingOpen.subtitle" : {
+      "comment" : "Needs Attention row, second line: the course code from Canvas, and that the missing work is still accepted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · still accepted"
+          }
+        }
+      }
+    },
+    "dashboard.attention.missingOpen.title" : {
+      "comment" : "Needs Attention row: this assignment (its title from Canvas) is missing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is missing"
+          }
+        }
+      }
+    },
+    "dashboard.attention.overload.subtitle" : {
+      "comment" : "Needs Attention row, second line, for a busy stretch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Several items are due close together"
+          }
+        }
+      }
+    },
+    "dashboard.attention.overload.title" : {
+      "comment" : "Needs Attention row: many items are due close together from this date on, such as 'Oct 2, 2026'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy stretch starting %@"
+          }
+        }
+      }
+    },
+    "dashboard.changes.count" : {
+      "comment" : "Dashboard chip, first part: how many things changed in Canvas since the last refresh (grades, new assignments, due dates, announcements).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld change"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dashboard.changes.since" : {
+      "comment" : "Dashboard chip. 1: how many changes, such as '6 changes'. 2: the time of the refresh, such as '2:13 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ since %2$@"
+          }
+        }
+      }
+    },
     "dashboard.hero.averageOfCourses" : {
       "comment" : "Dashboard hero caption above the average percentage. The number is how many courses are in the average.",
       "extractionState" : "manual",
@@ -21,6 +141,366 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "dashboard.reason.courseBelowGoal" : {
+      "comment" : "Next Up reason, after the due-date part: the course is below the student's goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "course below your goal"
+          }
+        }
+      }
+    },
+    "dashboard.reason.courseWeight" : {
+      "comment" : "Next Up reason: roughly how much of the course grade this item is worth. 1: a percentage such as '11%'. 2: the course code from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "dashboard.reason.dueInHours" : {
+      "comment" : "Next Up reason, short: the item is due in this many hours. 'h' abbreviates hours.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due in %lldh"
+          }
+        }
+      }
+    },
+    "dashboard.reason.dueInMinutes" : {
+      "comment" : "Next Up reason, short: the item is due in this many minutes (under an hour). 'm' abbreviates minutes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due in %lldm"
+          }
+        }
+      }
+    },
+    "dashboard.reason.join" : {
+      "comment" : "Joins the parts of a Next Up item's reason, such as 'Due in 6h' and 'near a grade boundary'. 1: the parts so far. 2: the next part.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "dashboard.reason.nearBoundary" : {
+      "comment" : "Next Up reason, after the due-date part: the course grade is just above a letter-grade cutoff.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "near a grade boundary"
+          }
+        }
+      }
+    },
+    "dashboard.reason.noDueDate" : {
+      "comment" : "Next Up reason: the item has no due date.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No due date"
+          }
+        }
+      }
+    },
+    "dashboard.reason.overdue" : {
+      "comment" : "Next Up reason: the due date has passed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue"
+          }
+        }
+      }
+    },
+    "dashboard.reason.stillAccepted" : {
+      "comment" : "Next Up reason, after the due-date part: the item is overdue but Canvas still accepts it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still accepted"
+          }
+        }
+      }
+    },
+    "notification.belowGoal.body" : {
+      "comment" : "Body of the 'needs attention' notification. 'Tally' is the app's name. The score is never shown in a notification.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see your standing."
+          }
+        }
+      }
+    },
+    "notification.belowGoal.title" : {
+      "comment" : "Notification title when a course falls below the student's goal. The argument is the course code from Canvas, or 'a course' when course names are hidden.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ needs attention"
+          }
+        }
+      }
+    },
+    "notification.course.hidden" : {
+      "comment" : "Stands for a course name when the student turned on Hide Course Names. Shown alone as a notification body, and at the start of 'needs attention' titles.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a course"
+          }
+        }
+      }
+    },
+    "notification.dayAtTime" : {
+      "comment" : "A day and a time in a reminder. 1: 'today', 'tomorrow', 'yesterday', a short weekday ('Fri') or a short date ('Oct 9'). 2: a time ('6:00 PM').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "notification.digest.count" : {
+      "comment" : "Evening digest body: how many items are due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld due"
+          }
+        }
+      }
+    },
+    "notification.digest.countWithFirst" : {
+      "comment" : "Evening digest body. 1: how many items are due. 2: the title of the first one due, from Canvas (or 'An assignment' when hidden).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld due · %2$@ first"
+          }
+        }
+      }
+    },
+    "notification.digest.hiddenItem" : {
+      "comment" : "Stands for an assignment's title in the evening digest when the student turned on Hide Course Names.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An assignment"
+          }
+        }
+      }
+    },
+    "notification.digest.title" : {
+      "comment" : "Title of the evening digest notification, which lists what is due tomorrow.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow"
+          }
+        }
+      }
+    },
+    "notification.due.body" : {
+      "comment" : "Due-date reminder body. The argument is a day and time, such as 'today at 6:00 PM' or 'Fri at 11:59 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@."
+          }
+        }
+      }
+    },
+    "notification.due.finalBody" : {
+      "comment" : "The last due-date reminder's body: Tally cannot know whether the work was submitted since. The argument is a day and time, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@, if you haven't submitted yet."
+          }
+        }
+      }
+    },
+    "notification.exam.body" : {
+      "comment" : "Exam reminder body. The argument is a day and time, such as 'tomorrow at 9:00 AM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@."
+          }
+        }
+      }
+    },
+    "notification.gradePosted.title" : {
+      "comment" : "Notification title when a teacher posts a grade. The body names the course; the grade itself is never shown.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New grade posted"
+          }
+        }
+      }
+    },
+    "notification.missing.noClosingDate" : {
+      "comment" : "Missing-work reminder body when Canvas gives no date after which the work is no longer accepted. 'Canvas' is a product name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past due. Canvas lists no closing date."
+          }
+        }
+      }
+    },
+    "notification.missing.stillAcceptedUntil" : {
+      "comment" : "Missing-work reminder body: Canvas still accepts the work until the given day and time, such as 'Fri at 11:59 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still accepted until %@."
+          }
+        }
+      }
+    },
+    "notification.sentinel.body" : {
+      "comment" : "Body of the stale-data notification. 'Tally' is the app's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to update your reminders."
+          }
+        }
+      }
+    },
+    "notification.sentinel.title" : {
+      "comment" : "Notification title when Tally's data is stale. The argument is a day and time, such as 'yesterday at 2:14 PM'. 'Tally' is the app's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally hasn't refreshed since %@"
+          }
+        }
+      }
+    },
+    "notification.subject.assignment" : {
+      "comment" : "Notification title naming an assignment. 1: the assignment's title from Canvas. 2: its course code from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "notification.subject.hidden" : {
+      "comment" : "Notification title when the student turned on Hide Course Names: it stands for the assignment's title and course.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An assignment"
+          }
+        }
+      }
+    },
+    "notification.weekAhead.count" : {
+      "comment" : "Week-ahead body: how many items are due in the next 7 days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld due"
+          }
+        }
+      }
+    },
+    "notification.weekAhead.countWithBusiest" : {
+      "comment" : "Week-ahead body. 1: how many items are due in the next 7 days. 2: the weekday with the most, such as 'Thursday'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld due · busiest %2$@"
+          }
+        }
+      }
+    },
+    "notification.weekAhead.title" : {
+      "comment" : "Title of the Sunday notification that summarizes the week ahead.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This week"
           }
         }
       }

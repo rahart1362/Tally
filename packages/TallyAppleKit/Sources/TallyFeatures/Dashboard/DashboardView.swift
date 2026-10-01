@@ -197,7 +197,9 @@ private struct NextUpSection: View {
                             Spacer()
                             Text(bandWord(item.band)).font(TallyTypography.caption).foregroundStyle(TallyColor.textSecondary)
                         }
-                        Text(item.reason).font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
+                        // Plan 08 L10N-02: the reason's factors, phrased in the student's language.
+                        Text(verbatim: DashboardText.reason(item.reasonFactors, courseCode: item.courseCode))
+                            .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
                     }
                     .padding(TallySpacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -231,11 +233,11 @@ private struct NeedsAttentionSection: View {
                     HStack(alignment: .top, spacing: TallySpacing.md) {
                         Image(systemName: severityIcon(item.severity))
                             .foregroundStyle(severityColor(item.severity))
+                        // Plan 08 L10N-02: the row's content, phrased in the student's language.
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                            Text(item.title).font(TallyTypography.cardTitle)
-                            if let subtitle = item.subtitle {
-                                Text(subtitle).font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
-                            }
+                            Text(verbatim: DashboardText.attentionTitle(item.content)).font(TallyTypography.cardTitle)
+                            Text(verbatim: DashboardText.attentionSubtitle(item.content))
+                                .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
                         }
                     }
                     .padding(TallySpacing.md)
@@ -341,11 +343,12 @@ private struct SectionHeader: View {
 }
 
 private struct ChangeDigestChip: View {
-    let summary: String
+    let summary: DashboardProjection.ChangeSummary
     var body: some View {
         HStack {
             Image(systemName: "sparkles")
-            Text(summary)
+            // Plan 08 L10N-02: "6 changes since 2:13 PM", in the student's language and locale.
+            Text(verbatim: DashboardText.changeSummary(summary))
             Spacer()
         }
         .font(TallyTypography.footnote)

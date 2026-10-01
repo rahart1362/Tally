@@ -38,9 +38,10 @@ enum PerfPasses {
             let weight = contexts[course.id]?.weight(of: assignment) ?? 0
             let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
             let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
-            let reason = PriorityScore.reasonText(hoursUntilDue: hours, weight: weight, modifiers: modifiers,
-                                                  courseCode: course.courseCode)
-            checksum += score + Double(reason.utf8.count) + (PriorityScore.band(score) == .high ? 1 : 0)
+            // Plan 08 L10N-02: the reason is structured now (the app phrases it).
+            let reason = PriorityScore.reasonFactors(hoursUntilDue: hours, weight: weight, modifiers: modifiers)
+                .map(PriorityScore.reasonPart)
+            checksum += score + Double(reason.count) + (PriorityScore.band(score) == .high ? 1 : 0)
         }
         return checksum
     }

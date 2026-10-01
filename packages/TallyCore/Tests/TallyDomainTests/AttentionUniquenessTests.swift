@@ -65,12 +65,12 @@ struct AttentionUniquenessTests {
                                                now: now).needsAttention
         #expect(escalated.map(\.id) == ["missing:a1"])
         #expect(escalated.first?.severity == .critical)
-        #expect(escalated.first?.title == "Lab 1 (critical repeat) is missing")
+        #expect(escalated.first?.content == .missingOpen(title: "Lab 1 (critical repeat)", courseCode: "BIO 101"))
 
         let level = DashboardBuilder.build(from: snapshot([high, highRepeat], courses: courses), digest: nil, digestAsOf: nil,
                                            now: now).needsAttention
         #expect(level.map(\.id) == ["missing:a1"])
-        #expect(level.first?.title == "Lab 1 (first) is missing")
+        #expect(level.first?.content == .missingOpen(title: "Lab 1 (first)", courseCode: "BIO 101"))
     }
 
     /// The cap counts rows, not alerts: a repeated key no longer takes one of the three slots. The

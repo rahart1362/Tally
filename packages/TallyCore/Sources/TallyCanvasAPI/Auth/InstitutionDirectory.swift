@@ -23,15 +23,11 @@ public struct InstitutionMatch: Sendable, Equatable {
 }
 
 /// "Tally isn't enabled at <school> yet" (architecture §3.5): a host with no `ClientRegistry`
-/// entry never shows a broken login, it shows this and an admin-request path.
+/// entry never shows a broken login, it shows that and an admin-request path. The words are the
+/// app's (onboarding's `SchoolSearchViewModel` maps this to `.notEnabled(school:)`); plan 08
+/// §3.2 (L10N-02) removed the English `message` this type used to carry, which nothing read.
 public enum InstitutionEnablementError: Error, Sendable, Equatable {
     case notEnabled(school: String)
-
-    public var message: String {
-        switch self {
-        case .notEnabled(let school): "Tally isn't enabled at \(school) yet"
-        }
-    }
 }
 
 public enum InstitutionDirectory {
