@@ -79,6 +79,15 @@ public enum EntitlementState: Sendable, Equatable {
         if case .entitled(let until) = self { return until }
         return nil
     }
+
+    /// An account's state as one session shows it (`EntitlementPolicy` rules 1 and 7): sample data
+    /// is `.demo`; before the account's first sync a lapse reads as `.preview`, since the first
+    /// sync is free. The gate decides with the account's state itself.
+    public func inSession(isSampleMode: Bool, firstSyncSucceeded: Bool) -> EntitlementState {
+        if isSampleMode { return .demo }
+        if case .lapsed = self, !firstSyncSucceeded { return .preview }
+        return self
+    }
 }
 
 /// PAY-02: who is entitled to what, from plain values, with no StoreKit, clock or I/O of its own.
@@ -102,7 +111,14 @@ public enum EntitlementPolicy {
     public static func evaluate(_ facts: [SubscriptionFacts], role: SubscriptionRole, products: SubscriptionProducts,
                                 firstSyncSucceeded: Bool, isSampleMode: Bool, now: Date,
                                 offlineGrace: Duration = SubscriptionConfig.offlineGracePeriod) -> EntitlementState {
-        if isSampleMode { return .demo }
+        accountState(facts, role: role, products: products, now: now, offlineGrace: offlineGrace)
+            .inSession(isSampleMode: isSampleMode, firstSyncSucceeded: firstSyncSucceeded)
+    }
+
+    /// Rules 2 to 7 for the account, whatever the session: what the gate decides with (a lapse is
+    /// `.lapsed`; `inSession` applies rules 1 and 7's first-sync part).
+    public static func accountState(_ facts: [SubscriptionFacts], role: SubscriptionRole, products: SubscriptionProducts,
+                                    now: Date, offlineGrace: Duration = SubscriptionConfig.offlineGracePeriod) -> EntitlementState {
         let productID = products.productID(for: role)
         let counted = facts.filter { fact in
             fact.isVerified && fact.productID == productID && !fact.isUpgraded && fact.ownership == .purchased
@@ -118,7 +134,7 @@ public enum EntitlementPolicy {
             }
         }
         if let entitledUntil { return .entitled(until: entitledUntil) }
-        if let lapsedSince, firstSyncSucceeded { return .lapsed(since: lapsedSince) }
+        if let lapsedSince { return .lapsed(since: lapsedSince) }
         return .preview
     }
 

@@ -162,6 +162,19 @@ struct EntitlementPolicyTests {
         #expect(forward == backward && forward == .entitled(until: Self.at(200 * Self.day)))
     }
 
+    @Test("The account's state (what the gate decides with) lapses whatever the session; inSession applies rules 1 and 7")
+    func accountStateAndSession() {
+        let refunded = [Self.fact(revoked: -2 * Self.day)]
+        let account = EntitlementPolicy.accountState(refunded, role: .student, products: Self.products, now: Self.now)
+        #expect(account == .lapsed(since: Self.at(-2 * Self.day)))
+        #expect(account.inSession(isSampleMode: false, firstSyncSucceeded: true) == account)
+        #expect(account.inSession(isSampleMode: false, firstSyncSucceeded: false) == .preview)
+        #expect(account.inSession(isSampleMode: true, firstSyncSucceeded: true) == .demo)
+        let entitled = EntitlementState.entitled(until: Self.at(Self.day))
+        #expect(entitled.inSession(isSampleMode: false, firstSyncSucceeded: false) == entitled)
+        #expect(EntitlementState.preview.inSession(isSampleMode: false, firstSyncSucceeded: true) == .preview)
+    }
+
     @Test("A shorter offline grace is honoured (the constant is the only source)")
     func offlineGraceIsAParameter() {
         let state = EntitlementPolicy.evaluate([Self.fact(expires: -2 * Self.day)], role: .student, products: Self.products,
