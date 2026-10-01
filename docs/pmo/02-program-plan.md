@@ -104,6 +104,26 @@ Canvas natively supports parent access through **observer** accounts and student
 | F7 | Parent notification defaults | Week-ahead + missing-still-open on; names shown with a "Hide student names" toggle | **Accepted (owner, 2026-09-27)** |
 | F8 | Student transparency (ethical) | "Who can see my Canvas" screen + new-observer alert + school path; ask Instructure for student-side unlink | **Accepted (owner, 2026-09-27)** |
 
+
+### Owner decisions on O1, O2, O4, O6 and O7 (2026-10-01)
+- **O1 (Canvas access), O4 (Apple Developer account) and O7 (legal review):** the owner pursues these **once the MVP gate is reached** (the milestone table).
+  - O1's request to Instructure should include **"mobile app" token treatment**, which would remove the 2-hour public-client refresh limit (SEC-02) with no server, so it may settle O2 as well.
+- **O2 (sign-in model):** **decide at M4 with data.**
+  - The owner accepts periodic re-sign-in if it's transparent. The concern is background refresh: after about 2 h idle, a public client's background refresh can't fetch, so new assignments, due-date changes and grade alerts wait until the student opens Tally. Already-scheduled reminders still fire.
+  - Both (A) no server and (B) the token-exchange broker stay buildable; the code is already client-type-agnostic.
+  - The choice follows the O1 outcome and a pilot school's real re-sign-in frequency.
+- **O6 (App Review access):** **Sample Data mode is the review path.** It runs the full app on a synthetic student. Guideline 2.1 accepts a demo mode with Apple's prior approval (ASC-F16), so request that approval at submission or beforehand.
+  - A hosted synthetic Canvas instance stays the fallback.
+  - A screenshot gallery alone won't satisfy review, since reviewers test the binary, but it serves the App Store listing.
+- **O7 (legal):** at the MVP gate a **regulatory-compliance specialist** produces a compliance dossier, covering:
+  - FERPA;
+  - COPPA and age rules, including the Texas SB2420, Utah and Louisiana app-store age-assurance laws;
+  - state student-privacy laws;
+  - Apple's guidelines and accessibility;
+  - a trademark check on "Tally".
+
+  It also writes a plain-language "How Tally complies" statement for the privacy policy, the store listing and schools. **It is not legal advice:** a licensed attorney reviews and signs off before submission (M6).
+
 ## 3. Roadmap (milestones and exit gates)
 
 Work-package IDs refer to the specialist reports. Every gate uses the validation pyramid: re-read artefacts, and never accept exit code 0 alone.
@@ -115,6 +135,7 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | **M2 iOS shell** ✅ *complete 2026-09-28: validation run 36494900022 (PR #3), launch gate per owner decision O10 (branch `pmo/m2-exit`); plan 07 §3* | ARC E01–E04; SEC-04, 07, 08; ENC-03; UX-WP-02, 03, 05; ASC-01, 03, 09, 10, 11 (mock Canvas server), 14 (sample-data mode) | O5 (else placeholders) | App boots from cache in the simulator (no Canvas request before the cached paint), <300 ms warm **on device** (calibration D-P3; on the CI simulator a required gate of 3.0 s median, owner decision O10, 2026-09-28); 12-s slow replay shows the breadcrumb, which self-heals |
 | **M3 Features** | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
 | ↳ *plan 08 (2026-09-30)* | Multilingual support (L10N-01…05: iOS system language by default, per-app language through iOS; English + Spanish) and grades kept outside Canvas (XG-01…05: "—" plus an info bubble plus Tell My School; strict detection; a per-course override). Sequencing: `docs/pmo/08-localization-and-external-grades.md` §6. M3 exit adds: the lint baseline is 0 and XG-01…03 are in. M5 adds L10N-05. | owner decisions L-1…3, G-1…6 (decided) | see plan 08 §5 |
+| **MVP gate** *(owner, 2026-10-01)* | **M3 feature-complete, plus the account-independent parts of M5:** the release checks green on the simulator, the accessibility audit, a full screenshot gallery (the PMO screenshot tour), the privacy manifest, and Sample Data mode as the App Review path. Everything is demonstrable in the simulator, with no Canvas or Apple account needed. | — | **The owner then pursues O1 (Canvas access), O4 (Apple Developer account) and O7 (legal, with a specialist compliance dossier) in parallel. M4 starts when O1 lands.** |
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |
 | **M5 Harden + pre-TestFlight gate** | UX-WP-21–23; ASC-05–08, 12, 17, 18; ENC-06–08; SEC-14, 15; ARC E08, G01 (delete legacy) | — | `release-gate.yml` all green: Release build, XCUITest critical flows (kit 13), accessibility audit 0 unwaived, screenshots at 1320×2868, privacy manifest + plist checks |
 | **M6 TestFlight → App Store** | ASC-15 (age range), ASC-16 (TestFlight lane), internal → external beta, submission | **O4, O7**, signing assets | Internal-testing crash-free; Beta App Review passed; submission accepted |

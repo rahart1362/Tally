@@ -296,6 +296,11 @@ struct ReminderContentTests {
 
 // MARK: - The pipeline
 
+// Serialized with the account-lifecycle suites: every reminders pass runs through `ReminderPipeline`'s
+// process-wide `ReminderPassQueue`. Running this suite in parallel with `ReminderLifecycleTests` let one
+// suite's passes hold the queue while the other waited (hypothesis for the recurring "no pass at launch /
+// after the commit" timeouts: PR #11 required ios-build, PR #16 Xcode 27).
+extension AccountLifecycleSuites {
 @Suite("M3-C: the reminders pipeline (plan, reconcile, schedule)")
 struct ReminderPipelineTests {
     @Test("a pass schedules the plan and records it; a second pass over the same data schedules and cancels nothing")
@@ -380,9 +385,15 @@ struct ReminderPipelineTests {
         #expect(rig.platform.scheduledIDs.isEmpty)
     }
 }
+} // AccountLifecycleSuites
 
 // MARK: - The permission, asked in context (UX-WP-12)
 
+// Serialized with the account-lifecycle suites: every reminders pass runs through `ReminderPipeline`'s
+// process-wide `ReminderPassQueue`. Running this suite in parallel with `ReminderLifecycleTests` let one
+// suite's passes hold the queue while the other waited (hypothesis for the recurring "no pass at launch /
+// after the commit" timeouts: PR #11 required ios-build, PR #16 Xcode 27).
+extension AccountLifecycleSuites {
 @Suite("M3-C: the reminders permission and the Dashboard tip (UX-WP-12)")
 @MainActor
 struct RemindersModelTests {
@@ -498,6 +509,7 @@ struct RemindersModelTests {
         #expect(injected.requests == 0, "the scripted permission reached the real platform")
     }
 }
+} // AccountLifecycleSuites
 
 // MARK: - Over the account's lifecycle
 
@@ -518,9 +530,17 @@ extension AccountLifecycleSuites {
 
         @Test("launch plans once from the cached snapshot, before any refresh; an unchanged commit schedules nothing new")
         func launchThenCommit() async throws {
+            // Diagnostic (PMO, 2026-10-01): this test intermittently waits ~30 s for a reminders pass
+            // (PR #11, #16, XG-03 runs; 30.377 s in PR #17's run even with the suites serialized).
+            // The REMINDER-TIMING lines show which step the time goes to; remove once explained.
             let rig = try ReminderRig()
+            let clock = ContinuousClock()
+            let started = clock.now
+            func mark(_ step: String) { print("REMINDER-TIMING \(step) +\(clock.now - started) reads=\(rig.platform.pendingReads)") }
             let model = try await launched(rig)
+            mark("launched")
             #expect(try await AccountTestSupport.eventually { rig.platform.pendingReads >= 1 }, "no pass at launch")
+            mark("launch pass read")
             await ReminderPipeline.drain()
             let coordinator = try #require(await model.accountRuntime.coordinator())
             #expect(await coordinator.committedSnapshot?.generation == 1, "the launch pass waited for a refresh")
@@ -529,8 +549,10 @@ extension AccountLifecycleSuites {
             let pendingFromCache = Set(rig.platform.pending.keys)
 
             await model.home?.start() // the launch refresh commits generation 2 (the same work)
+            mark("home started")
             #expect(await coordinator.committedSnapshot?.generation == 2)
             #expect(try await AccountTestSupport.eventually { rig.platform.pendingReads >= 2 }, "no pass after the commit")
+            mark("commit pass read")
             await ReminderPipeline.drain()
             let again = Set(rig.platform.scheduledIDs.dropFirst(fromCache.count))
             // Only the stale-data warning moves: each commit pushes it a day past the new fetch (R17).
