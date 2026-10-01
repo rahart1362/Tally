@@ -133,6 +133,9 @@ struct RendererGoldenTests {
     }
 
     // MARK: - Differential sweeps against 628ee09 (exact bytes)
+    // The expectations compare a count, not the array: Swift Testing prints an operand's whole
+    // value, and the full mismatch lists made 10-16 kB log lines that cost the rest of the
+    // console in mutation run 36798377151. The comment carries the first three.
 
     @Test("Every planned reminder, names shown and hidden, equals 628ee09's words",
           arguments: ["flagship", "finals", "grading-periods", "large"])
@@ -144,7 +147,8 @@ struct RendererGoldenTests {
             for zone in ["America/New_York", "Asia/Kolkata"] {
                 let outcome = RendererSweep.notifications(snapshot: snapshot, now: now,
                                                           timeZone: TimeZone(identifier: zone) ?? .gmt, locale: Self.enUS)
-                #expect(outcome.mismatches.isEmpty, "\(persona) \(zone): \(outcome.mismatches.prefix(5))")
+                let mismatches = outcome.mismatches.count
+                #expect(mismatches == 0, "\(persona) \(zone): \(outcome.mismatches.prefix(3))")
                 checked += outcome.checked
             }
         }
@@ -165,7 +169,8 @@ struct RendererGoldenTests {
             for zone in [Self.chicago, TimeZone(identifier: "UTC") ?? .gmt] {
                 let outcome = RendererSweep.dashboard(snapshot: snapshot, digest: digest, now: now,
                                                       calendar: Self.calendar(zone), locale: Self.enUS)
-                #expect(outcome.mismatches.isEmpty, "\(persona): \(outcome.mismatches.prefix(5))")
+                let mismatches = outcome.mismatches.count
+                #expect(mismatches == 0, "\(persona): \(outcome.mismatches.prefix(3))")
                 checked += outcome.checked
             }
         }
@@ -175,10 +180,12 @@ struct RendererGoldenTests {
     @Test("The reason over a grid of times, weights and modifiers (non-finite included), and the chip for 0-30 changes")
     func reasonAndChipGrids() {
         let grid = RendererSweep.reasonGrid(locale: Self.enUS)
-        #expect(grid.mismatches.isEmpty, "\(grid.mismatches.prefix(5))")
+        let gridMismatches = grid.mismatches.count
+        #expect(gridMismatches == 0, "\(grid.mismatches.prefix(3))")
         #expect(grid.checked == 16 * 9 * 7)
         let chips = RendererSweep.changeSummaries(calendar: Self.calendar(Self.chicago), locale: Self.enUS)
-        #expect(chips.mismatches.isEmpty, "\(chips.mismatches.prefix(5))")
+        let chipMismatches = chips.mismatches.count
+        #expect(chipMismatches == 0, "\(chips.mismatches.prefix(3))")
         #expect(chips.checked == 3 * 31)
     }
 
