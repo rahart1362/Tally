@@ -14,11 +14,19 @@ import TallyDomain
 ///
 /// Plan 08 §4.3 (XG-02): each projection classifies the snapshot's courses once
 /// (`GradeAvailabilityIndex`, at the projection's `now`) and hands the index to every builder
-/// that shows a grade-derived value: the dashboard, the course rows and the To-Do priority.
+/// that shows a grade-derived value: the dashboard, the course rows and the To-Do priority. The
+/// index uses the student's "grades kept outside Canvas" answers (G-3, XG-04), which `HomeModel`
+/// hands over from `ScreenLocalState`: the same map the account's `RefreshCoordinator` gets, so
+/// the screens and the widget classify every course alike.
 public actor HomeProjector {
     private let calendar: Calendar
     private let locale: Locale
     private var installed: HomeUpdate?
+    /// Plan 08 G-3 (XG-04): the student's per-course answers; a course that is absent is Automatic.
+    private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]
+    /// The revision of `gradeAvailabilityOverrides`, so an older hand-over that arrives late never
+    /// replaces a newer one.
+    private var overridesRevision: UInt64 = 0
     /// How many projections this projector has built (tests: "recomputes exactly once").
     private(set) var projectionCount = 0
     /// The snapshot being projected (tests: the signed-in Home projects the coordinator's
@@ -35,13 +43,24 @@ public actor HomeProjector {
         installed = update
     }
 
+    /// Takes the student's "grades kept outside Canvas" answers (plan 08 G-3, XG-04) for every later
+    /// projection. `revision` orders hand-overs: one older than the last is ignored. Returns whether
+    /// the answers changed, so the caller re-projects only then.
+    @discardableResult
+    public func setGradeAvailabilityOverrides(_ overrides: [CanvasID<Course>: GradeAvailabilityOverride],
+                                              revision: UInt64) -> Bool {
+        guard revision >= overridesRevision else { return false }
+        overridesRevision = revision
+        guard overrides != gradeAvailabilityOverrides else { return false }
+        gradeAvailabilityOverrides = overrides
+        return true
+    }
+
     /// The projection of the installed snapshot at `now`, or `nil` when there is no snapshot yet.
     public func project(now: Date) -> HomeProjection? {
         guard let update = installed, let snapshot = update.snapshot else { return nil }
         projectionCount += 1
-        // The student's per-course overrides (plan 08 G-3) are stored by XG-04; until then every
-        // course is classified automatically.
-        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
+        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: gradeAvailabilityOverrides, now: now)
         let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf,
                                                      now: now, gradeAvailability: gradeAvailability)
         let dashboard = Self.withUniqueAttention(raw)

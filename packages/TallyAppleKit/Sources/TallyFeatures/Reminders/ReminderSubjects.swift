@@ -30,7 +30,13 @@ nonisolated struct ReminderSubjects: Sendable {
 
     /// `doneAssignments`: the student's "done" marks (M3-C O2): a marked item is excluded like a
     /// submitted one, so it neither reminds nor counts in the digests.
-    init(snapshot: CanvasSnapshot, now: Date, doneAssignments: Set<CanvasID<Assignment>> = []) {
+    /// `gradeAvailabilityOverrides`: the student's "grades kept outside Canvas" answers (plan 08
+    /// G-3, XG-04), so the priority's course modifiers classify each course as the Dashboard does.
+    init(snapshot: CanvasSnapshot, now: Date, doneAssignments: Set<CanvasID<Assignment>> = [],
+         gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]) {
+        // Plan 08 §4.4 rows 11 and 18 (the XG-02 report's F2): the same index the Dashboard's
+        // priority uses, so a course whose grades are not in Canvas never adds a grade modifier.
+        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: gradeAvailabilityOverrides, now: now)
         // CS-07: a course or an assignment ID can repeat; the first occurrence wins, as in
         // `DashboardBuilder`.
         var candidates: [ReminderCandidate] = []
@@ -47,7 +53,8 @@ nonisolated struct ReminderSubjects: Sendable {
                                                 now: now) else { continue }
                 let priority = PriorityScore.score(hoursUntilDue: due.timeIntervalSince(now) / 3600,
                                                    courseWeight: weights.weight(of: assignment),
-                                                   modifiers: Self.modifiers(assignment: assignment, course: course, now: now))
+                                                   modifiers: Self.modifiers(assignment: assignment, course: course,
+                                                                             availability: gradeAvailability[course.id], now: now))
                 candidates.append(ReminderCandidate(assignment: assignment, priority: priority))
                 items.append(Item(assignment: assignment, courseCode: course.courseCode, dueAt: due))
             }
@@ -59,13 +66,16 @@ nonisolated struct ReminderSubjects: Sendable {
     }
 
     /// `DashboardBuilder`'s own §5.1 modifiers (private there): overdue-but-open, and the course's
-    /// standing with no goal set (goals are not built yet).
-    private static func modifiers(assignment: Assignment, course: Course, now: Date) -> PriorityScore.Modifiers {
+    /// standing with no goal set (goals are not built yet), from a score only a course whose
+    /// grades are in Canvas as percentages has (`DashboardBuilder.modifierScore`).
+    static func modifiers(assignment: Assignment, course: Course, availability: GradeAvailability?,
+                          now: Date) -> PriorityScore.Modifiers {
         let overdueStillOpen: Bool = {
             guard let due = assignment.dueAt, due < now else { return false }
             return assignment.lockAt.map { $0 > now } ?? true
         }()
-        let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(currentScore: course.scores?.currentScore, goal: nil)
+        let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(
+            currentScore: TallyDomain.DashboardBuilder.modifierScore(of: course, availability: availability), goal: nil)
         return PriorityScore.Modifiers(overdueStillOpen: overdueStillOpen, courseBelowGoal: belowGoal, nearBoundary: nearBoundary)
     }
 

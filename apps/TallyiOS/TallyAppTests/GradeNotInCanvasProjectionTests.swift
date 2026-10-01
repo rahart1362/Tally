@@ -210,17 +210,20 @@ struct GradeNotInCanvasDetailTests {
         let spanish = try #require(Self.details(snapshot, index: overridden)["SPAN-2"])
         #expect(spanish.recentGraded.isEmpty && spanish.recentGradesNote != nil)
         #expect(spanish.grade.percentText == nil && spanish.grade.letter == nil)
-        #expect(spanish.whatIf == nil && spanish.whatIfUnavailable == .notInCanvas)
+        // XG-06: the what-if is the estimate, whose input holds none of Canvas's scores.
+        let estimate = try #require(spanish.whatIf)
+        #expect(estimate.estimate != nil && spanish.whatIfUnavailable == nil)
+        #expect(estimate.input.items.allSatisfy { $0.submission == nil })
         #expect(spanish.heroLabel == "Spanish 2, SPAN-2, Grade not in Canvas")
     }
 
-    @Test("Row 6: the what-if is disabled with G-4's explanation, not hidden; advisory says why too")
+    @Test("Row 6 (XG-06 reverses XG-03 for kept outside): the estimate is offered; advisory stays disabled with why")
     func whatIfDisabled() async throws {
         let details = Self.details(try await ExternalGrades.snapshot())
         for code in ExternalGrades.keptOutside {
             let detail = try #require(details[code])
-            #expect(detail.whatIf == nil, "\(code)")
-            #expect(detail.whatIfUnavailable == .notInCanvas, "\(code)")
+            #expect(detail.whatIf?.estimate != nil, "\(code)")
+            #expect(detail.whatIfUnavailable == nil, "\(code)")
         }
         #expect(WhatIfUnavailable.notInCanvas.showsDisabledButton)
         #expect(WhatIfUnavailable.notInCanvas.text

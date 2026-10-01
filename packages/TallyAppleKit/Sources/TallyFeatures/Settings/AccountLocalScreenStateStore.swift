@@ -3,10 +3,13 @@ import TallyDomain
 import TallyStore
 
 /// A signed-in account's `LocalScreenState` (M3-A O3): the course order and To-Do "done" marks, kept
-/// in the account's sealed `UserState` (v4 `courseOrder` and `doneAssignments`), so they survive a
-/// relaunch. Sample mode keeps `InMemoryLocalScreenStateStore` (ASC-14: sample data is never
-/// persisted). After a save that changed the done marks, `onDoneMarksChanged` runs (one reminders
-/// pass: an item marked done stops reminding, M3-C O2); a course reorder alone does not.
+/// in the account's sealed `UserState` (v4 `courseOrder` and `doneAssignments`), and the "grades
+/// kept outside Canvas" answers (v5 `gradesOutsideCanvasOverride`, plan 08 XG-04), so they survive
+/// a relaunch. Every save goes through `UserStateAccess.update`, which hands the answers to the
+/// account's `RefreshCoordinator` (the glance, the digest). Sample mode keeps
+/// `InMemoryLocalScreenStateStore` (ASC-14: sample data is never persisted). After a save that
+/// changed the done marks, `onDoneMarksChanged` runs (one reminders pass: an item marked done
+/// stops reminding, M3-C O2); a course reorder alone does not.
 public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
     private let access: any UserStateAccess
     private let onDoneMarksChanged: @Sendable () async -> Void
@@ -23,7 +26,7 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
         let state = await access.load()
         knownDoneAssignments = state.doneAssignments
         return LocalScreenState(courseOrder: state.courseOrder, doneAssignments: state.doneAssignments,
-                                revision: latestRevision)
+                                gradeAvailabilityOverrides: state.gradeAvailabilityOverrides, revision: latestRevision)
     }
 
     /// Keeps `state` unless a newer revision was already saved. A save the store refuses (a state
@@ -34,10 +37,12 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
         latestRevision = state.revision
         let order = state.courseOrder
         let done = state.doneAssignments
+        let overrides = state.gradeAvailabilityOverrides
         do {
             try await access.update { stored in
                 stored.courseOrder = order
                 stored.doneAssignments = done
+                stored.gradeAvailabilityOverrides = overrides
             }
         } catch {
             return
