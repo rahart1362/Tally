@@ -95,15 +95,21 @@ struct CrashSafetyGuardsTests {
         #expect(elapsed < TestTimeBudget.seconds(30), "a single corrupt points_possible must never turn into a hang")
     }
 
-    // MARK: - PriorityScore.reasonText: Int(Double) on a non-finite hour/weight value
+    // MARK: - PriorityScore.reasonPart: Int(Double) on a non-finite hour/weight value
+    // (plan 08 L10N-02 moved the reason's rounding from `reasonText` to `reasonPart`; the app
+    // phrases the parts)
 
-    @Test func reasonTextNeverCrashesOnNonFiniteHoursOrWeight() {
-        _ = PriorityScore.reasonText(hoursUntilDue: .infinity, weight: .infinity, modifiers: .init(), courseCode: "BIO 101")
-        _ = PriorityScore.reasonText(hoursUntilDue: -.infinity, weight: .nan, modifiers: .init(), courseCode: "BIO 101")
-        _ = PriorityScore.reasonText(hoursUntilDue: .nan, weight: 1, modifiers: .init(), courseCode: "BIO 101")
-        // No crash is the assertion; also sanity-check the ordinary path still reads naturally.
-        let text = PriorityScore.reasonText(hoursUntilDue: 5, weight: 0.5, modifiers: .init(), courseCode: "BIO 101")
-        #expect(text.contains("Due in 5h"))
+    @Test func reasonPartsNeverCrashOnNonFiniteHoursOrWeight() {
+        let parts = { (h: Double?, w: Double) in
+            PriorityScore.reasonFactors(hoursUntilDue: h, weight: w, modifiers: .init()).map(PriorityScore.reasonPart)
+        }
+        #expect(parts(.infinity, .infinity) == [.dueInHours(0), .courseWeightPercent(0)])
+        #expect(parts(-.infinity, .nan) == [.overdue])
+        #expect(parts(.nan, 1) == [.dueInHours(0), .courseWeightPercent(100)])
+        #expect(PriorityScore.reasonPart(.dueIn(hours: 1e300)) == .dueInHours(1_000_000_000))
+        #expect(PriorityScore.reasonPart(.courseWeight(-1e300)) == .courseWeightPercent(-1_000_000_000))
+        // The ordinary path still reads naturally.
+        #expect(parts(5, 0.5) == [.dueInHours(5), .courseWeightPercent(50)])
     }
 
     // MARK: - AlertKind.dedupeKey: Int(Double) on a non-finite Date interval

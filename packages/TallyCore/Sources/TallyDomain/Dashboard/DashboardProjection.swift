@@ -19,6 +19,11 @@ import Foundation
 /// same rank caps, same windows) — this is a relocation, not a redesign. `GradeParityTests`-style
 /// parity is enforced by `DashboardProjectionParityTests` (`same inputs -> same outputs`,
 /// asserted `Equatable`) rather than trusted by inspection alone.
+///
+/// Plan 08 §3.2 (L10N-02): the three fields that held English (`NextUpItem.reason`,
+/// `AttentionItem.title`/`subtitle`, the digest summary) now hold values (`reasonFactors`,
+/// `AttentionItem.Content`, `ChangeSummary`), which `TallyStrings.DashboardText` phrases in the
+/// student's language and locale. Every rule that picks, ranks and caps the rows is unchanged.
 public nonisolated struct DashboardProjection: Equatable, Sendable {
     /// insights-at-a-glance.md §1.2 rank 3 ("Compact hero"). No sparkline/delta: both need a
     /// score *history*, which this snapshot generation does not carry (R9) — showing either
@@ -43,25 +48,53 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
         public let courseCode: String
         public let dueAt: Date?
         public let band: PriorityScore.Band
-        public let reason: String
+        /// Why it ranks here: the due-date clause, then up to two modifiers
+        /// (`PriorityScore.reasonFactors`). Plan 08 §3.2 (L10N-02): TallyCore emits no text; the
+        /// app phrases these (`TallyStrings.DashboardText.reason`).
+        public let reasonFactors: [PriorityScore.Factor]
 
         public init(id: CanvasID<Assignment>, title: String, courseCode: String, dueAt: Date?,
-                    band: PriorityScore.Band, reason: String) {
+                    band: PriorityScore.Band, reasonFactors: [PriorityScore.Factor]) {
             self.id = id; self.title = title; self.courseCode = courseCode; self.dueAt = dueAt
-            self.band = band; self.reason = reason
+            self.band = band; self.reasonFactors = reasonFactors
         }
     }
 
-    /// insights-at-a-glance.md §1.2 rank 2 ("Needs attention"). `subtitle` is `nil` for a bare
-    /// grouped count row (e.g. "All clear" has none).
+    /// insights-at-a-glance.md §1.2 rank 2 ("Needs attention"). Plan 08 §3.2 (L10N-02): the row
+    /// says what `content` holds, phrased by the app (`TallyStrings.DashboardText`).
     public nonisolated struct AttentionItem: Identifiable, Equatable, Sendable {
+        /// What one "Needs attention" row is about. Titles and course codes are Canvas's, passed
+        /// through untouched; dates are formatted by the app in the student's locale.
+        public nonisolated enum Content: Equatable, Sendable {
+            /// A1: missing and still accepted.
+            case missingOpen(title: String, courseCode: String)
+            /// A2: missing work in this course is closed.
+            case missingClosed(courseCode: String)
+            /// A3: due soon, at `dueAt`.
+            case dueSoon(title: String, dueAt: Date, courseCode: String)
+            /// A7: several items due close together, from `start`.
+            case overload(start: Date)
+            /// Any other alert about an assignment: its title and course code.
+            case other(title: String, courseCode: String)
+        }
+
         public let id: String
         public let severity: AlertSeverity
-        public let title: String
-        public let subtitle: String?
+        public let content: Content
 
-        public init(id: String, severity: AlertSeverity, title: String, subtitle: String?) {
-            self.id = id; self.severity = severity; self.title = title; self.subtitle = subtitle
+        public init(id: String, severity: AlertSeverity, content: Content) {
+            self.id = id; self.severity = severity; self.content = content
+        }
+    }
+
+    /// insights-at-a-glance.md §1.2 rank 6: "N changes since <asOf>". Plan 08 §3.2 (L10N-02): a
+    /// count and a time, phrased and formatted by the app (`TallyStrings.DashboardText`).
+    public nonisolated struct ChangeSummary: Equatable, Sendable {
+        public let count: Int
+        public let asOf: Date
+
+        public init(count: Int, asOf: Date) {
+            self.count = count; self.asOf = asOf
         }
     }
 
@@ -99,10 +132,10 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
     public let weekAhead: [WeekDay]
     /// "N changes since <asOf>" — `nil` when there is nothing to show (first snapshot, or an
     /// empty digest), per insights-at-a-glance.md §1.2 rank 6.
-    public let changeDigestSummary: String?
+    public let changeDigestSummary: ChangeSummary?
 
     public init(hero: Hero, nextUp: [NextUpItem], needsAttention: [AttentionItem], dueSoon: [DueItem],
-                weekAhead: [WeekDay], changeDigestSummary: String?) {
+                weekAhead: [WeekDay], changeDigestSummary: ChangeSummary?) {
         self.hero = hero; self.nextUp = nextUp; self.needsAttention = needsAttention
         self.dueSoon = dueSoon; self.weekAhead = weekAhead; self.changeDigestSummary = changeDigestSummary
     }
@@ -186,7 +219,7 @@ public nonisolated enum DashboardBuilder {
         snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
-        var reasons: [CanvasID<Assignment>: String] = [:]
+        var reasons: [CanvasID<Assignment>: [PriorityScore.Factor]] = [:]
         // CS-07: a repeated course ID keeps its first (lowest) position instead of trapping.
         let courseOrder = Dictionary(snapshot.courses.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
 
@@ -199,8 +232,7 @@ public nonisolated enum DashboardBuilder {
                 PriorityScore.RankedItem(assignmentID: assignment.id, score: score, dueAt: assignment.dueAt,
                                          weight: weight, courseOrder: courseOrder[course.id] ?? .max),
                 assignment.name, course.courseCode))
-            reasons[assignment.id] = PriorityScore.reasonText(hoursUntilDue: hours, weight: weight,
-                                                              modifiers: modifiers, courseCode: course.courseCode)
+            reasons[assignment.id] = PriorityScore.reasonFactors(hoursUntilDue: hours, weight: weight, modifiers: modifiers)
         }
 
         // CS-07: an assignment ID can repeat (within a group, across groups or across courses);
@@ -211,7 +243,7 @@ public nonisolated enum DashboardBuilder {
             return DashboardProjection.NextUpItem(
                 id: rankedItem.assignmentID, title: entry?.title ?? "", courseCode: entry?.courseCode ?? "",
                 dueAt: rankedItem.dueAt, band: PriorityScore.band(rankedItem.score),
-                reason: reasons[rankedItem.assignmentID] ?? "")
+                reasonFactors: reasons[rankedItem.assignmentID] ?? [])
         }
     }
 
@@ -230,19 +262,19 @@ public nonisolated enum DashboardBuilder {
         items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
         snapshot: CanvasSnapshot, now: Date
     ) -> [DashboardProjection.AttentionItem] {
-        var alerts: [(Alert, String, String?)] = []
+        var alerts: [(Alert, DashboardProjection.AttentionItem.Content)] = []
         var loadItems: [AlertEngine.LoadItem] = []
 
         for (course, _, assignment, weight) in items {
             if let missing = AlertEngine.missingAlert(assignment: assignment, now: now) {
-                alerts.append(rendered(missing, assignment: assignment, course: course))
+                alerts.append((missing, content(of: missing, assignment: assignment, course: course)))
             } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,
                       let due = assignment.dueAt, due >= now {
                 let hours = due.timeIntervalSince(now) / 3600
                 let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
                 let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
                 if let dueSoon = AlertEngine.dueSoonAlert(assignment: assignment, priorityScore: score, weight: weight, now: now) {
-                    alerts.append(rendered(dueSoon, assignment: assignment, course: course))
+                    alerts.append((dueSoon, content(of: dueSoon, assignment: assignment, course: course)))
                 }
             }
             if let due = assignment.dueAt, due >= now, let submission = assignment.submission,
@@ -253,14 +285,12 @@ public nonisolated enum DashboardBuilder {
 
         for cluster in AlertEngine.overloadClusters(loadItems, now: now) {
             guard case .overloadCluster(let start) = cluster.kind else { continue }
-            alerts.append((cluster,
-                          "Busy stretch starting \(Self.shortDate(start))",
-                          "Several items are due close together"))
+            alerts.append((cluster, .overload(start: start)))
         }
 
         return uniqueByDedupeKey(alerts).sorted { $0.0.rank > $1.0.rank }.prefix(3)
-            .map { alert, title, subtitle in
-                DashboardProjection.AttentionItem(id: alert.dedupeKey, severity: alert.severity, title: title, subtitle: subtitle)
+            .map { alert, content in
+                DashboardProjection.AttentionItem(id: alert.dedupeKey, severity: alert.severity, content: content)
             }
     }
 
@@ -269,8 +299,10 @@ public nonisolated enum DashboardBuilder {
     /// closed missing work per course (`missingClosed:<course>`), so two closed missing
     /// assignments in one course raised two alerts with one key. The row kept for a key has the
     /// highest severity, then comes first; it takes the place of the key's first alert.
-    private static func uniqueByDedupeKey(_ alerts: [(Alert, String, String?)]) -> [(Alert, String, String?)] {
-        var unique: [(Alert, String, String?)] = []
+    private static func uniqueByDedupeKey(
+        _ alerts: [(Alert, DashboardProjection.AttentionItem.Content)]
+    ) -> [(Alert, DashboardProjection.AttentionItem.Content)] {
+        var unique: [(Alert, DashboardProjection.AttentionItem.Content)] = []
         var position: [String: Int] = [:]
         for entry in alerts {
             let key = entry.0.dedupeKey
@@ -284,17 +316,20 @@ public nonisolated enum DashboardBuilder {
         return unique
     }
 
-    private static func rendered(_ alert: Alert, assignment: Assignment, course: Course) -> (Alert, String, String?) {
+    private static func content(
+        of alert: Alert, assignment: Assignment, course: Course
+    ) -> DashboardProjection.AttentionItem.Content {
         switch alert.kind {
         case .missingOpen:
-            return (alert, "\(assignment.name) is missing", "\(course.courseCode) · still accepted")
+            return .missingOpen(title: assignment.name, courseCode: course.courseCode)
         case .missingClosed:
-            return (alert, "\(course.courseCode): missing work is closed", "Talk to your instructor")
+            return .missingClosed(courseCode: course.courseCode)
         case .dueSoon:
-            let due = assignment.dueAt.map(Self.shortTime) ?? ""
-            return (alert, "\(assignment.name) due \(due)", course.courseCode)
+            // `AlertEngine.dueSoonAlert` raises A3 only for an item with a due date.
+            guard let due = assignment.dueAt else { return .other(title: assignment.name, courseCode: course.courseCode) }
+            return .dueSoon(title: assignment.name, dueAt: due, courseCode: course.courseCode)
         default:
-            return (alert, assignment.name, course.courseCode)
+            return .other(title: assignment.name, courseCode: course.courseCode)
         }
     }
 
@@ -335,31 +370,11 @@ public nonisolated enum DashboardBuilder {
 
     // MARK: - Change digest chip (§2.5)
 
-    private static func changeDigestSummary(digest: ChangeDigest?, asOf: Date?) -> String? {
+    /// Plan 08 §3.2 (L10N-02): the count and the time only. The fixed-format `HH:mm` and
+    /// `yyyy-MM-dd` text the port used to build here (24-hour time and an ISO date for every
+    /// user) is gone; the app formats both in the student's locale.
+    private static func changeDigestSummary(digest: ChangeDigest?, asOf: Date?) -> DashboardProjection.ChangeSummary? {
         guard let digest, !digest.isEmpty, let asOf else { return nil }
-        let time = Self.shortTime(asOf)
-        return "\(digest.count) change\(digest.count == 1 ? "" : "s") since \(time)"
-    }
-
-    // MARK: - Formatting (Foundation.Date.FormatStyle is Apple-only; TallyDomain builds on Linux)
-
-    /// `Date.formatted(date: .omitted, time: .shortened)`'s Linux/Foundation-portable
-    /// equivalent: a fixed-width 24-hour `HH:mm` in the current calendar's time zone. The
-    /// source's locale-shortened time (e.g. "2:30 PM") is a presentation choice the UI layer is
-    /// free to reapply from `NextUpItem.dueAt`/`AttentionItem`'s subtitle inputs; what a pure,
-    /// Linux-testable domain function can portably format itself, it does.
-    private static func shortTime(_ date: Date) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        let c = calendar.dateComponents([.hour, .minute], from: date)
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
-    }
-
-    /// `Date.formatted(date: .abbreviated, time: .omitted)`'s portable equivalent: `yyyy-MM-dd`.
-    private static func shortDate(_ date: Date) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        let c = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+        return DashboardProjection.ChangeSummary(count: digest.count, asOf: asOf)
     }
 }

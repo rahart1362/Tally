@@ -771,3 +771,79 @@ Nine planted faults in one pushed commit (`.build-perf-launch/ci_mutations.py`),
 
 ## 2026-09-30 | XG-01: the hand-off quick run (branch core/xg01)
 **Quick run 36787740679** (`a93bd36`: `f79d6ba`'s code + report + journal): success. `hygiene`, `core-linux` (666 tests, 4 known issues), `lint` (0 violations in 213 files), `core-sanitizers` (TSan, ASan/LSan: 666 each, 0 reports), `core-perf` (report-only; 40 tests, the existing `snapshotDecodeDevice/stress` known issue; `gradeAvailabilityIndex/large-fullScan` 0.0105 ms, projected 0.0210 ms vs 40 ms), `ios-build` (TallyCore on Xcode 26.6: 666 tests in 92 suites; hosted 330 tests in 71 suites, 2 known issues; main xcresult 362 total, 356 passed, 0 failed, 4 skipped, 2 expected; floor 332 total, 330 passed, 2 expected; smallest iPhone 2/2). The iOS sanitizer, perf and forward-compat jobs are not in the quick scope: UNVERIFIED here, left to the PMO's PR run. Report: `docs/pmo/reviews/xg01-report.md`.
+
+## 2026-10-01 | L10N-02 string-free TallyCore (branch core/l10n02): values in TallyDomain, renderers in TallyStrings
+**Built** (plan 08 §3.2/§5 L10N-02):
+- `NotificationContent` builders became `NotificationMessage`: names, dates, counts and flags; no score or grade payload; `.hidden` names when "Hide course names" is on.
+- `NextUpItem.reason` became `reasonFactors`, with `PriorityScore.ReasonPart` keeping the rounding and the CS guard in TallyDomain.
+- `AttentionItem.Content`; `ChangeSummary(count:asOf:)`. `shortTime`/`shortDate` and `InstitutionEnablementError.message` are deleted.
+- `TallyStrings/Render/{NotificationText,DashboardText,RenderSupport}.swift` add 39 catalog keys; `TallyStrings` now depends on `TallyDomain`.
+- `ReminderSubjects` builds the messages and renders them; `HomeProjector.localized` is removed; `DashboardView` renders the rows.
+- Literal baseline 476 → 440 (`--update`); the TallyDomain files are at 0.
+
+**Before the change**, a temporary Linux test captured 628ee09's English (`.build-l10n02/golden-628ee09.txt`, 523 lines, sha256 `41d7be30…0f19`): 23 notification outputs, 432 reasons, and every persona's dashboard at two instants.
+
+**Local** (`c772c88`):
+- `make core-build` clean (warnings are errors); `make core-test`: 649 tests, all pass, 4 known issues; `make lint`: 0 violations in 218 files.
+- Hygiene gates: lint 440/440, catalogs PASS (4 catalogs, 46 keys), view bodies clean, privacy, widget isolation (modules now include TallyDomain via TallyStrings; PASS).
+- **Local mutations, 8 of 8 caught** (`.build-l10n02/mutate_local.py`; each file restored, sha256 equal):
+  - LM1 a `score: Double?` payload on `.gradePosted`;
+  - LM2 `Subject` ignores Hide course names;
+  - LM3 the non-finite guard removed;
+  - LM4 the 1-minute floor removed;
+  - LM5 the overload row given the wrong date;
+  - LM6 the change count off by one;
+  - LM7 an English sentence back in `DashboardProjection.swift`;
+  - LM8 a new TallyDomain file with English.
+- A scratch harness compiled the renderers, `ReminderSubjects` and the golden support on Linux against the real TallyDomain, with a catalog emulation. Its sweeps had 0 mismatches (4,352 reminder strings, 256 dashboard strings, 1,008 reasons, 93 chips).
+
+**Quick run 36795199706** (`c772c88`): hygiene, core-linux (649 tests), lint, core-sanitizers and core-perf passed; the iOS Debug build and the test build passed. ios-build failed on 2 of my own locale-sample expectations, identically on both simulators. ICU's en_GB and en_DE short times have no leading zero: "Due 1 Oct at 8:30." and "Due tomorrow at 9:00.", where I had written "08:30" and "09:00". Every other check passed:
+- the en_US literal goldens and all four differential sweeps;
+- every key resolving, and "1 change since 2:13 PM" (the catalog's plural form);
+- the en_GB dates ("2 Oct 2026") and the en_DE "~11 % of BIO 101";
+- `RemindersTests` and every UI test.
+
+Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 347 total, 343 passed, 2 failed, 2 expected. The 2 expectations are corrected in the next commit.
+
+## 2026-10-01 | L10N-02: CI mutation run (HM1-HM5), the log fix, HM5 again
+**Mutation run 36798377151** (`fe713dc`, quick; reverted in `4bb4ab8`; the three files are back to their sha256 per `.build-l10n02/ci_mutations.py verify`: catalog `400db912…`, `DashboardText.swift` `da3679e2…`, `NotificationText.swift` `04abdc96…`; the reverted tree equals `aa88d0f`).
+- Hygiene failed on HM1 alone. The catalog checker reported "the defaultValue for 'notification.belowGoal.body' is 'Open Tally to see your standing.', but the catalog's English is \"Open Tally to see how you're doing.\"". Every other hygiene step passed.
+- ios-build: main xcresult 377 total, 361 passed, **10 failed**, 4 skipped, 2 expected. Every UI test passed. The 10 failed tests:
+  - `notificationGoldens`: HM1 on both belowGoal rows; HM3 "Due Today at 6:00 PM.", "Due Tomorrow at 9:00 AM.", "since Yesterday at 2:14 PM".
+  - `dashboardGoldens`: HM2 "Overdue · near a grade boundary · course below your goal"; HM4 "1 changes since 2:13 PM".
+  - `reminderSweep`, all 4 personas: HM3 "Due Tomorrow at …"; HM1 "Open Tally to see how you're doing.", 37 times in the log.
+  - `dashboardSweep`, all 5 personas: HM2.
+  - `everyKeyResolves`: HM1.
+  - `britishEnglish` and `germanRegionEnglishUI`: HM3 "Due Today at 18:00.".
+  - `reasonAndChipGrids`.
+  - The existing `RemindersTests` `dayTimeWords` ("Today at 12:13 PM") and `emptyDigestsAreDropped` (sentinel prefix): both HM3.
+- Linux jobs: green.
+- **A log problem:** Swift Testing printed each sweep's whole mismatch array (lines of 7-16 kB), and the job log then lacks the console issues of 4 tests and the floor run's summary. HM5 shows only through the first issue of `germanRegionEnglishUI`, which is HM3's, so it is not attributed. The fix (`c2c62a0`) makes the sweep expectations compare a count.
+
+**HM5 alone, run 36801207636** (`64beccc`, quick, on the fix; reverted in `dc97154`; `DashboardText.swift` back to `da3679e2…`, tree equal to `c2c62a0`): result in the next entry.
+
+## 2026-10-01 | L10N-02: HM5 alone (run 36801207636), main merged, the report
+**Run 36801207636** (`64beccc` = `c2c62a0` + HM5, quick; reverted in `dc97154`, `DashboardText.swift` back to `da3679e2…`).
+- **HM5 caught** on both simulators by `germanRegionEnglishUI`, and only at its reason line (`RendererGoldenTests.swift:258`): "Overdue · ~11% of BIO 101" vs en_DE's "Overdue · ~11 % of BIO 101".
+- The en_US goldens and sweeps passed, and so did the en_GB/en_DE time lines corrected in `aa88d0f`.
+- Main xcresult 377 total, 369 passed, 2 failed, 4 skipped, 2 expected; floor 347, 344 passed, 1 failed, 2 expected.
+- The main run's second failure is the UI test `LaunchFromCacheUITests.testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity:47`. "Refreshing" was already replaced by the stale breadcrumb when checked. It passed in runs 36795199706 and 36798377151, and this change touches no refresh path, so it is treated as a flake; the hand-off full run is its one re-run.
+- Release device build, shipping-binary checks, widget link map (with TallyStrings → TallyDomain) and widget memory budget: success.
+- **CI mutations: 5 of 5 caught** (HM1 also by hygiene).
+
+**Merge:** `origin/main` @ `799c62e` (PR #13, XG-01) merged as `37a1143`. The journal conflict only; main's journal is a byte-identical prefix. On the merged tree: `make core-build` clean; `make core-test` 662 tests (4 known issues); `make lint` 0 violations in 219 files; literals 440/440; catalogs PASS.
+
+**Report:** `docs/pmo/reviews/l10n02-report.md`. The hand-off full run is on the report's commit.
+
+## 2026-10-01 | L10N-02: the hand-off full run
+**Full run 36804743119** (`a859ea7`: the report's commit, on `origin/main` @ `799c62e` merged): **all 12 jobs success**.
+- Required:
+  - hygiene: literals 440/440; catalogs PASS (4 catalogs, 46 keys); widget isolation PASS (modules TallyDesignSystem, TallyDomain, TallyGlance, TallyStore, TallyStrings, TallyWidgets).
+  - core-linux: 662 tests (50 + 101 + 8 + 308 + 195), 4 known issues.
+  - lint; core-sanitizers: TSan and ASan/LSan, 662 each.
+  - ios-build: TallyCore on Xcode 662 tests (4 known issues); hosted Swift Testing 345 tests in 73 suites on both simulators (2 known issues). Main xcresult **377 total, 371 passed, 0 failed, 4 skipped, 2 expected**; floor 347 total, 345 passed, 0 failed, 2 expected; smallest iPhone 2/2. Release device build, shipping-binary checks, widget link map and widget memory budget: success.
+  - ios-asan: 344 total, 341 passed, 1 skipped, 2 expected, 0 ASan reports.
+  - ios-tsan: 344 total, 341 passed, 1 skipped, 2 expected, 0 TSan warnings or errors.
+  - ios-perf: `Launch.GlancePaint` median **1.1262 s ≤ 3.0 s**; sample entry median 0.0995 s ≤ 0.15 s; 6/6.
+- Report-only, all success: forward-compat (iOS 27 SDK: 377 total, 371 passed, 0 failed); ios-asan-ui (30 total, 26 passed, 4 skipped, 0 reports); core-perf; perf on Apple silicon.
+- `LaunchFromCacheUITests` passed: the one re-run of the flake candidate from run 36801207636.

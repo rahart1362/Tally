@@ -106,18 +106,25 @@ struct DashboardProjectionParityTests {
         #expect(state.nextUp.map(\.band) == [.high, .high, .high])
     }
 
-    /// Reason text, worked from `PriorityScore.reasonFactors`/`describe`: the due-date clause
-    /// always leads, then up to two of {below-goal/near-boundary, still-accepted, course-weight
-    /// (only when weight >= `priorityReasonWeightFloor` = 0.05)}, in that priority order.
-    @Test func nextUpReasonTextMatchesTheFormulasFactors() {
+    /// The reason, worked from `PriorityScore.reasonFactors`: the due-date clause always leads,
+    /// then up to two of {below-goal/near-boundary, still-accepted, course-weight (only when
+    /// weight >= `priorityReasonWeightFloor` = 0.05)}, in that priority order. Plan 08 L10N-02:
+    /// the projection carries the factors; the app phrases them (before, this test compared the
+    /// English "Overdue · Still accepted · ~60% of SCI" and so on, which the hosted renderer
+    /// goldens now pin).
+    @Test func nextUpReasonFactorsMatchTheFormula() {
         let state = DashboardBuilder.build(from: Self.snapshot(), digest: nil, digestAsOf: nil, now: Self.now)
-        let byID = Dictionary(uniqueKeysWithValues: state.nextUp.map { ($0.id.rawValue, $0.reason) })
+        let byID = Dictionary(uniqueKeysWithValues: state.nextUp.map { ($0.id.rawValue, $0.reasonFactors) })
+        let parts = byID.mapValues { $0.map(PriorityScore.reasonPart) }
         // A4: overdue (h=-2h) + still-accepted (open, overdue) + weight 30/50=0.6 of SCI.
-        #expect(byID["a4"] == "Overdue · Still accepted · ~60% of SCI")
+        #expect(byID["a4"] == [.overdue, .stillAccepted, .courseWeight(0.6)])
+        #expect(parts["a4"] == [.overdue, .stillAccepted, .courseWeightPercent(60)])
         // A3: overdue (h=-1h) + still-accepted + weight 50/50=1.0 (only counted item) of ART.
-        #expect(byID["a3"] == "Overdue · Still accepted · ~100% of ART")
+        #expect(byID["a3"] == [.overdue, .stillAccepted, .courseWeight(1.0)])
+        #expect(parts["a3"] == [.overdue, .stillAccepted, .courseWeightPercent(100)])
         // A5: due in +2h (not overdue, so no still-accepted) + weight 20/50=0.4 of SCI.
-        #expect(byID["a5"] == "Due in 2h · ~40% of SCI")
+        #expect(parts["a5"] == [.dueInHours(2), .courseWeightPercent(40)])
+        #expect(state.nextUp.map(\.courseCode) == ["SCI", "ART", "SCI"])
     }
 
     // MARK: - Needs attention: A1/A3 raise nothing (no submission -> `AlertEngine`'s guards all
@@ -141,14 +148,13 @@ struct DashboardProjectionParityTests {
         #expect(state.needsAttention.count == 3)
         #expect(state.needsAttention.map(\.id) == ["due:a5", "missing:a4", "overload:\(Int(Self.now.addingTimeInterval(2 * 3600).timeIntervalSince1970))"])
         #expect(state.needsAttention.map(\.severity) == [.critical, .high, .high])
-        // The two date-free titles/subtitles are exact; the two date-formatted ones (dueSoon's
-        // title, the overload cluster's title) are checked only for their date-free parts, since
-        // `DashboardBuilder`'s short-date/short-time text is intentionally locale/timezone-free
-        // but still varies with the run's local calendar day — matching how the *original*
-        // `DashboardBuilderTests` never asserted exact formatted-clock-time text either.
-        #expect(state.needsAttention[1].title == "Assignment a4 is missing")
-        #expect(state.needsAttention[1].subtitle == "SCI · still accepted")
-        #expect(state.needsAttention[2].subtitle == "Several items are due close together")
+        // Plan 08 L10N-02: every row is a value now, its dates exact (the port used to format them
+        // as a fixed `HH:mm` and an ISO date, which varied with the run's time zone).
+        #expect(state.needsAttention.map(\.content) == [
+            .dueSoon(title: "Assignment a5", dueAt: Self.now.addingTimeInterval(2 * 3600), courseCode: "SCI"),
+            .missingOpen(title: "Assignment a4", courseCode: "SCI"),
+            .overload(start: Self.now.addingTimeInterval(2 * 3600)),
+        ])
     }
 
     // MARK: - Due soon / Week ahead: no planner items in this fixture, so both are trivially empty/zero.
@@ -160,13 +166,13 @@ struct DashboardProjectionParityTests {
         #expect(state.weekAhead.allSatisfy { $0.dueCount == 0 && !$0.isBusy })
     }
 
-    // MARK: - Digest chip: only the count needs to be exact (see the note above on date text).
+    // MARK: - Digest chip: the count and the time, as values.
 
     @Test func digestChipReportsTheExactChangeCount() {
         let digest = ChangeDigest(
             gradeChanges: [], newAssignments: [ChangeDigest.NewAssignment(courseID: "math", assignmentID: "a99", dueAt: nil)],
             dueDateChanges: [], newAnnouncements: [], courseScoreChanges: [])
         let state = DashboardBuilder.build(from: Self.snapshot(), digest: digest, digestAsOf: Self.now, now: Self.now)
-        #expect(state.changeDigestSummary?.hasPrefix("1 change since ") == true)
+        #expect(state.changeDigestSummary == DashboardProjection.ChangeSummary(count: 1, asOf: Self.now))
     }
 }

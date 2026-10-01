@@ -45,7 +45,7 @@ struct DashboardProjectionTests {
                 #expect(submission.gradedAt == nil)
                 #expect(!submission.excused)
             }
-            #expect(!item.reason.isEmpty)
+            #expect(!item.reasonFactors.isEmpty)
         }
     }
 
@@ -109,6 +109,6 @@ struct DashboardProjectionTests {
         #expect(!digest.isEmpty)
         let state = DashboardBuilder.build(from: updated, digest: digest, digestAsOf: updated.fetchedAt, now: Self.fixedNow)
         let summary = try #require(state.changeDigestSummary)
-        #expect(summary.contains("\(digest.count)"))
+        #expect(summary == DashboardProjection.ChangeSummary(count: digest.count, asOf: updated.fetchedAt))
     }
 }

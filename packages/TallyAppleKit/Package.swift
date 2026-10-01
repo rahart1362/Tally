@@ -145,13 +145,19 @@ let package = Package(
         // Plan 08 §3.1 (L10N-01): the one String Catalog shared by the app, the widget and the
         // intents (`Resources/Localizable.xcstrings`), the public `L10n` wrappers over its keys,
         // `TallyFormat` (locale-aware number, time and list formatting) and `TallyLocale` (the
-        // formatting locale). Foundation only and no dependencies, so the widget may link it.
+        // formatting locale). Foundation and TallyDomain only (plan 08 §3.2, L10N-02: the
+        // renderers in `Render/` phrase TallyDomain's structured values, such as
+        // `NotificationMessage`), so the widget may link it: TallyDomain is in the widget already
+        // (TallyGlance), and neither is on scripts/ci/check_widget_isolation.py's forbidden list.
         // Default isolation (nonisolated), deliberately, like TallySampleFixtures: the resource
         // accessor SwiftPM generates declares a class, which under TallyFeatures' MainActor
         // default isolation gained an isolated deinit (plan 06 A2). The only allowed source of
         // UI strings: scripts/ci/check_localizable_literals.py does not scan it.
         .target(
             name: "TallyStrings",
+            dependencies: [
+                .product(name: "TallyDomain", package: "TallyCore"),
+            ],
             resources: [.process("Resources")]
         ),
     ]

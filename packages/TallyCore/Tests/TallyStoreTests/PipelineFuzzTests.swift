@@ -196,7 +196,7 @@ enum Pipeline {
                 let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3_600 }
                 let modifiers = PriorityScore.Modifiers(overdueStillOpen: true, courseBelowGoal: belowGoal, nearBoundary: nearBoundary)
                 let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
-                _ = PriorityScore.reasonText(hoursUntilDue: hours, weight: weight, modifiers: modifiers, courseCode: course.courseCode)
+                _ = PriorityScore.reasonFactors(hoursUntilDue: hours, weight: weight, modifiers: modifiers).map(PriorityScore.reasonPart)
                 ranked.append(.init(assignmentID: assignment.id, score: score, dueAt: assignment.dueAt, weight: weight,
                                     courseOrder: order))
                 _ = AlertEngine.missingAlert(assignment: assignment, now: now)?.dedupeKey

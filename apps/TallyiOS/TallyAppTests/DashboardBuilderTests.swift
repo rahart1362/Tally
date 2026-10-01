@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TallyDomain
+import TallyStrings
 @testable import TallyFeatures
 
 /// UX-WP-13: the Dashboard over a real flagship snapshot (never fabricated — every assertion below
@@ -54,7 +55,8 @@ struct DashboardBuilderTests {
                 #expect(submission.gradedAt == nil)
                 #expect(!submission.excused)
             }
-            #expect(!item.reason.isEmpty)
+            #expect(!item.reasonFactors.isEmpty)
+            #expect(!DashboardText.reason(item.reasonFactors, courseCode: item.courseCode).isEmpty)
         }
     }
 
@@ -118,6 +120,7 @@ struct DashboardBuilderTests {
         #expect(!digest.isEmpty)
         let state = try await project(updated, digest: digest, digestAsOf: updated.fetchedAt)
         let summary = try #require(state.changeDigestSummary)
-        #expect(summary.contains("\(digest.count)"))
+        #expect(summary.count == digest.count)
+        #expect(DashboardText.changeSummary(summary).contains("\(digest.count)"))
     }
 }

@@ -65,7 +65,9 @@ struct InstitutionDirectoryTests {
         #expect(!registration.familyCapable && registration.clientType == .publicPKCE)
     }
 
-    @Test func unknownHostYieldsTheNotEnabledMessageNamingTheSchool() throws {
+    /// Plan 08 L10N-02: the error names the school as data (the app phrases it); it carries no
+    /// English of its own.
+    @Test func unknownHostYieldsNotEnabledNamingTheSchool() throws {
         let registry = ClientRegistry([ClientRegistration(host: "canvas.northfield.example", clientID: "x")])
         let match = InstitutionMatch(id: "9", name: "Unregistered Academy", host: "canvas.unregistered.example", authenticationProvider: nil)
         #expect(throws: InstitutionEnablementError.notEnabled(school: "Unregistered Academy")) {
@@ -75,7 +77,9 @@ struct InstitutionDirectoryTests {
             _ = try InstitutionDirectory.registration(for: match, in: registry)
             Issue.record("expected notEnabled to throw")
         } catch {
-            #expect(error.message == "Tally isn't enabled at Unregistered Academy yet")
+            switch error {
+            case .notEnabled(let school): #expect(school == "Unregistered Academy")
+            }
         }
     }
 

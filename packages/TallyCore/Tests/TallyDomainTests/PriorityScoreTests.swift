@@ -282,19 +282,52 @@ struct PriorityScoreTests {
         #expect(permuted.map(\.assignmentID.rawValue) == expectedOrder)
     }
 
-    // MARK: - Reason text
+    // MARK: - Reason (plan 08 L10N-02: values; the app phrases them, pinned by the hosted goldens)
 
-    @Test func reasonTextLeadsWithDueTimeAndIncludesTopModifiers() {
-        let text = PriorityScore.reasonText(
-            hoursUntilDue: 6, weight: 0.05,
-            modifiers: .init(courseBelowGoal: true), courseCode: "BIO 101")
-        #expect(text.hasPrefix("Due in 6h"))
-        #expect(text.contains("course below your goal"))
-        #expect(text.contains("BIO 101"))
+    @Test func reasonLeadsWithDueTimeAndIncludesTopModifiers() {
+        let factors = PriorityScore.reasonFactors(hoursUntilDue: 6, weight: 0.05, modifiers: .init(courseBelowGoal: true))
+        #expect(factors == [.dueIn(hours: 6), .courseBelowGoal, .courseWeight(0.05)])
+        #expect(factors.map(PriorityScore.reasonPart) == [.dueInHours(6), .courseBelowGoal, .courseWeightPercent(5)])
     }
 
-    @Test func reasonTextForAnUndatedItemSaysSo() {
-        let text = PriorityScore.reasonText(hoursUntilDue: nil, weight: 0.10, modifiers: .init(), courseCode: "HIST 210")
-        #expect(text.hasPrefix("No due date"))
+    @Test func reasonForAnUndatedItemSaysSo() {
+        let factors = PriorityScore.reasonFactors(hoursUntilDue: nil, weight: 0.10, modifiers: .init())
+        #expect(factors == [.noDueDate, .courseWeight(0.10)])
+    }
+
+    /// At most two modifiers follow the lead, in priority order (below-goal or near-boundary,
+    /// then still-accepted, then weight), and below-goal wins over near-boundary.
+    @Test func reasonKeepsTheTopTwoModifiersInPriorityOrder() {
+        let all = PriorityScore.Modifiers(overdueStillOpen: true, courseBelowGoal: true, nearBoundary: true)
+        #expect(PriorityScore.reasonFactors(hoursUntilDue: -3, weight: 0.5, modifiers: all)
+                    == [.overdue, .courseBelowGoal, .stillAccepted])
+        #expect(PriorityScore.reasonFactors(hoursUntilDue: 0, weight: 0.5, modifiers: .init(nearBoundary: true))
+                    == [.overdue, .nearBoundary, .courseWeight(0.5)])
+        let floor = InsightsConfig.priorityReasonWeightFloor
+        #expect(PriorityScore.reasonFactors(hoursUntilDue: 2, weight: floor, modifiers: .init()) == [.dueIn(hours: 2), .courseWeight(floor)])
+        #expect(PriorityScore.reasonFactors(hoursUntilDue: 2, weight: floor.nextDown, modifiers: .init()) == [.dueIn(hours: 2)])
+    }
+
+    /// The whole units a reason shows: minutes under an hour (at least 1), hours from an hour,
+    /// weight in whole percent, each rounded to nearest (the same numbers "Due in 59m", "Due in
+    /// 24h", "~12% of …" showed before L10N-02; the capture at 628ee09 is in the L10N-02 report).
+    @Test(arguments: [
+        (0.001, PriorityScore.ReasonPart.dueInMinutes(1)), (0.0083, .dueInMinutes(1)), (0.5, .dueInMinutes(30)),
+        (0.99, .dueInMinutes(59)), (1, .dueInHours(1)), (1.5, .dueInHours(2)), (23.6, .dueInHours(24)),
+        (100, .dueInHours(100)),
+    ])
+    func reasonPartRoundsDueTimes(hours: Double, expected: PriorityScore.ReasonPart) {
+        #expect(PriorityScore.reasonPart(.dueIn(hours: hours)) == expected)
+    }
+
+    @Test func reasonPartRoundsWeightToWholePercent() {
+        #expect(PriorityScore.reasonPart(.courseWeight(0.123)) == .courseWeightPercent(12))
+        #expect(PriorityScore.reasonPart(.courseWeight(0.125)) == .courseWeightPercent(13))
+        #expect(PriorityScore.reasonPart(.courseWeight(1)) == .courseWeightPercent(100))
+        #expect(PriorityScore.reasonPart(.overdue) == .overdue)
+        #expect(PriorityScore.reasonPart(.stillAccepted) == .stillAccepted)
+        #expect(PriorityScore.reasonPart(.courseBelowGoal) == .courseBelowGoal)
+        #expect(PriorityScore.reasonPart(.nearBoundary) == .nearBoundary)
+        #expect(PriorityScore.reasonPart(.noDueDate) == .noDueDate)
     }
 }

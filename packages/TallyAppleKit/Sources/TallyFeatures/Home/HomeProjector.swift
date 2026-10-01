@@ -6,11 +6,11 @@ import TallyDomain
 /// `project(now:)` builds every row and the dashboard from it, `end()` releases it.
 ///
 /// The dashboard comes from `TallyDomain.DashboardBuilder` (about 70 ms at stress scale in
-/// Release, about 140 ms estimated on an A13), which must never run on the main actor. The two
-/// strings the port formats with fixed `HH:mm`/`yyyy-MM-dd` patterns because TallyDomain builds
-/// on Linux (the due-soon alert title and the overload-cluster title), and the digest chip's
-/// time, are rendered again here from their raw dates in the user's locale (`localized`), so the
-/// student sees exactly the text the pre-port builder produced.
+/// Release, about 140 ms estimated on an A13), which must never run on the main actor. Since plan
+/// 08 L10N-02 it holds values, not English (the "Next up" reasons, the "Needs attention" rows and
+/// the change chip), which the Dashboard's rows phrase through `TallyStrings.DashboardText` in the
+/// student's language and locale; the fixed `HH:mm`/`yyyy-MM-dd` text this projector used to
+/// re-render is gone from TallyDomain.
 public actor HomeProjector {
     private let calendar: Calendar
     private let locale: Locale
@@ -36,8 +36,7 @@ public actor HomeProjector {
         guard let update = installed, let snapshot = update.snapshot else { return nil }
         projectionCount += 1
         let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf, now: now)
-        let dashboard = Self.withUniqueAttention(Self.localized(
-            raw, snapshot: snapshot, digest: update.digest, digestAsOf: update.digestAsOf, locale: locale, calendar: calendar))
+        let dashboard = Self.withUniqueAttention(raw)
         return HomeProjection(
             generation: update.generation,
             dashboard: dashboard,
@@ -62,43 +61,6 @@ public actor HomeProjector {
     }
 
     // MARK: - Pure pieces (nonisolated: unit-tested directly)
-
-    /// Re-renders, in `locale`, the three dashboard strings that carry a time or date: the
-    /// due-soon alert title (`AlertKind.dueSoon`'s dedupe key is `due:<assignmentID>`), the
-    /// overload-cluster title (`overload:<window start, epoch seconds>`), and the change-digest
-    /// summary. Anything it cannot resolve keeps the domain's text.
-    nonisolated static func localized(
-        _ projection: DashboardProjection, snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?,
-        locale: Locale, calendar: Calendar
-    ) -> DashboardProjection {
-        let time = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar,
-                                    timeZone: calendar.timeZone)
-        let day = Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar,
-                                   timeZone: calendar.timeZone)
-        let assignments = Self.assignmentsByID(in: snapshot)
-
-        let attention = projection.needsAttention.map { item -> DashboardProjection.AttentionItem in
-            if let id = item.id.dropPrefix("due:"), let assignment = assignments[id], let due = assignment.dueAt {
-                return .init(id: item.id, severity: item.severity,
-                             title: "\(assignment.name) due \(due.formatted(time))", subtitle: item.subtitle)
-            }
-            if let epoch = item.id.dropPrefix("overload:").flatMap(Int.init) {
-                let start = Date(timeIntervalSince1970: TimeInterval(epoch))
-                return .init(id: item.id, severity: item.severity,
-                             title: "Busy stretch starting \(start.formatted(day))", subtitle: item.subtitle)
-            }
-            return item
-        }
-
-        var summary = projection.changeDigestSummary
-        if summary != nil, let digest, !digest.isEmpty, let digestAsOf {
-            summary = "\(digest.count) change\(digest.count == 1 ? "" : "s") since \(digestAsOf.formatted(time))"
-        }
-
-        return DashboardProjection(hero: projection.hero, nextUp: projection.nextUp, needsAttention: attention,
-                                   dueSoon: projection.dueSoon, weekAhead: projection.weekAhead,
-                                   changeDigestSummary: summary)
-    }
 
     /// `ForEach` needs unique IDs, but `AlertEngine.missingAlert` raises one `.missingClosed` per
     /// assignment, so every closed-missing item in a course shares one dedupe key
@@ -167,26 +129,5 @@ public actor HomeProjector {
             id: course.id, code: course.courseCode, name: course.name,
             percent: visible ? course.scores?.currentScore : nil,
             letterGrade: visible ? course.scores?.currentGrade : nil)
-    }
-
-    /// In course order, then group order; the first occurrence of a repeated ID wins, the same
-    /// rule as the gateway and `DashboardBuilder` (CS-07), so the rendering is deterministic.
-    private nonisolated static func assignmentsByID(in snapshot: CanvasSnapshot) -> [String: Assignment] {
-        var byID: [String: Assignment] = [:]
-        for course in snapshot.courses {
-            for group in snapshot.groups[course.id] ?? [] {
-                for assignment in group.assignments where byID[assignment.id.rawValue] == nil {
-                    byID[assignment.id.rawValue] = assignment
-                }
-            }
-        }
-        return byID
-    }
-}
-
-extension String {
-    /// The rest of the string after `prefix`, or `nil` when it does not start with it.
-    fileprivate nonisolated func dropPrefix(_ prefix: String) -> String? {
-        hasPrefix(prefix) ? String(dropFirst(prefix.count)) : nil
     }
 }

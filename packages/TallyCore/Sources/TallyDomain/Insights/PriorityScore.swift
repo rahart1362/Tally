@@ -41,7 +41,7 @@ public enum PriorityScore {
     /// Undated: P = 100 * 0.5 * (1−α) * I
     /// ```
     /// The score itself is never shown to students (§5.1); only the band and
-    /// a reason built from `reasonText`.
+    /// a reason built from `reasonFactors`.
     public static func score(hoursUntilDue h: Double?, courseWeight w: Double, modifiers: Modifiers = Modifiers()) -> Double {
         let alpha = InsightsConfig.priorityAlpha
         let importance = min(1, (max(0, w) / InsightsConfig.priorityWeightReference).squareRoot())
@@ -172,7 +172,7 @@ public enum PriorityScore {
         }
     }
 
-    // MARK: - Reason text (§0, §1.2: "reason built from the top two contributing factors")
+    // MARK: - Reason (§0, §1.2: "reason built from the top two contributing factors")
 
     public enum Factor: Sendable, Equatable {
         case dueIn(hours: Double)
@@ -202,10 +202,38 @@ public enum PriorityScore {
         return [lead] + Array(rest.prefix(2))
     }
 
-    public static func reasonText(hoursUntilDue: Double?, weight: Double, modifiers: Modifiers, courseCode: String) -> String {
-        reasonFactors(hoursUntilDue: hoursUntilDue, weight: weight, modifiers: modifiers)
-            .map { describe($0, courseCode: courseCode) }
-            .joined(separator: " · ")
+    /// A reason factor in the whole units the reason shows (plan 08 §3.2, L10N-02). TallyCore
+    /// emits no text: the app's renderer (`TallyStrings.DashboardText.reason`) phrases these in
+    /// the student's language, so the rounding, and its crash guard, stay here and are tested on
+    /// Linux.
+    public enum ReasonPart: Sendable, Equatable {
+        /// Due in under an hour: whole minutes, at least 1.
+        case dueInMinutes(Int)
+        /// Due in an hour or more: whole hours.
+        case dueInHours(Int)
+        case overdue
+        case stillAccepted
+        /// The item's share of the course grade in whole percent: ranking context (§5.2), never
+        /// the grade itself.
+        case courseWeightPercent(Int)
+        case courseBelowGoal
+        case nearBoundary
+        case noDueDate
+    }
+
+    /// `factor` in the whole units its reason shows.
+    public static func reasonPart(_ factor: Factor) -> ReasonPart {
+        switch factor {
+        case .dueIn(let h):
+            if h < 1 { return .dueInMinutes(max(1, safeInt(h * 60))) }
+            return .dueInHours(safeInt(h))
+        case .overdue: return .overdue
+        case .stillAccepted: return .stillAccepted
+        case .courseWeight(let w): return .courseWeightPercent(safeInt(w * 100))
+        case .courseBelowGoal: return .courseBelowGoal
+        case .nearBoundary: return .nearBoundary
+        case .noDueDate: return .noDueDate
+        }
     }
 
     /// `Int(Double)` traps on NaN/±infinity or a magnitude past `Int`'s range. `h`/`w` here
@@ -216,19 +244,5 @@ public enum PriorityScore {
     private static func safeInt(_ value: Double) -> Int {
         guard value.isFinite else { return 0 }
         return Int(min(1e9, max(-1e9, value)).rounded())
-    }
-
-    private static func describe(_ factor: Factor, courseCode: String) -> String {
-        switch factor {
-        case .dueIn(let h):
-            if h < 1 { return "Due in \(max(1, safeInt(h * 60)))m" }
-            return "Due in \(safeInt(h))h"
-        case .overdue: return "Overdue"
-        case .stillAccepted: return "Still accepted"
-        case .courseWeight(let w): return "~\(safeInt(w * 100))% of \(courseCode)"
-        case .courseBelowGoal: return "course below your goal"
-        case .nearBoundary: return "near a grade boundary"
-        case .noDueDate: return "No due date"
-        }
     }
 }

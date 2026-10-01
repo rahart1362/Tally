@@ -1,15 +1,8 @@
 import Foundation
 
-/// WP-D02: builds notification title/body text that **never emits a grade
-/// value** (PMO R10) — structurally, not just by convention: no function
-/// here accepts a score, percentage or letter grade parameter at all, so
-/// there is nothing for it to leak. Date/time formatting is the app layer's
-/// job (locale-aware); every "…Text" parameter here is an already-formatted
-/// opaque string, so this type never touches a raw `Date` either.
-///
-/// Every builder honours "Hide course names" (R10): course names/codes
-/// become "a course" and assignment titles become "An assignment" (the
-/// toggle hides both, per the UX review's content table, despite its name).
+/// A notification's words once the app has phrased a `NotificationMessage` (plan 08 L10N-02:
+/// `TallyStrings.NotificationText.render`). The platform schedules these, and the reminders pass
+/// compares them ("same identifier, different words"). TallyCore itself builds no words.
 public enum NotificationContent {
     public struct Rendered: Sendable, Equatable {
         public let title: String
@@ -19,80 +12,73 @@ public enum NotificationContent {
             self.body = body
         }
     }
+}
 
-    private static func subjectTitle(_ assignmentTitle: String, courseCode: String, hideCourseNames: Bool) -> String {
-        hideCourseNames ? "An assignment" : "\(assignmentTitle) · \(courseCode)"
-    }
+/// WP-D02, plan 08 §3.2 (L10N-02): what a notification says, as values. TallyCore builds and
+/// tests on Linux and emits no user-facing text; the app's renderer
+/// (`TallyStrings.NotificationText`) phrases a message in the student's language and formats its
+/// dates in the student's locale and time zone.
+///
+/// **R10, structurally.** No case carries a score, a percentage, a letter grade or a goal: the
+/// payloads are Canvas names, dates, counts and flags only, so a renderer has no grade value to
+/// leak (`NotificationMessageTests` walks every case's payload types).
+///
+/// **"Hide course names" (R10), structurally.** With it on, a message carries no course name or
+/// code and no assignment title at all (`.hidden`), not a name the renderer is asked to hide. The
+/// toggle hides both course codes and assignment titles, per the UX review's content table,
+/// despite its name.
+public enum NotificationMessage: Sendable, Equatable {
+    /// Who an assignment reminder is about.
+    public enum Subject: Sendable, Equatable {
+        case assignment(title: String, courseCode: String)
+        /// "Hide course names" is on.
+        case hidden
 
-    private static func courseLabel(_ courseCode: String, hideCourseNames: Bool) -> String {
-        hideCourseNames ? "a course" : courseCode
-    }
-
-    private static func itemLabel(_ title: String, hideCourseNames: Bool) -> String {
-        hideCourseNames ? "An assignment" : title
-    }
-
-    /// The T-24h/T-1h due reminder. The final (soonest) reminder uses the
-    /// "conditional follow-up" phrasing, since Tally cannot know at schedule
-    /// time whether the student has since submitted (§3.6).
-    public static func due(
-        assignmentTitle: String, courseCode: String, dueTimeText: String, isFinalReminder: Bool, hideCourseNames: Bool
-    ) -> Rendered {
-        let title = subjectTitle(assignmentTitle, courseCode: courseCode, hideCourseNames: hideCourseNames)
-        let body = isFinalReminder ? "Due \(dueTimeText), if you haven't submitted yet." : "Due \(dueTimeText)."
-        return Rendered(title: title, body: body)
-    }
-
-    /// The missing-still-open follow-up ("Still accepted until Fri 11:59 PM.").
-    public static func missingFollowup(
-        assignmentTitle: String, courseCode: String, stillAcceptedUntilText: String, hideCourseNames: Bool
-    ) -> Rendered {
-        Rendered(
-            title: subjectTitle(assignmentTitle, courseCode: courseCode, hideCourseNames: hideCourseNames),
-            body: "Still accepted until \(stillAcceptedUntilText).")
-    }
-
-    /// An exam reminder (T-3d/T-1d/morning-of).
-    public static func examReminder(
-        assignmentTitle: String, courseCode: String, dueTimeText: String, hideCourseNames: Bool
-    ) -> Rendered {
-        Rendered(
-            title: subjectTitle(assignmentTitle, courseCode: courseCode, hideCourseNames: hideCourseNames),
-            body: "Due \(dueTimeText).")
-    }
-
-    /// A4: never the score, per R10 and the content table.
-    public static func gradePosted(courseCode: String, hideCourseNames: Bool) -> Rendered {
-        Rendered(title: "New grade posted", body: courseLabel(courseCode, hideCourseNames: hideCourseNames))
-    }
-
-    /// A5: never the score or the goal value (R10 content table).
-    public static func belowGoal(courseCode: String, hideCourseNames: Bool) -> Rendered {
-        Rendered(
-            title: "\(courseLabel(courseCode, hideCourseNames: hideCourseNames)) needs attention",
-            body: "Open Tally to see your standing.")
-    }
-
-    /// The evening digest ("Tomorrow" · "2 due · Lab Report 4 first").
-    public static func eveningDigest(dueCount: Int, firstItemTitle: String?, hideCourseNames: Bool) -> Rendered {
-        var body = "\(dueCount) due"
-        if let firstItemTitle {
-            body += " · \(itemLabel(firstItemTitle, hideCourseNames: hideCourseNames)) first"
+        public init(assignmentTitle: String, courseCode: String, hideCourseNames: Bool) {
+            self = hideCourseNames ? .hidden : .assignment(title: assignmentTitle, courseCode: courseCode)
         }
-        return Rendered(title: "Tomorrow", body: body)
     }
 
-    /// The Sunday week-ahead summary ("This week" · "7 due · busiest Thursday").
-    /// Counts only, never a course or assignment name, so `hideCourseNames`
-    /// changes nothing here.
-    public static func weekAhead(dueCount: Int, busiestDayText: String?) -> Rendered {
-        var body = "\(dueCount) due"
-        if let busiestDayText { body += " · busiest \(busiestDayText)" }
-        return Rendered(title: "This week", body: body)
+    /// The course a course-level notification is about.
+    public enum CourseName: Sendable, Equatable {
+        case code(String)
+        /// "Hide course names" is on.
+        case hidden
+
+        public init(courseCode: String, hideCourseNames: Bool) {
+            self = hideCourseNames ? .hidden : .code(courseCode)
+        }
     }
 
-    /// R17 freshness sentinel.
-    public static func sentinel(lastSuccessText: String) -> Rendered {
-        Rendered(title: "Tally hasn't refreshed since \(lastSuccessText)", body: "Open Tally to update your reminders.")
+    /// One item a digest names.
+    public enum ItemName: Sendable, Equatable {
+        case title(String)
+        /// "Hide course names" is on.
+        case hidden
+
+        public init(title: String, hideCourseNames: Bool) {
+            self = hideCourseNames ? .hidden : .title(title)
+        }
     }
+
+    /// The T-24h/T-1h due reminder. The final (soonest) reminder uses the "conditional follow-up"
+    /// phrasing, since Tally cannot know at schedule time whether the student has since submitted
+    /// (§3.6).
+    case due(Subject, dueAt: Date, isFinalReminder: Bool)
+    /// The missing-still-open follow-up, with Canvas's closing (lock) date. `nil` when Canvas
+    /// lists none: the words then say exactly that, never "still accepted until …".
+    case missingFollowup(Subject, stillAcceptedUntil: Date?)
+    /// An exam reminder (T-3d/T-1d/morning-of).
+    case examReminder(Subject, dueAt: Date)
+    /// A4: a grade was posted in this course. Never the grade (R10 content table).
+    case gradePosted(CourseName)
+    /// A5: the course needs attention. Never the score or the goal (R10 content table).
+    case belowGoal(CourseName)
+    /// The evening digest: how many items are due, and the first of them.
+    case eveningDigest(dueCount: Int, firstItem: ItemName?)
+    /// The Sunday week-ahead summary: a count and the busiest day (its start, in the student's
+    /// time zone), never a course or assignment name, so "Hide course names" changes nothing here.
+    case weekAhead(dueCount: Int, busiestDay: Date?)
+    /// R17 freshness sentinel: when Tally last refreshed.
+    case sentinel(lastSuccess: Date)
 }
