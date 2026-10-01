@@ -52,6 +52,20 @@ The work packages in §5 are now binding.
 
 **G-4 addendum (owner, 2026-10-01):** the widget Standing state for an opted-in student with no grades yet (XG-02) uses **"No grades yet"**, with the line "Your average appears here once grades are posted in Canvas."
 
+**Owner decisions, 2026-10-01 (XG-03 review):**
+- **What-if:**
+  - **No grade posted yet:** what-if stays available, as today (XG-03 D1).
+  - **Grades kept outside Canvas:** what-if is now **available too**, so the student can type their real scores, for example from their school's grade portal, and see an estimated course grade. The sheet shows this disclaimer (approved): "Estimate only. Your school keeps grades outside Canvas, so Tally uses this course's Canvas categories, which may not match how your school weighs your grade."
+  - **Weights:** the student can **set the category weights** in that what-if. If they don't, the default applies: the course's Canvas group weights when Canvas has them, else Canvas's own rule, where each assignment counts by its points. (This is the PMO's reading of "the universal default"; the owner can correct it.)
+  - **Storage:** entries and weights are **session-only**, never saved.
+  - **Not graded in Canvas** (`.notGradedInCanvas`, no graded work) stays without what-if.
+  - This is new work (**XG-06**), assigned with XG-04.
+- **Draft copy approved:**
+  - Tell My School without a school name ("a student at your school");
+  - the hero ⓘ labels "About the courses not included" and "About grades not in Canvas";
+  - the bubble title "Not in your average";
+  - the reasons "No percentage in Canvas", "Letter grades only", "Hidden by your instructor".
+
 **PMO scheduling note:** the account's weekly usage limit allows about one agent stream at a time next to PMO work. So §6's parallel phases run **staggered**:
 - XG-01 (Linux-only) runs next to one iOS stream.
 - Two iOS agent streams never run at once.
