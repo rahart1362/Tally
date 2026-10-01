@@ -14,9 +14,12 @@ public nonisolated struct HomeProjection: Equatable, Sendable {
         public let id: CanvasID<Course>
         public let code: String
         public let name: String
-        /// `nil` when the course hides grades or has no current score.
+        /// `nil` unless the course's grades are in Canvas and shown as percentages (`.available`).
         public let percent: Double?
         public let letterGrade: String?
+        /// Plan 08 §4.4 row 17 (XG-02): whether the course's grades are in Canvas, or why not, so
+        /// the row can say so (XG-03 draws it).
+        public let gradeAvailability: GradeAvailability
     }
 
     public nonisolated struct EventRow: Identifiable, Equatable, Sendable {

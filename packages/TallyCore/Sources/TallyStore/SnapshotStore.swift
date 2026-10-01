@@ -60,15 +60,19 @@ public actor SnapshotStore {
 
     /// Seals and atomically replaces the snapshot, then rebuilds and atomically replaces the
     /// glance from it. `includeGrades` is the caller's resolved `UserState.showGradesInGlance`
-    /// (never defaulted to true by this type).
+    /// (never defaulted to true by this type). `gradeAvailability` is the snapshot's index from
+    /// the coordinator (plan 08 §4.3); `nil` classifies with no override
+    /// (`GlanceProjectionBuilder.build`).
     @discardableResult
-    public func commit(_ snapshot: CanvasSnapshot, includeGrades: Bool) throws -> GlanceProjection {
+    public func commit(_ snapshot: CanvasSnapshot, includeGrades: Bool,
+                       gradeAvailability: GradeAvailabilityIndex? = nil) throws -> GlanceProjection {
         if let current = currentOnDiskGeneration(), current >= snapshot.generation {
             throw SnapshotStoreError.staleGeneration(attempted: snapshot.generation, current: current)
         }
         try prepare()
         try access.write(try JSONEncoder().encode(snapshot), .snapshot, to: layout.url(for: .snapshot), excludeFromBackup: true)
-        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades)
+        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
+                                                   gradeAvailability: gradeAvailability)
         try writeGlance(glance)
         return glance
     }
@@ -79,9 +83,11 @@ public actor SnapshotStore {
     /// one on disk) and returns the new glance; otherwise writes nothing and returns nil, so it can
     /// never put a glance for an older or newer snapshot on disk.
     @discardableResult
-    public func rewriteGlance(from snapshot: CanvasSnapshot, includeGrades: Bool) throws -> GlanceProjection? {
+    public func rewriteGlance(from snapshot: CanvasSnapshot, includeGrades: Bool,
+                              gradeAvailability: GradeAvailabilityIndex? = nil) throws -> GlanceProjection? {
         guard isOwner, currentOnDiskGeneration() == snapshot.generation else { return nil }
-        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades)
+        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
+                                                   gradeAvailability: gradeAvailability)
         try writeGlance(glance)
         return glance
     }
@@ -142,14 +148,19 @@ public actor SnapshotStore {
     /// disk (defaulting to `false`, the private choice, when there is no signal to carry forward).
     /// The authoritative source for a normal `commit` is always the caller's `includeGrades`
     /// argument; this only matters for the self-heal path, which has no `UserState` in hand.
+    ///
+    /// Plan 08 XG-02: schema 2 says whether the user opted in (`gradeSummary`), including an
+    /// opted-in user with no band to show, whom the old reading (any band present) took for
+    /// opted out. A glance of an older schema is rebuilt, carrying its opt-in forward.
     private func glanceNeedsRebuild(comparedTo generation: UInt64) -> (needsRebuild: Bool, priorIncludedGrades: Bool) {
         switch access.read(.glance, at: layout.url(for: .glance)) {
         case .absent, .failed:
             return (true, false)
         case .plaintext(let data):
             guard let glance = try? JSONDecoder().decode(GlanceProjection.self, from: data) else { return (true, false) }
-            let includedGrades = glance.overallGradeBand != nil || glance.courses.contains { $0.currentGrade != nil }
-            return (glance.generation < generation, includedGrades)
+            let includedGrades = glance.gradeSummary != .notOptedIn
+            let outdated = glance.generation < generation || glance.schemaVersion < GlanceProjection.currentSchemaVersion
+            return (outdated, includedGrades)
         }
     }
 

@@ -183,6 +183,8 @@ enum Pipeline {
     }
 
     static func alerts(_ snapshot: CanvasSnapshot, now: Date) {
+        // Plan 08 XG-02: the grade alerts take the course's availability, so the classifier runs here too.
+        let availability = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
         var load: [AlertEngine.LoadItem] = []
         var schedule = snapshot.events.map { AlertEngine.ScheduleItem(id: $0.id.rawValue, start: $0.startAt, end: $0.endAt) }
         var ranked: [PriorityScore.RankedItem] = []
@@ -201,14 +203,15 @@ enum Pipeline {
                                     courseOrder: order))
                 _ = AlertEngine.missingAlert(assignment: assignment, now: now)?.dedupeKey
                 _ = AlertEngine.dueSoonAlert(assignment: assignment, priorityScore: score, weight: weight, now: now)
-                _ = AlertEngine.gradePostedAlert(previous: nil, current: assignment)?.dedupeKey
+                _ = AlertEngine.gradePostedAlert(previous: nil, current: assignment,
+                                                 availability: availability[course.id] ?? .notYetPosted)?.dedupeKey
                 if let due = assignment.dueAt {
                     load.append(.init(dueAt: due, weight: weight, courseID: course.id))
                     schedule.append(.init(id: assignment.id.rawValue, start: due, isExam: order.isMultiple(of: 2)))
                 }
             }
             _ = AlertEngine.belowGoalAlert(courseID: course.id, currentScore: course.scores?.currentScore, goal: 90,
-                                           wasActive: false, gradeVisibility: course.gradeVisibility)
+                                           wasActive: false, availability: availability[course.id] ?? .notYetPosted)
         }
         _ = PriorityScore.sorted(ranked)
         _ = AlertEngine.overloadClusters(load, now: now).map(\.dedupeKey)

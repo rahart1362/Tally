@@ -253,6 +253,78 @@
         }
       }
     },
+    "glance.standing.hidden.detail" : {
+      "comment" : "Standing widget, under 'Grades are hidden': how to show grades in the widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They appear here only if you choose to show grades in widgets."
+          }
+        }
+      }
+    },
+    "glance.standing.hidden.title" : {
+      "comment" : "Standing widget title when the student has not chosen to show grades in widgets.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades are hidden"
+          }
+        }
+      }
+    },
+    "glance.standing.noneYet.detail" : {
+      "comment" : "Standing widget, under 'No grades yet'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your average appears here once grades are posted in Canvas."
+          }
+        }
+      }
+    },
+    "glance.standing.noneYet.title" : {
+      "comment" : "Standing widget title when the student chose to show grades in widgets, but no course has a grade to average yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grades yet"
+          }
+        }
+      }
+    },
+    "glance.standing.notInCanvas.detail" : {
+      "comment" : "Standing widget, under 'Grades aren't in Canvas'. 'There' is Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school doesn't appear to post grades there."
+          }
+        }
+      }
+    },
+    "glance.standing.notInCanvas.title" : {
+      "comment" : "Standing widget title when the student's school does not appear to keep grades in Canvas (it uses another grading system).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades aren't in Canvas"
+          }
+        }
+      }
+    },
     "notification.belowGoal.body" : {
       "comment" : "Body of the 'needs attention' notification. 'Tally' is the app's name. The score is never shown in a notification.",
       "extractionState" : "manual",

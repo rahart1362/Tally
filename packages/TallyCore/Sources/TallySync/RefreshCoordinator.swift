@@ -64,6 +64,9 @@ public actor RefreshCoordinator {
     private var committedGeneration: UInt64
     /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
     private var digestThresholds: DigestThresholds = .default
+    /// Plan 08 G-3: the student's per-course "grades kept outside Canvas" answers (Automatic is
+    /// absent). Applied at the next commit, like `digestThresholds`; storing them is XG-04's.
+    private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]
     private var epoch: UInt64 = 0
     /// The task running this run's `supervise`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
@@ -99,6 +102,20 @@ public actor RefreshCoordinator {
         digestThresholds = thresholds
     }
 
+    /// Plan 08 §4.3: the student's per-course grade-availability overrides (G-3) reach the commit
+    /// path the same way the digest thresholds do. The next commit's index uses them, so its
+    /// digest and glance do.
+    public func updateGradeAvailabilityOverrides(_ overrides: [CanvasID<Course>: GradeAvailabilityOverride]) {
+        gradeAvailabilityOverrides = overrides
+    }
+
+    /// Plan 08 §4.3 (XG-02): the one `GradeAvailabilityIndex` a commit's digest and glance share,
+    /// built with the overrides at the snapshot's own `fetchedAt`, so the store's self-heal and a
+    /// rewrite of the same snapshot classify it the same way.
+    func gradeAvailability(of snapshot: CanvasSnapshot) -> GradeAvailabilityIndex {
+        GradeAvailabilityIndex(snapshot: snapshot, overrides: gradeAvailabilityOverrides, now: snapshot.fetchedAt)
+    }
+
     /// Called when the user changes "Show Grades in Widgets" in Settings. The next commit uses it,
     /// and the glance on disk is rebuilt now from the committed snapshot, so turning grades off
     /// takes them out of the widget's file at once (PMO R10). Returns true when this call rewrote the
@@ -110,7 +127,8 @@ public actor RefreshCoordinator {
         guard include != includeGrades else { return false }
         includeGrades = include
         guard let committedSnapshot else { return false }
-        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include)
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include,
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot))
         return rewritten != nil
     }
 
@@ -415,9 +433,11 @@ public actor RefreshCoordinator {
             // CS-05: degrade before persisting, not after — a snapshot that blew past the item
             // budget must never even reach `SnapshotStore`'s encode/seal path at full size.
             let stamped = SnapshotBudget.enforce(restampedSnapshot).snapshot
-            let digest = ChangeDigest.diff(old: committedSnapshot, new: stamped, thresholds: digestThresholds)
+            let availability = gradeAvailability(of: stamped)
+            let digest = ChangeDigest.diff(old: committedSnapshot, new: stamped, thresholds: digestThresholds,
+                                           gradeAvailability: availability)
             do {
-                try await store.commit(stamped, includeGrades: includeGrades)
+                try await store.commit(stamped, includeGrades: includeGrades, gradeAvailability: availability)
                 committedGeneration = stamped.generation
                 committedSnapshot = stamped
                 record.succeeded(dataFetchedAt: stamped.fetchedAt)

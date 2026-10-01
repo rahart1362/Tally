@@ -107,7 +107,7 @@ struct AlertEngineTests {
         let now = Self.now
         let previous = assignment(submission: submission(score: nil, postedAt: nil))
         let current = assignment(submission: submission(score: 9, postedAt: now))
-        let alert = AlertEngine.gradePostedAlert(previous: previous, current: current)
+        let alert = AlertEngine.gradePostedAlert(previous: previous, current: current, availability: .available)
         #expect(alert?.severity == .info)
         #expect(alert?.kind == .gradePosted(submissionID: "s1", postedAt: now))
     }
@@ -116,12 +116,12 @@ struct AlertEngineTests {
         let now = Self.now
         let previous = assignment(submission: submission(score: 9, postedAt: now))
         let current = assignment(submission: submission(score: 9, postedAt: now))
-        #expect(AlertEngine.gradePostedAlert(previous: previous, current: current) == nil)
+        #expect(AlertEngine.gradePostedAlert(previous: previous, current: current, availability: .available) == nil)
     }
 
     @Test func stillUnpostedDoesNotFire() {
         let current = assignment(submission: submission(score: nil, postedAt: nil))
-        #expect(AlertEngine.gradePostedAlert(previous: nil, current: current) == nil)
+        #expect(AlertEngine.gradePostedAlert(previous: nil, current: current, availability: .available) == nil)
     }
 
     // MARK: - A5 below goal (hysteresis)
@@ -137,12 +137,12 @@ struct AlertEngineTests {
 
     @Test func belowGoalSkipsHiddenGrades() {
         let alert = AlertEngine.belowGoalAlert(
-            courseID: "c1", currentScore: 70, goal: 80, wasActive: false, gradeVisibility: .hiddenTotals)
+            courseID: "c1", currentScore: 70, goal: 80, wasActive: false, availability: .hiddenByInstructor)
         #expect(alert == nil)
     }
 
     @Test func belowGoalNeedsAGoal() {
-        #expect(AlertEngine.belowGoalAlert(courseID: "c1", currentScore: 70, goal: nil, wasActive: false, gradeVisibility: .visible) == nil)
+        #expect(AlertEngine.belowGoalAlert(courseID: "c1", currentScore: 70, goal: nil, wasActive: false, availability: .available) == nil)
     }
 
     // MARK: - A6 significant drop
@@ -150,28 +150,28 @@ struct AlertEngineTests {
     @Test func significantDropFromOneRefresh() {
         let alert = AlertEngine.significantDropAlert(
             courseID: "c1", currentScore: 85, previousRefreshScore: 89, score14DaysAgo: nil,
-            weekOf: Self.now, belowGoalIsFiring: false, gradeVisibility: .visible)
+            weekOf: Self.now, belowGoalIsFiring: false, availability: .available)
         #expect(alert?.severity == .medium)
     }
 
     @Test func significantDropOver14Days() {
         let alert = AlertEngine.significantDropAlert(
             courseID: "c1", currentScore: 85, previousRefreshScore: 86, score14DaysAgo: 91,
-            weekOf: Self.now, belowGoalIsFiring: false, gradeVisibility: .visible)
+            weekOf: Self.now, belowGoalIsFiring: false, availability: .available)
         #expect(alert != nil)
     }
 
     @Test func significantDropIsSupersededByBelowGoal() {
         let alert = AlertEngine.significantDropAlert(
             courseID: "c1", currentScore: 60, previousRefreshScore: 90, score14DaysAgo: nil,
-            weekOf: Self.now, belowGoalIsFiring: true, gradeVisibility: .visible)
+            weekOf: Self.now, belowGoalIsFiring: true, availability: .available)
         #expect(alert == nil)
     }
 
     @Test func smallDropDoesNotFire() {
         let alert = AlertEngine.significantDropAlert(
             courseID: "c1", currentScore: 88, previousRefreshScore: 89, score14DaysAgo: nil,
-            weekOf: Self.now, belowGoalIsFiring: false, gradeVisibility: .visible)
+            weekOf: Self.now, belowGoalIsFiring: false, availability: .available)
         #expect(alert == nil)
     }
 

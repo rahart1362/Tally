@@ -11,6 +11,10 @@ import TallyDomain
 /// the change chip), which the Dashboard's rows phrase through `TallyStrings.DashboardText` in the
 /// student's language and locale; the fixed `HH:mm`/`yyyy-MM-dd` text this projector used to
 /// re-render is gone from TallyDomain.
+///
+/// Plan 08 §4.3 (XG-02): each projection classifies the snapshot's courses once
+/// (`GradeAvailabilityIndex`, at the projection's `now`) and hands the index to every builder
+/// that shows a grade-derived value: the dashboard, the course rows and the To-Do priority.
 public actor HomeProjector {
     private let calendar: Calendar
     private let locale: Locale
@@ -35,14 +39,18 @@ public actor HomeProjector {
     public func project(now: Date) -> HomeProjection? {
         guard let update = installed, let snapshot = update.snapshot else { return nil }
         projectionCount += 1
-        let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf, now: now)
+        // The student's per-course overrides (plan 08 G-3) are stored by XG-04; until then every
+        // course is classified automatically.
+        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
+        let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf,
+                                                     now: now, gradeAvailability: gradeAvailability)
         let dashboard = Self.withUniqueAttention(raw)
         return HomeProjection(
             generation: update.generation,
             dashboard: dashboard,
             studentDisplayName: snapshot.profile.shortName ?? snapshot.profile.name,
             greeting: Self.greeting(at: now, calendar: calendar),
-            courses: snapshot.courses.map(Self.courseRow),
+            courses: snapshot.courses.map { Self.courseRow($0, availability: gradeAvailability[$0.id]) },
             events: snapshot.events
                 .sorted { $0.startAt < $1.startAt }
                 .map { HomeProjection.EventRow(id: $0.id, title: $0.title, startAt: $0.startAt) },
@@ -52,7 +60,8 @@ public actor HomeProjector {
             validUntil: Self.validUntil(snapshot: snapshot, now: now, calendar: calendar),
             // M3-A: every screen's rows, in the student's locale, off the main actor.
             screens: ScreenProjections.build(
-                from: snapshot, formatter: ScreenFormatter(now: now, calendar: calendar, locale: locale)))
+                from: snapshot, formatter: ScreenFormatter(now: now, calendar: calendar, locale: locale),
+                gradeAvailability: gradeAvailability))
     }
 
     /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).
@@ -123,11 +132,15 @@ public actor HomeProjector {
         return earliest
     }
 
-    nonisolated static func courseRow(_ course: Course) -> HomeProjection.CourseRow {
-        let visible = course.gradeVisibility == .visible
+    /// Plan 08 §4.4 row 17: a percent and letter only for a course whose grades are in Canvas and
+    /// shown as percentages (`.available`), and the course's state, so a row can say why there is
+    /// none. A course the index does not know shows no grade and counts as not yet posted.
+    nonisolated static func courseRow(_ course: Course, availability: GradeAvailability?) -> HomeProjection.CourseRow {
+        let available = availability == .available
         return HomeProjection.CourseRow(
             id: course.id, code: course.courseCode, name: course.name,
-            percent: visible ? course.scores?.currentScore : nil,
-            letterGrade: visible ? course.scores?.currentGrade : nil)
+            percent: available ? course.scores?.currentScore : nil,
+            letterGrade: available ? course.scores?.currentGrade : nil,
+            gradeAvailability: availability ?? .notYetPosted)
     }
 }

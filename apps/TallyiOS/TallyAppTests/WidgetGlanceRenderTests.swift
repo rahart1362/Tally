@@ -18,7 +18,8 @@ struct WidgetGlanceRenderTests {
     private static let asOf = Date(timeIntervalSince1970: 1_790_600_400)
 
     private static func summary(standing: GradeBand?, nextUp: GlanceSummary.Item? = nil) -> GlanceSummary {
-        GlanceSummary(nextUp: nextUp, laterCount: 2, overdueCount: 1, standing: standing, asOf: asOf,
+        GlanceSummary(nextUp: nextUp, laterCount: 2, overdueCount: 1, grades: standing.map(GlanceGradeSummary.band) ?? .notOptedIn,
+                      asOf: asOf,
                       isStale: false, asOfIsBeforeToday: false)
     }
 
@@ -82,7 +83,7 @@ struct WidgetGlanceRenderTests {
             .message(.signedOut), .message(.waitingForFirstSync), .message(.locked), .message(.unavailable),
             .summary(Self.summary(standing: nil, nextUp: Self.item)),
             .summary(Self.summary(standing: nil)),
-            .summary(GlanceSummary(nextUp: Self.item, laterCount: 0, overdueCount: 0, standing: .bRange,
+            .summary(GlanceSummary(nextUp: Self.item, laterCount: 0, overdueCount: 0, grades: .band(.bRange),
                                    asOf: Self.asOf, isStale: true, asOfIsBeforeToday: true)),
         ]
         for content in contents {

@@ -28,16 +28,33 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
     /// insights-at-a-glance.md §1.2 rank 3 ("Compact hero"). No sparkline/delta: both need a
     /// score *history*, which this snapshot generation does not carry (R9) — showing either
     /// would mean fabricating a trend.
+    ///
+    /// Plan 08 §4.4 row 1 and G-5 (XG-02): the average runs over the courses whose grades are in
+    /// Canvas with a current percentage (`CourseGradeStatus.averaged`), and says how many those
+    /// are; every other course is counted under the reason it is left out.
     public nonisolated struct Hero: Equatable, Sendable {
+        /// Every distinct course in the snapshot.
         public let courseCount: Int
-        /// Mean of every *visible* course's current score, `nil` when no course has one to show.
+        /// G-5's N in "Average of N courses": the courses `overallPercent` is the mean of.
+        public let averagedCount: Int
+        /// Mean of every averaged course's current score, `nil` when no course is averaged.
         public let overallPercent: Double?
         public let overallBand: GradeBand?
+        /// The courses left out of the average, by reason (never `.averaged`); with
+        /// `averagedCount` they add up to `courseCount`.
+        public let exclusions: [CourseGradeStatus: Int]
+        /// Plan 08 §4.2's school-level summary. With nothing averaged, `.noneInCanvas` is the
+        /// "Grades aren't in Canvas" state (G-5).
+        public let school: SchoolGradeSummary
 
-        public init(courseCount: Int, overallPercent: Double?, overallBand: GradeBand?) {
+        public init(courseCount: Int, averagedCount: Int, overallPercent: Double?, overallBand: GradeBand?,
+                    exclusions: [CourseGradeStatus: Int], school: SchoolGradeSummary) {
             self.courseCount = courseCount
+            self.averagedCount = averagedCount
             self.overallPercent = overallPercent
             self.overallBand = overallBand
+            self.exclusions = exclusions
+            self.school = school
         }
     }
 
@@ -141,8 +158,68 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
     }
 
     public static let empty = DashboardProjection(
-        hero: Hero(courseCount: 0, overallPercent: nil, overallBand: nil),
+        hero: Hero(courseCount: 0, averagedCount: 0, overallPercent: nil, overallBand: nil, exclusions: [:],
+                   school: .undetermined),
         nextUp: [], needsAttention: [], dueSoon: [], weekAhead: [], changeDigestSummary: nil)
+}
+
+/// Plan 08 §4.4 (XG-02): what Tally can do with one course's grade, from its `GradeAvailability`.
+/// One rule for every grade-derived number: the dashboard hero's average, the glance's band and
+/// its averaged count, and the widget all read this. Only `.averaged` courses feed an average.
+///
+/// The raw values are a persisted contract: the glance (schema 2) stores one per course.
+/// `GradeAvailability` itself is not `Codable` (XG-01); this is its glance encoding, minus the
+/// evidence counts, plus the split of in-Canvas courses into averaged or not.
+public nonisolated enum CourseGradeStatus: String, Codable, Hashable, Sendable, CaseIterable {
+    /// In Canvas with a current percentage: counted in the average.
+    case averaged
+    /// In Canvas and shown as percentages, but Canvas sent no current course percentage to
+    /// average (a current letter grade only, or a grading-period score only).
+    case noPercentage
+    /// In Canvas, letters only (`restrict_quantitative_data`).
+    case lettersOnly
+    /// In Canvas, but the instructor hides the course total.
+    case hiddenByInstructor
+    /// No grade yet (today's "No grade yet").
+    case notYetPosted
+    /// The course has no graded work in Canvas (advisory, homeroom).
+    case notGradedInCanvas
+    /// The course's grades do not appear to be kept in Canvas.
+    case keptOutsideCanvas
+
+    /// `availability` is the course's state in the index; `nil` (a course the index was not
+    /// built from) counts as not yet posted, so nothing grade-derived is shown for it.
+    public init(course: Course, availability: GradeAvailability?) {
+        switch availability {
+        case .available?: self = course.scores?.currentScore != nil ? .averaged : .noPercentage
+        case .lettersOnly?: self = .lettersOnly
+        case .hiddenByInstructor?: self = .hiddenByInstructor
+        case .notYetPosted?, nil: self = .notYetPosted
+        case .notGradedInCanvas?: self = .notGradedInCanvas
+        case .keptOutsideCanvas?: self = .keptOutsideCanvas
+        }
+    }
+
+    /// The state `SchoolGradeSummary` counts for this status. A glance stores no evidence counts,
+    /// and the summary reads none, so `.keptOutsideCanvas` maps to empty evidence.
+    var summaryState: GradeAvailability {
+        switch self {
+        case .averaged, .noPercentage: .available
+        case .lettersOnly: .lettersOnly
+        case .hiddenByInstructor: .hiddenByInstructor
+        case .notYetPosted: .notYetPosted
+        case .notGradedInCanvas: .notGradedInCanvas
+        case .keptOutsideCanvas: .keptOutsideCanvas(.init(pastDueItems: 0, submittedOrOfflineItems: 0))
+        }
+    }
+}
+
+extension SchoolGradeSummary {
+    /// The summary over per-course statuses: the same as over the `GradeAvailability` states they
+    /// came from (the launch paint reads the statuses from the glance).
+    public init(statuses: some Sequence<CourseGradeStatus>) {
+        self.init(states: statuses.lazy.map(\.summaryState))
+    }
 }
 
 /// `nonisolated`: a pure function over `CanvasSnapshot`/`ChangeDigest` values, with no UI or
@@ -152,7 +229,22 @@ public nonisolated enum DashboardBuilder {
     /// `digest`/`digestAsOf` come from the refresh that produced `snapshot` (`nil` on the first
     /// snapshot after sign-in/entering sample mode, per architecture.md §3.4: "no digest or
     /// grade alerts on the first snapshot").
+    ///
+    /// This form classifies the courses itself, with no per-course override (plan 08 G-3): for
+    /// tests and tools. The app passes the index it built once for this snapshot, its overrides
+    /// and `now` (`build(from:digest:digestAsOf:now:gradeAvailability:)`).
     public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date) -> DashboardProjection {
+        build(from: snapshot, digest: digest, digestAsOf: digestAsOf, now: now,
+              gradeAvailability: GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now))
+    }
+
+    /// Plan 08 §4.3 (XG-02): `gradeAvailability` is built once per (snapshot, overrides, now) by
+    /// the caller (`HomeProjector`, off the main actor) and drives every grade-derived value here:
+    /// the hero's average (§4.4 row 1), the near-boundary and below-goal modifiers (row 11), and
+    /// the course-weight reason (row 12). A course the index does not know shows nothing
+    /// grade-derived.
+    public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date,
+                             gradeAvailability: GradeAvailabilityIndex) -> DashboardProjection {
         // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
         // overlap). `Dictionary(uniqueKeysWithValues:)` trapped on that. The first occurrence
         // wins, as in `PriorityScore.WeightContext`.
@@ -172,9 +264,9 @@ public nonisolated enum DashboardBuilder {
         let items = scoredAssignments(in: snapshot, coursesByID: coursesByID)
 
         return DashboardProjection(
-            hero: hero(courses: snapshot.courses),
-            nextUp: nextUp(items: items, snapshot: snapshot, now: now),
-            needsAttention: needsAttention(items: items, snapshot: snapshot, now: now),
+            hero: hero(courses: snapshot.courses, gradeAvailability: gradeAvailability),
+            nextUp: nextUp(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
+            needsAttention: needsAttention(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
             dueSoon: dueSoon(planner: snapshot.planner, coursesByID: coursesByID, now: now),
             weekAhead: weekAhead(planner: snapshot.planner, now: now),
             changeDigestSummary: changeDigestSummary(digest: digest, asOf: digestAsOf))
@@ -182,14 +274,35 @@ public nonisolated enum DashboardBuilder {
 
     // MARK: - Hero
 
-    private static func hero(courses: [Course]) -> DashboardProjection.Hero {
-        let visiblePercents = courses.compactMap { course -> Double? in
-            guard course.gradeVisibility == .visible else { return nil }
-            return course.scores?.currentScore
+    /// Plan 08 §4.4 row 1 (G-5): the mean of the averaged courses' current scores, how many those
+    /// are, why each other course is left out, and the school summary. Public so the glance
+    /// (`GlanceProjectionBuilder`, §4.4 row 15) applies the same rule. A repeated course ID
+    /// counts once, at its first occurrence (CS-07, as in the index).
+    public static func hero(courses: [Course], gradeAvailability: GradeAvailabilityIndex) -> DashboardProjection.Hero {
+        var seen = Set<CanvasID<Course>>()
+        var statuses: [CourseGradeStatus] = []
+        var percents: [Double] = []
+        var exclusions: [CourseGradeStatus: Int] = [:]
+        for course in courses where seen.insert(course.id).inserted {
+            let status = CourseGradeStatus(course: course, availability: gradeAvailability[course.id])
+            statuses.append(status)
+            if status == .averaged, let percent = course.scores?.currentScore {
+                percents.append(percent)
+            } else {
+                exclusions[status, default: 0] += 1
+            }
         }
-        let overall = visiblePercents.isEmpty ? nil : visiblePercents.reduce(0, +) / Double(visiblePercents.count)
-        return DashboardProjection.Hero(courseCount: courses.count, overallPercent: overall,
-                                        overallBand: overall.map(GradeBand.fromPercent))
+        let overall = percents.isEmpty ? nil : percents.reduce(0, +) / Double(percents.count)
+        return DashboardProjection.Hero(courseCount: statuses.count, averagedCount: percents.count, overallPercent: overall,
+                                        overallBand: overall.map(GradeBand.fromPercent), exclusions: exclusions,
+                                        school: SchoolGradeSummary(statuses: statuses))
+    }
+
+    /// Plan 08 §4.4 rows 11 and 18: the current score a priority modifier (near a grade boundary,
+    /// below goal) may use. Only a course whose grades are in Canvas and shown as percentages
+    /// (`.available`) has one; for every other state it is nil, so neither modifier fires.
+    public static func modifierScore(of course: Course, availability: GradeAvailability?) -> Double? {
+        availability == .available ? course.scores?.currentScore : nil
     }
 
     // MARK: - Next up (§5.1)
@@ -214,9 +327,12 @@ public nonisolated enum DashboardBuilder {
         }
     }
 
+    /// Plan 08 §4.4 row 12: for a course whose grades are not in Canvas, the course-weight factor
+    /// ("~12% of BIO 101") is dropped from the reason, since its share of an external grade is
+    /// unknown. Its ranking weight is unchanged: points still signal effort.
     private static func nextUp(
         items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
-        snapshot: CanvasSnapshot, now: Date
+        snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex, now: Date
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: [PriorityScore.Factor]] = [:]
@@ -226,13 +342,15 @@ public nonisolated enum DashboardBuilder {
         for (course, _, assignment, weight) in items {
             guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
-            let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
+            let availability = gradeAvailability[course.id]
+            let modifiers = priorityModifiers(assignment: assignment, course: course, availability: availability, now: now)
             let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
             ranked.append((
                 PriorityScore.RankedItem(assignmentID: assignment.id, score: score, dueAt: assignment.dueAt,
                                          weight: weight, courseOrder: courseOrder[course.id] ?? .max),
                 assignment.name, course.courseCode))
-            reasons[assignment.id] = PriorityScore.reasonFactors(hoursUntilDue: hours, weight: weight, modifiers: modifiers)
+            let factors = PriorityScore.reasonFactors(hoursUntilDue: hours, weight: weight, modifiers: modifiers)
+            reasons[assignment.id] = availability?.isInCanvas == true ? factors : factors.filter { !$0.isCourseWeight }
         }
 
         // CS-07: an assignment ID can repeat (within a group, across groups or across courses);
@@ -247,12 +365,17 @@ public nonisolated enum DashboardBuilder {
         }
     }
 
-    private static func priorityModifiers(assignment: Assignment, course: Course, now: Date) -> PriorityScore.Modifiers {
+    /// Plan 08 §4.4 row 11: the course modifiers see a score only when the course is `.available`
+    /// (`modifierScore`). Under the strict rule (G-2) an excluded course has no score anyway; this
+    /// is the guard for an override (G-3) or a looser rule.
+    private static func priorityModifiers(assignment: Assignment, course: Course, availability: GradeAvailability?,
+                                          now: Date) -> PriorityScore.Modifiers {
         let overdueStillOpen: Bool = {
             guard let due = assignment.dueAt, due < now else { return false }
             return assignment.lockAt.map { $0 > now } ?? true // no lock date: still open
         }()
-        let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(currentScore: course.scores?.currentScore, goal: nil)
+        let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(
+            currentScore: modifierScore(of: course, availability: availability), goal: nil)
         return PriorityScore.Modifiers(overdueStillOpen: overdueStillOpen, courseBelowGoal: belowGoal, nearBoundary: nearBoundary)
     }
 
@@ -260,7 +383,7 @@ public nonisolated enum DashboardBuilder {
 
     private static func needsAttention(
         items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
-        snapshot: CanvasSnapshot, now: Date
+        snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex, now: Date
     ) -> [DashboardProjection.AttentionItem] {
         var alerts: [(Alert, DashboardProjection.AttentionItem.Content)] = []
         var loadItems: [AlertEngine.LoadItem] = []
@@ -271,7 +394,8 @@ public nonisolated enum DashboardBuilder {
             } else if let submission = assignment.submission, !submission.isSubmitted, !submission.excused,
                       let due = assignment.dueAt, due >= now {
                 let hours = due.timeIntervalSince(now) / 3600
-                let modifiers = priorityModifiers(assignment: assignment, course: course, now: now)
+                let modifiers = priorityModifiers(assignment: assignment, course: course,
+                                                  availability: gradeAvailability[course.id], now: now)
                 let score = PriorityScore.score(hoursUntilDue: hours, courseWeight: weight, modifiers: modifiers)
                 if let dueSoon = AlertEngine.dueSoonAlert(assignment: assignment, priorityScore: score, weight: weight, now: now) {
                     alerts.append((dueSoon, content(of: dueSoon, assignment: assignment, course: course)))
@@ -376,5 +500,12 @@ public nonisolated enum DashboardBuilder {
     private static func changeDigestSummary(digest: ChangeDigest?, asOf: Date?) -> DashboardProjection.ChangeSummary? {
         guard let digest, !digest.isEmpty, let asOf else { return nil }
         return DashboardProjection.ChangeSummary(count: digest.count, asOf: asOf)
+    }
+}
+
+private extension PriorityScore.Factor {
+    var isCourseWeight: Bool {
+        if case .courseWeight = self { return true }
+        return false
     }
 }

@@ -73,10 +73,13 @@ struct GlanceProjectionTests {
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true)
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(glance)) as! [String: Any]
 
-        #expect(Set(json.keys) == ["schemaVersion", "generation", "asOf", "overallGradeBand", "courses", "dueSoon"])
+        // Plan 08 XG-02 (schema 2): `gradeSummary` replaced `overallGradeBand`; each course gained
+        // `gradeStatus` (a state, never a grade value).
+        #expect(Set(json.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon"])
+        #expect(Set((json["gradeSummary"] as! [String: Any]).keys) == ["state", "band"])
 
         let course = (json["courses"] as! [[String: Any]])[0]
-        #expect(Set(course.keys) == ["id", "shortCode", "currentGrade"])
+        #expect(Set(course.keys) == ["id", "shortCode", "currentGrade", "gradeStatus"])
 
         let due = (json["dueSoon"] as! [[String: Any]])[0]
         #expect(Set(due.keys) == ["id", "courseShortCode", "title", "dueAt", "missing", "late", "excused", "submitted"])

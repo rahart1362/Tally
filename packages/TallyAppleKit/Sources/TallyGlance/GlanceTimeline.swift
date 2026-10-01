@@ -42,14 +42,22 @@ public struct GlanceSummary: Equatable, Sendable {
     public let laterCount: Int
     /// Open items whose due time has passed.
     public let overdueCount: Int
-    /// The overall grade band. Present only when the glance carries grades, which it does only when
-    /// the user opted in (`UserState.showGradesInGlance`, PMO R10); the views mark it privacy-sensitive.
-    public let standing: GradeBand?
+    /// What the Standing widget says (plan 08 §4.4 row 14): the overall grade band, present only
+    /// when the user opted in (`UserState.showGradesInGlance`, PMO R10; the views mark it
+    /// privacy-sensitive), or why there is none: not opted in, no grades yet, or grades not kept
+    /// in Canvas.
+    public let grades: GlanceGradeSummary
     public let asOf: Date
     /// The glance is at least `GlanceTimelinePlanner.staleAfter` old at this moment.
     public let isStale: Bool
     /// `asOf` falls on an earlier day than this moment, so "as of" needs the day, not only the time.
     public let asOfIsBeforeToday: Bool
+
+    /// The overall grade band, when `grades` has one.
+    public var standing: GradeBand? {
+        if case .band(let band) = grades { return band }
+        return nil
+    }
 }
 
 public struct GlanceMoment: Equatable, Sendable {
@@ -136,7 +144,7 @@ public enum GlanceTimelinePlanner {
             nextUp: next,
             laterCount: max(upcoming.count - 1, 0),
             overdueCount: dated.count - upcoming.count,
-            standing: glance.overallGradeBand,
+            grades: glance.gradeSummary,
             asOf: glance.asOf,
             isStale: moment.timeIntervalSince(glance.asOf) >= staleAfter,
             asOfIsBeforeToday: glance.asOf < calendar.startOfDay(for: moment))

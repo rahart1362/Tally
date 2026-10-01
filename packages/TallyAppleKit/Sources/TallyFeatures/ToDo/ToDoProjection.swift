@@ -121,8 +121,12 @@ public nonisolated enum ToDoBuilder {
     /// The "this week" window: the same 7 days as the Dashboard's "Due soon".
     static let thisWeek: TimeInterval = 7 * 24 * 3600
 
-    public static func projection(from snapshot: CanvasSnapshot, formatter: ScreenFormatter) -> ToDoProjection {
+    /// `gradeAvailability` (plan 08 §4.4 row 18): the projection's index; `nil` classifies the
+    /// snapshot at `formatter.now` with no override.
+    public static func projection(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
+                                  gradeAvailability: GradeAvailabilityIndex? = nil) -> ToDoProjection {
         let now = formatter.now
+        let availability = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
         var missing: [Entry] = []
         var thisWeek: [Entry] = []
         var later: [Entry] = []
@@ -138,7 +142,8 @@ public nonisolated enum ToDoBuilder {
                 guard seen.insert(assignment.id).inserted else { continue }
                 guard let placement = placement(of: assignment, now: now) else { continue }
                 let weight = weights.weight(of: assignment)
-                let score = priority(assignment: assignment, course: course, weight: weight, now: now)
+                let score = priority(assignment: assignment, course: course, availability: availability[course.id],
+                                     weight: weight, now: now)
                 let item = row(assignment: assignment, course: course, paletteIndex: courseOrder, placement: placement,
                                band: PriorityScore.band(score), formatter: formatter)
                 let entry = (item: item, due: assignment.dueAt, score: score, courseOrder: courseOrder)
@@ -211,14 +216,17 @@ public nonisolated enum ToDoBuilder {
     }
 
     /// `PriorityScore` (insights-at-a-glance.md §5.1) with the course's modifiers; no goals are set
-    /// in this build, so only the near-boundary modifier can apply.
-    static func priority(assignment: Assignment, course: Course, weight: Double, now: Date) -> Double {
+    /// in this build, so only the near-boundary modifier can apply, and only to a course whose
+    /// grades are in Canvas and shown as percentages (plan 08 §4.4 row 18, the dashboard's rule:
+    /// `DashboardBuilder.modifierScore`).
+    static func priority(assignment: Assignment, course: Course, availability: GradeAvailability?, weight: Double,
+                         now: Date) -> Double {
         let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
         let overdueStillOpen: Bool = {
             guard let due = assignment.dueAt, due < now else { return false }
             return assignment.lockAt.map { $0 > now } ?? true
         }()
-        let score = course.gradeVisibility == .visible ? course.scores?.currentScore : nil
+        let score = TallyDomain.DashboardBuilder.modifierScore(of: course, availability: availability)
         let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(currentScore: score, goal: nil)
         return PriorityScore.score(hoursUntilDue: hours, courseWeight: weight,
                                    modifiers: .init(overdueStillOpen: overdueStillOpen, courseBelowGoal: belowGoal,

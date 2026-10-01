@@ -1,6 +1,8 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStore
+import TallyStrings
 import WidgetKit
 
 /// The widget kinds, for `WidgetCenter.reloadTimelines(ofKind:)`.
@@ -40,7 +42,8 @@ public struct NextUpWidgetView: View {
 /// "Standing" (insights-at-a-glance.md §1.5, Home small, opt-in): the overall grade band. The
 /// glance carries a band only when the user chose to show grades in widgets (PMO R10,
 /// `UserState.showGradesInGlance`), and the band is privacy-sensitive: hidden while the iPhone is
-/// locked (`GradeBandBadge`).
+/// locked (`GradeBandBadge`). Without a band it says why (plan 08 §4.4 row 14): grades not shown
+/// in widgets, no grades yet, or grades not kept in Canvas (`GlanceText.standingMessage`).
 public struct StandingWidgetView: View {
     private let entry: GlanceEntry
 
@@ -103,6 +106,22 @@ enum GlanceText {
         case .passing: "Passing"
         case .failing: "Not passing"
         case .unknown: "No grade"
+        }
+    }
+
+    /// What the Standing widget says when it has no band to show (plan 08 §4.4 row 14), or nil
+    /// when it has one. "Choose to show grades" only when the student has not opted in: an
+    /// opted-in student with no band is told why instead.
+    static func standingMessage(_ grades: GlanceGradeSummary) -> (title: LocalizedStringResource, detail: LocalizedStringResource)? {
+        switch grades {
+        case .band:
+            return nil
+        case .notOptedIn:
+            return (title: L10n.Glance.standingHiddenTitle(), detail: L10n.Glance.standingHiddenDetail())
+        case .noneYet:
+            return (title: L10n.Glance.standingNoneYetTitle(), detail: L10n.Glance.standingNoneYetDetail())
+        case .notInCanvas:
+            return (title: L10n.Glance.standingNotInCanvasTitle(), detail: L10n.Glance.standingNotInCanvasDetail())
         }
     }
 
@@ -185,11 +204,11 @@ private struct StandingSummaryView: View {
                 Text("Average of your courses")
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
-            } else {
-                Text("Grades are hidden")
+            } else if let message = GlanceText.standingMessage(summary.grades) {
+                Text(message.title)
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textOnHero)
-                Text("They appear here only if you choose to show grades in widgets.")
+                Text(message.detail)
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textOnHero2)
             }
