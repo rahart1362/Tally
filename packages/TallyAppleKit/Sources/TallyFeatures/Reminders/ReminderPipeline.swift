@@ -117,22 +117,30 @@ public nonisolated enum ReminderPipeline {
         // Read only (never the owner: a pass must not delete a user-state file it cannot read). When
         // it cannot be read, course names are hidden: the student may have turned them off.
         // The done marks too (M3-C O2): an unreadable state keeps every reminder (none marked).
+        // XG-04 O1 (plan 08 G-3): the student's "grades kept outside Canvas" answers, so the
+        // priority's course modifiers classify each course as the Dashboard does; with no readable
+        // state every course is Automatic, as on a fresh install.
         let hideCourseNames: Bool
         let doneAssignments: Set<CanvasID<Assignment>>
+        let gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride]
         switch await UserStateStore(root: root, accountKey: accountKey, sealer: sealer, isOwner: false).load() {
         case .loaded(let state):
             hideCourseNames = state.hideCourseNamesInNotifications
             doneAssignments = state.doneAssignments
+            gradeAvailabilityOverrides = state.gradeAvailabilityOverrides
         case .absent:
             hideCourseNames = UserState().hideCourseNamesInNotifications
             doneAssignments = []
+            gradeAvailabilityOverrides = [:]
         case .unavailable:
             hideCourseNames = true
             doneAssignments = []
+            gradeAvailabilityOverrides = [:]
         }
 
         let now = environment.clock.now()
-        let subjects = ReminderSubjects(snapshot: snapshot, now: now, doneAssignments: doneAssignments)
+        let subjects = ReminderSubjects(snapshot: snapshot, now: now, doneAssignments: doneAssignments,
+                                        gradeAvailabilityOverrides: gradeAvailabilityOverrides)
         var refresh = RefreshRecord()
         refresh.succeeded(dataFetchedAt: snapshot.fetchedAt)
         let plan = ReminderPlanner.plan(accountKey: accountKey, candidates: subjects.candidates,
