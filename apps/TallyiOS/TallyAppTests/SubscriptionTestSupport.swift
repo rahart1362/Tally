@@ -187,10 +187,17 @@ struct SubscriptionRig: Sendable {
         return self
     }
 
+    /// `unattachedAccount`, attached to the engine.
+    func attachedAccount(permission: ReminderPermission = .authorized) async throws -> SubscriptionAccount {
+        let account = try await unattachedAccount(permission: permission)
+        await engine.accountAttached(account.coordinator, environment: account.environment)
+        return account
+    }
+
     /// A signed-in account for the effects: an environment carrying this rig's gate and a
     /// `FakeReminderPlatform`, and a coordinator over the flagship snapshot, committed to the
-    /// account's store (so its glance can be rewritten), attached to the engine.
-    func attachedAccount(permission: ReminderPermission = .authorized) async throws -> SubscriptionAccount {
+    /// account's store (so its glance can be rewritten). Not attached to the engine.
+    func unattachedAccount(permission: ReminderPermission = .authorized) async throws -> SubscriptionAccount {
         let harness = try AccountHarness()
         let platform = FakeReminderPlatform(permission: permission)
         let reloads = CallCounter()
@@ -206,7 +213,6 @@ struct SubscriptionRig: Sendable {
         let coordinator = RefreshCoordinator(gateway: FlagshipAccountGateway(account: harness.account), store: store,
                                              clock: FixedClock(now: SubscriptionFixtures.now), initialSnapshot: snapshot,
                                              entitlement: gate)
-        await engine.accountAttached(coordinator, environment: environment)
         return SubscriptionAccount(harness: harness, platform: platform, reloads: reloads, environment: environment,
                                    store: store, coordinator: coordinator)
     }

@@ -111,11 +111,24 @@ struct SubscriptionStoreKitTests {
         await stage.end()
     }
 
-    @Test("Purchase: the free trial entitles within one foreground; the parent role stays locked")
+    @Test("Purchase: granted before it returns (then finished); the trial entitles; the parent role stays locked")
     func purchase() async throws {
         let stage = try await Stage.make()
         #expect(await stage.gate.current == .preview)
-        let until = try await stage.purchased()
+        #expect(await stage.engine.purchase(.student) == .purchased)
+        #expect(await stage.gate.current?.isActiveEntitlement == true, "the purchase returned before it was granted")
+        var unfinished = 0
+        for await result in Transaction.unfinished where result.unsafePayloadValue.productID == Self.products.studentAnnual {
+            unfinished += 1
+        }
+        #expect(unfinished == 0, "the granted purchase was not finished")
+        await stage.engine.foreground()
+        let state = await stage.gate.current
+        guard case .entitled(let until) = state else {
+            Issue.record("not entitled after the purchase: \(String(describing: state))")
+            await stage.end()
+            return
+        }
         #expect(until > Date(), "the trial ends in the future")
         let facts = await StoreKitEntitlementSource(products: Self.products).currentFacts()
         #expect(facts.contains { $0.isVerified && $0.productID == Self.products.studentAnnual })
@@ -176,7 +189,7 @@ struct SubscriptionStoreKitTests {
         await stage.end()
     }
 
-    @Test("Ask to Buy: pending, then the approval entitles within one foreground")
+    @Test("Ask to Buy: pending, then the approval is granted through Transaction.updates, with no foreground")
     func askToBuy() async throws {
         let stage = try await Stage.make()
         stage.session.askToBuyEnabled = true
@@ -185,11 +198,14 @@ struct SubscriptionStoreKitTests {
         #expect(await stage.gate.current == .preview, "nothing is granted while the purchase waits")
         let pending = try #require(stage.transaction { $0.pendingAskToBuyConfirmation })
         try stage.session.approveAskToBuyTransaction(identifier: pending.identifier)
-        #expect(await stage.sessionShows { stage.transaction { $0.identifier == pending.identifier }?.pendingAskToBuyConfirmation == false })
-        await stage.engine.foreground()
+        // PAY-03: "Ask to Buy pending → granted via `updates`": the listener grants it, no foreground.
+        let deadline = ContinuousClock.now + .seconds(30)
+        while await stage.gate.current?.isActiveEntitlement != true, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         let state = await stage.gate.current
         guard case .entitled = state else {
-            Issue.record("not entitled after the approval: \(String(describing: state))")
+            Issue.record("the approval was not granted through Transaction.updates: \(String(describing: state))")
             await stage.end()
             return
         }

@@ -151,6 +151,9 @@ public actor SubscriptionEngine {
         environment = nil
     }
 
+    /// Whether an account's coordinator is attached (tests).
+    var isAccountAttached: Bool { coordinator != nil }
+
     /// B6: the scene entered the background; the background refresh is requested again (it
     /// replaces the pending request) while the gate allows it.
     public func sceneDidEnterBackground() async {

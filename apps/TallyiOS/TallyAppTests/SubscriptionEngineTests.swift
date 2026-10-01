@@ -63,13 +63,14 @@ extension AccountLifecycleSuites {
             #expect(await rig.records.load().record?.studentUntil == nil)
         }
 
-        @Test("An update is granted (recorded and gated) before the transactions are finished")
+        @Test("An update is granted (gated) before the transactions are finished")
         func grantedBeforeFinished() async {
             let rig = await SubscriptionRig().started()
             rig.source.setFacts([F.active()])
             await rig.source.deliverUpdate()
-            let until = F.active().expirationDate
-            #expect(rig.source.finishes.last == .init(gateState: .entitled(until: until ?? F.now), recordedUntil: until))
+            // The record is checked by its own test (`verificationWritesTheRecord`), so each guard
+            // fails a test of its own in a CI mutation run.
+            #expect(rig.source.finishes.last?.gateState == .entitled(until: F.active().expirationDate ?? F.now))
         }
 
         @Test("The scene's foreground re-verifies with StoreKit")
@@ -100,10 +101,8 @@ extension AccountLifecycleSuites {
             #expect(await F.eventually { await MainActor.run { model.isPurchasePending } })
             rig.source.setFacts([F.active()])
             await rig.source.deliverUpdate()
-            let until = F.active().expirationDate ?? F.now
-            #expect(await F.eventually {
-                await MainActor.run { !model.isPurchasePending && model.accountState == .entitled(until: until) }
-            })
+            #expect(await rig.gate.current == .entitled(until: F.active().expirationDate ?? F.now))
+            #expect(await F.eventually { await MainActor.run { !model.isPurchasePending } }, "still pending once entitled")
         }
 
         @Test("A verified purchase is granted before it returns")
@@ -248,6 +247,37 @@ extension AccountLifecycleSuites {
             _ = await coordinator.run(trigger: .manual)
             #expect(fetches.value == 0, "a lapsed account refreshed")
             await coordinator.bumpEpochAndCancel()
+        }
+
+        // MARK: AppModel's hooks
+
+        @Test("AppModel.attach hands the account to the engine: its glance mirrors the entitlement at once")
+        @MainActor
+        func attachMirrorsTheGlance() async throws {
+            let rig = await SubscriptionRig(facts: [F.active()]).started()
+            let account = try await rig.unattachedAccount()
+            #expect(await account.glance()?.entitledUntil == nil, "written before the gate knew")
+            let model = AppModel(accountEnvironment: account.environment, subscription: SubscriptionModel(engine: rig.engine))
+            await model.attach(account.coordinator)
+            #expect(await account.glance()?.entitledUntil == F.active().expirationDate)
+            #expect(await rig.engine.isAccountAttached)
+            model.detach()
+        }
+
+        @Test("AppModel.signOut detaches the account from the engine")
+        @MainActor
+        func signOutDetaches() async throws {
+            let rig = await SubscriptionRig(facts: [F.active()]).started()
+            let account = try await rig.unattachedAccount()
+            let model = AppModel(accountEnvironment: account.environment, subscription: SubscriptionModel(engine: rig.engine))
+            model.bootstrap()
+            model.completeSignIn(account.harness.account)
+            // Attached through the engine itself, so this test fails only when sign-out does not detach.
+            await rig.engine.accountAttached(account.coordinator, environment: account.environment)
+            #expect(await rig.engine.isAccountAttached)
+            model.signOut()
+            await model.awaitTeardown()
+            #expect(await rig.engine.isAccountAttached == false, "the engine still holds the signed-out account")
         }
 
         // MARK: The observable (M3-B2 draws it)
