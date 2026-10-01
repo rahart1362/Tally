@@ -26,16 +26,16 @@ struct DashboardView: View {
                 case .loading:
                     DashboardLoadingView()
                 case .failed:
-                    ContentUnavailableView("No dashboard yet", systemImage: "house",
-                                           description: Text("Sign in, or explore with sample data, to see your dashboard."))
+                    ContentUnavailableView(String(localized: L10n.Dashboard.failedTitle()), systemImage: "house",
+                                           description: Text(L10n.Dashboard.failedDescription()))
                         .padding(.top, TallySpacing.xxxl)
                 case .glance:
                     // perf-app-runtime.md §2.4 L4 (decision D-P1): the sealed glance's hero count and
                     // due-soon rows paint first; the rest are skeletons until the full projection.
                     HeroSection(hero: model.dashboard.hero, isGlance: true)
                         .onAppear { LaunchSignpost.glancePainted() }
-                    GlanceSkeletonSection(title: "Next up")
-                    GlanceSkeletonSection(title: "Needs attention")
+                    GlanceSkeletonSection(title: L10n.Dashboard.nextUpHeader())
+                    GlanceSkeletonSection(title: L10n.Dashboard.needsAttentionHeader())
                     DueSoonSection(items: model.dashboard.dueSoon)
                 case .loaded:
                     HeroSection(hero: model.dashboard.hero)
@@ -58,15 +58,26 @@ struct DashboardView: View {
         // Awaits the model-owned refresh until it settles or the live budget passes; never ties
         // the run to this view's task (plan 06 row 7, SH-2).
         .refreshable { await model.refreshUntilSettledOrDelayed() }
-        .navigationTitle("Dashboard")
+        .navigationTitle(String(localized: L10n.Dashboard.navigationTitle()))
     }
 
     @ViewBuilder
     private var header: some View {
         if let name = model.studentDisplayName {
-            Text("Good \(model.greeting.rawValue), \(name)")
+            Text(L10n.Dashboard.greeting(Self.greetingWord(model.greeting), name))
                 .font(TallyTypography.subheadline)
                 .foregroundStyle(TallyColor.textSecondary)
+        }
+    }
+
+    /// `HomeProjection.Greeting`'s raw value is itself the English word ("morning"/"afternoon"/
+    /// "evening"); `HomeProjection.swift` is not this stream's file, so this switches on the case
+    /// (not its `rawValue`) rather than editing that enum to add a localized label.
+    private static func greetingWord(_ greeting: HomeProjection.Greeting) -> String {
+        switch greeting {
+        case .morning: String(localized: L10n.Dashboard.greetingMorning())
+        case .afternoon: String(localized: L10n.Dashboard.greetingAfternoon())
+        case .evening: String(localized: L10n.Dashboard.greetingEvening())
         }
     }
 }
@@ -77,7 +88,7 @@ private struct DashboardLoadingView: View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             ProgressView()
                 .tint(TallyColor.textOnHero)
-            Text("Loading your dashboard…")
+            Text(L10n.Dashboard.loading())
                 .font(TallyTypography.footnote)
                 .foregroundStyle(TallyColor.textOnHero2)
         }
@@ -104,6 +115,7 @@ struct HeroSection: View {
     /// The launch's glance paint: the percentage is a skeleton until the full projection.
     var isGlance = false
     @State private var showsInfo = false
+    @Environment(\.locale) private var locale
 
     var body: some View {
         let caption = HeroCaption(hero)
@@ -127,7 +139,8 @@ struct HeroSection: View {
                         .accessibilityHidden(true)
                 } else if let percent = hero.overallPercent {
                     HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                        Text(percent.formatted(.number.precision(.fractionLength(1))) + "%")
+                        // §3.3 "Percent": `.percent` FormatStyle, not a hand-appended "%".
+                        Text(percent.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale)))
                             .font(.system(.largeTitle, design: .serif).bold())
                             .foregroundStyle(TallyColor.textOnHero)
                             .monospacedDigit()
@@ -197,6 +210,8 @@ struct HeroSection: View {
         }
     }
 
+    /// §3.3 "Letter grades": the letters are Canvas's own grading scheme and stay untranslated;
+    /// "Passing"/"Failing" (a pass/fail course's band) are words, and are catalog keys.
     private func bandLabel(_ band: GradeBand) -> String {
         switch band {
         case .aRange: "A"
@@ -204,8 +219,8 @@ struct HeroSection: View {
         case .cRange: "C"
         case .dRange: "D"
         case .fRange: "F"
-        case .passing: "Passing"
-        case .failing: "Failing"
+        case .passing: String(localized: L10n.Dashboard.bandPassing())
+        case .failing: String(localized: L10n.Dashboard.bandFailing())
         case .unknown: ""
         }
     }
@@ -264,13 +279,13 @@ struct HeroExclusionList: View {
 /// A section the glance cannot fill (it carries no priorities or alerts): its header and two
 /// redacted rows, never fabricated values.
 private struct GlanceSkeletonSection: View {
-    let title: String
+    let title: LocalizedStringResource
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
             SectionHeader(title: title)
             ForEach(0..<2, id: \.self) { _ in
-                Text("Loading this section")
+                Text(L10n.Dashboard.skeletonRow())
                     .font(TallyTypography.cardTitle)
                     .padding(TallySpacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,7 +294,7 @@ private struct GlanceSkeletonSection: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), loading")
+        .accessibilityLabel(Text(L10n.Dashboard.skeletonSectionSpoken(String(localized: title))))
     }
 }
 
@@ -290,9 +305,9 @@ private struct NextUpSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
-            SectionHeader(title: "Next up")
+            SectionHeader(title: L10n.Dashboard.nextUpHeader())
             if items.isEmpty {
-                Text("Nothing to do right now").font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
+                Text(L10n.Dashboard.nextUpEmpty()).font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
             } else {
                 ForEach(items) { item in
                     VStack(alignment: .leading, spacing: TallySpacing.xs) {
@@ -315,9 +330,9 @@ private struct NextUpSection: View {
 
     private func bandWord(_ band: PriorityScore.Band) -> String {
         switch band {
-        case .high: "High"
-        case .medium: "Medium"
-        case .low: "Low"
+        case .high: String(localized: L10n.Dashboard.bandHigh())
+        case .medium: String(localized: L10n.Dashboard.bandMedium())
+        case .low: String(localized: L10n.Dashboard.bandLow())
         }
     }
 }
@@ -329,9 +344,9 @@ private struct NeedsAttentionSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
-            SectionHeader(title: "Needs attention")
+            SectionHeader(title: L10n.Dashboard.needsAttentionHeader())
             if items.isEmpty {
-                Text("All clear").font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
+                Text(L10n.Dashboard.needsAttentionEmpty()).font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
             } else {
                 ForEach(items) { item in
                     HStack(alignment: .top, spacing: TallySpacing.md) {
@@ -376,7 +391,7 @@ private struct WeekAheadSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
-            SectionHeader(title: "Week ahead")
+            SectionHeader(title: L10n.Dashboard.weekAheadHeader())
             HStack(spacing: TallySpacing.sm) {
                 ForEach(days) { day in
                     VStack(spacing: TallySpacing.xs) {
@@ -406,9 +421,9 @@ private struct DueSoonSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
-            SectionHeader(title: "Due soon")
+            SectionHeader(title: L10n.Dashboard.dueSoonHeader())
             if items.isEmpty {
-                Text("Nothing due in the next 7 days").font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
+                Text(L10n.Dashboard.dueSoonEmpty()).font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
             } else {
                 ForEach(items) { item in
                     HStack {
@@ -437,7 +452,7 @@ private struct DueSoonSection: View {
 // MARK: - Small shared pieces
 
 private struct SectionHeader: View {
-    let title: String
+    let title: LocalizedStringResource
     var body: some View {
         Text(title)
             .font(TallyTypography.sectionHeader)

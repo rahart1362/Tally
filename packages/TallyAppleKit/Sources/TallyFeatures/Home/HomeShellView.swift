@@ -3,6 +3,7 @@ import UIKit
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-05: the Home shell. Five tabs — Dashboard, Courses, Calendar, To-Do,
 /// **Insights** (never "More", ux-ui.md §3.4/app-store-compliance.md R5) — using the plain
@@ -53,8 +54,13 @@ public struct HomeShellView: View {
                 banner
             }
 
+            // The lint (`scripts/ci/check_localizable_literals.py`) does not yet know the iOS 18
+            // `Tab(_:systemImage:value:)` initializer (its `UI_CALLEES` set predates it), so these
+            // five were not findings; moved anyway; they are genuinely user-facing tab bar labels,
+            // the same practice L10N-03a's report documents for other lint gaps (flagged for the PMO
+            // in the hand-off report, §3.8).
             TabView(selection: tabSelection) {
-                Tab("Dashboard", systemImage: "house", value: HomeTab.dashboard) {
+                Tab(String(localized: L10n.Home.tabDashboard()), systemImage: "house", value: HomeTab.dashboard) {
                     BuiltTab(.dashboard, isBuilt: builtTabs.contains(.dashboard)) {
                         NavigationStack {
                             DashboardView()
@@ -63,7 +69,7 @@ public struct HomeShellView: View {
                     }
                 }
                 // M3-A (E05a-e, UX-WP-14…20): each tab's root screen, over `model`'s projections.
-                Tab("Courses", systemImage: "books.vertical", value: HomeTab.courses) {
+                Tab(String(localized: L10n.Home.tabCourses()), systemImage: "books.vertical", value: HomeTab.courses) {
                     BuiltTab(.courses, isBuilt: builtTabs.contains(.courses)) {
                         NavigationStack {
                             CoursesScreen()
@@ -72,7 +78,7 @@ public struct HomeShellView: View {
                         }
                     }
                 }
-                Tab("Calendar", systemImage: "calendar", value: HomeTab.calendar) {
+                Tab(String(localized: L10n.Home.tabCalendar()), systemImage: "calendar", value: HomeTab.calendar) {
                     BuiltTab(.calendar, isBuilt: builtTabs.contains(.calendar)) {
                         NavigationStack {
                             CalendarScreen()
@@ -81,7 +87,7 @@ public struct HomeShellView: View {
                         }
                     }
                 }
-                Tab("To-Do", systemImage: "checklist", value: HomeTab.toDo) {
+                Tab(String(localized: L10n.Home.tabToDo()), systemImage: "checklist", value: HomeTab.toDo) {
                     BuiltTab(.toDo, isBuilt: builtTabs.contains(.toDo)) {
                         NavigationStack {
                             ToDoScreen()
@@ -92,7 +98,7 @@ public struct HomeShellView: View {
                 }
                 // ux-ui.md §3.4: the To-Do badge counts missing work only (HIG: critical information).
                 .badge(model.toDoScreen.missingCount)
-                Tab("Insights", systemImage: "chart.xyaxis.line", value: HomeTab.insights) {
+                Tab(String(localized: L10n.Home.tabInsights()), systemImage: "chart.xyaxis.line", value: HomeTab.insights) {
                     BuiltTab(.insights, isBuilt: builtTabs.contains(.insights)) {
                         NavigationStack {
                             InsightsScreen()
@@ -151,7 +157,7 @@ public struct HomeShellView: View {
             } label: {
                 Image(systemName: "person.crop.circle")
             }
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(Text(L10n.Home.settingsButton()))
         }
     }
 }

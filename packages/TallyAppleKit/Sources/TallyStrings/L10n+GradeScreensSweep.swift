@@ -105,6 +105,21 @@ extension L10n.Dashboard {
         LocalizedStringResource("dashboard.band.failing", defaultValue: "Failing", bundle: #bundle,
                                 comment: "Dashboard hero's grade band word for a pass/fail course that is failing.")
     }
+
+    public static func bandHigh() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.band.high", defaultValue: "High", bundle: #bundle,
+                                comment: "Dashboard Next Up item's priority band word.")
+    }
+
+    public static func bandMedium() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.band.medium", defaultValue: "Medium", bundle: #bundle,
+                                comment: "Dashboard Next Up item's priority band word.")
+    }
+
+    public static func bandLow() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.band.low", defaultValue: "Low", bundle: #bundle,
+                                comment: "Dashboard Next Up item's priority band word.")
+    }
 }
 
 // MARK: - Home shell (tab bar) and Sample Data banner
@@ -879,6 +894,12 @@ extension L10n.Insights {
     public static func trendAxisAverage() -> LocalizedStringResource {
         LocalizedStringResource("insights.trend.axisAverage", defaultValue: "Average of your courses", bundle: #bundle,
                                 comment: "Audio Graph series name for the performance-trend chart.")
+    }
+
+    /// Distinct from `trendAxisAverage` (the longer series name): this is just the y-axis title.
+    public static func trendAxisAverageShort() -> LocalizedStringResource {
+        LocalizedStringResource("insights.trend.axisAverageShort", defaultValue: "Average", bundle: #bundle,
+                                comment: "Audio Graph y-axis title for the performance-trend chart.")
     }
 
     /// A number read aloud as a percentage for VoiceOver/Audio Graphs. The placeholder is an

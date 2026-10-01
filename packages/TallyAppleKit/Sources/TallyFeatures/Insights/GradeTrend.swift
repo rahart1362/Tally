@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TallyDomain
+import TallyStrings
 
 /// The trend chart's ranges (ux-ui.md §3.5: "range picker 1M / 3M / Term").
 public nonisolated enum TrendRange: String, CaseIterable, Identifiable, Equatable, Sendable {
@@ -10,17 +11,17 @@ public nonisolated enum TrendRange: String, CaseIterable, Identifiable, Equatabl
 
     public var label: String {
         switch self {
-        case .month: "1M"
-        case .quarter: "3M"
-        case .term: "Term"
+        case .month: String(localized: L10n.Insights.trendRangeMonth())
+        case .quarter: String(localized: L10n.Insights.trendRangeQuarter())
+        case .term: String(localized: L10n.Insights.trendRangeTerm())
         }
     }
 
     public var spokenLabel: String {
         switch self {
-        case .month: "Last month"
-        case .quarter: "Last 3 months"
-        case .term: "This term"
+        case .month: String(localized: L10n.Insights.trendRangeMonthSpoken())
+        case .quarter: String(localized: L10n.Insights.trendRangeQuarterSpoken())
+        case .term: String(localized: L10n.Insights.trendRangeTermSpoken())
         }
     }
 
@@ -146,17 +147,25 @@ public nonisolated enum GradeTrend {
                               start: start, end: end, lowerPercent: max(0, lower), upperPercent: upper)
     }
 
+    /// Whole-sentence keys (§3.3 "Sentence assembly"): "Up"/"Down" are never spliced into a shared
+    /// template (word order varies by language), so each direction is its own key; `span` is a
+    /// reused sub-phrase, resolved once and threaded in as an already-localized placeholder, the
+    /// same pattern `TallyStrings/Render/DashboardText.swift` uses for its reused fragments.
     static func summary(_ points: [TrendPoint], range: TrendRange, formatter: ScreenFormatter) -> String {
         guard points.count >= minimumPoints, let first = points.first, let last = points.last else {
-            return "Trend appears after a couple of graded assignments."
+            return String(localized: L10n.Insights.trendNotEnoughData())
         }
-        let span = range == .term ? "this term" : range == .month ? "over the last month" : "over the last 3 months"
+        let span = String(localized: range == .term ? L10n.Insights.trendSpanTerm()
+                           : range == .month ? L10n.Insights.trendSpanMonth() : L10n.Insights.trendSpanQuarter())
         let change = last.percent - first.percent
         if abs(change) < steadyThreshold {
-            return "Steady at \(formatter.spokenPercent(last.percent)) \(span)"
+            return String(localized: L10n.Insights.trendSummarySteady(formatter.spokenPercent(last.percent), span))
         }
-        let direction = change > 0 ? "Up" : "Down"
-        return "\(direction) from \(formatter.spokenPercent(first.percent)) to \(formatter.spokenPercent(last.percent)) \(span)"
+        let firstText = formatter.spokenPercent(first.percent)
+        let lastText = formatter.spokenPercent(last.percent)
+        return change > 0
+            ? String(localized: L10n.Insights.trendSummaryUp(firstText, lastText, span))
+            : String(localized: L10n.Insights.trendSummaryDown(firstText, lastText, span))
     }
 }
 

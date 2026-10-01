@@ -1777,6 +1777,42 @@
         }
       }
     },
+    "dashboard.band.high" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        }
+      }
+    },
+    "dashboard.band.low" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        }
+      }
+    },
+    "dashboard.band.medium" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
     "dashboard.band.passing" : {
       "comment" : "Dashboard hero's grade band word for a pass/fail course that is passing.",
       "extractionState" : "manual",
@@ -3129,6 +3165,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Average of your courses"
+          }
+        }
+      }
+    },
+    "insights.trend.axisAverageShort" : {
+      "comment" : "Audio Graph y-axis title for the performance-trend chart (distinct from insights.trend.axisAverage, the longer series name).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
           }
         }
       }

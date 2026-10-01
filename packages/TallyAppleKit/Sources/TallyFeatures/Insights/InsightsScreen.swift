@@ -20,17 +20,18 @@ struct InsightsScreen: View {
         let projection = model.insightsScreen
         Group {
             if model.courseCards.isEmpty {
-                ContentUnavailableView("No insights yet", systemImage: "chart.xyaxis.line",
-                                       description: Text("Insights appear once your courses have graded work."))
+                ContentUnavailableView(String(localized: L10n.Insights.emptyTitle()), systemImage: "chart.xyaxis.line",
+                                       description: Text(L10n.Insights.emptyDescription()))
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: TallySpacing.xxl) {
                         trendCard(notInCanvas: projection.trendIsNotInCanvas)
                         if !projection.categoryShares.isEmpty {
                             ScreenCard {
-                                ScreenSectionHeader(title: "Category breakdown",
-                                                    subtitle: "What your grades are made of, on average across your courses.")
-                                CategoryWeightsChart(weights: projection.categoryShares, title: "Category breakdown",
+                                ScreenSectionHeader(title: L10n.Insights.categoryBreakdownHeader(),
+                                                    subtitle: L10n.Insights.categoryBreakdownSubtitle())
+                                CategoryWeightsChart(weights: projection.categoryShares,
+                                                     title: String(localized: L10n.Insights.categoryBreakdownHeader()),
                                                      summary: projection.categorySummary)
                             }
                         }
@@ -47,7 +48,7 @@ struct InsightsScreen: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
-        .navigationTitle("Insights")
+        .navigationTitle(String(localized: L10n.Insights.navigationTitle()))
         .task(id: projection.trendInput) { await insights.load(projection.trendInput) }
     }
 
@@ -58,8 +59,7 @@ struct InsightsScreen: View {
     @ViewBuilder
     private func trendCard(notInCanvas: Bool) -> some View {
         ScreenCard {
-            ScreenSectionHeader(title: "Performance trend",
-                                subtitle: "Average of your courses, from when each grade was posted.")
+            ScreenSectionHeader(title: L10n.Insights.performanceTrendHeader(), subtitle: L10n.Insights.performanceTrendSubtitle())
             if notInCanvas {
                 Text(L10n.Insights.trendNotInCanvas())
                     .font(TallyTypography.body)
@@ -72,7 +72,7 @@ struct InsightsScreen: View {
 
     @ViewBuilder
     private var trendContent: some View {
-        Picker("Range", selection: $range) {
+        Picker(String(localized: L10n.Insights.trendRangePicker()), selection: $range) {
             ForEach(TrendRange.allCases) { range in
                 Text(range.label).tag(range).accessibilityLabel(range.spokenLabel)
             }
@@ -87,7 +87,7 @@ struct InsightsScreen: View {
                     .foregroundStyle(TallyColor.textSecondary)
             }
         } else if insights.trendFailed {
-            Text("The trend couldn't be worked out.")
+            Text(L10n.Insights.trendFailed())
                 .font(TallyTypography.body)
                 .foregroundStyle(TallyColor.textSecondary)
         } else {
@@ -100,7 +100,7 @@ struct InsightsScreen: View {
     private func completionCard(_ completion: CompletionInsight?) -> some View {
         if let completion {
             ScreenCard {
-                ScreenSectionHeader(title: "Completion", subtitle: "Past-due work you turned in on time this term.")
+                ScreenSectionHeader(title: L10n.Insights.completionHeader(), subtitle: L10n.Insights.completionSubtitle())
                 Text(completion.headline)
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textPrimary)
@@ -116,7 +116,7 @@ struct InsightsScreen: View {
 
     private func momentumCard(_ streak: StreakInsight) -> some View {
         ScreenCard {
-            ScreenSectionHeader(title: "Momentum", subtitle: StreakInsight.definition)
+            ScreenSectionHeader(title: L10n.Insights.momentumHeader(), subtitle: StreakInsight.definition)
             Label(streak.headline, systemImage: "flame")
                 .font(TallyTypography.cardTitle)
                 .foregroundStyle(TallyColor.textPrimary)
@@ -126,9 +126,9 @@ struct InsightsScreen: View {
     @ViewBuilder
     private func risksCard(_ risks: [CourseRisk]) -> some View {
         ScreenCard {
-            ScreenSectionHeader(title: "Needs a look", subtitle: "Courses at risk or close to a line, and why.")
+            ScreenSectionHeader(title: L10n.Insights.risksHeader(), subtitle: L10n.Insights.risksSubtitle())
             if risks.isEmpty {
-                Label("Every course is on track.", systemImage: "checkmark.circle")
+                Label(String(localized: L10n.Insights.risksEmpty()), systemImage: "checkmark.circle")
                     .font(TallyTypography.body)
                     .foregroundStyle(TallyColor.textPrimary)
             } else {
@@ -154,9 +154,9 @@ struct InsightsScreen: View {
 
     private func heavyCard(_ stretches: [HeavyStretch]) -> some View {
         ScreenCard {
-            ScreenSectionHeader(title: "Heavy stretches", subtitle: "Two-day windows with a lot due in the next 10 days.")
+            ScreenSectionHeader(title: L10n.Insights.heavyHeader(), subtitle: L10n.Insights.heavySubtitle())
             if stretches.isEmpty {
-                Label("No heavy stretches coming up.", systemImage: "calendar")
+                Label(String(localized: L10n.Insights.heavyEmpty()), systemImage: "calendar")
                     .font(TallyTypography.body)
                     .foregroundStyle(TallyColor.textPrimary)
             } else {
