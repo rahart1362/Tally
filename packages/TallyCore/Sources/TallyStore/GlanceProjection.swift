@@ -119,6 +119,28 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
         return nil
     }
 
+    /// Plan 08 §4.4 row 2 (XG-02): the dashboard hero the launch paint shows before the snapshot is
+    /// decoded (`HomeGlance`), from the per-course statuses `DashboardBuilder.hero`'s rule wrote:
+    /// the same course count, averaged count, exclusions and school summary as the full projection.
+    /// The percentage is nil (the glance carries none, D-P1); the band is present only when the
+    /// student opted in. A course is counted once (CS-07). A glance written before schema 2 has no
+    /// statuses: its hero counts every course, as that version's launch paint did, until the store
+    /// rebuilds it.
+    public var hero: DashboardProjection.Hero {
+        var seen = Set<CanvasID<Course>>()
+        let distinct = courses.filter { seen.insert($0.id).inserted }
+        let statuses = distinct.compactMap(\.gradeStatus)
+        guard statuses.count == distinct.count else {
+            return DashboardProjection.Hero(courseCount: distinct.count, averagedCount: distinct.count, overallPercent: nil,
+                                            overallBand: overallGradeBand, exclusions: [:], school: .undetermined)
+        }
+        var exclusions: [CourseGradeStatus: Int] = [:]
+        for status in statuses where status != .averaged { exclusions[status, default: 0] += 1 }
+        return DashboardProjection.Hero(courseCount: distinct.count, averagedCount: statuses.count - exclusions.values.reduce(0, +),
+                                        overallPercent: nil, overallBand: overallGradeBand, exclusions: exclusions,
+                                        school: SchoolGradeSummary(statuses: statuses))
+    }
+
     public init(generation: UInt64, asOf: Date, gradeSummary: GlanceGradeSummary, courses: [GlanceCourse],
                 dueSoon: [GlanceDueItem]) {
         schemaVersion = Self.currentSchemaVersion

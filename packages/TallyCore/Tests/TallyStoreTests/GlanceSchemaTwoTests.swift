@@ -108,6 +108,43 @@ struct GlanceSchemaTwoTests {
         })
     }
 
+    @Test("Row 2: the launch paint's hero from the glance is the full projection's, but for the percentage",
+          arguments: ["flagship", "grading-periods", "large", "external-grades", "external-grades/noneInCanvas"])
+    func launchHeroMatchesTheFullHero(persona: String) async throws {
+        let full = try await Self.persona(String(persona.prefix { $0 != "/" }))
+        let snapshot = persona.hasSuffix("/noneInCanvas") ? Self.trimmed(full, keeping: Self.noneInCanvas) : full
+        let index = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: snapshot.fetchedAt)
+        let projected = DashboardBuilder.hero(courses: snapshot.courses, gradeAvailability: index)
+        for includeGrades in [false, true] {
+            let launch = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades, gradeAvailability: index).hero
+            #expect(launch.courseCount == projected.courseCount)
+            #expect(launch.averagedCount == projected.averagedCount)
+            #expect(launch.exclusions == projected.exclusions)
+            #expect(launch.school == projected.school)
+            #expect(launch.overallPercent == nil, "the glance carries no percentage (D-P1)")
+            #expect(launch.overallBand == (includeGrades ? projected.overallBand : nil))
+        }
+        if persona == "flagship" {
+            #expect(projected.averagedCount == 5, "the launch paint still reads 'Average of 5 courses'")
+        }
+    }
+
+    @Test("Row 2: a repeated course counts once; a schema-1 glance counts every course, as it used to")
+    func launchHeroEdges() throws {
+        let repeated = GlanceProjection(generation: 1, asOf: Self.anchor, gradeSummary: .noneYet, courses: [
+            GlanceCourse(id: "1", shortCode: "A", currentGrade: nil, gradeStatus: .keptOutsideCanvas),
+            GlanceCourse(id: "1", shortCode: "A", currentGrade: nil, gradeStatus: .keptOutsideCanvas),
+            GlanceCourse(id: "2", shortCode: "B", currentGrade: nil, gradeStatus: .averaged),
+        ], dueSoon: [])
+        #expect(repeated.hero == DashboardProjection.Hero(courseCount: 2, averagedCount: 1, overallPercent: nil,
+                                                           overallBand: nil, exclusions: [.keptOutsideCanvas: 1],
+                                                           school: .mixed(outside: 1)))
+        let legacy = try JSONDecoder().decode(GlanceProjection.self,
+                                              from: try Self.schemaOne(overall: .bRange, courseBands: [.aRange, nil, nil]))
+        #expect(legacy.hero == DashboardProjection.Hero(courseCount: 3, averagedCount: 3, overallPercent: nil,
+                                                         overallBand: .bRange, exclusions: [:], school: .undetermined))
+    }
+
     @Test("A letters-only course's percent is no longer in the overall band (it never was in the hero's)")
     func lettersOnlyIsOutOfTheOverallBand() {
         func course(_ id: String, _ visibility: GradeVisibility, _ score: Double, _ grade: String) -> Course {

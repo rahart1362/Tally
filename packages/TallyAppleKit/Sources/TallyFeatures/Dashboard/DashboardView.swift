@@ -101,11 +101,15 @@ private struct HeroSection: View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             VStack(alignment: .leading, spacing: TallySpacing.md) {
                 // Plan 08 L10N-01 exemplar: a plural key in the TallyStrings catalog, same English text.
-                Text(L10n.Dashboard.averageOfCourses(hero.courseCount))
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textOnHero2)
+                // Plan 08 G-5 (XG-02): N counts only the courses averaged; with none, there is no
+                // average to caption (XG-03 draws the "not included" and "not in Canvas" rows).
+                if hero.averagedCount > 0 {
+                    Text(L10n.Dashboard.averageOfCourses(hero.averagedCount))
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textOnHero2)
+                }
 
-                if hero.overallPercent == nil, hero.courseCount > 0, isGlance {
+                if hero.overallPercent == nil, hero.averagedCount > 0, isGlance {
                     // The glance carries no percentage (encryption.md §3.3): a skeleton, never "0%".
                     Text("00.0%")
                         .font(.system(.largeTitle, design: .serif).bold())

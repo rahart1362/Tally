@@ -36,4 +36,45 @@ public enum L10n {
             )
         }
     }
+
+    /// The widgets (`TallyGlance`).
+    public enum Glance {
+        /// The Standing widget when the student has not chosen to show grades in widgets (PMO R10).
+        public static func standingHiddenTitle() -> LocalizedStringResource {
+            LocalizedStringResource("glance.standing.hidden.title", defaultValue: "Grades are hidden", bundle: #bundle,
+                                    comment: "Standing widget title when the student has not chosen to show grades in widgets.")
+        }
+
+        public static func standingHiddenDetail() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "glance.standing.hidden.detail", defaultValue: "They appear here only if you choose to show grades in widgets.",
+                bundle: #bundle, comment: "Standing widget, under 'Grades are hidden': how to show grades in the widget.")
+        }
+
+        /// Plan 08 §4.4 row 14: opted in, but no course has a grade to average yet.
+        public static func standingNoneYetTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "glance.standing.noneYet.title", defaultValue: "No grades yet", bundle: #bundle,
+                comment: "Standing widget title when the student chose to show grades in widgets, but no course has a grade to average yet.")
+        }
+
+        public static func standingNoneYetDetail() -> LocalizedStringResource {
+            LocalizedStringResource("glance.standing.noneYet.detail",
+                                    defaultValue: "Your average appears here once grades are posted in Canvas.",
+                                    bundle: #bundle, comment: "Standing widget, under 'No grades yet'.")
+        }
+
+        /// Plan 08 §4.4 row 14 and §4.5: opted in, and the school does not appear to keep grades in Canvas.
+        public static func standingNotInCanvasTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "glance.standing.notInCanvas.title", defaultValue: "Grades aren't in Canvas", bundle: #bundle,
+                comment: "Standing widget title when the student's school does not appear to keep grades in Canvas (it uses another grading system).")
+        }
+
+        public static func standingNotInCanvasDetail() -> LocalizedStringResource {
+            LocalizedStringResource("glance.standing.notInCanvas.detail",
+                                    defaultValue: "Your school doesn't appear to post grades there.", bundle: #bundle,
+                                    comment: "Standing widget, under 'Grades aren't in Canvas'. 'There' is Canvas.")
+        }
+    }
 }

@@ -24,7 +24,8 @@ struct HomeProjectorTests {
             DashboardProjection.AttentionItem(id: id, severity: .high, content: .other(title: title, courseCode: "BIO 101"))
         }
         let projection = DashboardProjection(
-            hero: .init(courseCount: 1, overallPercent: nil, overallBand: nil), nextUp: [],
+            hero: .init(courseCount: 1, averagedCount: 0, overallPercent: nil, overallBand: nil, exclusions: [.notYetPosted: 1],
+                         school: .undetermined), nextUp: [],
             needsAttention: [item("missingClosed:1", "first"), item("missingClosed:1", "second"), item("due:9", "third")],
             dueSoon: [], weekAhead: [], changeDigestSummary: nil)
         let unique = HomeProjector.withUniqueAttention(projection).needsAttention

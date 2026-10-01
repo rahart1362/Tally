@@ -128,7 +128,9 @@ struct HomeModelTests {
         func projection(_ generation: UInt64, courseCount: Int) -> HomeProjection {
             HomeProjection(
                 generation: generation,
-                dashboard: DashboardProjection(hero: .init(courseCount: courseCount, overallPercent: nil, overallBand: nil),
+                dashboard: DashboardProjection(hero: .init(courseCount: courseCount, averagedCount: 0, overallPercent: nil,
+                                                           overallBand: nil, exclusions: [.notYetPosted: courseCount],
+                                                           school: .undetermined),
                                                nextUp: [], needsAttention: [], dueSoon: [], weekAhead: [],
                                                changeDigestSummary: nil),
                 studentDisplayName: nil, greeting: .morning, courses: [], events: [], toDo: [],

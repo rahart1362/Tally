@@ -35,7 +35,7 @@
     "packages/TallyAppleKit/Sources/TallyFeatures/ToDo/ToDoProjection.swift": 13,
     "packages/TallyAppleKit/Sources/TallyFeatures/ToDo/ToDoScreen.swift": 14,
     "packages/TallyAppleKit/Sources/TallyFeatures/WelcomeView.swift": 10,
-    "packages/TallyAppleKit/Sources/TallyGlance/GlanceWidgetViews.swift": 24,
+    "packages/TallyAppleKit/Sources/TallyGlance/GlanceWidgetViews.swift": 22,
     "packages/TallyAppleKit/Sources/TallyIntents/RefreshTallyIntent.swift": 3,
     "packages/TallyAppleKit/Sources/TallyPlatform/UNNotificationScheduler.swift": 17
   }
