@@ -93,6 +93,12 @@ jobs:
           fi
       - name: Perf budget checker self-test (scripts/ci/check_perf_budgets.py)
         run: python3 scripts/ci/check_perf_budgets.py --self-test
+      - name: Test code uses DEBUG-only test support only inside #if DEBUG (ios-perf's Release build)
+        # Only ios-perf builds the test targets in Release, and quick and unit runs skip it: PR #23's
+        # run 36922905739 was the first to fail on a test using AccountHarness outside #if DEBUG.
+        run: |
+          python3 scripts/ci/check_debug_only_test_symbols.py --self-test
+          python3 scripts/ci/check_debug_only_test_symbols.py .
       - name: View bodies only read and format (no clock, calendar, sorting, filtering or build calls)
         # perf-app-runtime.md section 3 item 4 and section 7 step 6: projection happens off the
         # main actor (HomeProjector); a body only reads projections and formats them.

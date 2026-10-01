@@ -84,14 +84,18 @@ struct CanvasClientTests {
         #expect(refresher.callCount == 0)
     }
 
-    /// R-1: the budget is now measured on the real clock here, so it goes through `TestTimeBudget`
-    /// (a sanitizer lane can starve this test for seconds; the default is the same 10 s).
+    /// R-1: on a VirtualClock the budget is spent only by the backoff waits, never by how fast the
+    /// machine runs, as in `rateLimitedRetriesThenSucceeds`. On the real clock this test flaked under
+    /// ThreadSanitizer on CI: it threw `.server` after 113 s in main run 36912193987 (and after 108 s
+    /// in XG-03's run 36840188512). With two injected 500s and a 5 ms backoff ceiling, `.server` is
+    /// reachable only when real time has used up the budget (100 s at the sanitizer scale).
     @Test func serverErrorRetriesTwiceThenSucceeds() async throws {
         let transport = try ReplayTransport.persona("flagship")
         await transport.inject(response: try ReplayTransport.errorResponse("500-internal-server-error"), times: 2,
                                matching: { $0.url.path == "/api/v1/users/self/profile" })
-        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff())
-        let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: TestTimeBudget.seconds(10))
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff(),
+                                  rng: SeededRandom(seed: 1), clock: VirtualClock(), wallClock: TestClock())
+        let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: .seconds(5))
         #expect(!data.isEmpty)
     }
 
@@ -105,8 +109,8 @@ struct CanvasClientTests {
         }
     }
 
-    /// R-1: as above, the real-clock budget goes through `TestTimeBudget`. Before R-1 the budget
-    /// was never measured, and under `make core-tsan` this test once took 9.5 s.
+    /// R-1: before R-1 the budget was never measured, and under `make core-tsan` this test once
+    /// took 9.5 s on the real clock. It runs on a VirtualClock now (see inside).
     @Test func rateLimitedRetriesThenSucceeds() async throws {
         let transport = try ReplayTransport.persona("flagship")
         await transport.inject(response: try ReplayTransport.errorResponse("429-rate-limit-exceeded"), times: 2,

@@ -41,3 +41,14 @@ custom_rules:
     excluded: 'TallyPlatform/MainThreadWatchdog\.swift$'
     message: "Shipping code must not trap: return an error or a safe default (plan 06 A6). Only the DEBUG main-thread watchdog may call fatalError."
     severity: error
+  # crash-safety-2.md §8: `Dictionary(uniqueKeysWithValues:)` traps on a repeated key, and six
+  # shipping sites trapped on a repeated Canvas ID. The review removed them all, but no rule kept
+  # them out: XG-04/06 (PR #23) added four more. `match_kinds: identifier` skips comments, such as
+  # DashboardProjection's notes on the old trap.
+  no_unique_keys_with_values:
+    name: "No Dictionary(uniqueKeysWithValues:) in shipping code"
+    regex: 'uniqueKeysWithValues'
+    match_kinds:
+      - identifier
+    message: "Dictionary(uniqueKeysWithValues:) traps on a repeated key (crash-safety-2.md §8). Use Dictionary(_:uniquingKeysWith:) and say which value wins."
+    severity: error
