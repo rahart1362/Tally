@@ -79,7 +79,7 @@ public actor AccountUserStateAccess: UserStateAccess {
             await coordinator.updateDigestThresholds(state.digestThresholds)
             let gradesRewrote = await coordinator.updateIncludeGrades(state.showGradesInGlance)
             let overridesRewrote = await coordinator.updateGradeAvailabilityOverrides(state.gradeAvailabilityOverrides)
-            if gradesRewrote || overridesRewrote { reloadWidgets() }
+            if gradesRewrote { reloadWidgets() }
         }
         return state
     }
