@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import Synchronization
 import SwiftUI
@@ -10,6 +11,10 @@ import TallyTestSupport
 import UIKit
 @testable import TallyFeatures
 
+/// DEBUG only, like every suite that uses `AccountHarness` (`AccountLifecycleTestSupport.swift`): the
+/// Release test build (`make ios-perf`) has neither it nor the test hooks it stamps snapshots with
+/// (PR #23's run 36922905739).
+///
 /// Plan 08 XG-04 (owner decision G-3): "This course's grades are kept outside Canvas: Automatic /
 /// Yes / No" in Course Detail's menu. The answer is stored in `UserState` v5 and reaches every
 /// consumer alike: the screens (`HomeProjector`), the glance and the digest (`RefreshCoordinator`,
@@ -495,3 +500,4 @@ struct OutsideCanvasWhatIfViewTests {
         #expect(!spanishElements.contains { $0.label.hasPrefix("Weight for") }, "\(spanishElements)")
     }
 }
+#endif
