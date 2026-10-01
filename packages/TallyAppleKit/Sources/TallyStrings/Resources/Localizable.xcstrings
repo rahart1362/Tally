@@ -95,7 +95,7 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld change"
+                  "value" : "%lld changes"
                 }
               },
               "other" : {
@@ -260,7 +260,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open Tally to see your standing."
+            "value" : "Open Tally to see how you're doing."
           }
         }
       }

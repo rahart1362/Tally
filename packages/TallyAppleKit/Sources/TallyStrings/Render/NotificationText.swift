@@ -66,7 +66,7 @@ public enum NotificationText {
         let day: String
         switch days {
         case TallyFormat.namedDayOffsets:
-            day = TallyFormat.namedDay(offset: days, locale: locale)
+            day = TallyFormat.namedDay(offset: days, context: .beginningOfSentence, locale: locale)
                 ?? date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated))
         case -window...window:
             day = date.formatted(Date.FormatStyle(locale: locale, timeZone: timeZone).weekday(.abbreviated))
