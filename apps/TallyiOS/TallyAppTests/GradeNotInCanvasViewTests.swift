@@ -194,15 +194,16 @@ struct GradeNotInCanvasViewTests {
           .enabled(if: !TestRuntime.sanitized))
     func heroTree() async throws {
         let snapshot = try await ExternalGrades.snapshot()
-        let model = HomeModel(source: FakeHomeSource(HomeTestSupport.update(nil, generation: 0, freshness: .noCache)))
+        let model = HomeModel(source: OneUpdateHomeSource(snapshot: nil))
 
         let notInCanvas = GradeNotInCanvasHeroTests.hero(ExternalGrades.trimmed(snapshot, keeping: ExternalGrades.noneInCanvas))
         let noneElements = try await AccessibilityTree.elements(
             of: HeroSection(hero: notInCanvas).environment(model).frame(width: 360))
         #expect(!noneElements.contains { $0.label.contains("\u{2014}") || $0.label.lowercased().contains("dash") }, "\(noneElements)")
         #expect(noneElements.contains { $0.label == "Grades aren't in Canvas" }, "\(noneElements)")
-        let noneInfo = try #require(noneElements.first { $0.label == "About grades not in Canvas" }, "\(noneElements)")
-        #expect(noneInfo.traits.contains(.button) && noneInfo.frame.width >= 44 && noneInfo.frame.height >= 44)
+        let noneInfo = noneElements.first { $0.label == "About grades not in Canvas" }
+        #expect(noneInfo?.traits.contains(.button) == true, "\(noneElements)")
+        #expect((noneInfo?.frame.width ?? 0) >= 44 && (noneInfo?.frame.height ?? 0) >= 44)
 
         let mixed = GradeNotInCanvasHeroTests.hero(snapshot)
         let mixedElements = try await AccessibilityTree.elements(of: HeroSection(hero: mixed).environment(model).frame(width: 360))
@@ -210,15 +211,63 @@ struct GradeNotInCanvasViewTests {
         #expect(mixedElements.contains { $0.label == "5 courses not included" }, "\(mixedElements)")
         #expect(mixedElements.contains { $0.label == "About the courses not included" && $0.traits.contains(.button) })
 
+        // The launch's glance has no course rows to list yet: the ⓘ waits, dimmed, for the projection.
+        let glanceElements = try await AccessibilityTree.elements(
+            of: HeroSection(hero: mixed, isGlance: true).environment(model).frame(width: 360))
+        #expect(glanceElements.contains { $0.traits.contains(.button) && $0.traits.contains(.notEnabled) }, "\(glanceElements)")
+
         let flagship = GradeNotInCanvasHeroTests.hero(try await ExternalGrades.snapshot("flagship"))
         let flagshipElements = try await AccessibilityTree.elements(of: HeroSection(hero: flagship).environment(model).frame(width: 360))
         #expect(flagshipElements.contains { $0.label.hasPrefix("Average of 5 courses") }, "\(flagshipElements)")
         #expect(!flagshipElements.contains { $0.label.contains("not included") || $0.label.contains("in Canvas") },
                 "\(flagshipElements)")
     }
+
+    @Test("The Courses list: one element per card, whose ⓘ is its VoiceOver action", .enabled(if: !TestRuntime.sanitized))
+    func coursesActionTree() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let model = HomeModel(source: OneUpdateHomeSource(snapshot: snapshot))
+        await model.start()
+        let deadline = ContinuousClock.now + .seconds(30)
+        while !(model.phase == .loaded && model.courseCards.count == 6), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(model.phase == .loaded && model.courseCards.count == 6)
+        let elements = try await AccessibilityTree.elements(of: NavigationStack { CoursesScreen() }.environment(model)) {
+            $0.contains { $0.label.hasPrefix("English 10, ENG-10") } && $0.contains { $0.label.hasPrefix("Spanish 2, SPAN-2") }
+        }
+        let english = try #require(elements.first { $0.label.hasPrefix("English 10, ENG-10, Grade not in Canvas") }, "\(elements)")
+        #expect(english.actions.contains("About grades for ENG-10"), "\(english.actions)")
+        let spanish = try #require(elements.first { $0.label.hasPrefix("Spanish 2, SPAN-2") }, "\(elements)")
+        #expect(!spanish.actions.contains { $0.hasPrefix("About grades") }, "\(spanish.actions)")
+        await model.end()
+    }
 }
 
-nonisolated enum TestRuntime {
+/// A Home source holding one update: enough for a hosted screen in the accessibility-tree tests.
+/// A class of its own rather than `HomeModelTests`' `FakeHomeSource` actor: with this file using
+/// that actor, Xcode 26.6 rejected the actor's declaration ("'nonisolated' modifier cannot be
+/// applied", CI run 36835966232), which compiled before; the cause was not isolated.
+final class OneUpdateHomeSource: HomeDataSource {
+    let update: HomeUpdate
+
+    init(snapshot: CanvasSnapshot?) {
+        update = HomeUpdate(generation: snapshot == nil ? 0 : 1, snapshot: snapshot, digest: nil, digestAsOf: nil,
+                            freshness: snapshot == nil ? .noCache : .fresh(at: ExternalGrades.anchor))
+    }
+
+    func updates() async -> AsyncStream<HomeUpdate> {
+        let (stream, continuation) = AsyncStream<HomeUpdate>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        continuation.yield(update)
+        return stream
+    }
+
+    func refresh(_ trigger: RefreshTrigger) async {}
+
+    func end() async {}
+}
+
+enum TestRuntime {
     /// Under ThreadSanitizer or AddressSanitizer. The accessibility-tree tests are skipped there:
     /// those runs gain nothing from turning the accessibility runtime on, and only risk reports
     /// from its threads.
@@ -237,7 +286,9 @@ enum AccessibilityTree {
         let label: String
         let traits: UIAccessibilityTraits
         let frame: CGRect
-        var description: String { "\(label) [\(traits.rawValue)] \(frame.size)" }
+        /// The element's custom actions (VoiceOver's rotor "Actions").
+        let actions: [String]
+        var description: String { "\(label) [\(traits.rawValue)] \(frame.size) \(actions)" }
     }
 
     struct Unavailable: Error, CustomStringConvertible {
@@ -247,7 +298,8 @@ enum AccessibilityTree {
     private typealias AutomationEnabled = @convention(c) () -> Int32
     private typealias SetAutomationEnabled = @convention(c) (Int32) -> Void
 
-    static func elements(of view: some View) async throws -> [Element] {
+    /// Polls (up to 3 s) until `ready` holds for the elements found, and returns them.
+    static func elements(of view: some View, until ready: ([Element]) -> Bool = { !$0.isEmpty }) async throws -> [Element] {
         guard let library = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
               let getter = dlsym(library, "_AXSAutomationEnabled"),
               let setter = dlsym(library, "_AXSSetAutomationEnabled") else {
@@ -267,12 +319,12 @@ enum AccessibilityTree {
         defer { window.isHidden = true }
         host.view.layoutIfNeeded()
 
-        // The tree is built after the first render; poll briefly until it has elements.
+        // The tree is built after the first render; poll briefly until it is ready.
         var found: [Element] = []
-        for _ in 0..<40 {
+        for _ in 0..<60 {
             try await Task.sleep(for: .milliseconds(50))
             found = walk(host.view)
-            if !found.isEmpty { break }
+            if ready(found) { break }
         }
         guard !found.isEmpty else { throw Unavailable(description: "the hosted view exposed no accessibility elements") }
         return found
@@ -284,7 +336,8 @@ enum AccessibilityTree {
             guard depth < 64 else { return }
             if object.isAccessibilityElement {
                 out.append(Element(label: object.accessibilityLabel ?? "", traits: object.accessibilityTraits,
-                                   frame: object.accessibilityFrame))
+                                   frame: object.accessibilityFrame,
+                                   actions: (object.accessibilityCustomActions ?? []).map(\.name)))
                 return
             }
             if let children = object.accessibilityElements as? [NSObject], !children.isEmpty {

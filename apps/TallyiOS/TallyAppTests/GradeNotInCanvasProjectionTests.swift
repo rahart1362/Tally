@@ -105,8 +105,13 @@ struct GradeNotInCanvasCardTests {
         #expect(CourseHealth.gradeNotInCanvas.label == "Grade not in Canvas")
         #expect(CourseHealth.gradeNotInCanvas.symbol == "minus.circle")
         #expect(CourseHealth.allCases.filter(\.isSaidByTheGrade) == [.noGradeYet, .gradeNotInCanvas])
+        // A caller without an index gets the same answer: the rules classify the course themselves.
+        let snapshot = try await ExternalGrades.snapshot()
+        let algebra = try #require(snapshot.courses.first { $0.courseCode == "ALG2" })
+        #expect(CourseHealthRules.evaluate(course: algebra, groups: snapshot.groups[algebra.id] ?? [], gradingPeriods: [],
+                                           formatter: ExternalGrades.formatter()).health == .gradeNotInCanvas)
         // Missing work still counts: three days on, ENG-10's open missing items make it at risk.
-        let later = CourseCardBuilder.cards(from: try await ExternalGrades.snapshot(),
+        let later = CourseCardBuilder.cards(from: snapshot,
                                             formatter: ExternalGrades.formatter(now: ExternalGrades.anchor.addingTimeInterval(3 * 86_400)))
         #expect(later.first { $0.code == "ENG-10" }?.health == .atRisk)
     }
