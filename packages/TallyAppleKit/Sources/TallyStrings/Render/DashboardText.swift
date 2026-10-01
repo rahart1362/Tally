@@ -75,10 +75,10 @@ public enum DashboardText {
         case .dueInMinutes(let minutes): resolve(Key.dueInMinutes(minutes), locale)
         case .dueInHours(let hours): resolve(Key.dueInHours(hours), locale)
         case .overdue: resolve(Key.overdue(), locale)
-        case .stillAccepted: resolve(Key.courseBelowGoal(), locale)
+        case .stillAccepted: resolve(Key.stillAccepted(), locale)
         case .courseWeightPercent(let percent):
             // A whole number already (`reasonPart` rounds it); the locale places the sign.
-            resolve(Key.courseWeight("\(percent)%", courseCode), locale)
+            resolve(Key.courseWeight(TallyFormat.percent(Double(percent), fractionDigits: 0, locale: locale), courseCode), locale)
         case .courseBelowGoal: resolve(Key.courseBelowGoal(), locale)
         case .nearBoundary: resolve(Key.nearBoundary(), locale)
         case .noDueDate: resolve(Key.noDueDate(), locale)
