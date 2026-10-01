@@ -493,9 +493,10 @@ extension L10n.CourseDetail {
                                 comment: "The what-if sheet's toolbar button that clears every hypothetical score and weight.")
     }
 
-    /// The placeholder is an already-localized weight phrase, such as "30% of grade" or "Points-based".
-    public static func whatIfGroupHeader(_ weightText: String) -> LocalizedStringResource {
-        LocalizedStringResource("courseDetail.whatIf.groupHeader", defaultValue: "\u{2026} \u{b7} \(weightText)", bundle: #bundle,
+    /// 1: the category's name, from Canvas (data, never translated). 2: an already-localized weight
+    /// phrase, such as "30% of grade" or "Points-based".
+    public static func whatIfGroupHeader(_ name: String, _ weightText: String) -> LocalizedStringResource {
+        LocalizedStringResource("courseDetail.whatIf.groupHeader", defaultValue: "\(name) \u{b7} \(weightText)", bundle: #bundle,
                                 comment: "The what-if sheet's section header for a category of items.")
     }
 

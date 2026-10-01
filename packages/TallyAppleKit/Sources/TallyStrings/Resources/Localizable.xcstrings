@@ -452,7 +452,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Class range …–…, average …. You: …."
+            "value" : "Class range %1$@–%2$@, average %3$@. You: %4$@."
           }
         }
       }
@@ -476,7 +476,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "…, …, posted …"
+            "value" : "%1$@, %2$@, posted %3$@"
           }
         }
       }
@@ -680,7 +680,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Posted …"
+            "value" : "Posted %@"
           }
         }
       }
@@ -704,7 +704,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… out of …"
+            "value" : "%1$@ out of %2$@"
           }
         }
       }
@@ -848,7 +848,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… of grade"
+            "value" : "%@ of grade"
           }
         }
       }
@@ -1004,7 +1004,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Any score reaches …."
+            "value" : "Any score reaches %@."
           }
         }
       }
@@ -1064,7 +1064,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "…/… or more"
+            "value" : "%1$@/%2$@ or more"
           }
         }
       }
@@ -1076,7 +1076,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Target: …"
+            "value" : "Target: %@"
           }
         }
       }
@@ -1088,7 +1088,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not reachable, even with …/…."
+            "value" : "Not reachable, even with %1$@/%2$@."
           }
         }
       }
@@ -1112,7 +1112,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… · …"
+            "value" : "%1$@ · %2$@"
           }
         }
       }
@@ -1148,7 +1148,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lower … by 1 point"
+            "value" : "Lower %@ by 1 point"
           }
         }
       }
@@ -1196,7 +1196,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Projected … percent"
+            "value" : "Projected %@ percent"
           }
         }
       }
@@ -1208,7 +1208,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Projected … percent, down … points from your current … percent"
+            "value" : "Projected %1$@ percent, down %2$@ points from your current %3$@ percent"
           }
         }
       }
@@ -1220,7 +1220,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Projected … percent, the same as your current grade"
+            "value" : "Projected %@ percent, the same as your current grade"
           }
         }
       }
@@ -1232,7 +1232,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Projected … percent, up … points from your current … percent"
+            "value" : "Projected %1$@ percent, up %2$@ points from your current %3$@ percent"
           }
         }
       }
@@ -1244,7 +1244,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set … to … percent"
+            "value" : "Set %1$@ to %2$lld percent"
           }
         }
       }
@@ -1256,7 +1256,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raise … by 1 point"
+            "value" : "Raise %@ by 1 point"
           }
         }
       }
@@ -1280,7 +1280,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Score for …, …"
+            "value" : "Score for %1$@, %2$@"
           }
         }
       }
@@ -1316,7 +1316,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Score for …"
+            "value" : "Score for %@"
           }
         }
       }
@@ -1376,7 +1376,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Next: … · …"
+            "value" : "Next: %1$@ · %2$@"
           }
         }
       }
@@ -1388,7 +1388,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "next …, …"
+            "value" : "next %1$@, %2$@"
           }
         }
       }
@@ -1460,7 +1460,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… at …"
+            "value" : "%1$@ at %2$@"
           }
         }
       }
@@ -1472,7 +1472,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Due … at …"
+            "value" : "Due %1$@ at %2$@"
           }
         }
       }
@@ -1484,7 +1484,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Due …"
+            "value" : "Due %@"
           }
         }
       }
@@ -1496,7 +1496,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… minus"
+            "value" : "%@ minus"
           }
         }
       }
@@ -1508,7 +1508,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… plus"
+            "value" : "%@ plus"
           }
         }
       }
@@ -1520,7 +1520,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Was due …"
+            "value" : "Was due %@"
           }
         }
       }
@@ -1532,7 +1532,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… the … cutoff"
+            "value" : "%1$@ the %2$@ cutoff"
           }
         }
       }
@@ -1544,7 +1544,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… your … goal"
+            "value" : "%1$@ your %2$@ goal"
           }
         }
       }
@@ -1568,7 +1568,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Below your … goal"
+            "value" : "Below your %@ goal"
           }
         }
       }
@@ -1595,13 +1595,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "… missing item is still accepted"
+                  "value" : "%lld missing item is still accepted"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "… missing items are still accepted"
+                  "value" : "%lld missing items are still accepted"
                 }
               }
             }
@@ -1652,7 +1652,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… points above"
+            "value" : "%@ points above"
           }
         }
       }
@@ -1841,7 +1841,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "… changes"
+                  "value" : "%lld changes"
                 }
               }
             }
@@ -1916,7 +1916,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Good …, …"
+            "value" : "Good %1$@, %2$@"
           }
         }
       }
@@ -2300,7 +2300,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "…, loading"
+            "value" : "%@, loading"
           }
         }
       }
@@ -2864,7 +2864,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… of … past-due assignments were submitted on time."
+            "value" : "%1$lld of %2$lld past-due assignments were submitted on time."
           }
         }
       }
@@ -2876,7 +2876,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… on time this term"
+            "value" : "%@ on time this term"
           }
         }
       }
@@ -2936,7 +2936,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Across … courses."
+            "value" : "Across %lld courses."
           }
         }
       }
@@ -2972,7 +2972,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… items due …"
+            "value" : "%1$lld items due %2$@"
           }
         }
       }
@@ -3104,7 +3104,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "… percent"
+            "value" : "%@ percent"
           }
         }
       }
@@ -3125,7 +3125,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "…-day streak"
+                  "value" : "%lld-day streak"
                 }
               }
             }
@@ -3344,7 +3344,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Down from … to … …"
+            "value" : "Down from %1$@ to %2$@ %3$@"
           }
         }
       }
@@ -3356,7 +3356,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Steady at … …"
+            "value" : "Steady at %1$@ %2$@"
           }
         }
       }
@@ -3368,7 +3368,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Up from … to … …"
+            "value" : "Up from %1$@ to %2$@ %3$@"
           }
         }
       }
@@ -5576,7 +5576,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mark … done"
+            "value" : "Mark %@ done"
           }
         }
       }
@@ -5600,7 +5600,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Marked done. Mark … not done"
+            "value" : "Marked done. Mark %@ not done"
           }
         }
       }
@@ -5864,7 +5864,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Still accepted until …"
+            "value" : "Still accepted until %@"
           }
         }
       }

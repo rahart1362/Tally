@@ -38,7 +38,7 @@ struct WhatIfSheet: View {
                         if model.setup.estimate != nil {
                             Text(verbatim: group.name)
                         } else {
-                            Text(L10n.CourseDetail.whatIfGroupHeader(group.weightText))
+                            Text(L10n.CourseDetail.whatIfGroupHeader(group.name, group.weightText))
                         }
                     }
                 }
