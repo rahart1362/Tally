@@ -795,3 +795,20 @@ Nine planted faults in one pushed commit (`.build-perf-launch/ci_mutations.py`),
 - `RemindersTests` and every UI test.
 
 Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 347 total, 343 passed, 2 failed, 2 expected. The 2 expectations are corrected in the next commit.
+
+## 2026-10-01 | L10N-02: CI mutation run (HM1-HM5), the log fix, HM5 again
+**Mutation run 36798377151** (`fe713dc`, quick; reverted in `4bb4ab8`; the three files are back to their sha256 per `.build-l10n02/ci_mutations.py verify`: catalog `400db912…`, `DashboardText.swift` `da3679e2…`, `NotificationText.swift` `04abdc96…`; the reverted tree equals `aa88d0f`).
+- Hygiene failed on HM1 alone. The catalog checker reported "the defaultValue for 'notification.belowGoal.body' is 'Open Tally to see your standing.', but the catalog's English is \"Open Tally to see how you're doing.\"". Every other hygiene step passed.
+- ios-build: main xcresult 377 total, 361 passed, **10 failed**, 4 skipped, 2 expected. Every UI test passed. The 10 failed tests:
+  - `notificationGoldens`: HM1 on both belowGoal rows; HM3 "Due Today at 6:00 PM.", "Due Tomorrow at 9:00 AM.", "since Yesterday at 2:14 PM".
+  - `dashboardGoldens`: HM2 "Overdue · near a grade boundary · course below your goal"; HM4 "1 changes since 2:13 PM".
+  - `reminderSweep`, all 4 personas: HM3 "Due Tomorrow at …"; HM1 "Open Tally to see how you're doing.", 37 times in the log.
+  - `dashboardSweep`, all 5 personas: HM2.
+  - `everyKeyResolves`: HM1.
+  - `britishEnglish` and `germanRegionEnglishUI`: HM3 "Due Today at 18:00.".
+  - `reasonAndChipGrids`.
+  - The existing `RemindersTests` `dayTimeWords` ("Today at 12:13 PM") and `emptyDigestsAreDropped` (sentinel prefix): both HM3.
+- Linux jobs: green.
+- **A log problem:** Swift Testing printed each sweep's whole mismatch array (lines of 7-16 kB), and the job log then lacks the console issues of 4 tests and the floor run's summary. HM5 shows only through the first issue of `germanRegionEnglishUI`, which is HM3's, so it is not attributed. The fix (`c2c62a0`) makes the sweep expectations compare a count.
+
+**HM5 alone, run 36801207636** (`64beccc`, quick, on the fix; reverted in `dc97154`; `DashboardText.swift` back to `da3679e2…`, tree equal to `c2c62a0`): result in the next entry.
