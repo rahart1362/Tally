@@ -36,7 +36,7 @@ struct WidgetIntentsTests {
                       submitted: false)
     }
 
-    private static func glance(asOf: Date = date(6, 8, 30), _ items: [GlanceDueItem]) -> GlanceReadResult {
+    private static func glance(asOf: Date = WidgetIntentsTests.date(6, 8, 30), _ items: [GlanceDueItem]) -> GlanceReadResult {
         .loaded(GlanceProjection(generation: 1, asOf: asOf, gradeSummary: .band(.aRange), courses: [], dueSoon: items))
     }
 
