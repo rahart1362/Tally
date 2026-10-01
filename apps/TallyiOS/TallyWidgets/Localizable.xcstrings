@@ -1,6 +1,102 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "control.nextUp.description" : {
+      "comment" : "Controls gallery: the description of the Next Up control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens Tally to what's due next."
+          }
+        }
+      }
+    },
+    "control.nextUp.displayName" : {
+      "comment" : "Controls gallery and the control's label: opens Tally to what is due next.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Up"
+          }
+        }
+      }
+    },
+    "control.refresh.description" : {
+      "comment" : "Controls gallery: the description of the Refresh Tally control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshes Tally's saved Canvas data."
+          }
+        }
+      }
+    },
+    "control.refresh.displayName" : {
+      "comment" : "Controls gallery and the control's label: refreshes Tally's saved Canvas data. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Tally"
+          }
+        }
+      }
+    },
+    "widget.dueSoon.description" : {
+      "comment" : "Widget gallery: the description of the Due Soon widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your next three assignments."
+          }
+        }
+      }
+    },
+    "widget.dueSoon.displayName" : {
+      "comment" : "Widget gallery: the name of the widget that lists the next three assignments due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Soon"
+          }
+        }
+      }
+    },
+    "widget.dueToday.description" : {
+      "comment" : "Widget gallery: the description of the Due Today Lock Screen widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many assignments are still due today."
+          }
+        }
+      }
+    },
+    "widget.dueToday.displayName" : {
+      "comment" : "Widget gallery: the name of the Lock Screen widget that counts the assignments due today.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Today"
+          }
+        }
+      }
+    },
     "widget.nextUp.description" : {
       "comment" : "Widget gallery: the description of the Next Up widget.",
       "extractionState" : "manual",
@@ -45,6 +141,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Standing"
+          }
+        }
+      }
+    },
+    "widget.weekAhead.description" : {
+      "comment" : "Widget gallery: the description of the Week Ahead widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's due each day this week, and what's next."
+          }
+        }
+      }
+    },
+    "widget.weekAhead.displayName" : {
+      "comment" : "Widget gallery: the name of the widget that shows the next seven days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week Ahead"
           }
         }
       }

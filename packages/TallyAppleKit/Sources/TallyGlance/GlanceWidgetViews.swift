@@ -5,16 +5,33 @@ import TallyStore
 import TallyStrings
 import WidgetKit
 
-/// The widget kinds, for `WidgetCenter.reloadTimelines(ofKind:)`.
+/// The widget kinds, for `WidgetCenter.reloadTimelines(ofKind:)`. A kind is a placed widget's
+/// identity: never rename one (FAM-11 adds a configuration parameter, not a kind).
 public enum GlanceWidgetKind {
-    /// "Next up". WP-E01's placeholder widget used this kind string, so a widget already placed on a
-    /// Home Screen carries over.
+    /// "Next up": Home small, and the Lock Screen's rectangular and inline accessories. WP-E01's
+    /// placeholder widget used this kind string, so a widget already placed carries over.
     public static let nextUp = "TallyGlanceWidget"
+    /// "Standing" (opt-in grades): Home small and medium.
     public static let standing = "TallyStandingWidget"
+    /// "Due soon": Home medium.
+    public static let dueSoon = "TallyDueSoonWidget"
+    /// "Week ahead": Home large.
+    public static let weekAhead = "TallyWeekAheadWidget"
+    /// "Due today": the Lock Screen's circular gauge.
+    public static let dueToday = "TallyDueTodayWidget"
+
+    public static let all = [nextUp, standing, dueSoon, weekAhead, dueToday]
 }
 
-/// "Next up" (insights-at-a-glance.md §1.5, Home small): the next open item's title, course code
-/// and due time, and how many more are coming or overdue. It never shows a grade.
+/// The Control Center controls' kinds (integrations.md §2.5).
+public enum GlanceControlKind {
+    public static let refresh = "TallyRefreshControl"
+    public static let nextUp = "TallyNextUpControl"
+}
+
+/// "Next up" (insights-at-a-glance.md §1.5, Home small; StandBy shows it too): the next open
+/// item's title, course code and due time, and how many more are coming or overdue. It never shows
+/// a grade.
 public struct NextUpWidgetView: View {
     private let entry: GlanceEntry
 
@@ -23,8 +40,7 @@ public struct NextUpWidgetView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: TallySpacing.xs) {
-            GlanceHeader(title: "Next up")
+        GlanceHomeLayout(title: L10n.Widgets.headerNextUp()) {
             switch entry.content {
             case .placeholder:
                 GlancePlaceholderLines()
@@ -34,109 +50,76 @@ public struct NextUpWidgetView: View {
                 NextUpSummaryView(summary: summary)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .containerBackground(TallyColor.bgBrand, for: .widget)
     }
 }
 
-/// "Standing" (insights-at-a-glance.md §1.5, Home small, opt-in): the overall grade band. The
-/// glance carries a band only when the user chose to show grades in widgets (PMO R10,
-/// `UserState.showGradesInGlance`), and the band is privacy-sensitive: hidden while the iPhone is
-/// locked (`GradeBandBadge`). Without a band it says why (plan 08 §4.4 row 14): grades not shown
-/// in widgets, no grades yet, or grades not kept in Canvas (`GlanceText.standingMessage`).
+/// "Standing" (insights-at-a-glance.md §1.5, opt-in): the overall grade band, with the Dashboard
+/// hero's caption ("Average of 3 courses", "2 courses not included"); the medium size adds a row
+/// per course, "—" for a course whose grades are not in Canvas (plan 08 XG-02). The glance carries
+/// grades only when the user chose to show them in widgets (PMO R10, `UserState.showGradesInGlance`),
+/// and every grade is privacy-sensitive: hidden while the iPhone is locked (`GradeBandBadge`).
+/// Without a band it says why (plan 08 §4.4 row 14).
 public struct StandingWidgetView: View {
     private let entry: GlanceEntry
+    private let family: WidgetFamily
+    @Environment(\.redactionReasons) private var redactionReasons
 
-    public init(entry: GlanceEntry) {
+    /// `family` comes from the widget's environment (`StandingFamilyView`); tests pass it.
+    public init(entry: GlanceEntry, family: WidgetFamily = .systemSmall) {
         self.entry = entry
+        self.family = family
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: TallySpacing.xs) {
-            GlanceHeader(title: "Standing")
+        GlanceHomeLayout(title: L10n.Widgets.headerStanding()) {
             switch entry.content {
             case .placeholder:
                 GlancePlaceholderLines()
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
-                StandingSummaryView(summary: summary)
+                if family == .systemMedium, !redactionReasons.contains(.privacy), !summary.courses.isEmpty {
+                    HStack(alignment: .top, spacing: TallySpacing.md) {
+                        StandingSummaryView(summary: summary)
+                        StandingCourseRows(courses: summary.courses)
+                    }
+                } else {
+                    StandingSummaryView(summary: summary)
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .containerBackground(TallyColor.bgBrand, for: .widget)
     }
 }
 
-/// The one grade any widget shows. PMO R10: grades are opt-in (the glance has none otherwise) and
-/// redacted while the iPhone is locked. Two layers: when the environment carries the `.privacy`
+/// The one grade band a widget shows. PMO R10: grades are opt-in (the glance has none otherwise)
+/// and redacted while the iPhone is locked. Two layers: when the environment carries the `.privacy`
 /// redaction reason (WidgetKit's locked rendering), the band is not drawn at all and a fixed,
 /// readable "Hidden while locked" line takes its place, the same for every band; and the band text
 /// itself is `.privacySensitive()`, so WidgetKit's own redaction also hides it.
 struct GradeBandBadge: View {
     let band: GradeBand
     @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         Group {
             if redactionReasons.contains(.privacy) {
-                Label("Hidden while locked", systemImage: "lock.fill")
-                    .font(TallyTypography.subheadline.weight(.semibold))
+                Label {
+                    Text(verbatim: GlanceText.resolve(L10n.Widgets.hiddenWhileLocked(), TallyLocale.effective))
+                } icon: {
+                    Image(systemName: "lock.fill")
+                }
+                .font(TallyTypography.subheadline.weight(.semibold))
             } else {
-                Text(GlanceText.bandLabel(band))
+                Text(verbatim: GlanceText.bandLabel(band))
                     .font(TallyTypography.screenTitle)
                     .minimumScaleFactor(GlanceMetrics.bandMinimumScale)
                     .lineLimit(1)
                     .privacySensitive()
+                    .widgetAccentable()
             }
         }
-        .foregroundStyle(TallyColor.textOnHero)
-    }
-}
-
-/// Copy, as pure functions, so tests can check it without rendering.
-enum GlanceText {
-    static func bandLabel(_ band: GradeBand) -> String {
-        switch band {
-        case .aRange: "A range"
-        case .bRange: "B range"
-        case .cRange: "C range"
-        case .dRange: "D range"
-        case .fRange: "F range"
-        case .passing: "Passing"
-        case .failing: "Not passing"
-        case .unknown: "No grade"
-        }
-    }
-
-    /// What the Standing widget says when it has no band to show (plan 08 §4.4 row 14), or nil
-    /// when it has one. "Choose to show grades" only when the student has not opted in: an
-    /// opted-in student with no band is told why instead.
-    static func standingMessage(_ grades: GlanceGradeSummary) -> (title: LocalizedStringResource, detail: LocalizedStringResource)? {
-        switch grades {
-        case .band:
-            return nil
-        case .notOptedIn:
-            return (title: L10n.Glance.standingHiddenTitle(), detail: L10n.Glance.standingHiddenDetail())
-        case .noneYet:
-            return (title: L10n.Glance.standingNoneYetTitle(), detail: L10n.Glance.standingNoneYetDetail())
-        case .notInCanvas:
-            return (title: L10n.Glance.standingNotInCanvasTitle(), detail: L10n.Glance.standingNotInCanvasDetail())
-        }
-    }
-
-    static func message(_ message: GlanceMessage) -> String {
-        switch message {
-        case .signedOut, .unavailable: "Open Tally to see what's due."
-        case .waitingForFirstSync: "Open Tally to update."
-        case .locked: "Unlock your iPhone to see what's next."
-        }
-    }
-
-    /// "+2 more · 1 overdue"; `nil` when both are zero.
-    static func counts(later: Int, overdue: Int) -> String? {
-        let parts = [later > 0 ? "+\(later) more" : nil, overdue > 0 ? "\(overdue) overdue" : nil].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        .foregroundStyle(GlanceStyle(renderingMode).primary)
     }
 }
 
@@ -148,137 +131,229 @@ enum GlanceMetrics {
     /// The placeholder's bars, as fractions of the widget's width, and how strongly they show.
     static let placeholderWidths: [CGFloat] = [0.9, 0.6, 0.75]
     static let placeholderOpacity = 0.35
+    /// "Due soon" lists this many items (insights-at-a-glance.md §1.5: "3 items").
+    static let dueSoonRows = 3
+    /// "Week ahead" lists this many items under its strip ("top 5 items").
+    static let weekAheadRows = 5
+    /// The medium Standing widget lists at most this many courses.
+    static let standingCourseRows = 4
+    static let dayCountMinimumScale: CGFloat = 0.7
+    /// The gap between a week-strip column's weekday, count and "Busy" lines.
+    static let dayColumnSpacing: CGFloat = 2
+    /// How far a Lock Screen accessory's text may shrink to fit before it truncates.
+    static let accessoryMinimumScale: CGFloat = 0.6
+}
+
+/// The widgets' foreground styles per rendering mode (integrations.md §2.2, UX-WP-38). In full
+/// colour, the brand palette; where the system tints the widget (accented on a tinted or clear Home
+/// Screen and in StandBy, vibrant on the Lock Screen) it keeps only each view's opacity, so the
+/// hierarchical styles carry the emphasis there, and words and codes carry the meaning: no colour
+/// alone ever does.
+struct GlanceStyle {
+    let mode: WidgetRenderingMode
+
+    init(_ mode: WidgetRenderingMode) {
+        self.mode = mode
+    }
+
+    private var isFullColor: Bool { mode == .fullColor }
+
+    var primary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero) : AnyShapeStyle(.primary) }
+    var secondary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero2) : AnyShapeStyle(.secondary) }
+    /// The due line and the busy marker: gold in full colour, plain emphasis otherwise.
+    var accent: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.brandGold) : AnyShapeStyle(.primary) }
+}
+
+/// The Home widgets' frame: the T-mark header, the content, and the brand background, which the
+/// system removes in StandBy and on a tinted or clear Home Screen (keep it a container background).
+struct GlanceHomeLayout<Content: View>: View {
+    let title: LocalizedStringResource
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.xs) {
+            GlanceHeader(title: title)
+            content
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .containerBackground(TallyColor.bgBrand, for: .widget)
+    }
 }
 
 private struct GlanceHeader: View {
-    let title: LocalizedStringKey
+    let title: LocalizedStringResource
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         HStack(spacing: TallySpacing.xs) {
             TMark(size: GlanceMetrics.headerMarkSize)
-            Text(title)
+                .widgetAccentable()
+            Text(verbatim: GlanceText.resolve(title, TallyLocale.effective))
                 .font(TallyTypography.caption.weight(.semibold))
                 .textCase(.uppercase)
-                .foregroundStyle(TallyColor.textOnHero2)
+                .foregroundStyle(GlanceStyle(renderingMode).secondary)
         }
     }
 }
 
 private struct NextUpSummaryView: View {
     let summary: GlanceSummary
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
+        let style = GlanceStyle(renderingMode)
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
             if let item = summary.nextUp {
-                Text(item.title)
+                Text(verbatim: GlanceText.title(item, hidesNames: summary.hidesCourseNames))
                     .font(TallyTypography.cardTitle)
-                    .foregroundStyle(TallyColor.textOnHero)
+                    .foregroundStyle(style.primary)
                     .lineLimit(GlanceMetrics.titleLineLimit)
-                if let code = item.courseCode {
-                    Text(code)
+                    .widgetAccentable()
+                if let code = GlanceText.courseCode(item, hidesNames: summary.hidesCourseNames) {
+                    Text(verbatim: code)
                         .font(TallyTypography.caption)
-                        .foregroundStyle(TallyColor.textOnHero2)
+                        .foregroundStyle(style.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                DueLine(item: item)
+                GlanceDueLine(item: item)
             } else {
-                Text("Nothing to do right now")
+                Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingNow(), TallyLocale.effective))
                     .font(TallyTypography.cardTitle)
-                    .foregroundStyle(TallyColor.textOnHero)
+                    .foregroundStyle(style.primary)
                 Spacer(minLength: 0)
             }
-            GlanceFooter(summary: summary, counts: GlanceText.counts(later: summary.laterCount, overdue: summary.overdueCount))
+            GlanceFooter(summary: summary, shown: 1)
         }
     }
 }
 
 private struct StandingSummaryView: View {
     let summary: GlanceSummary
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
+        let style = GlanceStyle(renderingMode)
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
             if let band = summary.standing {
                 Spacer(minLength: 0)
                 GradeBandBadge(band: band)
-                Text("Average of your courses")
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textOnHero2)
+                ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
+                    Text(verbatim: caption)
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(style.secondary)
+                        .lineLimit(1)
+                }
             } else if let message = GlanceText.standingMessage(summary.grades) {
+                if summary.grades == .notInCanvas {
+                    // Plan 08 §4.5: the dash, then the caption.
+                    Text(verbatim: GlanceText.dash)
+                        .font(TallyTypography.screenTitle)
+                        .foregroundStyle(style.primary)
+                }
                 Text(message.title)
                     .font(TallyTypography.cardTitle)
-                    .foregroundStyle(TallyColor.textOnHero)
+                    .foregroundStyle(style.primary)
                 Text(message.detail)
                     .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textOnHero2)
+                    .foregroundStyle(style.secondary)
             }
             Spacer(minLength: 0)
-            GlanceFooter(summary: summary, counts: nil)
+            GlanceFooter(summary: summary, shown: nil)
         }
+    }
+}
+
+/// The medium Standing widget's course rows: the course code, then its band or "—" with why.
+/// Drawn only while the widget is not redacted for privacy (`StandingWidgetView`); each band is
+/// privacy-sensitive as well.
+private struct StandingCourseRows: View {
+    let courses: [GlanceSummary.CourseStanding]
+    @Environment(\.widgetRenderingMode) private var renderingMode
+
+    var body: some View {
+        let style = GlanceStyle(renderingMode)
+        VStack(alignment: .leading, spacing: TallySpacing.xs) {
+            ForEach(courses.prefix(GlanceMetrics.standingCourseRows)) { course in
+                let value = GlanceText.courseValue(course.value)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: TallySpacing.xs) {
+                        Text(verbatim: course.code)
+                            .font(TallyTypography.caption.weight(.semibold))
+                            .foregroundStyle(style.secondary)
+                            .lineLimit(1)
+                        Spacer(minLength: TallySpacing.xs)
+                        Text(verbatim: value.value)
+                            .font(TallyTypography.caption.weight(.semibold))
+                            .foregroundStyle(style.primary)
+                            .lineLimit(1)
+                            .privacySensitive()
+                    }
+                    if let caption = value.caption {
+                        Text(verbatim: caption)
+                            .font(TallyTypography.caption)
+                            .foregroundStyle(style.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
 /// "Due today, 6:00 PM", "Due tomorrow, 6:00 PM", "Due Tuesday, 6:00 PM" or "Due Oct 14", in the
 /// user's locale. The day was worked out for this entry's date (`GlanceTimelinePlanner`).
-private struct DueLine: View {
+struct GlanceDueLine: View {
     let item: GlanceSummary.Item
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
-        Group {
-            switch item.day {
-            case .today:
-                Text("Due today, \(item.dueAt, format: .dateTime.hour().minute())")
-            case .tomorrow:
-                Text("Due tomorrow, \(item.dueAt, format: .dateTime.hour().minute())")
-            case .thisWeek:
-                Text("Due \(item.dueAt, format: .dateTime.weekday(.wide)), \(item.dueAt, format: .dateTime.hour().minute())")
-            case .later:
-                Text("Due \(item.dueAt, format: .dateTime.month(.abbreviated).day())")
-            }
-        }
-        .font(TallyTypography.footnote.weight(.semibold))
-        .foregroundStyle(TallyColor.brandGold)
-        .lineLimit(1)
+        Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent))
+            .font(TallyTypography.footnote.weight(.semibold))
+            .foregroundStyle(GlanceStyle(renderingMode).accent)
+            .lineLimit(1)
     }
 }
 
 /// The glance's age once it is stale ("As of 2:14 PM", with the weekday when it is from an earlier
-/// day: insights-at-a-glance.md §1.5), otherwise the counts, if any.
-private struct GlanceFooter: View {
+/// day: insights-at-a-glance.md §1.5), otherwise the counts after the `shown` items, if any
+/// (`shown` nil: no counts, as on the Standing widget).
+struct GlanceFooter: View {
     let summary: GlanceSummary
-    let counts: String?
+    let shown: Int?
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
-        Group {
-            if summary.isStale {
-                if summary.asOfIsBeforeToday {
-                    Text("As of \(summary.asOf, format: .dateTime.weekday(.abbreviated).hour().minute())")
-                } else {
-                    Text("As of \(summary.asOf, format: .dateTime.hour().minute())")
-                }
-            } else if let counts {
-                Text(counts)
-            }
+        if let text = footerText {
+            Text(verbatim: text)
+                .font(TallyTypography.caption)
+                .foregroundStyle(GlanceStyle(renderingMode).secondary)
+                .lineLimit(1)
         }
-        .font(TallyTypography.caption)
-        .foregroundStyle(TallyColor.textOnHero2)
-        .lineLimit(1)
+    }
+
+    private var footerText: String? {
+        if let shown { return GlanceText.footer(summary, shown: shown, calendar: .autoupdatingCurrent) }
+        return summary.isStale ? GlanceText.asOf(summary, calendar: .autoupdatingCurrent) : nil
     }
 }
 
-private struct GlanceMessageText: View {
+struct GlanceMessageText: View {
     let message: GlanceMessage
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
-        Text(GlanceText.message(message))
+        Text(verbatim: GlanceText.message(message))
             .font(TallyTypography.subheadline)
-            .foregroundStyle(TallyColor.textOnHero)
+            .foregroundStyle(GlanceStyle(renderingMode).primary)
     }
 }
 
 /// The placeholder and gallery layout: bars where the text goes, and no text, so it can never read
 /// as real data.
-private struct GlancePlaceholderLines: View {
+struct GlancePlaceholderLines: View {
     var body: some View {
         GeometryReader { proxy in
             VStack(alignment: .leading, spacing: TallySpacing.sm) {

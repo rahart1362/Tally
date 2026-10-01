@@ -1,0 +1,78 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Refresh ${applicationName}" : {
+      "comment" : "Siri phrase that refreshes Tally's data. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh ${applicationName}"
+          }
+        }
+      }
+    },
+    "Update ${applicationName}" : {
+      "comment" : "Siri phrase that refreshes Tally's data. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update ${applicationName}"
+          }
+        }
+      }
+    },
+    "What's due in ${applicationName}" : {
+      "comment" : "Siri phrase that asks Tally for the assignments still due today. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's due in ${applicationName}"
+          }
+        }
+      }
+    },
+    "What's due next in ${applicationName}" : {
+      "comment" : "Siri phrase that asks Tally for the next assignments due. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's due next in ${applicationName}"
+          }
+        }
+      }
+    },
+    "What's due today in ${applicationName}" : {
+      "comment" : "Siri phrase that asks Tally for the assignments still due today. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's due today in ${applicationName}"
+          }
+        }
+      }
+    },
+    "What's next in ${applicationName}" : {
+      "comment" : "Siri phrase that asks Tally for the next assignments due. ${applicationName} is Tally's name; keep it in every phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's next in ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
