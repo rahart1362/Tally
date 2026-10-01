@@ -821,3 +821,16 @@ Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 34
 - **A log problem:** Swift Testing printed each sweep's whole mismatch array (lines of 7-16 kB), and the job log then lacks the console issues of 4 tests and the floor run's summary. HM5 shows only through the first issue of `germanRegionEnglishUI`, which is HM3's, so it is not attributed. The fix (`c2c62a0`) makes the sweep expectations compare a count.
 
 **HM5 alone, run 36801207636** (`64beccc`, quick, on the fix; reverted in `dc97154`; `DashboardText.swift` back to `da3679e2…`, tree equal to `c2c62a0`): result in the next entry.
+
+## 2026-10-01 | L10N-02: HM5 alone (run 36801207636), main merged, the report
+**Run 36801207636** (`64beccc` = `c2c62a0` + HM5, quick; reverted in `dc97154`, `DashboardText.swift` back to `da3679e2…`).
+- **HM5 caught** on both simulators by `germanRegionEnglishUI`, and only at its reason line (`RendererGoldenTests.swift:258`): "Overdue · ~11% of BIO 101" vs en_DE's "Overdue · ~11 % of BIO 101".
+- The en_US goldens and sweeps passed, and so did the en_GB/en_DE time lines corrected in `aa88d0f`.
+- Main xcresult 377 total, 369 passed, 2 failed, 4 skipped, 2 expected; floor 347, 344 passed, 1 failed, 2 expected.
+- The main run's second failure is the UI test `LaunchFromCacheUITests.testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity:47`. "Refreshing" was already replaced by the stale breadcrumb when checked. It passed in runs 36795199706 and 36798377151, and this change touches no refresh path, so it is treated as a flake; the hand-off full run is its one re-run.
+- Release device build, shipping-binary checks, widget link map (with TallyStrings → TallyDomain) and widget memory budget: success.
+- **CI mutations: 5 of 5 caught** (HM1 also by hygiene).
+
+**Merge:** `origin/main` @ `799c62e` (PR #13, XG-01) merged as `37a1143`. The journal conflict only; main's journal is a byte-identical prefix. On the merged tree: `make core-build` clean; `make core-test` 662 tests (4 known issues); `make lint` 0 violations in 219 files; literals 440/440; catalogs PASS.
+
+**Report:** `docs/pmo/reviews/l10n02-report.md`. The hand-off full run is on the report's commit.
