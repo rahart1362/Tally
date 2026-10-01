@@ -145,4 +145,17 @@ public enum InsightsConfig {
 
     /// §3.8: nothing is scheduled more than this far ahead.
     public static let reminderHorizon: Duration = .seconds(14 * 24 * 60 * 60)
+
+    // MARK: - Grade availability (plan 08)
+
+    /// Plan 08 §4.2 rule 5 and owner decision G-2 (strict): a course with no grade in Canvas is
+    /// classified "kept outside Canvas" only once at least this many eligible items were due at
+    /// least `externalGradesGraceDays` ago…
+    public static let externalGradesMinPastDueItems: Int = 5
+    /// …where an item counts only after this many days past its due date (a slow grader's grace)…
+    public static let externalGradesGraceDays: Int = 14
+    /// …and at least this many of those items were submitted or are offline (`on_paper`/`none`).
+    public static let externalGradesMinSubmittedOrOffline: Int = 3
+    /// `externalGradesGraceDays` as a duration, for `Date` arithmetic.
+    public static let externalGradesGraceWindow: Duration = .seconds(externalGradesGraceDays * 24 * 60 * 60)
 }

@@ -1087,6 +1087,171 @@
         }
       ]
     },
+    "external-grades": {
+      "key": "external-grades",
+      "title": "Grades kept outside Canvas (plan 08)",
+      "description": "Casey Sample at Riverbend High School, whose Canvas tracks assignments while most grades live in a separate student information system: ENG-10, ALG2 and BIO-H have weeks of turned-in or paper work and no grades, ART-1 has only two items past due, ADVISORY is never graded, and SPAN-2 is graded in Canvas.",
+      "synthetic": true,
+      "school": "Riverbend High School",
+      "host": "riverbend.instructure.example",
+      "user_id": "8840217",
+      "user_name": "Casey Sample",
+      "time_zone": "America/Denver",
+      "captured_at": "2026-09-28T13:00:00Z",
+      "anchor": "2026-09-28T13:00:00Z",
+      "course_ids": [
+        "77305",
+        "77302",
+        "77304",
+        "77303",
+        "77301",
+        "77306"
+      ],
+      "request_count": 12,
+      "covers": [
+        "no posted grade in a course with weeks of submitted work",
+        "paper (on_paper) work never graded",
+        "hide_final_grades with no grades at all",
+        "course with only not_graded items",
+        "early-term course below the evidence threshold",
+        "course graded in Canvas beside ungraded ones",
+        "computed_final_score from ungraded work counted as zero"
+      ],
+      "routes": [
+        {
+          "endpoint": "profile",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/users/self/profile",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/external-grades/profile.json",
+          "headers": "personas/external-grades/profile.headers.json"
+        },
+        {
+          "endpoint": "courses",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses",
+          "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/courses.json",
+          "headers": "personas/external-grades/courses.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77305/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77305.json",
+          "headers": "personas/external-grades/assignment_groups/77305.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77302/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77302.json",
+          "headers": "personas/external-grades/assignment_groups/77302.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77304/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77304.json",
+          "headers": "personas/external-grades/assignment_groups/77304.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77303/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77303.json",
+          "headers": "personas/external-grades/assignment_groups/77303.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77301/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77301.json",
+          "headers": "personas/external-grades/assignment_groups/77301.headers.json"
+        },
+        {
+          "endpoint": "assignment_groups",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/courses/77306/assignment_groups",
+          "query": "include[]=assignments&include[]=submission&per_page=100",
+          "query_match": "include[]=assignments&include[]=submission&per_page=100",
+          "status": 200,
+          "body": "personas/external-grades/assignment_groups/77306.json",
+          "headers": "personas/external-grades/assignment_groups/77306.headers.json"
+        },
+        {
+          "endpoint": "planner_items",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/planner/items",
+          "query": "end_date=2026-11-27&per_page=100&start_date=2026-09-14",
+          "query_match": "end_date=*&per_page=100&start_date=*",
+          "status": 200,
+          "body": "personas/external-grades/planner_items.json",
+          "headers": "personas/external-grades/planner_items.headers.json"
+        },
+        {
+          "endpoint": "calendar_events",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/calendar_events",
+          "query": "context_codes[]=course_77301&context_codes[]=course_77302&context_codes[]=course_77303&context_codes[]=course_77304&context_codes[]=course_77305&context_codes[]=course_77306&end_date=2026-11-27&per_page=100&start_date=2026-09-14&type=event",
+          "query_match": "context_codes[]=course_77301&context_codes[]=course_77302&context_codes[]=course_77303&context_codes[]=course_77304&context_codes[]=course_77305&context_codes[]=course_77306&end_date=*&per_page=100&start_date=*&type=event",
+          "status": 200,
+          "body": "personas/external-grades/calendar_events.chunk1.json",
+          "headers": "personas/external-grades/calendar_events.chunk1.headers.json"
+        },
+        {
+          "endpoint": "announcements",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/announcements",
+          "query": "context_codes[]=course_77301&context_codes[]=course_77302&context_codes[]=course_77303&context_codes[]=course_77304&context_codes[]=course_77305&context_codes[]=course_77306&per_page=50&start_date=2026-09-14",
+          "query_match": "context_codes[]=course_77301&context_codes[]=course_77302&context_codes[]=course_77303&context_codes[]=course_77304&context_codes[]=course_77305&context_codes[]=course_77306&per_page=50&start_date=*",
+          "status": 200,
+          "body": "personas/external-grades/announcements.chunk1.json",
+          "headers": "personas/external-grades/announcements.chunk1.headers.json"
+        },
+        {
+          "endpoint": "colors",
+          "method": "GET",
+          "host": "riverbend.instructure.example",
+          "path": "/api/v1/users/self/colors",
+          "query": "",
+          "query_match": "",
+          "status": 200,
+          "body": "personas/external-grades/colors.json",
+          "headers": "personas/external-grades/colors.headers.json"
+        }
+      ]
+    },
     "parent-observer": {
       "key": "parent-observer",
       "title": "Parent observing two students",
@@ -2524,6 +2689,7 @@
       "grading-periods": "expected/grades/grading-periods.json",
       "empty": "expected/grades/empty.json",
       "large": "expected/grades/large.json",
+      "external-grades": "expected/grades/external-grades.json",
       "scenarios": "expected/grades/scenarios.json",
       "parent-observer": "reuse flagship + grading-periods"
     },
