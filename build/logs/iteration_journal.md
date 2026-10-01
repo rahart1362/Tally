@@ -939,3 +939,13 @@ Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 34
   - The coordinator actor is busy at launch, so `events()` or `committedSnapshot` waits.
 - **User impact: none expected.** The first reminders pass is background work and runs seconds after launch.
 - **Next:** time-boxed and closed for now, per owner guidance. The next failure will print its timings, and the one retry keeps the flake off the required gate. If it recurs with a long launch gap, add pipeline marks (attach entered, queue entered, permission done) behind a test hook.
+
+## 2026-10-01 | PMO: ios-build job timeout 60 → 90 min; a second reminders timing
+- **Timeout:** `iOS build + test` took 47.0 to 59.0 min on the 13 completed runs it ran to the end today. Main run 36890338962 (`5296ce6`, the PR #20 merge) was cancelled by the 60-min `timeout-minutes` at 61.0 min, and PR #20's own run took 59.0 min. GitHub's annotation reported macOS arm64 capacity constraints. The limit is now 90 min, so a slow runner doesn't turn a required check red.
+- **Reminders flake, second data point:** PR #21's Xcode 27 forward-compat job (run 36895048288, non-blocking; the raw `xcodebuild test`, which has no retry):
+  - launched +0.06 s;
+  - launch pass read +9.40 s;
+  - home started +9.47 s;
+  - **commit pass: no read by +39.51 s** (reads=1).
+
+  This time it was the *commit* pass that was late, after a quick launch pass. Both data points are tens of seconds before a pass reaches its read, at different steps, so the delay looks environmental rather than tied to one step. Still UNVERIFIED. One more candidate to check: the sealer's key access during the ledger and user-state loads. Next step unchanged: pipeline marks, if it recurs.
