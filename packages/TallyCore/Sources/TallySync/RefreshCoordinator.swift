@@ -32,6 +32,15 @@ import TallyStore
 /// sign-out) retires the coordinator: it discards any run in flight, refuses new runs, finishes
 /// every subscriber's stream and releases the decoded snapshot. A coordinator serves one
 /// signed-in account once; the composition root makes a new one for the next sign-in.
+///
+/// **Entitlement (PAY-07, M3-B1).** Every refresh trigger reaches the network only through
+/// `run(trigger:)`: the launch and pull-to-refresh (the Home), the background task
+/// (`AccountRuntime`), the "Refresh Tally" intent (`RefreshIntentBridge`) and the first sync. So
+/// this is the one place the subscription gates refresh: `run` asks the injected
+/// `EntitlementGating` first, and a refused run returns the current state without fetching or
+/// changing anything. The first sync (no committed snapshot) is always free. The same gate gives
+/// every glance this coordinator writes its `entitledUntil` (PAY-04), and
+/// `entitlementDidChange()` rewrites the glance when it changes.
 public actor RefreshCoordinator {
     /// Emitted to every `events()` subscriber for the UI (one `RefreshStatusModel`, architecture
     /// §3.1, consumes this).
@@ -52,6 +61,8 @@ public actor RefreshCoordinator {
     /// O5 (PERF-L): where the record is written when a run ends, so the next launch's automatic
     /// triggers are throttled by this run's attempt. `nil`: the record lives in memory only.
     private let recordStore: RefreshStateStore?
+    /// PAY-07: the subscription's gate (`EntitlementGate` in the app; ungated by default).
+    private let entitlement: any EntitlementGating
 
     private var record: RefreshRecord
     /// SH-3: the snapshot this coordinator last committed, or was initialised with, or adopted
@@ -115,8 +126,10 @@ public actor RefreshCoordinator {
         guard overrides != gradeAvailabilityOverrides else { return false }
         gradeAvailabilityOverrides = overrides
         guard let committedSnapshot else { return false }
+        let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
-                                                       gradeAvailability: gradeAvailability(of: committedSnapshot))
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot),
+                                                       entitledUntil: entitledUntil)
         return rewritten != nil
     }
 
@@ -138,8 +151,30 @@ public actor RefreshCoordinator {
         guard include != includeGrades else { return false }
         includeGrades = include
         guard let committedSnapshot else { return false }
+        let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include,
-                                                       gradeAvailability: gradeAvailability(of: committedSnapshot))
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot),
+                                                       entitledUntil: entitledUntil)
+        return rewritten != nil
+    }
+
+    /// PAY-04 (M3-B1): the entitlement changed (the launch's verification, a purchase, a renewal,
+    /// a lapse, a refund). As `updateIncludeGrades` does, the glance on disk is rebuilt now from the
+    /// committed snapshot with the gate's expiry, so the widgets and intents agree with the app
+    /// without waiting for a refresh. Returns true when this call rewrote the glance, so the caller
+    /// can ask WidgetKit to reload; false when the glance already carries that expiry, when nothing
+    /// is committed yet, or when a newer commit landed meanwhile (it used the gate's expiry).
+    @discardableResult
+    public func entitlementDidChange() async -> Bool {
+        guard let committedSnapshot else { return false }
+        let entitledUntil = await entitlement.glanceEntitledUntil()
+        if case .loaded(let glance) = await store.loadGlance(), glance.generation == committedSnapshot.generation,
+           glance.entitledUntil == entitledUntil {
+            return false
+        }
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot),
+                                                       entitledUntil: entitledUntil)
         return rewritten != nil
     }
 
@@ -155,10 +190,12 @@ public actor RefreshCoordinator {
         foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
         backgroundBudget: Duration = TallyConfig.backgroundBudget,
         minAutoRefreshInterval: Duration = TallyConfig.minAutoRefreshInterval,
-        recordStore: RefreshStateStore? = nil
+        recordStore: RefreshStateStore? = nil,
+        entitlement: any EntitlementGating = UngatedEntitlement()
     ) {
         self.gateway = gateway
         self.recordStore = recordStore
+        self.entitlement = entitlement
         self.store = store
         self.clock = clock
         self.liveRefreshBudget = liveRefreshBudget
@@ -267,8 +304,15 @@ public actor RefreshCoordinator {
     /// and its outcome discarded (see `finish`). A caller that is already cancelled neither starts
     /// nor joins a run. One that arrives while an abandoned run winds down waits it out, then
     /// decides afresh. After `shutdown()`, returns `currentState` without fetching.
+    ///
+    /// **Entitlement (PAY-07).** The gate decides first: a refused run (no trial or subscription,
+    /// and a snapshot already committed) returns `currentState` without starting, joining or
+    /// recording anything. The first sync is always allowed.
     @discardableResult
     public func run(trigger: RefreshTrigger) async -> FreshnessState {
+        guard await entitlement.allowsRefresh(trigger, hasCommittedSnapshot: committedSnapshot != nil) else {
+            return currentState
+        }
         while !isShutDown, !Task.isCancelled {
             let runTask: Task<Void, Never>
             if let inFlight {
@@ -410,6 +454,9 @@ public actor RefreshCoordinator {
     }
 
     private func finish(myEpoch: UInt64, attemptGeneration: UInt64, outcome: Result<CanvasSnapshot, any Error>) async {
+        // PAY-04: the expiry this commit's glance mirrors, read first, so every check below sees the
+        // state after this suspension.
+        let entitledUntil = await entitlement.glanceEntitledUntil()
         // A sign-out landed while this run was in flight: `bumpEpochAndCancel` already reset
         // `record` and published `.noCache`, so there is nothing left to do with this result.
         guard myEpoch == epoch else { return }
@@ -451,7 +498,8 @@ public actor RefreshCoordinator {
             let digest = ChangeDigest.diff(old: committedSnapshot, new: stamped, thresholds: digestThresholds,
                                            gradeAvailability: availability)
             do {
-                try await store.commit(stamped, includeGrades: includeGrades, gradeAvailability: availability)
+                try await store.commit(stamped, includeGrades: includeGrades, gradeAvailability: availability,
+                                       entitledUntil: entitledUntil)
                 committedGeneration = stamped.generation
                 committedSnapshot = stamped
                 record.succeeded(dataFetchedAt: stamped.fetchedAt)
