@@ -129,10 +129,29 @@ Full `make core-test` after both restores: clean, same counts as §4.
 
 ## 6. CI
 
-- No `-f scope=unit` dispatch was needed before the PR: every check this work package's files can
-  fail (`core-linux`, `lint`, `core-sanitizers`, `hygiene`'s string-catalog/literal scripts) was
-  run and is green locally, and the PR's own run covers `ios-build`/`ios-asan`/`ios-tsan`/
-  `ios-perf` for the `TallyStrings`/`Localizable.xcstrings` change this host cannot compile.
+- **`-f scope=unit` run (before the PR, to de-risk the Xcode-only `TallyStrings` change before
+  spending the PR's one full run on it): [36939035354](https://github.com/rahart1362/Tally/actions/runs/36939035354), all ran jobs green:**
+
+  | Job | Result |
+  |---|---|
+  | TallyCore sanitizers (TSan + ASan/LSan, Linux) | ✓ 10m20s |
+  | Crash-safety lint (SwiftLint 0.59.1, pinned) | ✓ 20s |
+  | TallyCore perf gates (Linux, release, non-blocking) | ✓ 4m10s |
+  | iOS build + test (Xcode 26.6) | ✓ 16m35s |
+  | TallyCore tests (Linux, Swift 6.4) | ✓ 2m30s |
+  | Hygiene gates | ✓ 12s |
+
+  The 6 jobs `scope=unit` doesn't run (ios-perf, ios-asan ×2, ios-tsan, Xcode 27 forward-compat,
+  Apple-silicon perf) correctly show skipped (0s) — those are `scope=full`/PR-only. One
+  pre-existing, non-blocking annotation ("Go-live placeholders remain") is expected before
+  go-live (`docs/GO-LIVE.md` GL-02) and unrelated to this change.
+  - This confirms, independently of this host's own `make core-tsan`/`make lint` runs, that
+    `TallyStrings/L10n+Family.swift` and `TallyStrings/Render/FamilyNotificationText.swift`
+    compile correctly under real Xcode, and that the hand-edited `Localizable.xcstrings` is
+    well-formed to Xcode's own String Catalog compiler, not just to
+    `check_string_catalogs.py`.
+  - CI budget used: 1 of 3 permitted iteration runs; 0 of 1 mutation runs (both of this work
+    package's mutation checks were TallyCore-only and run locally, per rule 4).
 - **PR run:** <!-- filled in after `gh pr create`; see the hand-off reply for the final numbers -->
 
 ## 7. Files touched
