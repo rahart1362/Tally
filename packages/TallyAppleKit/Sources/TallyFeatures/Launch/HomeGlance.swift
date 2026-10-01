@@ -37,7 +37,7 @@ public nonisolated struct HomeGlance: Equatable, Sendable {
             .map { DashboardProjection.DueItem(id: $0.id, title: $0.title, courseCode: $0.courseShortCode, dueAt: $0.dueAt) }
         let starting = RefreshStateStore.startingRecord(persisted: record, committedDataFetchedAt: glance.asOf)
         return HomeGlance(generation: glance.generation, asOf: glance.asOf,
-                          dashboard: DashboardProjection(hero: DashboardProjection.Hero(courseCount: glance.courses.count, averagedCount: glance.courses.count, overallPercent: nil, overallBand: glance.overallGradeBand, exclusions: [:], school: .undetermined), nextUp: [], needsAttention: [],
+                          dashboard: DashboardProjection(hero: glance.hero, nextUp: [], needsAttention: [],
                                                          dueSoon: Array(due),
                                                          weekAhead: [], changeDigestSummary: nil),
                           freshness: FreshnessRules.state(of: starting, now: now))
