@@ -36,7 +36,7 @@ nonisolated struct ReminderSubjects: Sendable {
          gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]) {
         // Plan 08 §4.4 rows 11 and 18 (the XG-02 report's F2): the same index the Dashboard's
         // priority uses, so a course whose grades are not in Canvas never adds a grade modifier.
-        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
+        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: gradeAvailabilityOverrides, now: now)
         // CS-07: a course or an assignment ID can repeat; the first occurrence wins, as in
         // `DashboardBuilder`.
         var candidates: [ReminderCandidate] = []
