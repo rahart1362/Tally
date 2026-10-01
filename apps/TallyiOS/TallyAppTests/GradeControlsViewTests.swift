@@ -118,6 +118,9 @@ struct GradeOverrideTests {
         let account = AccountKey("xg04-\(UUID().uuidString)")
         let (directory, sealer) = try ScreenModelSupport.sealer(account)
         let userStateStore = UserStateStore(root: directory, accountKey: account, sealer: sealer)
+        // The student opted in to grades in widgets (a save of the defaults would turn them off:
+        // quick run 36889880651 saw that rewrite, not this one).
+        try await userStateStore.save(UserState(showGradesInGlance: true))
         let snapshotStore = SnapshotStore(root: directory, accountKey: account, sealer: sealer)
         let coordinator = RefreshCoordinator(gateway: ServingGateway(snapshot), store: snapshotStore,
                                              clock: SystemDateProvider(), initialSnapshot: nil, includeGrades: true)
@@ -139,8 +142,10 @@ struct GradeOverrideTests {
         #expect(after.gradeSummary == .notInCanvas)
         #expect(after.courses.first { $0.id == spanish.id }?.gradeStatus == .keptOutsideCanvas)
         #expect(reloads.value == 1)
+        #expect(await coordinator.includeGrades, "still opted in: the rewrite is the answer's")
         guard case .loaded(let stored) = await userStateStore.load() else { Issue.record("no UserState"); return }
         #expect(stored.schemaVersion == 5 && stored.gradesOutsideCanvasOverride == [spanish.id: "keptOutsideCanvas"])
+        #expect(stored.showGradesInGlance)
 
         local.setCourseOrder([spanish.id]) // another change: the glance is already right
         await local.awaitSaved()
@@ -202,7 +207,15 @@ struct GradeOverrideTests {
         let before = automatic.candidates.filter { spanishWork.contains($0.assignment.id) }
         let after = overridden.candidates.filter { spanishWork.contains($0.assignment.id) }
         #expect(!before.isEmpty && before.map(\.assignment.id) == after.map(\.assignment.id))
+        // No near-boundary bonus once kept outside Canvas. An overdue item's priority is already at
+        // the 100 cap with or without it (Prueba 3, quick run 36889880651), so: never higher, and
+        // lower for every item below the cap.
         for (old, new) in zip(before, after) {
+            #expect(new.priority <= old.priority, "\(new.assignment.name)")
+        }
+        let belowCap = zip(before, after).filter { $0.0.priority < 100 }
+        #expect(!belowCap.isEmpty, "the persona has SPAN-2 work below the cap")
+        for (old, new) in belowCap {
             #expect(new.priority < old.priority, "\(new.assignment.name): no near-boundary bonus once kept outside Canvas")
         }
         let others = automatic.candidates.filter { !spanishWork.contains($0.assignment.id) }
