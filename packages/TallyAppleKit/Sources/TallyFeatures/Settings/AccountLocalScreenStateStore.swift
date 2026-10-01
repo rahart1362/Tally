@@ -26,7 +26,7 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
         let state = await access.load()
         knownDoneAssignments = state.doneAssignments
         return LocalScreenState(courseOrder: state.courseOrder, doneAssignments: state.doneAssignments,
-                                gradeAvailabilityOverrides: state.gradeAvailabilityOverrides, revision: latestRevision)
+                                revision: latestRevision)
     }
 
     /// Keeps `state` unless a newer revision was already saved. A save the store refuses (a state
@@ -42,7 +42,6 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
             try await access.update { stored in
                 stored.courseOrder = order
                 stored.doneAssignments = done
-                stored.gradeAvailabilityOverrides = overrides
             }
         } catch {
             return

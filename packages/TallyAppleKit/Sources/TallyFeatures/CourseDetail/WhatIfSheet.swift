@@ -19,7 +19,7 @@ struct WhatIfSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let estimate = model.setup.estimate {
+                if let estimate = Optional(model.setup.estimate ?? WhatIfEstimateSetup(categories: [])) {
                     Section {
                         Text(L10n.WhatIfEstimate.disclaimer())
                             .font(TallyTypography.footnote)
