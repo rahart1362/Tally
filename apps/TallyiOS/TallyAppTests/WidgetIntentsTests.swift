@@ -141,7 +141,7 @@ struct WidgetIntentsTests {
 
     @Test("Tally's Focus filter: its parameters become the predicate and the summary iOS shows in Focus settings")
     func tallyFocusFilter() throws {
-        var filter = TallyFocusFilter()
+        let filter = TallyFocusFilter()
         #expect(filter.appContext.notificationFilterPredicate == nil, "a new filter lets everything through")
 
         filter.courses = [CourseEntity(id: "123", code: "BIO 101")]
@@ -186,22 +186,23 @@ struct WidgetIntentsTests {
         let appIntents = ["RefreshTallyIntent", "OpenTallyIntent", "WhatsDueNextIntent", "WhatsDueTodayIntent",
                           "TallyFocusFilter", "CourseEntity", "TallyDestination"]
         for name in appIntents {
-            #expect(appMetadata.contains(name), "the app's metadata does not name \(name)")
+            #expect(appMetadata.contains(name), "the app's metadata does not name \(name): \(appMetadata.prefix(800))")
         }
         let widgetMetadata = try Self.metadata(in: widget)
         let widgetIntents = ["GlanceWidgetIntent", "RefreshTallyIntent", "OpenTallyIntent"]
         for name in widgetIntents {
-            #expect(widgetMetadata.contains(name), "the widget's metadata does not name \(name)")
+            #expect(widgetMetadata.contains(name), "the widget's metadata does not name \(name): \(widgetMetadata.prefix(800))")
         }
         #expect(!widgetMetadata.contains("TallyFocusFilter"), "the Focus filter belongs to the app alone")
 
         var counts: [String] = []
         for (name, bundle, metadata) in [("app", app, appMetadata), ("widget", widget, widgetMetadata)] {
             let keys = try Self.intentKeys(in: metadata)
-            #expect(!keys.isEmpty, "\(name): no intent.* key in the metadata")
+            #expect(!keys.isEmpty, "\(name): no intent.* key in the metadata: \(metadata.prefix(800))")
             for key in keys.sorted() {
-                #expect(bundle.localizedString(forKey: key, value: "<missing>", table: "AppIntents") != "<missing>",
-                        "\(name): \(key) is not in its AppIntents table")
+                // Missing reads "<missing>"; a key added back by string extraction with no English reads as itself.
+                let english = bundle.localizedString(forKey: key, value: "<missing>", table: "AppIntents")
+                #expect(english != "<missing>" && english != key, "\(name): \(key) has no English in its AppIntents table")
             }
             counts.append("\(name) \(keys.count) keys")
         }
@@ -211,7 +212,8 @@ struct WidgetIntentsTests {
                        "What's due today in ${applicationName}", "What's due in ${applicationName}",
                        "Refresh ${applicationName}", "Update ${applicationName}"]
         for phrase in phrases {
-            #expect(app.localizedString(forKey: phrase, value: "<missing>", table: "AppShortcuts") == phrase, "\(phrase)")
+            #expect(app.localizedString(forKey: phrase, value: "<missing>", table: "AppShortcuts") == phrase,
+                    "\(phrase) is not in the app's AppShortcuts table (localizations \(app.localizations))")
         }
         #expect(appMetadata.contains("applicationName"), "the app's metadata holds no App Shortcuts phrase")
         // Evidence for the CI log (the console keeps lines that say "passed").
