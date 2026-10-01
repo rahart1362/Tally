@@ -124,6 +124,41 @@ Canvas natively supports parent access through **observer** accounts and student
 
   It also writes a plain-language "How Tally complies" statement for the privacy policy, the store listing and schools. **It is not legal advice:** a licensed attorney reviews and signs off before submission (M6).
 
+### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
+The owner saw too many CI cancellations and too much rework. Measured that day:
+- Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
+- Every stream appended to one shared journal, so every second PR conflicted. Each conflict meant a merge and another full run.
+- The PMO's own pushes cancelled in-progress runs.
+- A PR run needed 7 macOS jobs against GitHub's 5 concurrent slots, so runs queued.
+- `ios-build` hit its 60-min limit.
+
+What changed:
+
+| Area | Rule | Where |
+|---|---|---|
+| **CI** | A PR run carries only the 4 required macOS jobs. The 3 report-only ones run on main pushes and on full dispatches. | PR #21 |
+| **CI** | One automatic retry per failed iOS test, with every failed attempt kept visible as a warning annotation. | PR #21 |
+| **CI** | A `unit` dispatch scope: `ios-build` without the UI tests, the smallest-iPhone run and the floor run, for iterating. | PR #21 |
+| **CI** | `ios-build` timeout 90 min. | PR #21 |
+| **Agents** | **One full run per work package: the PR run.** Agents open their own PR and never dispatch `scope=full`. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | At most 3 iteration runs and 1 batched mutation run per package; verify locally first. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | A per-package journal file under `build/logs/journal/`. Never the shared journal. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | Merge `main` only when needed, and never push onto an in-progress run. | [`agent-rules.md`](agent-rules.md) |
+| **PMO** | One PMO PR per wave boundary. | — |
+| **PMO** | An event-driven wait (a CI completion, or a stall with no run active) replaces 30-min polling. | — |
+| **PMO** | Weekly-usage pacing: launch a package only when the remaining weekly budget covers its estimated cost plus about 10% for the PMO. Otherwise hold it for the reset, rather than strand it mid-task. | — |
+
+**Streams: two rolling slots, not waves.** A slot takes its next package as soon as that package's inputs have merged.
+
+| Slot | Packages |
+|---|---|
+| **Opus** (critical path) | XG-04/06 → **M3-B1** (subscription engine, no UI; enforcement off on `main`) → **M3-B2** (paywall, placement, Settings → Subscription, sample-mode purchase, notices) → **M3-D** → **M3-E** |
+| **Sonnet** | L10N-03a → **L10N-03b** (the last 20 files; baseline to 0) → MVP-gate prep that needs no account → **L10N-04** after the English freeze |
+
+This keeps plan 08 §6's dependencies:
+- M3-D needs M3-B merged or well along.
+- M3-E follows M3-D (FAM-11 builds on its widgets and intents) and L10N-03b (FAM-09 touches every tab).
+
 ## 3. Roadmap (milestones and exit gates)
 
 Work-package IDs refer to the specialist reports. Every gate uses the validation pyramid: re-read artefacts, and never accept exit code 0 alone.
