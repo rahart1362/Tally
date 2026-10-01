@@ -191,8 +191,11 @@ struct GradeOverrideTests {
         let snapshot = try await ExternalGrades.snapshot()
         let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
         let spanishWork = Set((snapshot.groups[spanish.id] ?? []).flatMap(\.assignments).map(\.id))
-        // SPAN-2's 91.39% is near the 90% boundary, which raises its items' priority (§5.1).
-        #expect(PriorityScore.courseModifiers(currentScore: spanish.scores?.currentScore, goal: nil).nearBoundary)
+        // SPAN-2's 91.39% is near the 90% boundary, which raises its items' priority (§5.1). (Bound
+        // first: Xcode 26.6's #expect expansion rejects an optional chain inside a call's argument
+        // followed by a member of its non-optional result, CI run 36884815682.)
+        let spanishModifiers = PriorityScore.courseModifiers(currentScore: spanish.scores?.currentScore, goal: nil)
+        #expect(spanishModifiers.nearBoundary)
         let automatic = ReminderSubjects(snapshot: snapshot, now: ExternalGrades.anchor)
         let overridden = ReminderSubjects(snapshot: snapshot, now: ExternalGrades.anchor,
                                           gradeAvailabilityOverrides: [spanish.id: .keptOutsideCanvas])
