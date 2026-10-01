@@ -217,6 +217,20 @@ struct OutsideCanvasWhatIfModelTests {
         #expect(model.weightTotal == 100 && !model.weightTotalIsOverHundred)
     }
 
+    @Test("Nine equal categories: defaults that add up to 100 up to rounding are not 'over 100'")
+    func roundingIsNotOverHundred() {
+        let ids = (1...9).map { CanvasID<AssignmentGroup>("g\($0)") }
+        let input = GradeInput(weighting: .points, groups: ids.map { .init(id: $0, weight: 0) },
+                               items: ids.enumerated().map { index, group in
+                                   .init(id: CanvasID("a\(index)"), groupID: group, pointsPossible: 1, submission: nil)
+                               })
+        let categories = ids.map { WhatIfWeightCategory(id: $0, name: $0.rawValue, defaultWeight: 100.0 / 9, defaultText: "11.11") }
+        let model = WhatIfModel(setup: WhatIfSetup(courseName: "Synthetic", input: input, groups: [],
+                                                   estimate: WhatIfEstimateSetup(categories: categories)))
+        #expect(model.weightTotal > 100, "the premise: nine shares of 100/9 add up to just over 100 in binary")
+        #expect(!model.weightTotalIsOverHundred)
+    }
+
     @Test("What a weight field's text means, in the student's locale")
     func weightEntry() {
         let us = Locale(identifier: "en_US")

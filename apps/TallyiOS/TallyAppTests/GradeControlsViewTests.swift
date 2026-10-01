@@ -91,6 +91,19 @@ struct GradeOverrideTests {
         await model.end()
     }
 
+    @Test("The stored answers shape the first projection (the launch), before any change")
+    func storedAnswersShapeTheFirstProjection() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let spanish = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        let store = InMemoryLocalScreenStateStore()
+        await store.save(LocalScreenState(gradeAvailabilityOverrides: [spanish.id: .keptOutsideCanvas], revision: 1))
+        let model = try await Self.startedModel(snapshot, localStore: store)
+        #expect(GradeOverrideChoice(model.gradeAvailabilityOverride(for: spanish.id)) == .yes)
+        #expect(model.courseDetails[spanish.id]?.grade.notInCanvas == .keptOutside(.school))
+        #expect(model.dashboard.hero.averagedCount == 0)
+        await model.end()
+    }
+
     static var chicago: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/Chicago") ?? .gmt
