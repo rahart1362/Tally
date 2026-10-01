@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TallyDomain
+import TallyStore
 import TallyTestSupport
 @testable import TallyFeatures
 
@@ -67,6 +68,25 @@ struct HomeGradeAvailabilityTests {
         #expect(projection.courses.map(\.letterGrade) == snapshot.courses.map { $0.scores?.currentGrade })
         #expect(projection.courses.allSatisfy { $0.gradeAvailability == .available })
         #expect(projection.dashboard.hero.averagedCount == 5)
+    }
+
+    @Test("Row 2: the launch paint's hero is the full projection's but for the percentage (Average of 1 course)")
+    func launchPaintHeroMatchesTheProjection() async throws {
+        let snapshot = try await Self.persona("external-grades")
+        let projector = HomeProjector(calendar: Calendar(identifier: .gregorian), locale: Locale(identifier: "en_US"))
+        await projector.install(HomeUpdate(generation: 1, snapshot: snapshot, digest: nil, digestAsOf: nil, freshness: .noCache))
+        let projected = try #require(await projector.project(now: Self.anchor)).dashboard.hero
+        for includeGrades in [false, true] {
+            let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades)
+            let launch = HomeGlance.make(from: glance, now: Self.anchor).dashboard.hero
+            #expect(launch.averagedCount == 1)
+            #expect(launch.courseCount == projected.courseCount)
+            #expect(launch.averagedCount == projected.averagedCount)
+            #expect(launch.exclusions == projected.exclusions)
+            #expect(launch.school == projected.school)
+            #expect(launch.overallPercent == nil)
+            #expect(launch.overallBand == (includeGrades ? projected.overallBand : nil))
+        }
     }
 
     /// 80.5 is within `InsightsConfig.priorityBoundaryWindow` above the 80 cutoff: near a boundary.

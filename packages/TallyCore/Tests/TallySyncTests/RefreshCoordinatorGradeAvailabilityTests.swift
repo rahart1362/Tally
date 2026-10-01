@@ -98,10 +98,15 @@ struct RefreshCoordinatorGradeAvailabilityTests {
 
     @Test func theCommitIndexIsTheSnapshotsAtItsFetchTimeWithTheOverrides() async throws {
         let base = try await PersonaSnapshotHarness.fetchSnapshot(persona: "external-grades", now: Self.anchor)
-        let (coordinator, _) = try makeCoordinator(gateway: ScriptedGateway(), includeGrades: true)
+        // The coordinator's clock reads 20 days before the fetch: then nothing in the persona is past
+        // the 14-day grace window, so an index built at the clock's time would differ.
+        let clock = TestClock(Self.anchor.addingTimeInterval(-20 * 24 * 3600))
+        let (coordinator, _) = try makeCoordinator(gateway: ScriptedGateway(), clock: clock, includeGrades: true)
         let english = try #require(base.courses.first { $0.courseCode == "ENG-10" })
         await coordinator.updateGradeAvailabilityOverrides([english.id: .inCanvas])
-        #expect(await coordinator.gradeAvailability(of: base)
-                == GradeAvailabilityIndex(snapshot: base, overrides: [english.id: .inCanvas], now: base.fetchedAt))
+        let index = await coordinator.gradeAvailability(of: base)
+        #expect(index == GradeAvailabilityIndex(snapshot: base, overrides: [english.id: .inCanvas], now: base.fetchedAt))
+        #expect(index != GradeAvailabilityIndex(snapshot: base, overrides: [english.id: .inCanvas], now: clock.now()))
+        #expect(index.school == .mixed(outside: 2), "ENG-10 is in Canvas by the student's word; ALG2 and BIO-H are outside")
     }
 }
