@@ -71,8 +71,10 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
     /// A course present in both snapshots whose overall current score moved by at
     /// least the course's `DigestThresholds` value (default `TallyConfig.courseScoreChangeThreshold` points;
     /// "All" reports any change), in either direction.
-    /// Never reported for a course with hidden totals in *either* snapshot, matching
-    /// the "Tally never shows a band/score it wasn't given" rule applied elsewhere
+    /// Reported only for a course that is `.available` in the new snapshot (plan 08 §4.4 row 16:
+    /// its grades are in Canvas and shown as percentages) and was shown as percentages in the old
+    /// one: never for hidden totals, letters only, or grades kept outside Canvas, matching the
+    /// "Tally never shows a band/score it wasn't given" rule applied elsewhere
     /// (`GlanceProjectionBuilder`, `AlertEngine.belowGoalAlert`).
     public struct CourseScoreChange: Codable, Sendable, Equatable {
         public let courseID: CanvasID<Course>
@@ -118,11 +120,17 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
     /// announcements, and course-score deltas at or above a threshold"). Deterministic
     /// ordering (sorted by Canvas ID within each category) so two diffs of the same
     /// pair of snapshots are byte-for-byte equal.
+    ///
+    /// `gradeAvailability` is `new`'s `GradeAvailabilityIndex` (plan 08 §4.3: at commit the
+    /// coordinator builds it once, with the student's overrides, and hands it here). `nil`
+    /// classifies `new` at its `fetchedAt` with no override (sample mode, tests).
     public static func diff(
         old: CanvasSnapshot?, new: CanvasSnapshot,
-        thresholds: DigestThresholds = .default
+        thresholds: DigestThresholds = .default,
+        gradeAvailability: GradeAvailabilityIndex? = nil
     ) -> ChangeDigest {
         guard let old else { return .empty }
+        let availability = gradeAvailability ?? GradeAvailabilityIndex(snapshot: new, overrides: [:], now: new.fetchedAt)
 
         let oldAssignments = assignmentsByID(old)
         let newAssignmentsMap = assignmentsByID(new)
@@ -159,7 +167,7 @@ public struct ChangeDigest: Codable, Sendable, Equatable {
         var courseScoreChanges: [CourseScoreChange] = []
         for course in new.courses.sorted(by: { $0.id < $1.id }) {
             guard let previousCourse = oldCoursesByID[course.id],
-                  course.gradeVisibility == .visible, previousCourse.gradeVisibility == .visible,
+                  availability[course.id] == .available, previousCourse.gradeVisibility == .visible,
                   let previousScore = previousCourse.scores?.currentScore,
                   let newScore = course.scores?.currentScore else { continue }
             guard thresholds.threshold(for: course.id).isCleared(by: newScore - previousScore) else { continue }

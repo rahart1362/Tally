@@ -88,7 +88,16 @@ public enum AlertEngine {
     /// first snapshot after sign-in (no `previous`), per the architecture's
     /// "no digest or grade alerts on the first snapshot" rule — callers
     /// should not invoke this at all when there is no previous snapshot.
-    public static func gradePostedAlert(previous: Assignment?, current: Assignment) -> Alert? {
+    ///
+    /// Plan 08 §4.4 row 13 (XG-02): `availability` is the course's state in the *current*
+    /// snapshot's `GradeAvailabilityIndex`. Under the strict rule (G-2) a course classified
+    /// `.keptOutsideCanvas` has no posted score, so this cannot fire for it; the first posted
+    /// grade takes the course out of that state at once (rule 3), and this fires once: the
+    /// recovery signal. Only the student's "kept outside Canvas" override (G-3) can leave a course
+    /// in that state with posted scores, and then it stays quiet, as a looser rule would need.
+    public static func gradePostedAlert(previous: Assignment?, current: Assignment,
+                                        availability: GradeAvailability) -> Alert? {
+        if case .keptOutsideCanvas = availability { return nil }
         guard let submission = current.submission, let postedAt = submission.postedAt, submission.score != nil else {
             return nil
         }
@@ -106,12 +115,13 @@ public enum AlertEngine {
         wasActive ? currentScore < goal + InsightsConfig.belowGoalHysteresis : currentScore < goal
     }
 
-    /// nil when the course hides final grades (§2.4 data-quality guard), has
-    /// no goal set, or is not below goal.
+    /// nil unless the course's grades are in Canvas and shown as percentages (`.available`: the
+    /// §2.4 data-quality guard, which since plan 08 §4.4 row 11 also covers a course whose grades
+    /// are kept outside Canvas), or when no goal is set, or when it is not below goal.
     public static func belowGoalAlert(
-        courseID: CanvasID<Course>, currentScore: Double?, goal: Double?, wasActive: Bool, gradeVisibility: GradeVisibility
+        courseID: CanvasID<Course>, currentScore: Double?, goal: Double?, wasActive: Bool, availability: GradeAvailability
     ) -> Alert? {
-        guard gradeVisibility == .visible, let currentScore, let goal else { return nil }
+        guard availability == .available, let currentScore, let goal else { return nil }
         guard belowGoalIsActive(currentScore: currentScore, goal: goal, wasActive: wasActive) else { return nil }
         return Alert(kind: .belowGoal(courseID: courseID), severity: .high, courseID: courseID)
     }
@@ -122,11 +132,12 @@ public enum AlertEngine {
     /// `fourteenDayDropThreshold` over 14 days (`score14DaysAgo`, when known
     /// — TallyDomain keeps no local score history, PMO R9, so callers supply
     /// this from Canvas's graded-submission history when available).
+    /// Plan 08 §4.4 row 11: like A5, only for an `.available` course.
     public static func significantDropAlert(
         courseID: CanvasID<Course>, currentScore: Double?, previousRefreshScore: Double?, score14DaysAgo: Double?,
-        weekOf: Date, belowGoalIsFiring: Bool, gradeVisibility: GradeVisibility
+        weekOf: Date, belowGoalIsFiring: Bool, availability: GradeAvailability
     ) -> Alert? {
-        guard !belowGoalIsFiring, gradeVisibility == .visible, let currentScore else { return nil }
+        guard !belowGoalIsFiring, availability == .available, let currentScore else { return nil }
         let oneRefreshDrop = previousRefreshScore.map { $0 - currentScore } ?? 0
         let fourteenDayDrop = score14DaysAgo.map { $0 - currentScore } ?? 0
         guard oneRefreshDrop >= InsightsConfig.oneRefreshDropThreshold
