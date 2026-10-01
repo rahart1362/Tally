@@ -65,8 +65,9 @@ public actor RefreshCoordinator {
     /// The user's "What changed" thresholds (UserState.digestThresholds); applied at the next commit.
     private var digestThresholds: DigestThresholds = .default
     /// Plan 08 G-3: the student's per-course "grades kept outside Canvas" answers (Automatic is
-    /// absent). Applied at the next commit, like `digestThresholds`; storing them is XG-04's.
-    private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]
+    /// absent), stored in `UserState` v5 (XG-04). Set at init, then by
+    /// `updateGradeAvailabilityOverrides(_:)`.
+    private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride]
     private var epoch: UInt64 = 0
     /// The task running this run's `supervise`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
@@ -102,11 +103,21 @@ public actor RefreshCoordinator {
         digestThresholds = thresholds
     }
 
-    /// Plan 08 §4.3: the student's per-course grade-availability overrides (G-3) reach the commit
-    /// path the same way the digest thresholds do. The next commit's index uses them, so its
-    /// digest and glance do.
-    public func updateGradeAvailabilityOverrides(_ overrides: [CanvasID<Course>: GradeAvailabilityOverride]) {
+    /// Plan 08 §4.3, XG-04: the student changed a course's "grades kept outside Canvas" answer (G-3)
+    /// in Course Detail. Every later commit's index uses the overrides, so its digest and glance do;
+    /// and, as `updateIncludeGrades` does, the glance on disk is rebuilt now from the committed
+    /// snapshot, so the widget agrees with the Dashboard (which re-projects at once) without
+    /// waiting for a refresh. Returns true when this call rewrote the glance, so the caller can ask
+    /// WidgetKit to reload; false when nothing changed, when nothing is committed yet, or when a
+    /// newer commit landed meanwhile (that commit already used the new overrides).
+    @discardableResult
+    public func updateGradeAvailabilityOverrides(_ overrides: [CanvasID<Course>: GradeAvailabilityOverride]) async -> Bool {
+        guard overrides != gradeAvailabilityOverrides else { return false }
         gradeAvailabilityOverrides = overrides
+        guard let committedSnapshot else { return false }
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot))
+        return rewritten != nil
     }
 
     /// Plan 08 §4.3 (XG-02): the one `GradeAvailabilityIndex` a commit's digest and glance share,
@@ -139,6 +150,7 @@ public actor RefreshCoordinator {
         initialSnapshot: CanvasSnapshot?,
         initialRecord: RefreshRecord = RefreshRecord(),
         includeGrades: Bool = false,
+        gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:],
         liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
         foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
         backgroundBudget: Duration = TallyConfig.backgroundBudget,
@@ -154,6 +166,8 @@ public actor RefreshCoordinator {
         self.backgroundBudget = backgroundBudget
         self.minAutoRefreshInterval = minAutoRefreshInterval
         self.includeGrades = includeGrades
+        // The stored answers the glance on disk was last written with: no rewrite at launch.
+        self.gradeAvailabilityOverrides = gradeAvailabilityOverrides
         committedSnapshot = initialSnapshot
         committedGeneration = initialSnapshot?.generation ?? 0
         record = initialRecord.restoredAfterLaunch() // no in-flight mark survives a relaunch

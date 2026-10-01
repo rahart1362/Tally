@@ -98,6 +98,72 @@ struct UserStateStoreTests {
         #expect(migrated.courseOrder.isEmpty && migrated.doneAssignments.isEmpty && migrated.reminderTipDismissedUntil == nil)
     }
 
+    /// v4 → v5 (plan 08 XG-04): every v4 field survives, and every course starts Automatic (no
+    /// "grades kept outside Canvas" override).
+    @Test func migratesV4PayloadKeepingEveryFieldWithNoOverrides() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        let manual = ManualClassTime(id: "fixed-id", courseID: "202", weekday: 3, startMinutesFromMidnight: 480, endMinutesFromMidnight: 540)
+        let v4State = UserState(showGradesInGlance: true, hideCourseNamesInNotifications: true, manualClassTimes: [manual],
+                                digestThresholds: DigestThresholds(global: .all, perCourse: ["51845": .points(2)]),
+                                courseOrder: ["51842", "51840"], doneAssignments: ["9001"],
+                                reminderTipDismissedUntil: Date(timeIntervalSince1970: 1_800_000_000))
+        var v4JSON = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(v4State)) as? [String: Any])
+        v4JSON["schemaVersion"] = 4
+        v4JSON["gradesOutsideCanvasOverride"] = nil
+        let v4Data = try JSONSerialization.data(withJSONObject: v4JSON)
+        try ProtectedFile.atomicWrite(try sealer.seal(v4Data, file: .userState), to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
+        #expect(migrated.schemaVersion == 5 && UserState.currentSchemaVersion == 5)
+        #expect(migrated == v4State, "every v4 field kept, and no override")
+        #expect(migrated.gradesOutsideCanvasOverride.isEmpty && migrated.gradeAvailabilityOverrides.isEmpty)
+    }
+
+    /// v5 round trip, and the persisted contract: `GradeAvailabilityOverride`'s raw values, keyed
+    /// by course ID (the XG-01 report's handoff note).
+    @Test func gradeAvailabilityOverridesRoundTripByRawValue() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let state = UserState(courseOrder: ["77306"],
+                              gradeAvailabilityOverrides: ["77301": .inCanvas, "77306": .keptOutsideCanvas])
+        #expect(state.gradesOutsideCanvasOverride == ["77301": "inCanvas", "77306": "keptOutsideCanvas"])
+        let json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) as? [String: Any])
+        #expect(json["gradesOutsideCanvasOverride"] as? [String: String] == ["77301": "inCanvas", "77306": "keptOutsideCanvas"])
+        try await store.save(state)
+        guard case .loaded(let loaded) = await store.load() else { Issue.record("expected the saved UserState"); return }
+        #expect(loaded == state)
+        #expect(loaded.gradeAvailabilityOverrides == ["77301": .inCanvas, "77306": .keptOutsideCanvas])
+
+        // Automatic removes the entry; the typed setter writes raw values only.
+        var edited = loaded
+        edited.gradeAvailabilityOverrides["77301"] = nil
+        edited.gradeAvailabilityOverrides["77302"] = .inCanvas
+        #expect(edited.gradesOutsideCanvasOverride == ["77302": "inCanvas", "77306": "keptOutsideCanvas"])
+    }
+
+    /// A raw value this build does not know reads as Automatic for that course; the rest of the
+    /// state still loads (a failed decode would reset every setting).
+    @Test func anUnknownOverrideValueReadsAsAutomatic() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            UserState(showGradesInGlance: true, courseOrder: ["2"]))) as? [String: Any])
+        json["gradesOutsideCanvasOverride"] = ["1": "aNewerAnswer", "2": "inCanvas"]
+        try ProtectedFile.atomicWrite(try sealer.seal(try JSONSerialization.data(withJSONObject: json), file: .userState),
+                                      to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let loaded) = await store.load() else { Issue.record("expected the UserState to load"); return }
+        #expect(loaded.showGradesInGlance && loaded.courseOrder == ["2"])
+        #expect(loaded.gradeAvailabilityOverrides == ["2": .inCanvas], "course 1 is Automatic")
+        #expect(loaded.gradesOutsideCanvasOverride["1"] == "aNewerAnswer", "the stored value is left as it was")
+    }
+
     @Test func screenStateRoundTrips() async throws {
         let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
         let state = UserState(courseOrder: ["51842", "51840"], doneAssignments: ["9001", "9002"],

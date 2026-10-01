@@ -52,7 +52,8 @@ public final class HomeModel {
     public private(set) var calendarScreen: CalendarProjection = .empty
     public private(set) var insightsScreen: InsightsProjection = .empty
     public private(set) var account: AccountProjection = .empty
-    /// The student's local course order and To-Do "done" marks (never written to Canvas, R16).
+    /// The student's local course order, To-Do "done" marks (never written to Canvas, R16) and
+    /// "grades kept outside Canvas" answers (plan 08 G-3, XG-04).
     public let local: ScreenLocalState
     /// Settings' access to `UserState` (the "What changed" thresholds).
     public let userState: any UserStateAccess
@@ -78,6 +79,10 @@ public final class HomeModel {
     /// The subscription and its first update (`prepare()`); shared by every caller.
     @ObservationIgnored private var preparation: Task<Void, Never>?
     @ObservationIgnored private var hasEnded = false
+    /// XG-04: hands a changed "grades kept outside Canvas" answer to the projector, then re-projects.
+    private let overrideChanges = TaskBox()
+    /// The revision of the answers last handed to the projector (`HomeProjector` keeps the newest).
+    @ObservationIgnored private var overridesRevision: UInt64 = 0
 
     /// - Parameters:
     ///   - localStore: where the course order and "done" marks live; in memory by default (sample
@@ -136,8 +141,10 @@ public final class HomeModel {
 
     private func subscribeAndHandleFirstUpdate() async {
         // M3-A: the course order first, so the first projection (at launch, `prepare()` runs
-        // before `start()`) already shows the student's order.
+        // before `start()`) already shows the student's order; and (XG-04) the "grades kept
+        // outside Canvas" answers, so it classifies every course as the glance on disk does.
         await local.load()
+        await projector.setGradeAvailabilityOverrides(local.gradeAvailabilityOverrides, revision: overridesRevision)
         let updates = await source.updates()
         guard !hasEnded else { return }
         await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
@@ -245,12 +252,40 @@ public final class HomeModel {
         if courseCards != arranged { courseCards = arranged }
     }
 
+    /// The student's answer to "This course's grades are kept outside Canvas" (plan 08 G-3,
+    /// XG-04): `nil` is Automatic.
+    public func gradeAvailabilityOverride(for course: CanvasID<Course>) -> GradeAvailabilityOverride? {
+        local.gradeAvailabilityOverrides[course]
+    }
+
+    /// Course Detail's menu (XG-04): sets one course's answer (`nil`: Automatic). It is kept with
+    /// the course order (`ScreenLocalState`; a signed-in account's `UserState`, which hands it to
+    /// the account's `RefreshCoordinator`: the glance is rewritten and the widget reloads), and
+    /// every screen is projected again at once with it.
+    public func setGradeAvailabilityOverride(_ value: GradeAvailabilityOverride?, for course: CanvasID<Course>) {
+        guard local.setGradeAvailabilityOverride(value, for: course) else { return }
+        overridesRevision &+= 1
+        let revision = overridesRevision
+        let overrides = local.gradeAvailabilityOverrides
+        let projector = projector
+        overrideChanges.replace(with: Task { [weak self] in
+            guard await projector.setGradeAvailabilityOverrides(overrides, revision: revision) else { return }
+            await self?.reproject()
+        })
+    }
+
+    /// Waits for the latest answer to reach the screens (tests).
+    func awaitGradeAvailabilityOverrideApplied() async {
+        await overrideChanges.value()
+    }
+
     /// Ends the subscriptions, the source and the projector: the snapshot is released.
     public func end() async {
         hasEnded = true
         preparation?.cancel()
         subscription.cancel()
         timeChanges.cancel()
+        overrideChanges.cancel()
         manualRunOwner.cancel()
         manualRun = nil
         await source.end()
