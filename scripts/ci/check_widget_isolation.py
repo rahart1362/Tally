@@ -34,7 +34,8 @@ import sys
 # fetch, refresh or hold credentials (TallySync, TallyCanvasAPI, and TallyIntents, which links
 # TallySync), and sample or test code. An interactive widget intent (M3-D) needs an intents target
 # that does not link TallySync, or a PMO ruling to change this list. TallyStrings (plan 08 L10N-01:
-# the shared String Catalog, L10n and the formatters; Foundation only, no dependencies) is allowed.
+# the shared String Catalog, L10n and the formatters; it depends on Foundation and, since L10N-02,
+# on TallyDomain for the values its renderers phrase) is allowed.
 FORBIDDEN_MODULES = (
     "TallyFeatures", "TallyPlatform", "TallySync", "TallyCanvasAPI", "TallyIntents",
     "TallyReplay", "TallySampleFixtures", "TallyTestSupport",

@@ -412,10 +412,20 @@ public nonisolated enum DashboardBuilder {
             alerts.append((cluster, .overload(start: start)))
         }
 
-        return uniqueByDedupeKey(alerts).sorted { $0.0.rank > $1.0.rank }.prefix(3)
+        return uniqueByDedupeKey(alerts).sorted { attentionOrder($0.0, $1.0) }.prefix(3)
             .map { alert, content in
                 DashboardProjection.AttentionItem(id: alert.dedupeKey, severity: alert.severity, content: content)
             }
+    }
+
+    /// "Needs attention" order: the highest `rank` first; ties by severity, then by the alert's stable
+    /// key. Ranking by `rank` alone left equal-rank alerts in their input order, part of which comes
+    /// from dictionary iteration, so the three rows shown could change between launches with the
+    /// same data (XG-02 report open item). Now the rows depend only on the alerts, never their order.
+    static func attentionOrder(_ a: Alert, _ b: Alert) -> Bool {
+        if a.rank != b.rank { return a.rank > b.rank }
+        if a.severity != b.severity { return a.severity > b.severity }
+        return a.dedupeKey < b.dedupeKey
     }
 
     /// R-3 (resilience.md): one row per `dedupeKey`, which is each row's `id`, so the list never
