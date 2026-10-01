@@ -151,7 +151,6 @@ struct HeroSection: View {
             // (perf-app-runtime.md §3 item 7: never combine children that include a control).
             .accessibilityElement(children: .combine)
             // The dash says nothing VoiceOver should read: the caption below does.
-            .accessibilityHidden(caption == .notInCanvas)
 
             if caption != .noRow {
                 captionRow(caption)
@@ -181,8 +180,6 @@ struct HeroSection: View {
                     }
                 }
                 .tint(TallyColor.textOnHero)
-                // The glance has no course rows to list: the button waits for the projection.
-                .disabled(isGlance)
             }
         case .notInCanvas:
             HStack(spacing: 0) {
@@ -224,7 +221,7 @@ nonisolated enum HeroCaption: Equatable, Sendable {
     init(_ hero: DashboardProjection.Hero) {
         let excluded = hero.courseCount - hero.averagedCount
         if hero.averagedCount > 0 {
-            self = excluded > 0 ? .notIncluded(excluded) : .noRow
+            self = .noRow
         } else {
             self = hero.school == .noneInCanvas ? .notInCanvas : .noRow
         }

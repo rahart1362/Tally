@@ -28,16 +28,6 @@ struct CoursesScreen: View {
                         }
                         .accessibilityLabel(card.accessibilityLabel)
                         .accessibilityIdentifier("course.card")
-                        // The card is one element, so its ⓘ button is reached as the card's action.
-                        .accessibilityActions {
-                            if let label = card.infoButtonLabel {
-                                Button {
-                                    infoCourse = card.id
-                                } label: {
-                                    Text(verbatim: label)
-                                }
-                            }
-                        }
                     }
                     .onMove { source, destination in
                         model.moveCourses(fromOffsets: source, toOffset: destination)

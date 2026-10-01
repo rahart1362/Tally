@@ -632,7 +632,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hello, I'm a student at %@. I use Canvas to keep track of my assignments, but my grades don't appear there. Would the school consider entering grades in Canvas too? I could then see my grades next to my work, in Canvas and in apps I use with it, like Tally. Thank you."
+            "value" : "Hello, I'm a student at %@. I use Canvas to keep track of my assignments, but my grades don't appear there. Would the school consider entering grades in Canvas too? I could then see my grades next to my work, in Canvas and in apps I use with it, like Tally. It's a free app. Thank you."
           }
         }
       }
