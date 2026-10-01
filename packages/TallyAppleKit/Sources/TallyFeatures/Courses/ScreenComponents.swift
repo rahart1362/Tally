@@ -110,7 +110,7 @@ extension CourseHealth {
         case .onTrack: .positive
         case .needsAttention: .warning
         case .atRisk: .danger
-        case .noGradeYet: .neutral
+        case .noGradeYet, .gradeNotInCanvas: .neutral
         }
     }
 }

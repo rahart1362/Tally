@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-19 / ARC E05e: Insights (ux-ui.md §3.7.6; PMO R13, insights-at-a-glance.md §5.4), renamed
 /// from "More". Each card title is a header with a one-line "what this means" subtitle.
@@ -24,7 +25,7 @@ struct InsightsScreen: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: TallySpacing.xxl) {
-                        trendCard
+                        trendCard(notInCanvas: projection.trendIsNotInCanvas)
                         if !projection.categoryShares.isEmpty {
                             ScreenCard {
                                 ScreenSectionHeader(title: "Category breakdown",
@@ -52,32 +53,46 @@ struct InsightsScreen: View {
 
     // MARK: - Cards
 
-    private var trendCard: some View {
+    /// Plan 08 §4.4 row 7: with no course to trend because the grades are kept outside Canvas,
+    /// the card says so instead of offering ranges over nothing.
+    @ViewBuilder
+    private func trendCard(notInCanvas: Bool) -> some View {
         ScreenCard {
             ScreenSectionHeader(title: "Performance trend",
                                 subtitle: "Average of your courses, from when each grade was posted.")
-            Picker("Range", selection: $range) {
-                ForEach(TrendRange.allCases) { range in
-                    Text(range.label).tag(range).accessibilityLabel(range.spokenLabel)
-                }
-            }
-            .pickerStyle(.segmented)
-            if let view = insights.trend?.ranges[range] {
-                if view.hasEnoughData {
-                    TrendChart(view: view)
-                } else {
-                    Text(view.summary)
-                        .font(TallyTypography.body)
-                        .foregroundStyle(TallyColor.textSecondary)
-                }
-            } else if insights.trendFailed {
-                Text("The trend couldn't be worked out.")
+            if notInCanvas {
+                Text(L10n.Insights.trendNotInCanvas())
                     .font(TallyTypography.body)
                     .foregroundStyle(TallyColor.textSecondary)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 120)
+                trendContent
             }
+        }
+    }
+
+    @ViewBuilder
+    private var trendContent: some View {
+        Picker("Range", selection: $range) {
+            ForEach(TrendRange.allCases) { range in
+                Text(range.label).tag(range).accessibilityLabel(range.spokenLabel)
+            }
+        }
+        .pickerStyle(.segmented)
+        if let view = insights.trend?.ranges[range] {
+            if view.hasEnoughData {
+                TrendChart(view: view)
+            } else {
+                Text(view.summary)
+                    .font(TallyTypography.body)
+                    .foregroundStyle(TallyColor.textSecondary)
+            }
+        } else if insights.trendFailed {
+            Text("The trend couldn't be worked out.")
+                .font(TallyTypography.body)
+                .foregroundStyle(TallyColor.textSecondary)
+        } else {
+            ProgressView()
+                .frame(maxWidth: .infinity, minHeight: 120)
         }
     }
 

@@ -36,12 +36,14 @@ public nonisolated struct ScreenProjections: Equatable, Sendable {
     /// by `HomeProjector`); `nil` classifies the snapshot at `formatter.now` with no override.
     public static func build(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
                              gradeAvailability: GradeAvailabilityIndex? = nil) -> ScreenProjections {
-        ScreenProjections(
-            courseCards: CourseCardBuilder.cards(from: snapshot, formatter: formatter),
-            courseDetails: CourseDetailBuilder.details(from: snapshot, formatter: formatter),
-            toDo: ToDoBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: gradeAvailability),
+        // Plan 08 XG-03: one index for every screen (classified here when the caller has none).
+        let index = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
+        return ScreenProjections(
+            courseCards: CourseCardBuilder.cards(from: snapshot, formatter: formatter, gradeAvailability: index),
+            courseDetails: CourseDetailBuilder.details(from: snapshot, formatter: formatter, gradeAvailability: index),
+            toDo: ToDoBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: index),
             calendar: CalendarBuilder.projection(from: snapshot, formatter: formatter),
-            insights: InsightsBuilder.projection(from: snapshot, formatter: formatter),
+            insights: InsightsBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: index),
             account: AccountProjection.build(from: snapshot))
     }
 }
