@@ -226,7 +226,7 @@ public nonisolated enum ToDoBuilder {
             guard let due = assignment.dueAt, due < now else { return false }
             return assignment.lockAt.map { $0 > now } ?? true
         }()
-        let score = TallyDomain.DashboardBuilder.modifierScore(of: course, availability: availability)
+        let score = course.gradeVisibility == .visible ? course.scores?.currentScore : nil
         let (belowGoal, nearBoundary) = PriorityScore.courseModifiers(currentScore: score, goal: nil)
         return PriorityScore.score(hoursUntilDue: hours, courseWeight: weight,
                                    modifiers: .init(overdueStillOpen: overdueStillOpen, courseBelowGoal: belowGoal,

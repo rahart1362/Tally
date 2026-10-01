@@ -136,7 +136,7 @@ public actor HomeProjector {
     /// shown as percentages (`.available`), and the course's state, so a row can say why there is
     /// none. A course the index does not know shows no grade and counts as not yet posted.
     nonisolated static func courseRow(_ course: Course, availability: GradeAvailability?) -> HomeProjection.CourseRow {
-        let available = availability == .available
+        let available = course.gradeVisibility == .visible
         return HomeProjection.CourseRow(
             id: course.id, code: course.courseCode, name: course.name,
             percent: available ? course.scores?.currentScore : nil,

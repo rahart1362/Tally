@@ -121,7 +121,7 @@ enum GlanceText {
         case .noneYet:
             return (title: L10n.Glance.standingNoneYetTitle(), detail: L10n.Glance.standingNoneYetDetail())
         case .notInCanvas:
-            return (title: L10n.Glance.standingNotInCanvasTitle(), detail: L10n.Glance.standingNotInCanvasDetail())
+            return (title: L10n.Glance.standingHiddenTitle(), detail: L10n.Glance.standingHiddenDetail())
         }
     }
 

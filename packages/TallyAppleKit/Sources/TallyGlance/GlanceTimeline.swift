@@ -144,7 +144,7 @@ public enum GlanceTimelinePlanner {
             nextUp: next,
             laterCount: max(upcoming.count - 1, 0),
             overdueCount: dated.count - upcoming.count,
-            grades: glance.gradeSummary,
+            grades: glance.overallGradeBand.map(GlanceGradeSummary.band) ?? .notOptedIn,
             asOf: glance.asOf,
             isStale: moment.timeIntervalSince(glance.asOf) >= staleAfter,
             asOfIsBeforeToday: glance.asOf < calendar.startOfDay(for: moment))
