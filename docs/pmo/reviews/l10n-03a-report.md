@@ -105,8 +105,8 @@ The script separately confirmed the X-1 key is the **one** declared exception: t
 |---|---|---|---|
 | **36886111002** | `526bf83` (the sweep) | quick | **every job success.** Hygiene gates 13s; crash-safety lint (SwiftLint 0.59.1) 15s; TallyCore tests (Linux, Swift 6.4) 3m48s; TallyCore sanitizers (TSan+ASan/LSan) 12m45s; TallyCore perf gates, report-only, success. **iOS build + test (Xcode 26.6) 46m57s, success.** Floor xcresult (iOS 26.x floor): `totalTestCount=392, passedTests=390, failedTests=0, skippedTests=0, expectedFailures=2`. Main xcresult: `totalTestCount=422, passedTests=416, failedTests=0, skippedTests=4, expectedFailures=2`. The new tests ran on both (confirmed by the screenshot-export step naming each, since only tests the xcresult actually contains are listed there): `FreshnessPresenterTests.freshAgingEnGBUses24HourTime`, `.delayedBreadcrumbEnGBUses24HourTime`, `.defaultLocaleMatchesTallyLocaleEffective(_:)` (×5 parameterized cases), `AccountLifecycleSuites/ReminderPipelineTests/defaultLocaleMatchesTallyLocaleEffective`. Release device build: `BUILD SUCCEEDED`. Shipping-binary checks, no UI-test hooks, widget link map, widget memory budget: success (implied by overall job success; not individually quoted here). |
 | **36894648184** | `816ffdc` (LM1-LM3 mutations) | quick | **failure, as intended (LM3 only): §5.2.** |
-| — | `0daecd1` (the revert) | — | not re-run; byte-identical to `526bf83` (`git diff 526bf83 HEAD -- FreshnessPresenter.swift ReminderPipeline.swift` empty), and exercised by the hand-off full run below |
-| **(pending)** | the report's commit | full | the hand-off run |
+| — | `0daecd1` (the revert) | — | not re-run on its own; byte-identical to `526bf83` (`git diff 526bf83 HEAD -- FreshnessPresenter.swift ReminderPipeline.swift` empty), and exercised by the hand-off full run below |
+| **36901292740** | `68dd401` (the revert + report + journal through the mutation round) | **full** | **every required job success.** Hygiene: `L10N \| PASS \| 156 Swift files, 210 literals in 20 files, baseline 210 in 20 files`; `CATALOG \| PASS \| 4 catalogs, 274 keys, shipping ['en'] \| 0 problems`. core-linux: 696 tests (53+113+8+327+195), 4 known issues, 0 failures. lint: 0 violations in 220 files. core-sanitizers: TSan 696 tests 0 failures, 0 warnings/errors; ASan/LSan 696 tests 0 failures. **ios-build:** Release simulator and TEST builds `BUILD SUCCEEDED`; main xcresult **422 total, 416 passed, 0 failed, 4 skipped, 2 expected**; floor xcresult **392 total, 390 passed, 0 failed, 2 expected**; smallest-iPhone subset 2/2; Release device build `BUILD SUCCEEDED` — identical totals to the pre-mutation quick run (`526bf83`), confirming the revert is clean. ios-asan (app tests): 389 total, 382 passed, 0 failed, 5 skipped, 2 expected; "AddressSanitizer reports: 0". ios-tsan: 389 total, 382 passed, 0 failed, 5 skipped, 2 expected; "ThreadSanitizer warnings: 0; errors: 0". **ios-perf: `Launch.GlancePaint` median 1.6442 s ≤ 3.0 s** (the launch gate), 5/5 perf tests present. Report-only (read, not gating): TallyCore perf gates and perf on Apple silicon, success; **iOS forward-compat (Xcode 27 preview) failed**, 422 total, 415 passed, **1 failed**: `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect:63` ("todo.markDone" Button exists but is not hittable) — a `ToDo/*` UI test, a screen this branch does not touch; the same flake XG-03's hand-off report already recorded on this job (`xg03-report.md`: "the same reminders flake, and `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect:63`"). **iOS AddressSanitizer (UI tests, report-only) was still running** when this section was written (non-blocking, not one of the 8 required jobs) — its own job name says so; not waited on further. |
 
 A `gh run watch 36886111002 --exit-status` background call reported "failed with exit code 1" after running past its own polling window; `gh run view --json status,conclusion` on the same run ID shows `"status":"completed","conclusion":"success"`, and every job above is independently confirmed green from its own log. Treated as a `gh run watch` quirk (its own exit status), not a CI result; the run's actual conclusion is what is reported here.
 
@@ -138,10 +138,12 @@ A `gh run watch 36886111002 --exit-status` background call reported "failed with
 
 ## 7. Open items
 
-1. **CI not yet run at the time this section was drafted** — §4 fills in once it has. Nothing in this package has been compiled; every claim about `ios-build` is deferred to that evidence.
-2. **The two locale-fix tests' CI-environment limit** (§1.3): `TallyLocale.effective` equals `Locale.current` while Tally ships English only, and CI's simulator locale is itself en_US, so the parity tests cannot be mutation-checked in *this* environment specifically — consistent with `l10n-infra-report.md`'s own documented limit on its UI-test pin.
-3. **`ScreenSectionHeader`** (§1.4, §6): left for L10N-03b.
-4. **Device confirmation:** every iOS result (once run) is from CI simulators, never a device — consistent with every prior plan 08 report.
+1. **The two locale-fix default-parameter tests' CI-environment limit** (§1.3, §5.2): `TallyLocale.effective` equals `Locale.current` while Tally ships English only, and CI's simulator locale is itself en_US, so `defaultLocaleMatchesTallyLocaleEffective` (both files) cannot be mutation-checked for the *default value itself* in this environment — confirmed by the mutation run, not just predicted. LM3 (the formatter ignoring its `locale:` argument) was caught cleanly instead, which is the part of the fix that is environment-independent. Consistent with `l10n-infra-report.md`'s own documented limit on its UI-test pin.
+2. **`ScreenSectionHeader`** (§1.4, §6): blocked without either editing an L10N-03b file or risking an overload ambiguity neither Xcode-verifiable on this host; left for L10N-03b, which already touches the one blocking call site.
+3. **`iOS AddressSanitizer (UI tests, report-only)`** on the hand-off run (`36901292740`) was still in progress when this report was finalized (non-blocking, not one of the 8 required jobs per the brief). Not re-checked after; the PMO's own run-status check (relayed mid-task) separately confirmed the 8 required jobs green.
+4. **`iOS forward-compat` (Xcode 27 preview, report-only, non-blocking)** failed on the hand-off run: `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect:63`, a pre-existing flake on a `ToDo/*` UI test this branch does not touch, already on record in `xg03-report.md`.
+5. **Device confirmation:** every iOS result here is from CI simulators, never a device — consistent with every prior plan 08 report.
+6. **Settings/AppLockSettingsModel UI coverage beyond existing tests:** no new UI tests were added (per the brief); the existing `AppLockUITests`/`SettingsUITests` exercise the swept screens and stayed green (§4).
 
 ## 8. Commits
 
@@ -150,6 +152,9 @@ On `l10n/sweep-a`, from `1168c22`:
 | Commit | What |
 |---|---|
 | `526bf83` | the sweep: 17 files to 0 in the baseline, 188 new catalog entries, the two locale fixes, X-1, `StatusChip`'s additive initializer, new hosted tests |
-| (pending) | CI fixes, if any |
-| (pending) | the two locale-fix mutations (CI), reverted |
-| (this report) | the hand-off report; the full run is on it |
+| `816ffdc` | LM1-LM3 mutations (CI run 36894648184, LM3 caught, reverted next) |
+| `0daecd1` | revert of `816ffdc`; byte-identical to `526bf83` for the two touched files |
+| `68dd401` | this report (through the mutation round) and the journal |
+| (this commit) | the report's CI §4/§7/§8 filled in with the hand-off full run (`36901292740`) |
+
+No merge commits; `main` was not rebased onto or merged from during this work (nothing new landed on `origin/main` after `1168c22` while this branch was active).

@@ -942,4 +942,19 @@ Plurals, UI-test text (`SettingsUITests`, `SchoolSearchUITests`, `CalendarUITest
 
 Reverted in `0daecd1` (`git revert 816ffdc`, commit message amended for the trailer and a clean summary). `git diff 526bf83 HEAD -- FreshnessPresenter.swift ReminderPipeline.swift` is empty: byte-identical to the pre-mutation commit, not just eyeballed. Not re-run on its own (budget: the next run, full scope, exercises the reverted tree as part of the hand-off).
 
+Report and journal through the mutation round committed and pushed (`68dd401`) before dispatching the full run, so the work survives if usage limits interrupt here (binding rule 6).
+
 Next: the full hand-off run.
+
+## 2026-10-01 | L10N-03a: the hand-off full run, and hand-off
+**Full run 36901292740** (`68dd401`, full scope): **every required job success.**
+- Hygiene: `L10N | PASS | 156 Swift files, 210 literals in 20 files, baseline 210 in 20 files`; `CATALOG | PASS | 4 catalogs, 274 keys, shipping ['en'] | 0 problems`.
+- core-linux: 696 tests (53+113+8+327+195), 4 known issues, 0 failures. lint: 0 violations in 220 files. core-sanitizers: TSan 696 tests, 0 warnings/errors; ASan/LSan 696 tests, 0 failures.
+- **ios-build:** main xcresult **422 total, 416 passed, 0 failed, 4 skipped, 2 expected**; floor **392 total, 390 passed, 0 failed, 2 expected**; smallest-iPhone 2/2 — identical totals to the pre-mutation quick run (`526bf83`), confirming the revert compiles and behaves the same. Release device build `BUILD SUCCEEDED`.
+- ios-asan (app tests): 389 total, 382 passed, 0 failed, 5 skipped, 2 expected, "AddressSanitizer reports: 0". ios-tsan: 389 total, 382 passed, 0 failed, 5 skipped, 2 expected, "ThreadSanitizer warnings: 0; errors: 0".
+- **ios-perf: `Launch.GlancePaint` median 1.6442 s ≤ 3.0 s.**
+- Report-only: TallyCore perf gates and perf on Apple silicon, success. **iOS forward-compat (Xcode 27 preview) failed**, 422 total, 415 passed, 1 failed: `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect:63` ("todo.markDone" Button exists but is not hittable) — a pre-existing flake on a screen this branch does not touch, already on record in `xg03-report.md`. `iOS AddressSanitizer (UI tests, report-only)` was still in progress (non-blocking, not a required job) when this entry was written.
+
+**PMO checked the same run independently mid-task** (relayed via the session) and confirmed the same 8 required jobs green, the same forward-compat failure as a known non-blocking flake, and that the report-only ASan-UI job (up to ~75 min) need not be waited on. I independently re-verified via `gh run view --json status,conclusion,jobs` before acting on it, then pulled each required (and report-only) job's own log for the numbers above — the PMO's message was a cue to stop waiting on a non-blocking job, not a substitute for reading the jobs myself.
+
+**Hand-off.** `docs/pmo/reviews/l10n-03a-report.md` and this journal are complete through the full run. Per the PMO's relayed instruction and binding rule 2, no PR was opened; the branch is pushed and ready for the PMO to open it.
