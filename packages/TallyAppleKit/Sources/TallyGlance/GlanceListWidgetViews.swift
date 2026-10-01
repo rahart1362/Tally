@@ -48,7 +48,7 @@ public struct WeekAheadWidgetView: View {
                 GlanceMessageText(message: message)
             case .summary(let summary):
                 VStack(alignment: .leading, spacing: TallySpacing.sm) {
-                    WeekStrip(days: summary.week)
+                    GlanceWeekStrip(days: summary.week)
                     GlanceItemList(summary: summary, rows: GlanceMetrics.weekAheadRows)
                 }
             }
@@ -111,7 +111,7 @@ struct GlanceItemRow: View {
 
 /// Seven day columns: the weekday, the count of open items due, and "Busy" (with a warning symbol)
 /// on a heavy day. The words and numbers carry the meaning, never a colour (UX-WP-38).
-struct WeekStrip: View {
+struct GlanceWeekStrip: View {
     let days: [GlanceSummary.Day]
     @Environment(\.widgetRenderingMode) private var renderingMode
 

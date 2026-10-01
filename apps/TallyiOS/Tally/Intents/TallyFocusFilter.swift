@@ -28,7 +28,7 @@ struct TallyFocusFilter: SetFocusFilterIntent {
         let locale = TallyLocale.effective
         let coursesText = codes.isEmpty ? resolved(L10n.Widgets.focusAllCourses(), locale) : TallyFormat.list(codes, locale: locale)
         let alertsText = resolved(onlyUrgent ? L10n.Widgets.focusOnlyUrgent() : L10n.Widgets.focusAllAlerts(), locale)
-        return DisplayRepresentation(title: "\(coursesText)", subtitle: "\(alertsText)", image: nil)
+        return DisplayRepresentation(title: "\(coursesText)", subtitle: "\(alertsText)")
     }
 
     var appContext: FocusFilterAppContext {
@@ -51,14 +51,14 @@ struct TallyFocusFilter: SetFocusFilterIntent {
 /// glance (no course names, no grades).
 struct CourseEntity: AppEntity {
     static let typeDisplayRepresentation = TypeDisplayRepresentation(
-        name: LocalizedStringResource("intent.course.type", table: "AppIntents"), numericFormat: nil)
+        name: LocalizedStringResource("intent.course.type", table: "AppIntents"))
     static let defaultQuery = CourseEntityQuery()
 
     let id: String
     let code: String
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(code)", subtitle: nil, image: nil)
+        DisplayRepresentation(title: "\(code)")
     }
 }
 

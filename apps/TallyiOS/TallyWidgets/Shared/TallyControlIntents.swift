@@ -29,11 +29,13 @@ struct RefreshTallyIntent: LiveActivityIntent {
 enum TallyDestination: String, AppEnum {
     case nextUp
 
+    // App Intents metadata is extracted at build time: only literal arguments, and none left `nil`
+    // explicitly (run 36940410627: "Unable to get a static value for parameter 'numericFormat', it
+    // must be initialized directly with a String literal").
     static let typeDisplayRepresentation = TypeDisplayRepresentation(
-        name: LocalizedStringResource("intent.destination.type", table: "AppIntents"), numericFormat: nil)
+        name: LocalizedStringResource("intent.destination.type", table: "AppIntents"))
     static let caseDisplayRepresentations: [TallyDestination: DisplayRepresentation] = [
-        .nextUp: DisplayRepresentation(title: LocalizedStringResource("intent.destination.nextUp", table: "AppIntents"),
-                                       subtitle: nil, image: nil),
+        .nextUp: DisplayRepresentation(title: LocalizedStringResource("intent.destination.nextUp", table: "AppIntents")),
     ]
 }
 
