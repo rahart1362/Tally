@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "full: every job (pull requests always run full). quick: Linux jobs plus ios-build only, for engineers' iteration runs; hand-off runs must be full."
+        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). Pull requests run the required jobs; the PR run is the hand-off run."
         type: choice
-        options: [full, quick]
+        options: [full, quick, unit]
         default: full
 
 permissions:
@@ -198,7 +198,9 @@ jobs:
 
   core-perf-apple:
     name: TallyCore perf on Apple silicon (release, non-blocking)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    # Report-only: main pushes and full dispatches, not pull requests (PMO, 2026-10-01). GitHub runs
+    # 5 macOS jobs at a time; a PR run keeps only the 4 required macOS jobs, so two streams' runs queue less.
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'full') }}
     runs-on: macos-26
     timeout-minutes: 30
     # Release numbers from Apple's toolchain on Apple silicon are closer to a device than
@@ -223,9 +225,9 @@ jobs:
   ios-build:
     name: iOS build + test (Xcode 26.6)
     runs-on: macos-26
-    # 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
+    # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
-    timeout-minutes: 60
+    timeout-minutes: 90 # 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -275,7 +277,7 @@ jobs:
         # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" ${{ inputs.scope == 'unit' && 'IOS_ONLY_TESTING=-only-testing:TallyAppTests' || '' }}
       - name: Main-thread watchdog stalls during the UI tests (phase, length)
         # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
         # it becomes required): every stall past 250 ms, launch-phase ones included. Needs the
@@ -284,10 +286,12 @@ jobs:
         run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the smallest iOS 26 iPhone simulator
         id: small
+        if: ${{ inputs.scope != 'unit' }}
         run: python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"
       - name: Welcome CTAs on the smallest iPhone (hittable at launch and at AX XXXL)
         # perf-app-runtime.md §7 step 3: both pinned CTAs are hittable right after launch on
         # the smallest available iPhone, at the default size and at the largest text size.
+        if: ${{ inputs.scope != 'unit' }}
         run: |
           echo "Smallest iPhone: ${{ steps.small.outputs.name }} on ${{ steps.small.outputs.runtime }}"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
@@ -299,7 +303,7 @@ jobs:
         # hides the floor's own result (run 36378109668 skipped it). It needs the built tests:
         # after an earlier failure (the TallyCore step, the project, the build) it is skipped,
         # not run against nothing (app-core report O11, run 36411999390).
-        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' && inputs.scope != 'unit' }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -510,7 +514,7 @@ jobs:
 
   ios-tsan:
     name: iOS ThreadSanitizer (TallyAppTests)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 60
     # Plan 06 A7 and the PMO's O1 ruling: required once O12 was fixed (92b92f9, M2-C2) and the job
@@ -567,7 +571,7 @@ jobs:
 
   ios-asan:
     name: iOS AddressSanitizer (app tests)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 75
     # Plan 06 A7: required since 2026-09-28 (PMO). It runs the hosted app tests. The UI tests run
@@ -602,7 +606,9 @@ jobs:
 
   ios-asan-ui:
     name: iOS AddressSanitizer (UI tests, report-only)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    # Report-only: main pushes and full dispatches, not pull requests (PMO, 2026-10-01). GitHub runs
+    # 5 macOS jobs at a time; a PR run keeps only the 4 required macOS jobs, so two streams' runs queue less.
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'full') }}
     runs-on: macos-26
     timeout-minutes: 75
     # Report-only until the UI tests' waits hold up on the slow ASan simulator (O9, stream M2-C2).
@@ -637,7 +643,7 @@ jobs:
 
   ios-perf:
     name: iOS perf budgets (Release, CI simulator)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope == 'full' }}
     runs-on: macos-26
     timeout-minutes: 45
     # Required from the M2 exit (owner decision on O10, 2026-09-28): perf/budgets.json holds budgets
@@ -670,7 +676,9 @@ jobs:
 
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'quick' }}
+    # Report-only: main pushes and full dispatches, not pull requests (PMO, 2026-10-01). GitHub runs
+    # 5 macOS jobs at a time; a PR run keeps only the 4 required macOS jobs, so two streams' runs queue less.
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'full') }}
     runs-on: xcode-27
     timeout-minutes: 45 # at 30 the limit cancelled it before it reported in PR runs for #9, #10, #12 and #14
     continue-on-error: true # preview image; must never gate the required checks above

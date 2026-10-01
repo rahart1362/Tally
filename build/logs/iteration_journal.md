@@ -908,6 +908,48 @@ Main xcresult: 377 total, 369 passed, 2 failed, 4 skipped, 2 expected. Floor: 34
 - Required, from attempt 1: hygiene (literals 423/423; catalogs 4, 86 keys; widget isolation PASS; privacy 11 checks, 0 failed); core-linux 696 tests (53 + 113 + 8 + 327 + 195), 4 known issues; lint; core-sanitizers (TSan and ASan/LSan, 696 each); ios-asan 385 total, 378 passed, 5 skipped (the 4 accessibility-tree tests skip under sanitizers), 2 expected, 0 AddressSanitizer reports; ios-tsan 385 total, 378 passed, 5 skipped, 2 expected, 0 ThreadSanitizer warnings or errors; **ios-perf: `Launch.GlancePaint` median 1.6004 s ≤ 3.0 s**, sample entry 0.0704 s ≤ 0.15 s; 5 of 6 perf tests passed, `testWarmApplicationLaunch` "Received unexpected number of metrics: 0" (the measurement-only flake on record at run 36454268485; it does not gate).
 - Report-only: core-perf 40 tests, 1 known issue (`dashboardBuild/stress` 5.51 ms against a 13 ms ceiling; `glanceSize/stress` 3,518 bytes); perf on Apple silicon 42 tests, 1 known issue; ios-asan-ui 30 total, 26 passed, 4 skipped, 0 reports; forward-compat (Xcode 27) failure: 418 total, 410 passed, 2 failed (the same reminders flake, and `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect:63`, a screen this branch does not change).
 
+## 2026-10-01 | PMO: main red on three pushes; one automatic retry per failed test
+- **Evidence:** `iOS build + test` failed on three main pushes in a row, one UI test each time and a different test each time:
+  - 36840852145 (`5d9bc45`): `SchoolSearchUITests.testTypingAQueryEventuallyReportsASearchFailure`. The search field was "not hittable".
+  - 36858306203 (`a2d26cd`): `SettingsUITests.testFormRowsAndTheWhatChangedThreshold:13`.
+  - 36870261498 (`fade30b`): `AppLockUITests.testThePrivacyCoverShowsWhileTheAppIsInactive`. `app.launch()` failed with "does not have a process ID" after 114.958 s.
+
+  The same commits' PR runs were green, and every run used runner image `20260907.0351.1`. `5d9bc45` changed only the Needs-attention tie-break. The next push, 36880573827 (`1168c22`), was green. Reading: CI simulator flakes, not a product regression.
+- **Change:** `ios-test` passes `-retry-tests-on-failure -test-iterations 2`, giving each failed test one re-run (the owner's rule). The new `ios-retried` target turns every failed attempt into a `::warning` annotation, whether or not its retry passed, so a flaky test stays visible. The sanitizer and perf targets are unchanged and get no retry.
+- **Mutation check, run 36885457430 (`710c66b`, quick):** the temporary `RetryMutationTests` failed its first attempt and passed its retry.
+  - On the main simulator: log lines 2858-2860; annotation at line 3512.
+  - On the floor run: lines 4334-4336; annotation at line 4830.
+
+  Job conclusion: success. The test is removed in the next commit.
+
+## 2026-10-01 | PMO: reminders `launchThenCommit` flake — first timings (open item, time-boxed)
+- **PR #20 (`5296ce6`)** puts the step timings in the failure messages, and in a known issue when the pass takes more than 10 s.
+- **First data, TSan job of run 36881015049:**
+  - launched +0.36 s, reads=0;
+  - **launch pass read +18.63 s**;
+  - home started +18.79 s;
+  - commit pass read +19.10 s.
+
+  The pass itself is fast (the commit pass took 0.3 s). The time is spent before the launch pass reaches its read.
+- **Ruled out:**
+  - The cross-suite overlap: the suites have been serialized since PR #17.
+  - `signOutLeavesNothing`'s held read: it holds the queue for about 0.3 s, then releases.
+- **Open hypotheses (UNVERIFIED):**
+  - The `Task(priority: .utility)` in `ReminderPipeline.attach` is starved while the cooperative pool is saturated, as in a TSan run of parallel suites.
+  - The coordinator actor is busy at launch, so `events()` or `committedSnapshot` waits.
+- **User impact: none expected.** The first reminders pass is background work and runs seconds after launch.
+- **Next:** time-boxed and closed for now, per owner guidance. The next failure will print its timings, and the one retry keeps the flake off the required gate. If it recurs with a long launch gap, add pipeline marks (attach entered, queue entered, permission done) behind a test hook.
+
+## 2026-10-01 | PMO: ios-build job timeout 60 → 90 min; a second reminders timing
+- **Timeout:** `iOS build + test` took 47.0 to 59.0 min on the 13 completed runs it ran to the end today. Main run 36890338962 (`5296ce6`, the PR #20 merge) was cancelled by the 60-min `timeout-minutes` at 61.0 min, and PR #20's own run took 59.0 min. GitHub's annotation reported macOS arm64 capacity constraints. The limit is now 90 min, so a slow runner doesn't turn a required check red.
+- **Reminders flake, second data point:** PR #21's Xcode 27 forward-compat job (run 36895048288, non-blocking; the raw `xcodebuild test`, which has no retry):
+  - launched +0.06 s;
+  - launch pass read +9.40 s;
+  - home started +9.47 s;
+  - **commit pass: no read by +39.51 s** (reads=1).
+
+  This time it was the *commit* pass that was late, after a quick launch pass. Both data points are tens of seconds before a pass reaches its read, at different steps, so the delay looks environmental rather than tied to one step. Still UNVERIFIED. One more candidate to check: the sealer's key access during the ledger and user-state loads. Next step unchanged: pipeline marks, if it recurs.
+
 ## 2026-10-01 | L10N-03a: literal sweep (shell and non-grade screens) — local work
 **Branch** `l10n/sweep-a` from `origin/main` @ `1168c22` (PR #19, XG-03), worktree `~/Documents/Tally-worktrees/l10n-sweep-a`. Plan 08 §5 row L10N-03a, §3.1, §3.3, §3.8; `l10n-infra-report.md`, `l10n02-report.md`.
 
