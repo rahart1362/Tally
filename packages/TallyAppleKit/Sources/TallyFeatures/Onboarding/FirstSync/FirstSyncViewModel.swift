@@ -1,5 +1,6 @@
 import Observation
 import TallyDomain
+import TallyStrings
 
 /// Drives the first-sync skeleton (UX-WP-10, ux-ui.md §3.2 stage 5). Consumes
 /// `FirstSyncPublishing` (`CoordinatorFirstSyncPublisher` over the new account's coordinator in
@@ -57,10 +58,10 @@ public final class FirstSyncViewModel {
     /// "Connecting to <School>…" before the first phase completes.
     public var statusText: String {
         guard let count = completedPhases.isEmpty ? nil : completedPhases.count else {
-            return "Connecting to \(schoolDisplayName)…"
+            return String(localized: L10n.Onboarding.FirstSync.connectingTo(schoolDisplayName))
         }
-        guard count < Self.allPhases.count else { return "Almost done" }
-        return "Setting up Tally · step \(count + 1) of \(Self.allPhases.count)"
+        guard count < Self.allPhases.count else { return String(localized: L10n.Onboarding.FirstSync.almostDone()) }
+        return String(localized: L10n.Onboarding.FirstSync.stepProgress(count + 1, Self.allPhases.count))
     }
 
     /// A determinate progress fraction in `0...1` (ux-ui.md's gold bar), never

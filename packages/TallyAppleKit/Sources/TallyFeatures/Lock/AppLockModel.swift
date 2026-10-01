@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TallyDomain
+import TallyStrings
 
 /// SEC-07 (security.md WP-SEC-07; ADR 0001 "App lock"; ux-ui.md §3.7.8): the app lock's state on
 /// the main actor. The rules live in TallyDomain's pure `AppLockPolicy`; this model only feeds it
@@ -24,8 +25,8 @@ public final class AppLockModel {
     /// (swiftlang/swift#88036). CI's `nm` gate keeps isolated deinits out of every binary.
     nonisolated deinit {}
 
-    public static let unlockReason = "Unlock Tally to see your courses and grades."
-    public static let disableReason = "Turn off the Tally app lock."
+    public static var unlockReason: String { String(localized: L10n.Lock.unlockReason()) }
+    public static var disableReason: String { String(localized: L10n.Lock.disableReason()) }
 
     public private(set) var policy = AppLockPolicy(isEnabled: false)
     /// False until the launch has read the stored setting; until then the app shows only the

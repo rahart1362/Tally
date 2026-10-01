@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 
 /// SEC-07 / UX-WP-21 (ux-ui.md §3.7.8): the lock view. Opaque (`bg.canvas`, the launch colour), so
 /// nothing of the Home shows through, and `RootView` does not build the Home under it at all.
@@ -18,16 +19,16 @@ struct LockView: View {
         VStack(spacing: TallySpacing.xl) {
             Spacer()
             TMark(size: 64)
-            Text("Tally is locked")
+            Text(L10n.Lock.title())
                 .font(TallyTypography.screenTitle)
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             if lock.lastFailure == .passcodeNotSet {
-                Text("Set a device passcode in Settings to unlock Tally, or sign out and erase Tally's data from this iPhone.")
+                Text(L10n.Lock.passcodeNotSetMessage())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
                     .multilineTextAlignment(.center)
-                Button("Sign Out & Erase", role: .destructive, action: onSignOut)
+                Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive, action: onSignOut)
                     .buttonStyle(.tallySecondary)
                     .accessibilityIdentifier("lock.signOut")
             } else {
@@ -53,13 +54,13 @@ struct LockView: View {
         .task(id: lock.lockEpisode) { await lock.autoPromptIfNeeded() }
     }
 
-    private var title: String {
+    private var title: LocalizedStringResource {
         switch lock.availability {
-        case .available(.faceID): "Unlock with Face ID"
-        case .available(.touchID): "Unlock with Touch ID"
-        case .available(.opticID): "Unlock with Optic ID"
-        case .available(.noBiometry): "Unlock with Passcode"
-        case .passcodeNotSet, .unavailable: "Unlock"
+        case .available(.faceID): L10n.Lock.unlockWithFaceID()
+        case .available(.touchID): L10n.Lock.unlockWithTouchID()
+        case .available(.opticID): L10n.Lock.unlockWithOpticID()
+        case .available(.noBiometry): L10n.Lock.unlockWithPasscode()
+        case .passcodeNotSet, .unavailable: L10n.Lock.unlockGeneric()
         }
     }
 

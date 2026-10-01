@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-06: a pure presenter mapping `FreshnessState` (TallyDomain) to kit-11 copy
 /// (ux-ui.md §3.3's table). Every case is a plain function of its inputs — no I/O, no clock
@@ -27,60 +28,74 @@ public nonisolated enum FreshnessPresenter {
         public var showsBreadcrumb: Bool { longText != nil }
     }
 
+    /// Plan 08 §3.3 (L10N-03a fix): the default used to be hard-coded `en_US`, so an en-GB user
+    /// always saw 12-hour times here, before any translation existed. No caller passed `locale:`
+    /// (`FreshnessViews.swift:25, 53, 74`; `SettingsView.swift:182`), so this now defaults to the
+    /// one formatting locale the rest of the app uses (plan 08 §3.3).
     public static func present(
-        _ state: FreshnessState, now: Date, locale: Locale = Locale(identifier: "en_US"), timeZone: TimeZone = .current
+        _ state: FreshnessState, now: Date, locale: Locale = TallyLocale.effective, timeZone: TimeZone = .current
     ) -> Presentation {
         switch state {
         case .noCache:
             // Not in ux-ui.md §3.3's table (that table starts at "fresh"): before any successful
             // sync the app shows the first-sync skeleton, not this footer. Included here only so
             // the presenter is total; UNVERIFIED against the UX doc.
-            return Presentation(shortText: "Not refreshed yet", longText: nil, symbol: .clock, action: .refresh)
+            return Presentation(shortText: String(localized: L10n.Freshness.notRefreshedYet()), longText: nil,
+                                symbol: .clock, action: .refresh)
 
         case .fresh(let at):
             let justNow = now.timeIntervalSince(at) < 60
-            return Presentation(shortText: justNow ? "Updated just now" : "Updated \(when(at, now: now, locale: locale, timeZone: timeZone))",
-                                longText: nil, symbol: justNow ? .checkmarkCircle : .clock, action: .refresh)
+            let shortText = justNow
+                ? String(localized: L10n.Freshness.updatedJustNow())
+                : String(localized: L10n.Freshness.updated(when(at, now: now, locale: locale, timeZone: timeZone)))
+            return Presentation(shortText: shortText, longText: nil, symbol: justNow ? .checkmarkCircle : .clock, action: .refresh)
 
         case .refreshing(let showing):
-            let base = showing.map { "Updated \(when($0, now: now, locale: locale, timeZone: timeZone))" } ?? "Refreshing"
-            return Presentation(shortText: "\(base) · Refreshing…", longText: nil, symbol: .spinner, action: .none)
+            let base = showing.map { String(localized: L10n.Freshness.updated(when($0, now: now, locale: locale, timeZone: timeZone))) }
+                ?? String(localized: L10n.Freshness.refreshingFallback())
+            return Presentation(shortText: String(localized: L10n.Freshness.refreshingSuffix(base)), longText: nil,
+                                symbol: .spinner, action: .none)
 
         case .delayed(let showing):
             guard let showing else {
                 // "showing == nil means the first sync is slow: there is no cache yet, so no
                 // stale breadcrumb" (FreshnessState doc comment).
-                return Presentation(shortText: "First sync is taking longer than expected", longText: nil,
+                return Presentation(shortText: String(localized: L10n.Freshness.firstSyncSlow()), longText: nil,
                                     symbol: .clockBadgeExclamation, action: .retry)
             }
             let saved = when(showing, now: now, locale: locale, timeZone: timeZone)
-            return Presentation(shortText: "Saved \(saved)",
-                                longText: "Live refresh is taking longer than expected — showing saved data from \(saved).",
+            return Presentation(shortText: String(localized: L10n.Freshness.saved(saved)),
+                                longText: String(localized: L10n.Freshness.delayedLong(saved)),
                                 symbol: .clockBadgeExclamation, action: .retry)
 
         case .offline(let showing):
             guard let showing else {
-                return Presentation(shortText: "No saved data — you're offline", longText: nil, symbol: .wifiSlash, action: .none)
+                return Presentation(shortText: String(localized: L10n.Freshness.offlineNoData()), longText: nil,
+                                    symbol: .wifiSlash, action: .none)
             }
             let saved = when(showing, now: now, locale: locale, timeZone: timeZone)
-            return Presentation(shortText: "Saved \(saved)", longText: "You're offline — showing your latest saved data.",
+            return Presentation(shortText: String(localized: L10n.Freshness.saved(saved)),
+                                longText: String(localized: L10n.Freshness.offlineLong()),
                                 symbol: .wifiSlash, action: .none)
 
         case .authExpired(let showing):
             guard let showing else {
-                return Presentation(shortText: "Sign-in expired", longText: nil, symbol: .personBadgeExclamation, action: .signIn)
+                return Presentation(shortText: String(localized: L10n.Freshness.signInExpired()), longText: nil,
+                                    symbol: .personBadgeExclamation, action: .signIn)
             }
             let saved = when(showing, now: now, locale: locale, timeZone: timeZone)
-            return Presentation(shortText: "Saved \(saved)",
-                                longText: "Your sign-in expired — showing saved data from \(saved).",
+            return Presentation(shortText: String(localized: L10n.Freshness.saved(saved)),
+                                longText: String(localized: L10n.Freshness.authExpiredLong(saved)),
                                 symbol: .personBadgeExclamation, action: .signIn)
 
         case .failed(_, let showing):
             guard let showing else {
-                return Presentation(shortText: "Couldn't refresh yet", longText: nil, symbol: .exclamationTriangle, action: .retry)
+                return Presentation(shortText: String(localized: L10n.Freshness.couldntRefreshYet()), longText: nil,
+                                    symbol: .exclamationTriangle, action: .retry)
             }
             let saved = when(showing, now: now, locale: locale, timeZone: timeZone)
-            return Presentation(shortText: "Saved \(saved)", longText: "Couldn't refresh — showing saved data from \(saved).",
+            return Presentation(shortText: String(localized: L10n.Freshness.saved(saved)),
+                                longText: String(localized: L10n.Freshness.failedLong(saved)),
                                 symbol: .exclamationTriangle, action: .retry)
         }
     }

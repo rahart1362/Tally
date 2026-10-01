@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 
 /// "School found but not enabled" (ux-ui.md §3.2.1): a full screen, never a
 /// broken login, when a search result or typed address has no
@@ -8,31 +9,31 @@ import TallyDesignSystem
 /// spec's third, conditional action ("Use Calendar-Only Mode") depends on
 /// security.md decision SEC-D2(i), which is not adopted, so it is
 /// deliberately omitted here rather than half-built.
+///
+/// X-1 (plan 08, owner-approved 2026-09-30): the admin request text used to say "It's a free app";
+/// Tally is a paid subscription (P1), so it now says "It's an app".
 struct SchoolNotEnabledView: View {
     let school: String
     let onExploreSampleData: () -> Void
 
     private var adminRequestText: String {
-        "Would you consider enabling Tally at \(school)? It's a free app that shows students " +
-        "their Canvas courses, grades and due dates. There's no Tally server and no student " +
-        "accounts — Tally signs in directly with your Canvas, the same way a browser does. " +
-        "Setup takes a Canvas admin a few minutes: https://\(TallyOrgDomainInfo.current)/admin"
+        String(localized: L10n.Onboarding.SchoolSearch.adminRequestText(school: school, domain: TallyOrgDomainInfo.current))
     }
 
     var body: some View {
         ContentUnavailableView {
-            Label("Tally isn't available at \(school) yet", systemImage: "building.columns")
+            Label(String(localized: L10n.Onboarding.SchoolSearch.notEnabledTitle(school: school)), systemImage: "building.columns")
         } description: {
-            Text("Your school's Canvas admin needs to approve Tally.")
+            Text(L10n.Onboarding.SchoolSearch.notEnabledDescription())
         } actions: {
             VStack(spacing: TallySpacing.md) {
                 ShareLink(item: adminRequestText) {
-                    Label("Ask My School", systemImage: "square.and.arrow.up")
+                    Label(String(localized: L10n.Onboarding.SchoolSearch.askMySchool()), systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.tallyPrimary)
 
-                Button("Explore with Sample Data", action: onExploreSampleData)
+                Button(String(localized: L10n.Account.exploreWithSampleData()), action: onExploreSampleData)
                     .buttonStyle(.tallySecondary)
                     .frame(maxWidth: .infinity)
             }
@@ -40,7 +41,7 @@ struct SchoolNotEnabledView: View {
             .padding(.top, TallySpacing.md)
         }
         .background(TallyColor.bgCanvas)
-        .navigationTitle("Not available yet")
+        .navigationTitle(Text(L10n.Onboarding.SchoolSearch.notAvailableYetNavTitle()))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

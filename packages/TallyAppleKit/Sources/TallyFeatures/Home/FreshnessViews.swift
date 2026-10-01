@@ -2,6 +2,7 @@ import Synchronization
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// perf-app-runtime.md §3 item 3: freshness is read only by these leaf views, so a change of
 /// freshness (`.refreshing` → `.fresh`) re-renders a footer, a breadcrumb and a subtitle, never a
@@ -37,7 +38,7 @@ struct FreshnessFooter: View {
                         .frame(width: 44, height: 44)
                 }
                 .disabled(presentation.action == .none)
-                .accessibilityLabel("Refresh")
+                .accessibilityLabel(String(localized: L10n.Freshness.refreshButtonLabel()))
             }
         }
     }

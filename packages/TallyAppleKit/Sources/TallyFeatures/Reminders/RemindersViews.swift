@@ -1,26 +1,23 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 import UIKit
 
 /// The reminders copy (ux-ui.md §3.2 stage 6, §3.7.7; insights-at-a-glance.md §3.3, §3.6). It
 /// promises only what the Balanced preset does: there is no rules editor yet, so no "you choose the
-/// rules".
+/// rules". Plan 08 L10N-03a: every value comes from the `TallyStrings` catalog through `L10n`.
 nonisolated enum RemindersViewCopy {
-    static let tipTitle = "Get reminded before work is due"
-    static let tipBody = "Tally can remind you a day and an hour before each deadline."
-    static let turnOn = "Turn On Reminders"
-    static let notNow = "Not Now"
-    static let sectionTitle = "Reminders"
-    static let denied = "Notifications are off for Tally"
-    static let openSettings = "Open Settings"
-    static let sampleData = "Reminders aren't scheduled for sample data. Sign in with your school's Canvas to be "
-        + "reminded before work is due."
-    static let hideCourseNames = "Hide Course Names"
-    static let footer = "A day and an hour before each due date, and an evening and a Sunday summary when work is due. "
-        + "Nothing arrives between 11 PM and 7 AM: a reminder comes earlier instead. Reminders use the Canvas data "
-        + "Tally last refreshed, and Tally tells you if it hasn't refreshed for a day."
-    static let hideCourseNamesFooter = "With Hide Course Names on, notifications say \u{201C}a course\u{201D} and "
-        + "\u{201C}An assignment\u{201D} instead of names. Grades are never shown in notifications."
+    static var tipTitle: LocalizedStringResource { L10n.Reminders.tipTitle() }
+    static var tipBody: LocalizedStringResource { L10n.Reminders.tipBody() }
+    static var turnOn: LocalizedStringResource { L10n.Reminders.turnOn() }
+    static var notNow: LocalizedStringResource { L10n.Reminders.notNow() }
+    static var sectionTitle: LocalizedStringResource { L10n.Reminders.sectionTitle() }
+    static var denied: LocalizedStringResource { L10n.Reminders.denied() }
+    static var openSettings: LocalizedStringResource { L10n.Reminders.openSettings() }
+    static var sampleData: LocalizedStringResource { L10n.Reminders.sampleData() }
+    static var hideCourseNames: LocalizedStringResource { L10n.Reminders.hideCourseNames() }
+    static var footer: LocalizedStringResource { L10n.Reminders.footer() }
+    static var hideCourseNamesFooter: LocalizedStringResource { L10n.Reminders.hideCourseNamesFooter() }
 }
 
 /// UX-WP-12: the Dashboard's reminders tip, under "Needs attention", once there is work due. It
@@ -68,10 +65,10 @@ private struct RemindersTipCard: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
-                .accessibilityLabel(RemindersViewCopy.notNow)
+                .accessibilityLabel(String(localized: RemindersViewCopy.notNow))
                 .accessibilityIdentifier("tip.dismissReminders")
             }
-            Button(RemindersViewCopy.turnOn) {
+            Button(String(localized: RemindersViewCopy.turnOn)) {
                 reminders.requestPermission()
             }
             .buttonStyle(.borderedProminent)
@@ -112,31 +109,31 @@ struct RemindersSettingsSection: View {
                         .foregroundStyle(TallyColor.textSecondary)
                         .accessibilityIdentifier("settings.reminders.sample")
                 case .checking:
-                    LabeledContent(RemindersViewCopy.sectionTitle, value: "Checking\u{2026}")
+                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.checking()))
                 case .off:
-                    LabeledContent(RemindersViewCopy.sectionTitle, value: "Off")
+                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOff()))
                         .accessibilityIdentifier("settings.reminders.status")
-                    Button(RemindersViewCopy.turnOn) { reminders.requestPermission() }
+                    Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
                         .disabled(reminders.isRequesting)
                         .accessibilityIdentifier("settings.reminders.turnOn")
                 case .deniedInSettings:
                     Text(RemindersViewCopy.denied)
                         .accessibilityIdentifier("settings.reminders.denied")
-                    Button(RemindersViewCopy.openSettings) {
+                    Button(String(localized: RemindersViewCopy.openSettings)) {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
                     }
                     .accessibilityIdentifier("settings.reminders.openSettings")
                 case .on:
-                    LabeledContent(RemindersViewCopy.sectionTitle, value: "On")
+                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOn()))
                         .accessibilityIdentifier("settings.reminders.status")
                 }
                 if let settings, settings.hasLoaded {
-                    Toggle(RemindersViewCopy.hideCourseNames, isOn: Binding(
+                    Toggle(String(localized: RemindersViewCopy.hideCourseNames), isOn: Binding(
                         get: { settings.hideCourseNamesInNotifications },
                         set: { settings.setHideCourseNamesInNotifications($0) }))
                         .accessibilityIdentifier("settings.reminders.hideNames")
                     if settings.hideCourseNamesSaveFailed {
-                        Label("This setting couldn't be saved.", systemImage: "exclamationmark.triangle")
+                        Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
                             .font(TallyTypography.footnote)
                     }
                 }
@@ -144,7 +141,10 @@ struct RemindersSettingsSection: View {
                 Text(RemindersViewCopy.sectionTitle)
             } footer: {
                 if !isSampleData {
-                    Text(RemindersViewCopy.footer + "\n\n" + RemindersViewCopy.hideCourseNamesFooter)
+                    // Built outside the Text(...) call (not literal-concatenated inside it): the
+                    // separator is two plain newlines, not user-facing words.
+                    let combined = String(localized: RemindersViewCopy.footer) + "\n\n" + String(localized: RemindersViewCopy.hideCourseNamesFooter)
+                    Text(combined)
                 }
             }
             .task(id: scenePhase) {

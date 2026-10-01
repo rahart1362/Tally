@@ -1,22 +1,21 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 import UIKit
 
 /// The copy Settings shows (ux-ui.md §3.7.7; app-store-compliance.md R10 for the disclaimer).
+/// Plan 08 L10N-03a: every value now comes from the `TallyStrings` catalog through `L10n`; this
+/// enum stays only so the call sites below read the same way they did before the sweep.
 nonisolated enum SettingsCopy {
-    static let signOutTitle = "Sign out and erase?"
+    static var signOutTitle: LocalizedStringResource { L10n.Settings.signOutTitle() }
     /// ux-ui.md §3.7.7, SEC §3, ASC R9.
-    static let signOutConfirmation =
-        "Tally will delete your saved courses and grades from this iPhone. Canvas in Safari may stay signed in."
-    static let disclaimer = "Tally is an independent app and is not affiliated with, endorsed by, "
-        + "or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc."
-    static let thresholdFooter = "A course's grade shows in \u{201C}What changed\u{201D} only when it moves at least "
-        + "this much. Assignment grades always show."
+    static var signOutConfirmation: LocalizedStringResource { L10n.Settings.signOutConfirmation() }
+    static var disclaimer: LocalizedStringResource { L10n.Account.disclaimer() }
+    static var thresholdFooter: LocalizedStringResource { L10n.Settings.thresholdFooter() }
     /// M2-C2 OI5: the Standing widget's copy points here ("if you choose to show grades in widgets").
-    static let widgetGradesTitle = "Show Grades in Widgets"
-    static let widgetGradesFooter = "The Standing widget shows your average grade band. It is hidden while your "
-        + "iPhone is locked. A change reaches the widget right away."
+    static var widgetGradesTitle: LocalizedStringResource { L10n.Settings.widgetGradesTitle() }
+    static var widgetGradesFooter: LocalizedStringResource { L10n.Settings.widgetGradesFooter() }
 }
 
 /// UX-WP-20: Settings as a `Form` (ux-ui.md §3.7.7), presented as one sheet from the tab roots.
@@ -56,26 +55,26 @@ struct SettingsView: View {
                 privacySection
                 aboutSection
             }
-            .navigationTitle("Settings")
+            .navigationTitle(Text(L10n.Settings.navigationTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: L10n.Account.done())) { dismiss() }
                 }
             }
-            .confirmationDialog(SettingsCopy.signOutTitle, isPresented: $confirmsSignOut, titleVisibility: .visible) {
-                Button("Sign Out & Erase", role: .destructive) {
+            .confirmationDialog(String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut, titleVisibility: .visible) {
+                Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
                     dismiss()
                     app?.signOut()
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
             } message: {
                 Text(SettingsCopy.signOutConfirmation)
             }
-            .alert("Subscribing needs your school's Canvas", isPresented: $showsSampleFeedNote) {
-                Button("OK", role: .cancel) {}
+            .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
+                Button(String(localized: L10n.Calendar.subscribeAlertOK()), role: .cancel) {}
             } message: {
-                Text("Sample data has no real calendar feed. Once you sign in, this adds your own Canvas calendar to the Calendar app.")
+                Text(L10n.Settings.calendarSampleNote())
             }
         }
         .task {
@@ -108,12 +107,12 @@ struct SettingsView: View {
     private var accountSection: some View {
         Section {
             if home.isSampleData {
-                LabeledContent("Mode", value: "Sample data")
-                Text("Everything here is fictional sample data. Nothing is saved on this iPhone.")
+                LabeledContent(String(localized: L10n.Settings.sampleModeLabel()), value: String(localized: L10n.Settings.sampleModeValue()))
+                Text(L10n.Settings.sampleModeCaption())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
                 if let app, app.route == .sample {
-                    Button("Exit Sample Data") {
+                    Button(String(localized: L10n.Settings.exitSampleData())) {
                         dismiss()
                         app.exitSample()
                     }
@@ -121,20 +120,20 @@ struct SettingsView: View {
                 }
             } else {
                 if !home.account.host.isEmpty {
-                    LabeledContent("School", value: home.account.host)
+                    LabeledContent(String(localized: L10n.Settings.schoolLabel()), value: home.account.host)
                 }
                 if let name = home.account.displayName {
-                    LabeledContent("Signed in as", value: name)
+                    LabeledContent(String(localized: L10n.Settings.signedInAsLabel()), value: name)
                 }
                 if let app, case .signedIn = app.route {
-                    Button("Sign Out & Erase", role: .destructive) {
+                    Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
                         confirmsSignOut = true
                     }
                     .accessibilityIdentifier("settings.signOut")
                 }
             }
         } header: {
-            Text("Account")
+            Text(L10n.Settings.accountHeader())
         }
     }
 
@@ -144,29 +143,30 @@ struct SettingsView: View {
     private var thresholdSection: some View {
         if let settings {
             Section {
-                Toggle("Show every grade change", isOn: Binding(
+                Toggle(String(localized: L10n.Settings.showEveryGradeChange()), isOn: Binding(
                     get: { settings.thresholds.global == .all },
                     set: { settings.setEveryChange($0) }))
                     .accessibilityIdentifier("settings.everyChange")
                 if let points = SettingsModel.points(of: settings.thresholds.global) {
                     Stepper(value: Binding(get: { points }, set: { settings.setGlobalPoints($0) }),
                             in: SettingsModel.pointRange, step: SettingsModel.pointStep) {
-                        Text("At least \(ThresholdText.points(points))")
+                        Text(L10n.Settings.atLeastPoints(ThresholdText.points(points)))
                     }
                     .accessibilityIdentifier("settings.points")
                 }
                 NavigationLink {
                     PerCourseThresholdsView(settings: settings, courses: home.courseCards)
                 } label: {
-                    LabeledContent("Per course", value: ThresholdText.overrides(settings.thresholds.perCourse.count))
+                    LabeledContent(String(localized: L10n.Settings.perCourseLabel()),
+                                   value: ThresholdText.overrides(settings.thresholds.perCourse.count))
                 }
                 .accessibilityIdentifier("settings.perCourse")
                 if settings.saveFailed {
-                    Label("This setting couldn't be saved.", systemImage: "exclamationmark.triangle")
+                    Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
                         .font(TallyTypography.footnote)
                 }
             } header: {
-                Text("What changed")
+                Text(L10n.Settings.whatChangedHeader())
             } footer: {
                 Text(SettingsCopy.thresholdFooter)
             }
@@ -178,15 +178,15 @@ struct SettingsView: View {
     private var dataSection: some View {
         Section {
             TimelineView(.everyMinute) { context in
-                LabeledContent("Last refreshed",
+                LabeledContent(String(localized: L10n.Settings.lastRefreshedLabel()),
                                value: FreshnessPresenter.present(home.freshness, now: context.date).shortText)
             }
-            Button("Refresh Now") { home.requestRefresh() }
+            Button(String(localized: L10n.Settings.refreshNow())) { home.requestRefresh() }
                 .accessibilityIdentifier("settings.refresh")
-            LabeledContent("Background App Refresh",
-                           value: home.isSampleData ? "Not used for sample data" : backgroundRefresh.text)
+            LabeledContent(String(localized: L10n.Settings.backgroundAppRefreshLabel()),
+                           value: home.isSampleData ? String(localized: L10n.Settings.notUsedForSampleData()) : backgroundRefresh.text)
         } header: {
-            Text("Data & Refresh")
+            Text(L10n.Settings.dataAndRefreshHeader())
         }
     }
 
@@ -196,7 +196,7 @@ struct SettingsView: View {
     private var calendarSection: some View {
         if home.account.subscribeURL != nil {
             Section {
-                Button("Subscribe to Canvas Calendar") {
+                Button(String(localized: L10n.Settings.subscribeButton())) {
                     guard !home.isSampleData, let url = home.account.subscribeURL else {
                         showsSampleFeedNote = true
                         return
@@ -205,10 +205,9 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings.subscribe")
             } header: {
-                Text("Calendar")
+                Text(L10n.Calendar.tabTitle())
             } footer: {
-                Text("Adds your own Canvas calendar to the Calendar app, where it stays up to date. "
-                     + "To add one item, use Add to Calendar on it. Tally never asks for access to your calendars.")
+                Text(L10n.Settings.calendarFooter())
             }
         }
     }
@@ -221,12 +220,12 @@ struct SettingsView: View {
             if let lockSettings, lockSettings.hasLoaded {
                 AppLockRows(model: lockSettings)
             }
-            NavigationLink("What Tally Stores") {
+            NavigationLink(String(localized: L10n.Settings.whatTallyStoresLabel())) {
                 WhatTallyStoresView()
             }
             .accessibilityIdentifier("settings.whatTallyStores")
         } header: {
-            Text("Privacy & Security")
+            Text(L10n.Settings.privacySecurityHeader())
         } footer: {
             if let lockSettings, lockSettings.hasLoaded {
                 Text(lockSettings.footer)
@@ -234,12 +233,12 @@ struct SettingsView: View {
         }
         if isSignedIn, let settings {
             Section {
-                Toggle(SettingsCopy.widgetGradesTitle, isOn: Binding(
+                Toggle(String(localized: SettingsCopy.widgetGradesTitle), isOn: Binding(
                     get: { settings.showGradesInWidgets },
                     set: { settings.setShowGradesInWidgets($0) }))
                     .accessibilityIdentifier("settings.widgetGrades")
                 if settings.widgetSaveFailed {
-                    Label("This setting couldn't be saved.", systemImage: "exclamationmark.triangle")
+                    Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
                         .font(TallyTypography.footnote)
                 }
             } footer: {
@@ -250,10 +249,10 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: AppVersion.text)
+            LabeledContent(String(localized: L10n.Settings.versionLabel()), value: AppVersion.text)
                 .accessibilityIdentifier("settings.version")
         } header: {
-            Text("About")
+            Text(L10n.Settings.aboutHeader())
         } footer: {
             Text(SettingsCopy.disclaimer)
         }
@@ -270,7 +269,7 @@ struct AppLockRows: View {
             .disabled(!model.isToggleEnabled)
             .accessibilityIdentifier("settings.appLock")
         if model.isOn {
-            Picker("Require Unlock", selection: Binding(get: { model.gracePeriod }, set: { model.requestGracePeriod($0) })) {
+            Picker(String(localized: L10n.Settings.requireUnlock()), selection: Binding(get: { model.gracePeriod }, set: { model.requestGracePeriod($0) })) {
                 ForEach(AppLockPolicy.GracePeriod.allCases, id: \.self) { period in
                     Text(AppLockSettingsModel.label(for: period)).tag(period)
                 }
@@ -295,11 +294,11 @@ struct PerCourseThresholdsView: View {
                     Picker(selection: Binding(
                         get: { settings.thresholds.perCourse[course.id] },
                         set: { settings.setThreshold($0, for: course.id) })) {
-                        Text("Default (\(ThresholdText.describe(settings.thresholds.global)))")
+                        Text(L10n.Settings.defaultThreshold(ThresholdText.describe(settings.thresholds.global)))
                             .tag(ScoreChangeThreshold?.none)
-                        Text("Every change").tag(ScoreChangeThreshold?.some(.all))
+                        Text(L10n.Settings.everyChangeOption()).tag(ScoreChangeThreshold?.some(.all))
                         ForEach(SettingsModel.pointChoices, id: \.self) { points in
-                            Text("At least \(ThresholdText.points(points))").tag(ScoreChangeThreshold?.some(.points(points)))
+                            Text(L10n.Settings.atLeastPoints(ThresholdText.points(points))).tag(ScoreChangeThreshold?.some(.points(points)))
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
@@ -316,7 +315,7 @@ struct PerCourseThresholdsView: View {
                 Text(SettingsCopy.thresholdFooter)
             }
         }
-        .navigationTitle("Per Course")
+        .navigationTitle(Text(L10n.Settings.perCourseNavTitle()))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -327,17 +326,16 @@ struct WhatTallyStoresView: View {
     var body: some View {
         Form {
             Section {
-                Text("There is no Tally account and no Tally server. Tally talks only to your school's Canvas.")
-                Text("After you sign in, Tally keeps your latest Canvas courses, grades, assignments and calendar on "
-                     + "this iPhone, sealed with a key that stays on this iPhone. Each refresh replaces the copy before it.")
-                Text("Your Canvas sign-in is kept in the iPhone's Keychain.")
-                Text("Your settings, course order and To-Do marks stay on this iPhone and are not included in backups.")
-                Text("Sample data is never saved.")
-                Text("Sign Out & Erase deletes all of it from this iPhone.")
+                Text(L10n.Settings.storesNoAccount())
+                Text(L10n.Settings.storesCanvasData())
+                Text(L10n.Settings.storesKeychain())
+                Text(L10n.Settings.storesLocalOnly())
+                Text(L10n.Settings.storesSampleNeverSaved())
+                Text(L10n.Settings.storesSignOutErase())
             }
             .font(TallyTypography.body)
         }
-        .navigationTitle("What Tally Stores")
+        .navigationTitle(Text(L10n.Settings.whatTallyStoresLabel()))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -346,21 +344,20 @@ struct WhatTallyStoresView: View {
 nonisolated enum ThresholdText {
     static func points(_ value: Double) -> String {
         let number = value.formatted(.number.precision(.fractionLength(0...1)))
-        return value == 1 ? "1 point" : "\(number) points"
+        return value == 1 ? String(localized: L10n.Settings.pointsOne()) : String(localized: L10n.Settings.pointsOther(number))
     }
 
     static func describe(_ threshold: ScoreChangeThreshold) -> String {
         switch threshold {
-        case .all: "every change"
-        case .points(let value): "at least \(points(value))"
+        case .all: String(localized: L10n.Settings.describeEveryChange())
+        case .points(let value): String(localized: L10n.Settings.describeAtLeast(points(value)))
         }
     }
 
     static func overrides(_ count: Int) -> String {
         switch count {
-        case 0: "None"
-        case 1: "1 course"
-        default: "\(count) courses"
+        case 0: String(localized: L10n.Settings.overridesNone())
+        default: String(localized: L10n.Settings.overridesCount(count))
         }
     }
 }
@@ -390,10 +387,10 @@ enum BackgroundRefreshState {
 
     var text: String {
         switch self {
-        case .unknown: "Unknown"
-        case .available: "On"
-        case .denied: "Off"
-        case .restricted: "Restricted"
+        case .unknown: String(localized: L10n.Settings.backgroundRefreshUnknown())
+        case .available: String(localized: L10n.Settings.backgroundRefreshOn())
+        case .denied: String(localized: L10n.Settings.backgroundRefreshOff())
+        case .restricted: String(localized: L10n.Settings.backgroundRefreshRestricted())
         }
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import Synchronization
 import TallyDomain
 import TallyStore
+import TallyStrings
 import TallySync
 
 /// What one reminders pass did (M3-C, E07). Counts only, never a title or an ID.
@@ -48,9 +49,14 @@ public nonisolated enum ReminderPipeline {
     /// stream: sign-out, or the coordinator's release) runs a pass from the cached snapshot and one
     /// after every commit. Holds the coordinator weakly. A no-op when the injected notification
     /// adapter is not a `ReminderPlatform` (tests and previews with a plain scheduler).
+    /// Plan 08 §3.3 (L10N-03a fix): defaulted to `Locale.current`, which agrees with
+    /// `TallyLocale.effective` on iOS 26 in every case the L10N-01 spike observed, but
+    /// `TallyLocale.effective` is the plan's single formatting locale (`l10n02-report.md` §8), so
+    /// this is the safer default. Neither caller (`AccountSessionFactory.swift:59`,
+    /// `AppModel.swift:129`) passes `locale:`.
     @concurrent
     public static func attach(to coordinator: RefreshCoordinator, account: AccountKey, environment: AccountEnvironment,
-                              timeZone: TimeZone = .current, locale: Locale = .current) async {
+                              timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async {
         guard let platform = environment.notifications as? any ReminderPlatform else { return }
         let events = await coordinator.events()
         Task(priority: .utility) { [weak coordinator] in
@@ -66,10 +72,11 @@ public nonisolated enum ReminderPipeline {
 
     /// One pass now, over `coordinator`'s committed snapshot (the permission UI and Settings). `nil`
     /// when the injected adapter is not a `ReminderPlatform`.
+    /// Plan 08 §3.3 (L10N-03a fix): see `attach(to:account:environment:timeZone:locale:)`.
     @concurrent
     @discardableResult
     public static func reconcile(coordinator: RefreshCoordinator, environment: AccountEnvironment,
-                                 timeZone: TimeZone = .current, locale: Locale = .current) async -> ReminderPassOutcome? {
+                                 timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async -> ReminderPassOutcome? {
         guard let platform = environment.notifications as? any ReminderPlatform else { return nil }
         return await pass(coordinator, account: nil, platform: platform, environment: environment,
                           timeZone: timeZone, locale: locale)
