@@ -68,6 +68,12 @@ public enum FamilyNotificationPlanner {
         quietHours: QuietHours = QuietHours(), cap: Int = TallyConfig.pendingNotificationCap,
         floorPerSubject: Int = TallyConfig.familyNotificationFloorPerSubject
     ) -> [PendingFamilyReminder] {
+        // A repeated subject (the same student appearing twice in an observee list, say) is
+        // planned once, not trapped on: `FamilySubjectBudget.allocate` guards this on its own
+        // too, but de-duplicating here as well means `subjects` and its derived `weights` never
+        // disagree on count (crash-safety-2.md §8: `Dictionary(uniqueKeysWithValues:)` traps on
+        // a duplicate key; six such sites did exactly this before being removed from shipping code).
+        let subjects = Self.deduplicated(subjects)
         guard !subjects.isEmpty else { return [] }
 
         // §6.4: weighted by due-item count; a subject with nothing due still gets its floor.
@@ -83,6 +89,12 @@ public enum FamilyNotificationPlanner {
             planned += Array(desired.prefix(budget))
         }
         return planned.sorted(by: bySoonestThenID)
+    }
+
+    /// Keeps the first entry per `subjectID`, in order.
+    private static func deduplicated(_ subjects: [FamilySubjectPlanInput]) -> [FamilySubjectPlanInput] {
+        var seen: Set<SubjectKey> = []
+        return subjects.filter { seen.insert($0.subjectID).inserted }
     }
 
     private static func bySoonestThenID(_ a: PendingFamilyReminder, _ b: PendingFamilyReminder) -> Bool {

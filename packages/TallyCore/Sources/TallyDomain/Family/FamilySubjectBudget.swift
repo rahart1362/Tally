@@ -18,9 +18,13 @@ public enum FamilySubjectBudget {
     ///   is smaller than `weights.count`, in which case each subject gets at most 1 and some get
     ///   0 — never a negative count, and the total still never exceeds `cap`).
     public static func allocate(weights: [(subject: SubjectKey, weight: Int)], cap: Int, floorPerSubject: Int) -> [SubjectKey: Int] {
+        // A repeated subject never traps this public API on its own (crash-safety-2.md §8):
+        // the caller (`FamilyNotificationPlanner.plan`) already de-duplicates, but this
+        // function must be safe to call directly too. Keeps the first weight per subject.
+        let weights = Self.deduplicated(weights)
         guard !weights.isEmpty else { return [:] }
         let cap = max(0, cap)
-        guard cap > 0 else { return Dictionary(uniqueKeysWithValues: weights.map { ($0.subject, 0) }) }
+        guard cap > 0 else { return Dictionary(weights.map { ($0.subject, 0) }, uniquingKeysWith: { first, _ in first }) }
 
         let floor = max(0, floorPerSubject)
         // R-4-style guard (resilience.md, crash-safety-2.md F-8): when even the floors alone
@@ -28,7 +32,7 @@ public enum FamilySubjectBudget {
         // would have been, rather than let list order decide who gets starved to zero.
         guard floor * weights.count < cap else { return evenSplit(subjects: weights.map(\.subject), cap: cap) }
 
-        var allocation = Dictionary(uniqueKeysWithValues: weights.map { ($0.subject, floor) })
+        var allocation = Dictionary(weights.map { ($0.subject, floor) }, uniquingKeysWith: { first, _ in first })
         let remaining = cap - floor * weights.count
         let totalWeight = weights.reduce(0) { $0 + max(0, $1.weight) }
         guard totalWeight > 0, remaining > 0 else { return allocation }
@@ -56,7 +60,7 @@ public enum FamilySubjectBudget {
 
     private static func evenSplit(subjects: [SubjectKey], cap: Int) -> [SubjectKey: Int] {
         guard !subjects.isEmpty else { return [:] }
-        var allocation = Dictionary(uniqueKeysWithValues: subjects.map { ($0, cap / subjects.count) })
+        var allocation = Dictionary(subjects.map { ($0, cap / subjects.count) }, uniquingKeysWith: { first, _ in first })
         var leftover = cap % subjects.count
         for subject in subjects.sorted(by: { $0.rawValue < $1.rawValue }) {
             guard leftover > 0 else { break }
@@ -64,5 +68,11 @@ public enum FamilySubjectBudget {
             leftover -= 1
         }
         return allocation
+    }
+
+    /// Keeps the first weight per subject, in order.
+    private static func deduplicated(_ weights: [(subject: SubjectKey, weight: Int)]) -> [(subject: SubjectKey, weight: Int)] {
+        var seen: Set<SubjectKey> = []
+        return weights.filter { seen.insert($0.subject).inserted }
     }
 }

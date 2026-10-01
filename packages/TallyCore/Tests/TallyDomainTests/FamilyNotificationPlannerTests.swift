@@ -55,6 +55,19 @@ struct FamilySubjectBudgetTests {
         let second = FamilySubjectBudget.allocate(weights: weights, cap: 30, floorPerSubject: 4)
         #expect(first == second)
     }
+
+    /// Crash-safety regression (crash-safety-2.md §8): `Dictionary(uniqueKeysWithValues:)` traps
+    /// on a duplicate key. A repeated subject (the same student twice in an observee list) must
+    /// not reach one of those — and must not change the split other subjects get either, as if
+    /// the repeat had simply been de-duplicated away before calling in.
+    @Test func aRepeatedSubjectDoesNotTrapAndMatchesTheDeduplicatedSplit() {
+        let withRepeat = FamilySubjectBudget.allocate(
+            weights: [(SubjectKey("a"), 10), (SubjectKey("a"), 10), (SubjectKey("b"), 1)], cap: 20, floorPerSubject: 4)
+        let withoutRepeat = FamilySubjectBudget.allocate(
+            weights: [(SubjectKey("a"), 10), (SubjectKey("b"), 1)], cap: 20, floorPerSubject: 4)
+        #expect(withRepeat == withoutRepeat)
+        #expect(withRepeat.keys.count == 2)
+    }
 }
 
 @Suite("FamilyNotificationPlanner: schedules per subject, thread ids, caps (family-linking.md §6.5)")
@@ -162,5 +175,21 @@ struct FamilyNotificationPlannerTests {
         let subject = FamilySubjectPlanInput(subjectID: SubjectKey("maya"), studentName: "Maya", candidates: [candidate])
         let plan = FamilyNotificationPlanner.plan(accountKey: Self.account, subjects: [subject], now: Self.now, timeZone: Self.utc)
         #expect(!plan.contains { $0.kind == .missingStillOpen })
+    }
+
+    /// Crash-safety regression (crash-safety-2.md §8): the same student appearing twice in an
+    /// observee list (a data-quality hiccup, or two account-level links to one Canvas user) must
+    /// be planned for once, not trap `Dictionary(uniqueKeysWithValues:)` inside the budget split.
+    @Test func aRepeatedSubjectIsPlannedOnceAndNeverTraps() {
+        let due = Self.now.addingTimeInterval(48 * 3600)
+        let candidate = ReminderCandidate(assignment: assignment(id: "a1", due: due))
+        let maya = FamilySubjectPlanInput(subjectID: SubjectKey("maya"), studentName: "Maya", candidates: [candidate])
+        let mayaAgain = FamilySubjectPlanInput(subjectID: SubjectKey("maya"), studentName: "Maya", candidates: [candidate])
+        let plan = FamilyNotificationPlanner.plan(accountKey: Self.account, subjects: [maya, mayaAgain], now: Self.now, timeZone: Self.utc)
+        #expect(!plan.isEmpty)
+        #expect(Set(plan.map(\.subjectID)) == [SubjectKey("maya")])
+        // Planned exactly as if "maya" had appeared once: no doubled weekAhead/missingStillOpen.
+        let onceOnly = FamilyNotificationPlanner.plan(accountKey: Self.account, subjects: [maya], now: Self.now, timeZone: Self.utc)
+        #expect(Set(plan.map(\.id)) == Set(onceOnly.map(\.id)))
     }
 }
