@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json; charset=utf-8",
+    "Link": "<https://riverbend.instructure.example/api/v1/announcements?context_codes%5B%5D=course_77305&context_codes%5B%5D=course_77302&context_codes%5B%5D=course_77304&context_codes%5B%5D=course_77303&context_codes%5B%5D=course_77301&context_codes%5B%5D=course_77306&start_date=2026-09-14&page=1&per_page=50>; rel=\"current\",<https://riverbend.instructure.example/api/v1/announcements?context_codes%5B%5D=course_77305&context_codes%5B%5D=course_77302&context_codes%5B%5D=course_77304&context_codes%5B%5D=course_77303&context_codes%5B%5D=course_77301&context_codes%5B%5D=course_77306&start_date=2026-09-14&page=1&per_page=50>; rel=\"first\",<https://riverbend.instructure.example/api/v1/announcements?context_codes%5B%5D=course_77305&context_codes%5B%5D=course_77302&context_codes%5B%5D=course_77304&context_codes%5B%5D=course_77303&context_codes%5B%5D=course_77301&context_codes%5B%5D=course_77306&start_date=2026-09-14&page=1&per_page=50>; rel=\"last\"",
+    "X-Request-Cost": "0.7960993756536994",
+    "X-Rate-Limit-Remaining": "683.568688093123"
+  }
+}

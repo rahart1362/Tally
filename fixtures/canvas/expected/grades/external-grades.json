@@ -1,0 +1,405 @@
+{
+  "persona": "external-grades",
+  "synthetic": true,
+  "captured_at": "2026-09-28T13:00:00Z",
+  "tolerance": 0.01,
+  "calculator": "tools/canvas-synth/canvas_synth/gradecalc.py -- port of canvas-lms lib/grade_calculator.rb @ 1c9f0bb8013ed69c4f2efe11fd483025469b7e6c",
+  "parity_rule": "GradeEngine.currentScore(course) == current_score +/- tolerance, computed only from the persona's fixture responses (courses, assignment_groups, grading_periods).",
+  "caveat": "Synthetic parity proves consistency with this port of Canvas's algorithm only; it does not replace an owner-run recording against real Canvas (WP-B07).",
+  "courses": [
+    {
+      "course_id": "77305",
+      "course_code": "ADVISORY",
+      "name": "Advisory",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": null,
+      "grading_scheme": null,
+      "current_score": null,
+      "final_score": null,
+      "current_grade": null,
+      "final_grade": null,
+      "unposted_current_score": null,
+      "unposted_final_score": null,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412006",
+          "name": "Check-ins",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    {
+      "course_id": "77302",
+      "course_code": "ALG2",
+      "name": "Algebra II",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": null,
+      "grading_scheme": null,
+      "current_score": null,
+      "final_score": 0.0,
+      "current_grade": null,
+      "final_grade": null,
+      "unposted_current_score": null,
+      "unposted_final_score": 0.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412001",
+          "name": "Homework",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 160.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "412002",
+          "name": "Tests",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 200.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    {
+      "course_id": "77304",
+      "course_code": "ART-1",
+      "name": "Art 1",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": null,
+      "grading_scheme": null,
+      "current_score": null,
+      "final_score": 0.0,
+      "current_grade": null,
+      "final_grade": null,
+      "unposted_current_score": null,
+      "unposted_final_score": 0.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412005",
+          "name": "Projects",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 140.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    {
+      "course_id": "77303",
+      "course_code": "BIO-H",
+      "name": "Biology Honors",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": true,
+      "visible_in_api": false,
+      "grading_standard_id": null,
+      "grading_scheme": null,
+      "current_score": null,
+      "final_score": 0.0,
+      "current_grade": null,
+      "final_grade": null,
+      "unposted_current_score": null,
+      "unposted_final_score": 0.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412003",
+          "name": "Labs",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 225.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "412004",
+          "name": "Quizzes",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 100.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    {
+      "course_id": "77301",
+      "course_code": "ENG-10",
+      "name": "English 10",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": null,
+      "final_score": 0.0,
+      "current_grade": null,
+      "final_grade": "F",
+      "unposted_current_score": null,
+      "unposted_final_score": 0.0,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412000",
+          "name": "Writing",
+          "group_weight": 0.0,
+          "current": {
+            "score": 0.0,
+            "possible": 0.0,
+            "grade": null,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 0.0,
+            "possible": 340.0,
+            "grade": 0.0,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    },
+    {
+      "course_id": "77306",
+      "course_code": "SPAN-2",
+      "name": "Spanish 2",
+      "apply_assignment_group_weights": false,
+      "weighted_grading_periods": false,
+      "hide_final_grades": false,
+      "visible_in_api": true,
+      "grading_standard_id": "0",
+      "grading_scheme": [
+        [
+          "A",
+          0.94
+        ],
+        [
+          "A-",
+          0.9
+        ],
+        [
+          "B+",
+          0.87
+        ],
+        [
+          "B",
+          0.84
+        ],
+        [
+          "B-",
+          0.8
+        ],
+        [
+          "C+",
+          0.77
+        ],
+        [
+          "C",
+          0.74
+        ],
+        [
+          "C-",
+          0.7
+        ],
+        [
+          "D+",
+          0.67
+        ],
+        [
+          "D",
+          0.64
+        ],
+        [
+          "D-",
+          0.61
+        ],
+        [
+          "F",
+          0.0
+        ]
+      ],
+      "current_score": 91.39,
+      "final_score": 56.72,
+      "current_grade": "A-",
+      "final_grade": "F",
+      "unposted_current_score": 91.39,
+      "unposted_final_score": 56.72,
+      "current_grading_period_id": null,
+      "grading_periods": [],
+      "assignment_groups": [
+        {
+          "id": "412007",
+          "name": "Tareas",
+          "group_weight": 0.0,
+          "current": {
+            "score": 73.5,
+            "possible": 80.0,
+            "grade": 91.88,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 73.5,
+            "possible": 140.0,
+            "grade": 52.5,
+            "dropped_submission_ids": []
+          }
+        },
+        {
+          "id": "412008",
+          "name": "Pruebas",
+          "group_weight": 0.0,
+          "current": {
+            "score": 91.0,
+            "possible": 100.0,
+            "grade": 91.0,
+            "dropped_submission_ids": []
+          },
+          "final": {
+            "score": 91.0,
+            "possible": 150.0,
+            "grade": 60.67,
+            "dropped_submission_ids": []
+          }
+        }
+      ],
+      "design_target_current_score": null,
+      "notes": null
+    }
+  ],
+  "tally_overall": {
+    "definition": "mean of visible current scores (Tally 'Average of N courses'; not a Canvas value)",
+    "courses_counted": 1,
+    "mean_current_score": 91.39
+  }
+}
