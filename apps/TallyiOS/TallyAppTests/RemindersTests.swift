@@ -296,6 +296,11 @@ struct ReminderContentTests {
 
 // MARK: - The pipeline
 
+// Serialized with the account-lifecycle suites: every reminders pass runs through `ReminderPipeline`'s
+// process-wide `ReminderPassQueue`. Running this suite in parallel with `ReminderLifecycleTests` let one
+// suite's passes hold the queue while the other waited (hypothesis for the recurring "no pass at launch /
+// after the commit" timeouts: PR #11 required ios-build, PR #16 Xcode 27).
+extension AccountLifecycleSuites {
 @Suite("M3-C: the reminders pipeline (plan, reconcile, schedule)")
 struct ReminderPipelineTests {
     @Test("a pass schedules the plan and records it; a second pass over the same data schedules and cancels nothing")
@@ -380,9 +385,15 @@ struct ReminderPipelineTests {
         #expect(rig.platform.scheduledIDs.isEmpty)
     }
 }
+} // AccountLifecycleSuites
 
 // MARK: - The permission, asked in context (UX-WP-12)
 
+// Serialized with the account-lifecycle suites: every reminders pass runs through `ReminderPipeline`'s
+// process-wide `ReminderPassQueue`. Running this suite in parallel with `ReminderLifecycleTests` let one
+// suite's passes hold the queue while the other waited (hypothesis for the recurring "no pass at launch /
+// after the commit" timeouts: PR #11 required ios-build, PR #16 Xcode 27).
+extension AccountLifecycleSuites {
 @Suite("M3-C: the reminders permission and the Dashboard tip (UX-WP-12)")
 @MainActor
 struct RemindersModelTests {
@@ -498,6 +509,7 @@ struct RemindersModelTests {
         #expect(injected.requests == 0, "the scripted permission reached the real platform")
     }
 }
+} // AccountLifecycleSuites
 
 // MARK: - Over the account's lifecycle
 
