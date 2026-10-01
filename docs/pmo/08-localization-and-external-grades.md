@@ -50,6 +50,8 @@ Instead, a new pure domain classifier, `GradeAvailability`, labels each course f
 
 The work packages in §5 are now binding.
 
+**G-4 addendum (owner, 2026-10-01):** the widget Standing state for an opted-in student with no grades yet (XG-02) uses **"No grades yet"**, with the line "Your average appears here once grades are posted in Canvas."
+
 **PMO scheduling note:** the account's weekly usage limit allows about one agent stream at a time next to PMO work. So §6's parallel phases run **staggered**:
 - XG-01 (Linux-only) runs next to one iOS stream.
 - Two iOS agent streams never run at once.
