@@ -106,6 +106,7 @@ public final class ScreenLocalState {
     /// answer. Returns whether it changed; a change is saved like any other.
     @discardableResult
     public func setGradeAvailabilityOverride(_ value: GradeAvailabilityOverride?, for course: CanvasID<Course>) -> Bool {
+        guard gradeAvailabilityOverrides[course] != value else { return false }
         gradeAvailabilityOverrides[course] = value
         persist()
         return true

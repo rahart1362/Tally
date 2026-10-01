@@ -49,7 +49,9 @@ public actor HomeProjector {
     @discardableResult
     public func setGradeAvailabilityOverrides(_ overrides: [CanvasID<Course>: GradeAvailabilityOverride],
                                               revision: UInt64) -> Bool {
+        guard revision >= overridesRevision else { return false }
         overridesRevision = revision
+        guard overrides != gradeAvailabilityOverrides else { return false }
         gradeAvailabilityOverrides = overrides
         return true
     }
@@ -58,7 +60,7 @@ public actor HomeProjector {
     public func project(now: Date) -> HomeProjection? {
         guard let update = installed, let snapshot = update.snapshot else { return nil }
         projectionCount += 1
-        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now)
+        let gradeAvailability = GradeAvailabilityIndex(snapshot: snapshot, overrides: gradeAvailabilityOverrides, now: now)
         let raw = TallyDomain.DashboardBuilder.build(from: snapshot, digest: update.digest, digestAsOf: update.digestAsOf,
                                                      now: now, gradeAvailability: gradeAvailability)
         let dashboard = Self.withUniqueAttention(raw)
