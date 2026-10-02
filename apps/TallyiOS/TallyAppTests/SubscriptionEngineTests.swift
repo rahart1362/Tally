@@ -145,6 +145,16 @@ extension AccountLifecycleSuites {
             #expect(rig.scheduler.pending == nil)
         }
 
+        @Test("A preview (StoreKit shows nothing, e.g. not readable yet) never withdraws the background request")
+        func previewKeepsTheBackgroundRequest() async {
+            let rig = await SubscriptionRig(facts: [F.active()]).started()
+            #expect(rig.scheduler.pending != nil)
+            rig.source.setFacts([])
+            await rig.engine.foreground()
+            #expect(await rig.gate.current == .preview)
+            #expect(rig.scheduler.cancels == 0 && rig.scheduler.pending != nil)
+        }
+
         @Test("Lapse runs one reminders pass, which withdraws every pending reminder")
         func lapseWithdrawsReminders() async throws {
             let rig = await SubscriptionRig(facts: [F.active()]).started()

@@ -213,7 +213,12 @@ public actor SubscriptionEngine {
         applied = current
         if verified {
             let allowed = await gate.allows(.backgroundRefreshSchedule)
-            if backgroundRequested != allowed {
+            // Only an entitlement requests the background refresh and only a lapse withdraws it. A
+            // preview (StoreKit shows no transaction: never subscribed, or not readable yet, as
+            // before the first unlock) leaves it as it is: a request it leaves behind runs into the
+            // coordinator's own gate, and the next background entry asks the gate again.
+            let decisive = allowed || state.isLapse
+            if decisive, backgroundRequested != allowed {
                 backgroundRequested = allowed
                 if allowed {
                     await scheduler.schedule(earliestBegin: earliestBackgroundRefresh())
@@ -258,6 +263,12 @@ extension EntitlementState {
     /// clears on one.
     nonisolated var isActiveEntitlement: Bool {
         if case .entitled = self { return true }
+        return false
+    }
+
+    /// A verified end of the trial or subscription (expired, refunded, revoked).
+    nonisolated var isLapse: Bool {
+        if case .lapsed = self { return true }
         return false
     }
 }
