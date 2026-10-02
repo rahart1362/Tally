@@ -16,12 +16,15 @@ import Synchronization
 /// - a key with one `Int` (a plural): its text for that number, for numbers in `cachedCounts`.
 ///
 /// Each overload takes the `L10n` function itself, not a resource built from it, so a key is never
-/// cached with one call's arguments. `String(localized:)` puts a `String` argument (`%@`) into the
-/// text unchanged, so filling it in afterwards gives the same text, byte for byte, whatever the
-/// argument holds (`L10nLookupTests` compares the two); this holds for a function that puts each
-/// argument into its `defaultValue` as it is, which every `L10n` function does. Entries are per key,
-/// table, bundle and locale identifier: a region change (`Locale.current` changes in place) makes new
-/// ones, and the language changes only with a relaunch.
+/// cached with one call's arguments. `String(localized:)` puts a left-to-right `String` argument
+/// (`%@`) into the text unchanged, so filling it in afterwards gives the same text, byte for byte
+/// (`L10nLookupTests` compares the two); this holds for a function that puts each argument into its
+/// `defaultValue` as it is, which every `L10n` function does. Right-to-left text is the exception:
+/// `String(localized:)` sets such an argument apart with Unicode isolates, "Was due \u{2068}שלום\u{2069}"
+/// (CI run 36976127452), so an argument or a text with any right-to-left character or bidi control
+/// is looked up uncached, exactly as before. Entries are per key, table, bundle and locale identifier:
+/// a region change (`Locale.current` changes in place) makes new ones, and the language changes only
+/// with a relaunch.
 extension L10n {
     /// The plural keys' numbers that are cached; any other number is looked up on every call.
     public static let cachedCounts = 0...999
@@ -33,22 +36,21 @@ extension L10n {
 
     /// `String(localized: key(first))`: `L10n.string(L10n.Courses.wasDue, day)`.
     public static func string(_ key: (String) -> LocalizedStringResource, _ first: String) -> String {
-        LookupCache.fill(LookupCache.text(of: key(LookupCache.placeholders[0])), [first])
+        LookupCache.filled(key(LookupCache.placeholders[0]), [first]) ?? String(localized: key(first))
     }
 
     /// `String(localized: key(first, second))`: `L10n.string(L10n.Courses.dueAtTime, day, time)`.
     public static func string(_ key: (String, String) -> LocalizedStringResource,
                               _ first: String, _ second: String) -> String {
-        let template = LookupCache.text(of: key(LookupCache.placeholders[0], LookupCache.placeholders[1]))
-        return LookupCache.fill(template, [first, second])
+        LookupCache.filled(key(LookupCache.placeholders[0], LookupCache.placeholders[1]), [first, second])
+            ?? String(localized: key(first, second))
     }
 
     /// `String(localized: key(first, second, third))`.
     public static func string(_ key: (String, String, String) -> LocalizedStringResource,
                               _ first: String, _ second: String, _ third: String) -> String {
-        let template = LookupCache.text(of: key(LookupCache.placeholders[0], LookupCache.placeholders[1],
-                                                LookupCache.placeholders[2]))
-        return LookupCache.fill(template, [first, second, third])
+        let probe = key(LookupCache.placeholders[0], LookupCache.placeholders[1], LookupCache.placeholders[2])
+        return LookupCache.filled(probe, [first, second, third]) ?? String(localized: key(first, second, third))
     }
 
     /// `String(localized: key(count))` for a plural key: `L10n.string(L10n.Calendar.itemCount, count)`.
@@ -65,6 +67,12 @@ enum LookupCache {
     /// Private-use code points (U+E000 to U+E002): no catalog text or translation contains one.
     static let placeholders = ["\u{E000}", "\u{E001}", "\u{E002}"]
     private static let firstPlaceholder = 0xE000
+    /// Every right-to-left character (Unicode bidi classes R and AL, and the Arabic digits) lies in
+    /// these blocks: Hebrew to Arabic Extended-A, the Hebrew and Arabic presentation forms, and the
+    /// right-to-left scripts of the supplementary planes. Wider than the classes, never narrower.
+    private static let rightToLeftBlocks: [ClosedRange<UInt32>] = [
+        0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF, 0x10800...0x10FFF, 0x1E800...0x1EFFF,
+    ]
 
     private struct Key: Hashable, Sendable {
         let bundle: String
@@ -100,6 +108,24 @@ enum LookupCache {
         }
         return Key(bundle: bundle, table: resource.table, key: resource.key, locale: resource.locale.identifier,
                    count: count)
+    }
+
+    /// `probe`'s text with `arguments` filled in, or `nil` when `String(localized:)` may set an argument
+    /// apart with Unicode isolates: when the text or an argument has a right-to-left character or a bidi
+    /// control. The caller then looks the key up with its arguments, uncached.
+    static func filled(_ probe: LocalizedStringResource, _ arguments: [String]) -> String? {
+        guard !arguments.contains(where: mayBeIsolated) else { return nil }
+        let template = text(of: probe)
+        guard !mayBeIsolated(template) else { return nil }
+        return fill(template, arguments)
+    }
+
+    /// Whether `text` has a right-to-left character or a bidi control (LRM, RLM, ALM, the embeddings,
+    /// overrides and isolates).
+    static func mayBeIsolated(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            scalar.properties.isBidiControl || rightToLeftBlocks.contains { $0.contains(scalar.value) }
+        }
     }
 
     /// `template` with each placeholder replaced by its argument, in one pass, so an argument that

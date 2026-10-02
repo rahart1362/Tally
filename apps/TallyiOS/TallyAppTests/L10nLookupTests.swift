@@ -4,14 +4,17 @@ import TallyStrings
 
 /// `L10n.string` (PR #27's sample-entry budget) returns exactly what `String(localized:)` returns,
 /// byte for byte: the first call (a catalog lookup) and every later one (from the cache), with
-/// arguments that would trip a find-and-replace.
+/// arguments that would trip a find-and-replace. Right-to-left arguments are the case
+/// `String(localized:)` treats differently (it wraps them in U+2068 ... U+2069; run 36976127452 caught
+/// the first version of the cache without that case).
 @Suite("L10n.string: the same text as String(localized:), looked up once")
 struct L10nLookupTests {
     /// Canvas text can hold anything: a percent sign, a format specifier, a placeholder's own code
-    /// point, combining marks, emoji, right-to-left text, a line break.
+    /// point, combining marks, emoji, right-to-left text, bidi controls, a line break.
     static let arguments = [
         "", "Problem Set 7", "tomorrow", "11:59 PM", "100%", "%@", "%1$@", "\u{E000}", "\u{E001}x\u{E000}",
         "\u{E002}", "e\u{301}", "\u{301}leading mark", "👩‍👩‍👧", "שלום", "a\u{200F}b", "line\nbreak",
+        "مرحبا", "a\u{200E}b", "\u{2068}x\u{2069}", "١٢٣",
     ]
 
     private static func bytes(_ text: String) -> [UInt8] { Array(text.utf8) }
