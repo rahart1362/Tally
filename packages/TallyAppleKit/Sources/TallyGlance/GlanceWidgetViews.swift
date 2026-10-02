@@ -78,7 +78,7 @@ public struct StandingWidgetView: View {
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
-                if family == .systemMedium, !redactionReasons.contains(.privacy), !summary.courses.isEmpty {
+                if family == .systemMedium, !summary.courses.isEmpty {
                     HStack(alignment: .top, spacing: TallySpacing.md) {
                         StandingSummaryView(summary: summary)
                         StandingCourseRows(courses: summary.courses)
@@ -158,10 +158,10 @@ struct GlanceStyle {
 
     private var isFullColor: Bool { mode == .fullColor }
 
-    var primary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero) : AnyShapeStyle(.primary) }
-    var secondary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero2) : AnyShapeStyle(.secondary) }
+    var primary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero) : AnyShapeStyle(Color.clear) }
+    var secondary: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.textOnHero2) : AnyShapeStyle(Color.clear) }
     /// The due line and the busy marker: gold in full colour, plain emphasis otherwise.
-    var accent: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.brandGold) : AnyShapeStyle(.primary) }
+    var accent: AnyShapeStyle { isFullColor ? AnyShapeStyle(TallyColor.brandGold) : AnyShapeStyle(Color.clear) }
 }
 
 /// The Home widgets' frame: the T-mark header, the content, and the brand background, which the
@@ -287,7 +287,6 @@ private struct StandingCourseRows: View {
                             .font(TallyTypography.caption.weight(.semibold))
                             .foregroundStyle(style.primary)
                             .lineLimit(1)
-                            .privacySensitive()
                     }
                     if let caption = value.caption {
                         Text(verbatim: caption)

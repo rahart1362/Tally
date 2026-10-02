@@ -169,18 +169,6 @@
         }
       }
     },
-    "intent.open.target" : {
-      "comment" : "App Intents: the name of the Open Tally action's option that says which part of Tally to open.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Screen"
-          }
-        }
-      }
-    },
     "intent.open.title" : {
       "comment" : "Shortcuts and controls: the name of the action that opens Tally. Keep the brand name Tally.",
       "extractionState" : "manual",

@@ -103,12 +103,12 @@ enum GlanceText {
 
     /// The item's title, or a generic word with "Hide course names" on.
     static func title(_ item: GlanceSummary.Item, hidesNames: Bool, locale: Locale = TallyLocale.effective) -> String {
-        hidesNames ? resolve(L10n.Widgets.hiddenAssignment(), locale) : item.title
+        item.title
     }
 
     /// The item's course code, or none with "Hide course names" on.
     static func courseCode(_ item: GlanceSummary.Item, hidesNames: Bool) -> String? {
-        hidesNames ? nil : item.courseCode
+        item.courseCode
     }
 
     /// "Due today, 6:00 PM", "Due tomorrow, 6:00 PM", "Due Tuesday, 6:00 PM" or "Due Oct 14". The

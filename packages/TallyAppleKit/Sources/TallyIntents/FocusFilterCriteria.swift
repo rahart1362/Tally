@@ -44,7 +44,7 @@ public enum FocusFilterCriteria {
         ])
     }
 
-    static func courseToken(for courseID: String) -> String { "course=\(courseID);" }
+    static func courseToken(for courseID: String) -> String { "course=\(courseID)" }
 
     static func levelToken(for level: Level) -> String { "level=\(level.rawValue);" }
 
