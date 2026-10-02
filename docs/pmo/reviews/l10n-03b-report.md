@@ -1,11 +1,15 @@
 # L10N-03b literal sweep report (hand-off)
 
-- **Status: hand-off, ready for PR.** Every file this package owns reaches 0 in the literal ratchet.
-  The baseline (`scripts/ci/l10n-baseline.json`) goes from 210 literals in 20 files to 25 in 2: M3-D's
-  `TallyGlance/GlanceWidgetViews.swift` and `TallyIntents/RefreshTallyIntent.swift`. **Confirmed still
-  untouched as of this report** (`gh pr view 26`: PR #26/M3-D is still `OPEN`, not merged). Per the
-  brief, the baseline file is **not** deleted; it lists only those 2 files. The PMO deletes it once
-  M3-D merges and it reaches 0.
+- **Status: hand-off, ready for PR.** Every file this package owns reaches 0 **in the actual source**
+  (`check_localizable_literals.py`'s real per-file counts, verified repeatedly through this report).
+  The ratchet **baseline file itself** (`scripts/ci/l10n-baseline.json`) is, as of the final commit on
+  this branch, back to `origin/main`'s pre-sweep entries for all 20 files (210 literals) — **not this
+  stream's edit**: the PMO pushed `4276f0b` mid-task to resolve a cross-PR conflict with PR #26/M3-D
+  (both PRs rewrote the same file), verified independently rather than taken on description alone (§4,
+  §7). This stream's own baseline work (18 files → 0, in `b155955`) is preserved in the *source*, not
+  the ratchet file, until the PMO's follow-up PR deletes it once PR #26 and this PR are both on
+  `main`, which is the point at which the gate becomes zero-repo-wide, per plan 08 §5's row for this
+  package.
 - **Author:** Localization Sweep Engineer (work package L10N-03b) — this hand-off continues a prior
   session of the same work package that ended at the account's usage limit; see the journal for the
   exact baton-pass point (`build/logs/journal/2026-10-01-l10n03b.md`, "session ended at the usage
@@ -236,6 +240,22 @@ regardless of the simulator's ambient locale.
 
 - **M3-D (PR #26) still open.** The baseline keeps its 2 files until M3-D merges; not this stream's
   item to close (not our files, not our brief). The PMO deletes the baseline file once it reaches 0.
+- **Baseline reverted mid-task by the PMO (`4276f0b`), pulled and verified, not authored by this
+  stream.** PR #26 and PR #27 each rewrote `scripts/ci/l10n-baseline.json`, so they'd conflict on
+  merge; the PMO's commit restores `origin/main`'s pre-sweep entries for all 18 of this stream's
+  files (their original counts, e.g. `CourseDetailView.swift: 23`) so both PRs merge cleanly, since
+  the checker only fails a file *above* its baseline and every real count here is still 0 — verified
+  independently (`git show 4276f0b`, then `check_localizable_literals.py` locally: `PASS | 25 literals
+  in 2 files, baseline 210 in 20 files`, plus an explicit per-file `notice: 0 literals, baseline N:
+  lower it` for all 18), not taken on the PMO's description alone. The PMO deletes the file once PR
+  #26 and this PR are both on `main`. **Effect on §5.1 of this report:** the local literal-gate
+  mutation check was run and is valid against the state at the time (baseline 0 for these files, so
+  any new literal failed immediately); against this restored, temporarily-higher per-file baseline, a
+  new literal in one of these files would only fail once it exceeded that file's *old* count, not
+  above 0, until the PMO's follow-up deletion PR lands. The actual source is unaffected (still 0
+  literals everywhere, reconfirmed above) — this is a bounded, intentional, PMO-owned widening of the
+  gate's margin, not a regression in this stream's work, but it is why §5.1's mutation evidence
+  shouldn't be read as still describing the gate's current margin on `main` once this merges.
 - **`check_localizable_literals.py`'s `UI_CALLEES` gap** (§6): predates the iOS 18 `Tab` API. Flagged
   for the PMO; not fixed here (`scripts/ci/` is outside this stream's ownership/shared-files list).
 - **Two pre-existing, unrelated known issues**, unchanged across every run in this report:
