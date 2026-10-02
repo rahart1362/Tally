@@ -60,10 +60,10 @@ struct ScreenFormatterLocaleTests {
     func spokenPercentAcrossLocales(identifier: String) {
         let f = Self.formatter(Locale(identifier: identifier))
         let spoken = f.spokenPercent(90.1)
-        #expect(spoken.hasSuffix(" percent"), spoken)
+        #expect(spoken.hasSuffix(" percent"), "\(spoken)")
         let number = String(spoken.dropLast(" percent".count))
         let expectedNumber = identifier == "es_ES" || identifier == "fr_FR" ? "90,1" : "90.1"
-        #expect(number == expectedNumber, spoken)
+        #expect(number == expectedNumber, "\(spoken)")
     }
 
     // MARK: - Relative days (ScreenFormatter.dayText, now TallyFormat.namedDay-backed)
@@ -94,9 +94,9 @@ struct ScreenFormatterLocaleTests {
     func dayTextBeyondRange() {
         let f = Self.formatter(Locale(identifier: "en_US"))
         let in4Days = f.dayText(Self.now.addingTimeInterval(4 * 24 * 3600))
-        #expect(!["today", "tomorrow", "yesterday"].contains(in4Days), in4Days)
+        #expect(!["today", "tomorrow", "yesterday"].contains(in4Days), "\(in4Days)")
         let in30Days = f.dayText(Self.now.addingTimeInterval(30 * 24 * 3600))
-        #expect(!["today", "tomorrow", "yesterday"].contains(in30Days), in30Days)
+        #expect(!["today", "tomorrow", "yesterday"].contains(in30Days), "\(in30Days)")
     }
 
     // MARK: - Sentence assembly (ScreenFormatter.dueText/untilText: whole-sentence keys)
