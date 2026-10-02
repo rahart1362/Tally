@@ -115,10 +115,7 @@ public nonisolated struct ScreenFormatter: Sendable {
     /// `.scale(1)` rounds the value as given (it is already 0-100), matching this function's old
     /// `.number.precision(.fractionLength(1))` tie-for-tie, so en_US output is unchanged.
     public func percentText(_ percent: Double) -> String {
-        // MUTATION CHECK (L10N-03b §5.2, temporary): hard-coded en_US, ignoring `self.locale`, to
-        // prove the §3.3 "Percent" hosted tests actually catch a regression. Reverted immediately
-        // after the CI run that proves it fails; never meant to reach a PR.
-        TallyFormat.percent(percent, locale: Locale(identifier: "en_US"))
+        TallyFormat.percent(percent, locale: locale)
     }
 
     /// "90.1 percent", for VoiceOver. The number is locale-aware (§3.3 "Percent"); " percent" is a
