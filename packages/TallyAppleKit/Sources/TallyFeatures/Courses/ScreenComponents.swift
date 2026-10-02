@@ -146,9 +146,17 @@ extension WorkStatus {
 }
 
 /// A section title on a scrolling (non-`List`) screen, with the header trait (A11Y-09).
+///
+/// Plan 08 §5 (L10N-03b): takes `LocalizedStringResource`, not `String` (L10N-03a's `StatusChip`
+/// precedent did not apply here — unlike `StatusChip`, every one of this component's six call sites,
+/// all in `Insights/InsightsScreen.swift`, passed a string literal, including one
+/// (`Insights/InsightsProjection.swift:18`'s `StreakInsight.definition`) as a non-literal `String`
+/// constant; L10N-03a left this blocked rather than risk a literal-argument overload ambiguity with
+/// no local Xcode to check it. Converting both at once, in the same stream, removes the ambiguity
+/// instead of creating it.
 struct ScreenSectionHeader: View {
-    let title: String
-    var subtitle: String?
+    let title: LocalizedStringResource
+    var subtitle: LocalizedStringResource?
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.xs) {

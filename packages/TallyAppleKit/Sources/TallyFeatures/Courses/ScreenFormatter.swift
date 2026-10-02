@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// The text every M3 screen shows for a date, a score or a letter grade, built once per projection
 /// off the main actor (`HomeProjector`), in the student's locale and calendar. Views never format a
@@ -38,13 +39,20 @@ public nonisolated struct ScreenFormatter: Sendable {
         date.formatted(time)
     }
 
-    /// "Thu", "Oct 12"; `spoken` gives "Thursday", "October 12" for VoiceOver.
+    /// "Thu", "Oct 12"; `spoken` gives "Thursday", "October 12" for VoiceOver. §3.3 "Relative days":
+    /// `Date.RelativeFormatStyle` names today/tomorrow/yesterday in the student's language, instead
+    /// of the three hard-coded English words. `TallyFormat.namedDay` works out the offset in whole
+    /// days the same way this function already did (`dayOffset`), so a time late tonight never
+    /// reads "tomorrow", unchanged from before.
     public func dayText(_ date: Date, spoken: Bool = false) -> String {
         let offset = dayOffset(to: date)
+        // Byte-identical to before for every offset `namedDayOffsets` covers: the original always
+        // returned the same lowercase word regardless of `spoken` (only the weekday/month branches
+        // below varied by it), so the context stays fixed here too.
+        if let named = TallyFormat.namedDay(offset: offset, locale: locale) {
+            return named
+        }
         switch offset {
-        case 0: return "today"
-        case 1: return "tomorrow"
-        case -1: return "yesterday"
         case 2...6, -6 ... -2:
             return date.formatted(base.weekday(spoken ? .wide : .abbreviated))
         default:
@@ -53,20 +61,24 @@ public nonisolated struct ScreenFormatter: Sendable {
     }
 
     /// "Due today at 11:59 PM", "Due Thu at 9:00 AM", "Due Oct 12"; past dates read "Was due Fri".
-    /// `spoken` spells weekdays and months out for VoiceOver.
+    /// `spoken` spells weekdays and months out for VoiceOver. Whole-sentence keys (§3.3 "Sentence
+    /// assembly"): word order varies by language, so the already-formatted day/time are placeholders
+    /// in a template, never pieced together from independently translated fragments.
     public func dueText(_ due: Date, spoken: Bool = false) -> String {
         let offset = dayOffset(to: due)
         let day = dayText(due, spoken: spoken)
         if due < now {
-            return "Was due \(day)"
+            return L10n.string(L10n.Courses.wasDue, day)
         }
         // The time matters within the coming week; further out, the day alone.
-        return (0...6).contains(offset) ? "Due \(day) at \(timeText(due))" : "Due \(day)"
+        return (0...6).contains(offset)
+            ? L10n.string(L10n.Courses.dueAtTime, day, timeText(due))
+            : L10n.string(L10n.Courses.dueDay, day)
     }
 
     /// "Fri at 11:59 PM", for "still accepted until …".
     public func untilText(_ date: Date, spoken: Bool = false) -> String {
-        "\(dayText(date, spoken: spoken)) at \(timeText(date))"
+        L10n.string(L10n.Courses.atTime, dayText(date, spoken: spoken), timeText(date))
     }
 
     /// "Mon, Sep 28" (a day heading), "Monday, September 28" when `spoken`.
@@ -99,33 +111,50 @@ public nonisolated struct ScreenFormatter: Sendable {
 
     // MARK: - Numbers
 
-    /// "90.1%": one decimal, in the student's locale.
+    /// "90.1%" (en_US), "90,1 %" (fr_FR), "%90,1" (tr_TR): §3.3 "Percent". `TallyFormat.percent`'s
+    /// `.scale(1)` rounds the value as given (it is already 0-100), matching this function's old
+    /// `.number.precision(.fractionLength(1))` tie-for-tie, so en_US output is unchanged.
     public func percentText(_ percent: Double) -> String {
-        percent.formatted(.number.precision(.fractionLength(1)).locale(locale)) + "%"
+        TallyFormat.percent(percent, locale: locale)
     }
 
-    /// "90.1 percent", for VoiceOver.
+    /// "90.1 percent", for VoiceOver. The number is locale-aware (§3.3 "Percent"); " percent" is a
+    /// whole-sentence key, never a hand-appended English word.
     public func spokenPercent(_ percent: Double) -> String {
-        percent.formatted(.number.precision(.fractionLength(1)).locale(locale)) + " percent"
+        L10n.string(L10n.Insights.spokenPercent, percent.formatted(.number.precision(.fractionLength(1)).locale(locale)))
     }
 
-    /// "92", "8.5": a score or point value with at most two decimals.
+    /// "92", "8.5": a score or point value with at most two decimals. Not a percentage (§3.3 "Points
+    /// and '9/10'": keep the visual form), so `TallyFormat.percent`'s sign placement does not apply.
     public func pointsText(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0...2)).locale(locale))
     }
 
-    /// "50%": a whole-number share of 0…1.
+    /// "50%": a whole-number share of 0…1 (§3.3 "Percent").
     public func shareText(_ share: Double) -> String {
-        (share * 100).formatted(.number.precision(.fractionLength(0)).locale(locale)) + "%"
+        TallyFormat.share(share, locale: locale)
+    }
+
+    /// "40%", "90%", "16.67%" (§3.3 "Percent"): `.percent` FormatStyle, with the same 0...2
+    /// fraction-digit trimming as `pointsText` (unlike `percentText`'s fixed 1 digit), for
+    /// percent-like values that are not a grade percentage: category/what-if weights, goals and
+    /// letter-grade cutoffs.
+    public func trimmedPercentText(_ value: Double) -> String {
+        value.formatted(.percent.scale(1).precision(.fractionLength(0...2)).locale(locale))
     }
 
     // MARK: - Letter grades
 
-    /// VoiceOver reads "A-" as "A dash"; say "A minus" instead.
+    /// VoiceOver reads "A-" as "A dash"; say "A minus" instead. §3.3 "Letter grades": the letter
+    /// itself is never translated (Canvas's own grading scheme, passed through as data); the spoken
+    /// "minus"/"plus" words are catalog keys.
     public static func spokenLetter(_ letter: String) -> String {
-        var spoken = letter
-        if spoken.hasSuffix("-") { spoken = String(spoken.dropLast()) + " minus" }
-        if spoken.hasSuffix("+") { spoken = String(spoken.dropLast()) + " plus" }
-        return spoken
+        if letter.hasSuffix("-") {
+            return L10n.string(L10n.Courses.letterMinus, String(letter.dropLast()))
+        }
+        if letter.hasSuffix("+") {
+            return L10n.string(L10n.Courses.letterPlus, String(letter.dropLast()))
+        }
+        return letter
     }
 }

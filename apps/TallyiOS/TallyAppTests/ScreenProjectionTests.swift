@@ -466,6 +466,12 @@ struct ScreenFormatterTests {
     @Test("percentages follow the locale")
     func percents() {
         #expect(ScreenFixtures.formatter().percentText(90.1) == "90.1%")
-        #expect(ScreenFixtures.formatter(locale: "de_DE").percentText(90.1) == "90,1%")
+        // L10N-03b (plan 08 §3.3 "Percent", run 36944513256): percentText is now `.percent`
+        // FormatStyle-backed, so de_DE's real spacing (a no-break space before "%") replaces the old
+        // `+ "%"` concatenation this test assumed. Normalize NBSP/narrow-NBSP, like
+        // ScreenFormatterLocaleTests.plainSpaces, so this checks wording, not that exact space glyph.
+        let de = ScreenFixtures.formatter(locale: "de_DE").percentText(90.1)
+        let dePlain = String(String.UnicodeScalarView(de.unicodeScalars.map { $0 == "\u{00A0}" || $0 == "\u{202F}" ? " " : $0 }))
+        #expect(dePlain == "90,1 %")
     }
 }

@@ -9,11 +9,11 @@ nonisolated enum CourseDetailSegment: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
-        case .overview: "Overview"
-        case .assignments: "Assignments"
-        case .grades: "Grades"
+        case .overview: L10n.CourseDetail.segmentOverview()
+        case .assignments: L10n.CourseDetail.segmentAssignments()
+        case .grades: L10n.CourseDetail.segmentGrades()
         }
     }
 }
@@ -26,6 +26,7 @@ nonisolated enum CourseDetailSegment: String, CaseIterable, Identifiable {
 struct CourseDetailView: View {
     let courseID: CanvasID<Course>
     @Environment(HomeModel.self) private var model
+    @Environment(\.locale) private var locale
     @State private var segment: CourseDetailSegment = .overview
     @State private var grades = CourseGradesModel()
     /// Built by the What-If button's action, never in a view initialiser (perf-app-runtime.md §3 item 6).
@@ -36,11 +37,11 @@ struct CourseDetailView: View {
             if let detail = model.courseDetails[courseID] {
                 content(detail)
             } else {
-                ContentUnavailableView("Course unavailable", systemImage: "books.vertical",
-                                       description: Text("This course isn't in your latest Canvas data."))
+                ContentUnavailableView(String(localized: L10n.CourseDetail.unavailableTitle()), systemImage: "books.vertical",
+                                       description: Text(L10n.CourseDetail.unavailableDescription()))
             }
         }
-        .navigationTitle(model.courseDetails[courseID]?.name ?? "Course")
+        .navigationTitle(model.courseDetails[courseID]?.name ?? String(localized: L10n.CourseDetail.navigationTitleFallback()))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -80,7 +81,11 @@ struct CourseDetailView: View {
                         // A one-shot open: the Canvas Student app, else the browser (R20).
                         Task { await CanvasLinkOpener.open(url) }
                     } label: {
-                        Label("Open in Canvas", systemImage: "safari")
+                        // L10N-03a's finding (its report §1.2): every already-CI-verified `L10n.*` use
+                        // reaches `Text(L10n.…)` or `String(localized: L10n.…)`, never a bare
+                        // `LocalizedStringResource` passed to another SwiftUI initializer directly, to
+                        // avoid an unverified-overload compile risk with no local Xcode to check it.
+                        Label { Text(L10n.CourseDetail.openInCanvas()) } icon: { Image(systemName: "safari") }
                     }
                 }
             }
@@ -100,12 +105,14 @@ struct CourseDetailView: View {
             }
         }
         if let next = detail.nextDueText {
-            Section("Next due") {
+            Section {
                 Text(next).font(TallyTypography.body)
+            } header: {
+                Text(L10n.CourseDetail.nextDueHeader())
             }
         }
         if !detail.recentGraded.isEmpty || detail.recentGradesNote != nil {
-            Section("Recent grades") {
+            Section {
                 if let note = detail.recentGradesNote {
                     Text(verbatim: note)
                         .font(TallyTypography.body)
@@ -127,26 +134,32 @@ struct CourseDetailView: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(item.accessibilityLabel)
                 }
+            } header: {
+                Text(L10n.CourseDetail.recentGradesHeader())
             }
         }
         if !detail.weights.isEmpty {
             Section {
-                CategoryWeightsChart(weights: detail.weights, title: "Category weights", summary: detail.weightsSummary)
+                CategoryWeightsChart(weights: detail.weights, title: String(localized: L10n.CourseDetail.categoryWeightsHeader()),
+                                     summary: detail.weightsSummary)
                     .padding(.vertical, TallySpacing.sm)
             } header: {
-                Text("Category weights")
+                Text(L10n.CourseDetail.categoryWeightsHeader())
             } footer: {
                 Text(detail.weightsAreInstructorSet
-                     ? "Set by your instructor."
-                     : "This course adds up points, so each category's share is its share of the points.")
+                     ? L10n.CourseDetail.weightsSetByInstructor()
+                     : L10n.CourseDetail.weightsPointsBased())
             }
         }
         // ux-ui.md §3.5: only when Canvas returns score statistics, never invented.
         if let distribution = detail.distribution {
-            Section("Grade distribution") {
-                Text("Class range \(Self.percent(distribution.minimum))–\(Self.percent(distribution.maximum)), "
-                     + "average \(Self.percent(distribution.mean)). You: \(Self.percent(distribution.yours)).")
+            Section {
+                Text(L10n.CourseDetail.gradeDistributionSentence(
+                    Self.percent(distribution.minimum, locale: locale), Self.percent(distribution.maximum, locale: locale),
+                    Self.percent(distribution.mean, locale: locale), Self.percent(distribution.yours, locale: locale)))
                     .accessibilityIdentifier("chart.distribution")
+            } header: {
+                Text(L10n.CourseDetail.gradeDistributionHeader())
             }
         }
         Section {
@@ -164,15 +177,15 @@ struct CourseDetailView: View {
                         .disabled(true)
                         .accessibilityIdentifier("courseDetail.whatIf.disabled")
                 }
-                Text(verbatim: reason.text)
+                Text(reason.text)
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
             }
         } header: {
-            Text("What-If")
+            Text(L10n.CourseDetail.whatIfHeader())
         } footer: {
             if detail.whatIf != nil {
-                Text("See how scores on work that isn't graded yet would change your grade. Nothing is sent to Canvas.")
+                Text(L10n.CourseDetail.whatIfFooter())
             }
         }
         if !detail.instructors.isEmpty {
@@ -181,7 +194,7 @@ struct CourseDetailView: View {
                     Label(detail.instructors[index], systemImage: "person")
                 }
             } header: {
-                Text(detail.instructors.count == 1 ? "Instructor" : "Instructors")
+                Text(detail.instructors.count == 1 ? L10n.CourseDetail.instructorsHeaderOne() : L10n.CourseDetail.instructorsHeaderOther())
             }
         }
     }
@@ -200,7 +213,7 @@ struct CourseDetailView: View {
     private func assignments(_ detail: CourseDetailProjection) -> some View {
         if detail.sections.isEmpty {
             Section {
-                Text("No assignments in Canvas yet.")
+                Text(L10n.CourseDetail.noAssignmentsYet())
                     .foregroundStyle(TallyColor.textSecondary)
             }
         }
@@ -263,7 +276,7 @@ struct CourseDetailView: View {
                 .accessibilityElement(children: .combine)
             }
         } header: {
-            Text("Categories")
+            Text(L10n.CourseDetail.categoriesHeader())
         } footer: {
             switch detail.grade.notInCanvas {
             case .keptOutside?:
@@ -271,21 +284,32 @@ struct CourseDetailView: View {
             case .notGraded?:
                 Text(L10n.Grades.notGradedDetail())
             case nil:
-                Text(detail.showsCategoryPercentages
-                     ? "Current grade counts graded work only."
-                     : (detail.grade.hiddenReason ?? "This course shows letter grades only."))
+                if detail.showsCategoryPercentages {
+                    Text(L10n.CourseDetail.currentGradeCountsGradedOnly())
+                } else if let hiddenReason = detail.grade.hiddenReason {
+                    Text(verbatim: hiddenReason)
+                } else {
+                    Text(L10n.CourseDetail.lettersOnlyFooter())
+                }
             }
         }
     }
 
     private func categoryPercent(_ category: CategoryRow, in detail: CourseDetailProjection) -> String {
-        guard detail.showsCategoryPercentages else { return "Hidden" }
-        guard let percent = grades.categoryPercents[category.id] else { return "No grades yet" }
-        return Self.percent(percent)
+        guard detail.showsCategoryPercentages else { return String(localized: L10n.CourseDetail.categoryHidden()) }
+        guard let percent = grades.categoryPercents[category.id] else {
+            return String(localized: L10n.CourseDetail.categoryNoGradesYet())
+        }
+        return Self.percent(percent, locale: locale)
     }
 
-    private static func percent(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(1))) + "%"
+    /// §3.3 "Percent": `.percent` FormatStyle, not a hand-appended "%", so the sign's position and
+    /// spacing follow the locale (`percentText`/`spokenPercent`/`shareText`'s own fix, via
+    /// `TallyFormat`, is in `ScreenFormatter.swift`; this helper duplicates only the 1-decimal case
+    /// those functions already prove byte-identical for en_US, since this view holds no
+    /// `ScreenFormatter` to call them on).
+    private static func percent(_ value: Double, locale: Locale) -> String {
+        value.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale))
     }
 }
 
@@ -361,7 +385,7 @@ private struct SegmentPicker: View {
     @Binding var selection: CourseDetailSegment
 
     var body: some View {
-        Picker("Show", selection: $selection) {
+        Picker(String(localized: L10n.CourseDetail.segmentedControlAccessibilityLabel()), selection: $selection) {
             ForEach(CourseDetailSegment.allCases) { segment in
                 Text(segment.title).tag(segment)
             }

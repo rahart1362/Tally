@@ -2,6 +2,7 @@ import Accessibility
 import Charts
 import SwiftUI
 import TallyDesignSystem
+import TallyStrings
 
 /// Category weights as horizontal bars with direct labels (ux-ui.md §3.5, replacing the mockup's
 /// donut, which relies on colour and a legend). One accessibility element with a label, a value
@@ -54,7 +55,7 @@ struct TrendChart: View {
         .chartYScale(domain: view.lowerPercent...max(view.upperPercent, view.lowerPercent + 1))
         .frame(height: height)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Performance trend")
+        .accessibilityLabel(Text(L10n.Insights.performanceTrendHeader()))
         .accessibilityValue(view.summary)
         .accessibilityChartDescriptor(TrendChartDescriptor(view: view))
         .accessibilityIdentifier("chart.trend")
@@ -68,11 +69,13 @@ nonisolated struct CategoryChartDescriptor: AXChartDescriptorRepresentable {
     let weights: [CategoryWeight]
 
     func makeChartDescriptor() -> AXChartDescriptor {
-        let xAxis = AXCategoricalDataAxisDescriptor(title: "Category", categoryOrder: weights.map(\.name))
-        let yAxis = AXNumericDataAxisDescriptor(title: "Share of grade", range: 0...100, gridlinePositions: [],
-                                                valueDescriptionProvider: { @Sendable value in
-                                                    value.formatted(.number.precision(.fractionLength(0))) + " percent"
-                                                })
+        let xAxis = AXCategoricalDataAxisDescriptor(title: String(localized: L10n.Insights.categoryShareAxisCategory()),
+                                                    categoryOrder: weights.map(\.name))
+        let yAxis = AXNumericDataAxisDescriptor(
+            title: String(localized: L10n.Insights.categoryShareAxisTitle()), range: 0...100, gridlinePositions: [],
+            valueDescriptionProvider: { @Sendable value in
+                String(localized: L10n.Insights.spokenPercent(value.formatted(.number.precision(.fractionLength(0)))))
+            })
         let series = AXDataSeriesDescriptor(name: title, isContinuous: false,
                                             dataPoints: weights.map { AXDataPoint(x: $0.name, y: $0.share * 100) })
         return AXChartDescriptor(title: title, summary: summary, xAxis: xAxis, yAxis: yAxis, additionalAxes: [],
@@ -87,19 +90,21 @@ nonisolated struct TrendChartDescriptor: AXChartDescriptorRepresentable {
     func makeChartDescriptor() -> AXChartDescriptor {
         let start = view.start.timeIntervalSince1970
         let end = max(view.end.timeIntervalSince1970, start)
-        let xAxis = AXNumericDataAxisDescriptor(title: "Date", range: start...end, gridlinePositions: [],
-                                                valueDescriptionProvider: { @Sendable value in
-                                                    Date(timeIntervalSince1970: value).formatted(date: .abbreviated, time: .omitted)
-                                                })
+        let xAxis = AXNumericDataAxisDescriptor(
+            title: String(localized: L10n.Insights.spokenDate()), range: start...end, gridlinePositions: [],
+            valueDescriptionProvider: { @Sendable value in
+                Date(timeIntervalSince1970: value).formatted(date: .abbreviated, time: .omitted)
+            })
         let upper = max(view.upperPercent, view.lowerPercent + 1)
-        let yAxis = AXNumericDataAxisDescriptor(title: "Average", range: view.lowerPercent...upper, gridlinePositions: [],
-                                                valueDescriptionProvider: { @Sendable value in
-                                                    value.formatted(.number.precision(.fractionLength(1))) + " percent"
-                                                })
+        let yAxis = AXNumericDataAxisDescriptor(
+            title: String(localized: L10n.Insights.trendAxisAverageShort()), range: view.lowerPercent...upper, gridlinePositions: [],
+            valueDescriptionProvider: { @Sendable value in
+                String(localized: L10n.Insights.spokenPercent(value.formatted(.number.precision(.fractionLength(1)))))
+            })
         let series = AXDataSeriesDescriptor(
-            name: "Average of your courses", isContinuous: true,
+            name: String(localized: L10n.Insights.trendAxisAverage()), isContinuous: true,
             dataPoints: view.points.map { AXDataPoint(x: $0.date.timeIntervalSince1970, y: $0.percent) })
-        return AXChartDescriptor(title: "Performance trend", summary: view.summary, xAxis: xAxis, yAxis: yAxis,
-                                 additionalAxes: [], series: [series])
+        return AXChartDescriptor(title: String(localized: L10n.Insights.performanceTrendHeader()), summary: view.summary,
+                                 xAxis: xAxis, yAxis: yAxis, additionalAxes: [], series: [series])
     }
 }
