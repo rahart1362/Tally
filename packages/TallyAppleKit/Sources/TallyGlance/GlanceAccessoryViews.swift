@@ -81,9 +81,6 @@ public struct NextItemAccessoryView: View {
                     .font(TallyTypography.cardTitle)
                     .lineLimit(2)
             case .summary(let summary):
-                if let band = summary.standing {
-                    Text(verbatim: GlanceText.bandLabel(band))
-                }
                 if let item = summary.nextUp {
                     Text(verbatim: GlanceText.title(item, hidesNames: summary.hidesCourseNames))
                         .font(TallyTypography.cardTitle)
