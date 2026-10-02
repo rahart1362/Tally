@@ -1,5 +1,6 @@
 import Foundation
 import StoreKit
+import Synchronization
 import TallyDomain
 
 /// PAY-03: StoreKit 2, on the device only (PRD §11.5: no server, no App Store Server API). Reads
@@ -10,8 +11,9 @@ import TallyDomain
 ///   unverified (the policy never lets them entitle), and an unverified update or purchase is
 ///   never granted and never finished.
 /// - **`finish()` only after granting:** an update or a purchase is finished after the engine's
-///   verification has recorded and gated it; the unfinished queue is drained by the engine after
-///   each verification (`finishUnfinished`).
+///   verification has recorded and gated it. After each verification the engine drains the
+///   unfinished queue (`finishUnfinished`), finishing only the transactions that verification read,
+///   so a transaction that arrives in between waits for the verification that grants it.
 /// - **Renewal and grace state** come from the subscription's status
 ///   (`Transaction.subscriptionStatus`, a `Product.SubscriptionInfo.Status`), trusted only when its
 ///   transaction verifies; the grace period's end only from verified renewal info.
@@ -21,6 +23,8 @@ import TallyDomain
 /// Not main-actor: StoreKit's sequences are iterated off the main actor.
 public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
     private let products: SubscriptionProducts
+    /// The verified transactions the last `currentFacts()` read: what its verification granted.
+    private let read = Mutex<Set<UInt64>>([])
 
     public init(products: SubscriptionProducts) {
         self.products = products
@@ -28,22 +32,27 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
 
     public func currentFacts() async -> [SubscriptionFacts] {
         var facts: [SubscriptionFacts] = []
+        var verifiedIDs = Set<UInt64>()
         for await result in Transaction.currentEntitlements where isTally(result) {
             facts.append(await Self.facts(from: result))
+            if case .verified(let transaction) = result { verifiedIDs.insert(transaction.id) }
         }
         // The latest transaction of each product, active or not: a refund, a revocation or an expiry
         // is what makes the state `.lapsed` rather than `.preview`.
         for productID in products.all {
             if let latest = await Transaction.latest(for: productID) {
                 facts.append(await Self.facts(from: latest))
+                if case .verified(let transaction) = latest { verifiedIDs.insert(transaction.id) }
             }
         }
+        read.withLock { $0 = verifiedIDs }
         return facts
     }
 
     public func finishUnfinished() async {
+        let granted = read.withLock { $0 }
         for await result in Transaction.unfinished {
-            guard case .verified(let transaction) = result, products.role(of: transaction.productID) != nil else { continue }
+            guard case .verified(let transaction) = result, granted.contains(transaction.id) else { continue }
             await transaction.finish()
         }
     }

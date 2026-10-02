@@ -254,7 +254,8 @@ public actor SubscriptionEngine {
 }
 
 extension EntitlementState {
-    /// An entitlement whose expiry is still ahead (Ask to Buy's pending flag clears on one).
+    /// A trial or subscription (not a preview, a lapse or sample data): Ask to Buy's pending flag
+    /// clears on one.
     nonisolated var isActiveEntitlement: Bool {
         if case .entitled = self { return true }
         return false
