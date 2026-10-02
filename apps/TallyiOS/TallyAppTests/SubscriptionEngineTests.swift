@@ -175,8 +175,11 @@ extension AccountLifecycleSuites {
             _ = await account.reminderPass()
             #expect(!account.platform.pending.isEmpty)
             await rig.gate.update(.lapsed(since: F.now.addingTimeInterval(-60))) // StoreKit's answer
+            let passes = account.platform.permissionReads // every pass reads the permission first
             await rig.engine.accountAttached(account.coordinator, environment: account.environment)
-            #expect(account.platform.pending.isEmpty, "the attach left the lapsed account's reminders pending")
+            // The pass itself withdrawing is `passWhileLapsedWithdraws`' guard; this one is that the
+            // attach runs it, so each fails a test of its own in a CI mutation run.
+            #expect(account.platform.permissionReads == passes + 1, "the attach ran no reminders pass")
         }
 
         @Test("A pass while lapsed plans nothing and withdraws what is pending (.withdrawn)")
@@ -204,8 +207,10 @@ extension AccountLifecycleSuites {
             let account = try await rig.attachedAccount()
             #expect(rig.scheduler.pending == nil)
             rig.source.setPurchase(.purchased, factsAfter: [F.active()])
+            let passes = account.platform.permissionReads // every pass reads the permission first
             #expect(await rig.engine.purchase(.student) == .purchased)
             #expect(rig.scheduler.pending != nil)
+            #expect(account.platform.permissionReads == passes + 1, "the purchase ran no reminders pass")
             #expect(!account.platform.pending.isEmpty, "the engine's pass planned the reminders again")
         }
 
