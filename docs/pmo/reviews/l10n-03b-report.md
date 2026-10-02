@@ -1,12 +1,17 @@
 # L10N-03b literal sweep report (hand-off)
 
-- **Status: hand-off.** Every file this package owns reaches 0 in the literal ratchet. The baseline
-  (`scripts/ci/l10n-baseline.json`) goes from 210 literals in 20 files to 25 in 2: M3-D's
-  `TallyGlance/GlanceWidgetViews.swift` and `TallyIntents/RefreshTallyIntent.swift`, confirmed
-  untouched (M3-D has not merged: no PR exists yet for `widgets/m3d`, and `origin/main` is unchanged
-  at `c54745d`). Per the brief, the baseline file is **not** deleted; it now lists only those 2 files.
-- **Author:** Localization Sweep Engineer (work package L10N-03b).
-- **Branch:** `l10n/sweep-b`, from `origin/main` @ `c54745d` (PR #23, XG-04/06).
+- **Status: hand-off, ready for PR.** Every file this package owns reaches 0 in the literal ratchet.
+  The baseline (`scripts/ci/l10n-baseline.json`) goes from 210 literals in 20 files to 25 in 2: M3-D's
+  `TallyGlance/GlanceWidgetViews.swift` and `TallyIntents/RefreshTallyIntent.swift`. **Confirmed still
+  untouched as of this report** (`gh pr view 26`: PR #26/M3-D is still `OPEN`, not merged). Per the
+  brief, the baseline file is **not** deleted; it lists only those 2 files. The PMO deletes it once
+  M3-D merges and it reaches 0.
+- **Author:** Localization Sweep Engineer (work package L10N-03b) — this hand-off continues a prior
+  session of the same work package that ended at the account's usage limit; see the journal for the
+  exact baton-pass point (`build/logs/journal/2026-10-01-l10n03b.md`, "session ended at the usage
+  limit here").
+- **Branch:** `l10n/sweep-b`, from `origin/main` @ `c54745d` (PR #23, XG-04/06); merged forward to
+  `origin/main` @ `4689bea` (PR #24, PR #25) partway through, §4/§8.
 - **Plan:** `docs/pmo/08-localization-and-external-grades.md` §5 row L10N-03b, §3.3, §4.4; the method
   is `docs/pmo/reviews/l10n-03a-report.md`, read and followed exactly (key naming, translator
   comments, plural variants, the byte-identical check).
@@ -174,7 +179,39 @@ the same check the Linux `hygiene` CI job runs): appended an unreachable
 
 ### 5.2 CI: break one §3.3 fix (batched into the one mutation run)
 
-*(to be completed: batched into the one mutation run, per the CI budget.)*
+Target: `ScreenFormatter.percentText` (§3.3 "Percent"). Chose an argument-mutation over a
+default-parameter mutation deliberately: L10N-03a's own mutation round (their report §5, "LM1/LM2")
+found that this CI environment's ambient simulator locale is itself en_US, which makes a
+default-parameter mutation indistinguishable from the fix; forcing the locale *argument* itself
+instead means the es_ES/fr_FR cases (which pass an explicit `Locale(identifier:...)`) must fail
+regardless of the simulator's ambient locale.
+
+- **Before:** `sha256 577e5ddb12f5f14d3be69d33eaf5d08f92df094e2705968a324a1b9c2dac29b0`.
+- **Mutation** (`257bf3c`): `percentText` hard-codes `Locale(identifier: "en_US")`, ignoring
+  `self.locale`. Pushed, dispatched **run 36954563155** (`-f scope=unit`).
+- **Result: failed exactly as predicted, nothing else.** `Test run with 876 tests in 176 suites
+  failed ... with 5 issues (including 2 known issues)` — the same 2 pre-existing `GradeParityTests`
+  known issues, plus exactly 3 new ones:
+  - `percentAcrossLocales` (es_ES): `(plainSpaces(f.percentText(90.1)) → "90.1%") == "90,1 %"` — fails.
+  - `percentAcrossLocales` (fr_FR): same shape, fails.
+  - `percentAcrossLocales` (en_US, en_GB): **still pass** (the mutation's hard-coded en_US happens to
+    match their own expected output) — correctly shows the mutation is *detected only where it
+    matters*, not a blanket breakage.
+  - `ScreenProjectionTests.percents()` (de_DE, the test fixed in `de15e72`): `(dePlain → "90.1%") ==
+    "90,1 %"` — fails too, a second, independent confirmation of the same break.
+  - Every other job (`TallyCore tests`, `Hygiene gates`, `Crash-safety lint`, `TallyCore perf gates`,
+    `TallyCore sanitizers`) still green — the mutation's blast radius is exactly the one function, as
+    intended.
+  (The retried attempt reported the identical 3 failures a second time — the documented "one automatic
+  retry" behaviour, not a new problem.)
+- **Reverted** (`git revert --no-edit 257bf3c`, commit `a7b9fca`): `sha256
+  577e5ddb12f5f14d3be69d33eaf5d08f92df094e2705968a324a1b9c2dac29b0` — identical to before the
+  mutation. Re-ran every local check clean (`check_localizable_literals.py`: 25/2 unchanged;
+  `check_string_catalogs.py`: 507 keys, 0 problems; `check_debug_only_test_symbols.py`: 83 files, 0
+  problems; `make lint`: 0 violations, 230 files). No second CI run spent on the revert: the reverted
+  code is byte-identical to what run **36951858528** already proved green, so re-running it would
+  re-prove the same fact rather than find new information — the PR's own run is the next real check,
+  per the budget.
 
 ## 6. Findings for other streams
 
@@ -197,7 +234,31 @@ the same check the Linux `hygiene` CI job runs): appended an unreachable
 
 ## 7. Open items
 
-*(to be completed after CI.)*
+- **M3-D (PR #26) still open.** The baseline keeps its 2 files until M3-D merges; not this stream's
+  item to close (not our files, not our brief). The PMO deletes the baseline file once it reaches 0.
+- **`check_localizable_literals.py`'s `UI_CALLEES` gap** (§6): predates the iOS 18 `Tab` API. Flagged
+  for the PMO; not fixed here (`scripts/ci/` is outside this stream's ownership/shared-files list).
+- **Two pre-existing, unrelated known issues**, unchanged across every run in this report:
+  `GradeParityTests.swift:67` (`everyPersonaCourseMatches`/`everyGradeScenarioMatches`), TallyCore —
+  not this stream's files, already marked as known issues before this branch existed.
+- **iOS forward-compat (Xcode 27 preview) and the three report-only jobs** (TallyCore perf on Apple
+  silicon, ios-asan-ui, core perf on Apple silicon) are macOS-only, `main`-push-only jobs (plan rule
+  4): not dispatched by a PR run; not evaluated here, same as every other branch's hand-off.
+- **`quick` scope not spent before hand-off.** The budget allowed one more iteration run after
+  36951858528; held it in reserve rather than spend it on a `scope=quick` pass, because (a) none of
+  this stream's changes touch `TallyUITests` or any screen's UI-test path (only `ScreenFormatter`,
+  two hosted `TallyAppTests` files, and the catalog), (b) the existing UI tests' pass/fail depends on
+  unchanged English text, already argued byte-identical per file in §2, and (c) the PR's own run is a
+  **full** run (rule 4.4/10.4) and therefore already exercises the UI-test suite — spending the
+  reserved iteration run first would only re-prove what the PR run proves anyway, for no new
+  information, at the cost of ~47 CI-minutes. Flagged here explicitly rather than silently skipped
+  (rule 8): if the PR run surfaces a UI-test failure, that is the first and only signal, same as it
+  would be whether or not a `quick` pass preceded it.
+- **The 3-way `Localizable.xcstrings` merge** (§8, `985e627`) was verified key-by-key by script
+  (`.build-l10n03b/merge_xcstrings.py`, scratch, git-ignored), not hand-read line by line (501 keys);
+  the script's own diff logic (removed/both-added/conflicting-modified, all empty) is the evidence,
+  not a visual scan of the resulting JSON. `check_string_catalogs.py` (507 keys across all 4 catalogs,
+  0 problems) is the independent confirmation that the merged file is still well-formed and complete.
 
 ## 8. Commits
 
@@ -212,4 +273,11 @@ On `l10n/sweep-b`, from `c54745d`:
 | `52dbc84` | Fix: catalog placeholders were literal "…", not format specifiers; `whatIfGroupHeader` dropped the category name |
 | `6e139a8` | Locale-matrix hosted tests for every §3.3 fix |
 | `ddea896` | Journal: verify the PMO's two CI-rule notices (neither applies) |
-| *(more to follow: the mutation check, this report's CI/open-items fill-in, hand-off)* |
+| `7189908` | Fix: `#expect`'s Comment argument needs a string literal, not a bare `String` (run 36942228400's compile failure) — **prior session's hand-off point** |
+| `985e627` | Merge `origin/main` (PR #24, PR #25) — 3-way structural merge of `Localizable.xcstrings`, no real conflicts |
+| `de15e72` | Fix: normalize NBSP/narrow-NBSP before AM/PM and '%' in 3 locale-matrix test assertions (run 36944513256's 3 real failures — all test bugs, not production bugs) |
+| `0c80b90` | Journal and report through the merge, the test fixes, and the local literal-gate mutation check |
+| `257bf3c` | Mutation (temporary): break §3.3 Percent (`percentText` ignores locale) — run 36954563155 |
+| `a7b9fca` | Revert `257bf3c`, byte-identical (`sha256` confirmed) |
+| `1281eee` | Journal and report: iteration run 3 (green) and the mutation run's dispatch |
+| *(final: this report's close-out and hand-off, the PR)* |
