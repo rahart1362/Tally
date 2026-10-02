@@ -18,6 +18,10 @@ public enum AuthError: Error, Sendable, Equatable {
     case reauthRequired
     /// Network trouble during refresh: tokens kept, caller backs off.
     case transient
+    /// PAY-10 (M3-B2): Canvas rejected Tally's client (`invalid_client`): the school turned off
+    /// Tally's developer key. Tokens and saved data kept (they work again if the school turns the
+    /// key back on); every refresh until then reports it.
+    case schoolDisabled
 }
 
 /// Owns one account's tokens. Every refresh is single-flight, and the rotated
@@ -76,20 +80,27 @@ public actor TokenCoordinator {
         } catch {
             if inFlight == task { inFlight = nil }
             if Self.isTransient(error) { throw .transient }
+            if Self.isClientRejected(error) { throw .schoolDisabled }
             await dropTokens()
             throw .reauthRequired
         }
     }
 
     /// Network trouble, server errors, throttling and cancellation keep the tokens.
-    /// invalid_grant, other 4xx and a user mismatch mean sign in again.
+    /// invalid_grant, other 4xx and a user mismatch mean sign in again; invalid_client means the
+    /// school turned Tally off (`isClientRejected`), which keeps them too.
     static func isTransient(_ error: any Error) -> Bool {
         if error is TransportError || error is CancellationError { return true }
         switch error as? TokenEndpointError {
         case .rejected(let status)?: return status >= 500 || status == 429
         case .malformed?: return true
-        case .invalidGrant?, .userMismatch?, nil: return false
+        case .invalidGrant?, .userMismatch?, .invalidClient?, nil: return false
         }
+    }
+
+    /// PAY-10: the school turned off Tally's developer key. Not a sign-in problem: the tokens stay.
+    static func isClientRejected(_ error: any Error) -> Bool {
+        error as? TokenEndpointError == .invalidClient
     }
 
     private func dropTokens() async {

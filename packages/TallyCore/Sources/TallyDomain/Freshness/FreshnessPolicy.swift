@@ -9,8 +9,12 @@ public enum RefreshTrigger: String, Codable, Sendable, CaseIterable {
 /// `Error` conformance (WP-B06b addition) lets `CanvasClient`/`CanvasGateway` throw this
 /// category directly, so the transport layer and the freshness UI share one vocabulary
 /// instead of a parallel error enum that must be kept in sync with it.
+///
+/// `schoolDisabled` (PAY-10, M3-B2): Canvas rejected Tally itself (`invalid_client`): the school
+/// turned off or removed Tally's developer key. Not the student's sign-in, so the tokens and the
+/// saved data are kept; the app shows the school-revoked notice while the student is entitled.
 public enum RefreshFailure: String, Codable, Sendable, CaseIterable, Error {
-    case offline, authExpired, rateLimited, server, contract, unknown
+    case offline, authExpired, rateLimited, server, contract, unknown, schoolDisabled
 }
 
 /// Refresh facts persisted as `refresh-state` (kit 11 §Cache Strategy).
