@@ -42,7 +42,7 @@ struct AppEnvironment {
         let transport = URLSessionTransport()
         let appGroupID = StoreLocation.appGroupID
         // PAY-07: the one entitlement gate. Enforcement follows `SubscriptionConfig.isGatingEnforced`
-        // (off until M3-B2 ships the paywall).
+        // (on since M3-B2 shipped the paywall).
         let entitlementGate = EntitlementGate(clock: SystemDateProvider())
         // No explicit Keychain access groups yet: an explicit group fails with
         // errSecMissingEntitlement under CI's ad-hoc signing (KeychainVaultKeyStoreTests' known
@@ -86,12 +86,23 @@ struct AppEnvironment {
         let lock = AppLockModel(authenticator: authenticator, preferences: accountEnvironment.lockPreferences)
         // PAY-01: the product IDs derive from the bundle ID (`Identity.xcconfig`).
         let products = SubscriptionProducts(bundleID: Bundle.main.bundleIdentifier ?? "dev.tally-app.tally")
+        var source = entitlementSource(products: products)
+        var appStore = Self.storefront(products: products)
+        #if DEBUG || TALLY_TEST_HOOKS
+        // M3-B2: UI tests' test-only entitlement and App Store (`SubscriptionTestHooks`); never compiled
+        // into a shipping Release build.
+        let subscriptionHooks = SubscriptionTestHooks(arguments: ProcessInfo.processInfo.arguments)
+        if let hookedSource = subscriptionHooks.source(products: products), let hookedStorefront = subscriptionHooks.storefront() {
+            source = hookedSource
+            appStore = hookedStorefront
+        }
+        #endif
         let subscription = SubscriptionModel(engine: SubscriptionEngine(
-            source: entitlementSource(products: products), records: KeychainEntitlementStore(),
+            source: source, records: KeychainEntitlementStore(),
             gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
-                                lock: lock, subscription: subscription)
+                                lock: lock, subscription: subscription, storefront: appStore)
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif
@@ -113,5 +124,18 @@ struct AppEnvironment {
         if environment["XCTestConfigurationFilePath"] != nil { return NoEntitlementSource() }
         #endif
         return StoreKitEntitlementSource(products: products)
+    }
+
+    /// PAY-05, PAY-08 (M3-B2): the App Store for the paywall's offer, Restore Purchases and Request a
+    /// Refund. StoreKit itself, except in a Debug process that hosts TallyAppTests, for the reason
+    /// `entitlementSource` gives: that process's first StoreKit connection must be the StoreKit
+    /// Testing suite's.
+    static func storefront(products: SubscriptionProducts,
+                           environment: [String: String] = ProcessInfo.processInfo.environment)
+        -> any SubscriptionStorefront {
+        #if DEBUG
+        if environment["XCTestConfigurationFilePath"] != nil { return UnavailableStorefront() }
+        #endif
+        return StoreKitStorefront(products: products)
     }
 }

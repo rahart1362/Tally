@@ -80,6 +80,15 @@ public nonisolated struct AccountEnvironment: Sendable {
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
     }
 
+    /// A copy with the entitlement gate replaced (PAY-06, M3-B1 O3: a sign-in's coordinator asks
+    /// `FirstSyncAllowance` until its first sync has finished).
+    public func replacingEntitlement(_ entitlement: any EntitlementGating) -> AccountEnvironment {
+        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+                           lockPreferences: lockPreferences, transport: transport, notifications: notifications,
+                           reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
+                           removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
+    }
+
     /// The account's sealed snapshot store (its `glance` and `snapshot` files).
     func snapshotStore(for account: AccountKey, root: URL) -> SnapshotStore {
         SnapshotStore(root: root, accountKey: account, sealer: sealer(for: account))

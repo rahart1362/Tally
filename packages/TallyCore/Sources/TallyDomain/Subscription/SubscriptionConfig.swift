@@ -34,4 +34,10 @@ public enum SubscriptionConfig {
     /// PAY-07 (perf-app-runtime.md §2.4 B6): a background refresh is requested no sooner than this
     /// after the request (`TallyConfig.bgEarliestBegin`, re-exported so the engine names one value).
     public static let backgroundRefreshEarliestBegin: Duration = TallyConfig.bgEarliestBegin
+
+    /// PAY-05 (GO-LIVE GTM-07): the paywall's Terms of Use and Privacy Policy, as paths on Tally's
+    /// owned domain (`Identity.xcconfig`'s `TALLY_ORG_DOMAIN`). The site serves `/privacy`; the
+    /// Terms of Use page is the owner's to publish there (Apple's standard EULA or Tally's own).
+    public static let termsOfUsePath = "/terms"
+    public static let privacyPolicyPath = "/privacy"
 }

@@ -79,6 +79,18 @@ public final class AppModel {
     /// (perf-app-runtime.md §2.4 S4–S8). Owned here, not by a navigation destination builder
     /// (perf-app-runtime.md §3 item 6), so the root switch releases it.
     public private(set) var firstSync: FirstSyncViewModel?
+    /// PAY-05, PAY-08 (M3-B2): the App Store, for the paywall's offer, Restore Purchases and Request
+    /// a Refund (`StoreKitStorefront` from the composition root; none in tests and previews).
+    public let storefront: any SubscriptionStorefront
+    /// PAY-06: the paywall the Home presents by itself (after the first sync) or for a locked
+    /// feature. Settings → Subscription presents its own.
+    public private(set) var paywall: PaywallRequest?
+    /// PAY-06: this sign-in's first sync succeeded; the Home shows the paywall once, after it has
+    /// rendered the Dashboard (`showFirstSyncPaywallIfDue`).
+    public private(set) var isFirstSyncPaywallDue = false
+    /// PAY-10: the student closed the school-revoked notice; it stays closed until sign-out or the
+    /// next launch.
+    public private(set) var isSchoolNoticeDismissed = false
 
     /// Ends the previous session after `exitSample()` or `signOut()`; owned here so it is never
     /// orphaned.
@@ -91,6 +103,8 @@ public final class AppModel {
     private let launcher: any LaunchBootstrapping
     /// The platform services an account needs; `nil` in tests and previews that never sign in.
     private let accountEnvironment: AccountEnvironment?
+    /// PAY-06: the paywall's placement is decided at the account's clock.
+    @ObservationIgnored private let clock: any DateProviding
     @ObservationIgnored private var pendingSignIn: PendingSignIn?
     @ObservationIgnored private var isLaunching = false
 
@@ -105,11 +119,14 @@ public final class AppModel {
 
     public init(accountRuntime: AccountRuntime = AccountRuntime(), logger: any TallyLogger = NoOpLogger(),
                 accountEnvironment: AccountEnvironment? = nil, launcher: (any LaunchBootstrapping)? = nil,
-                lock: AppLockModel? = nil, subscription: SubscriptionModel? = nil) {
+                lock: AppLockModel? = nil, subscription: SubscriptionModel? = nil,
+                storefront: (any SubscriptionStorefront)? = nil) {
         self.accountRuntime = accountRuntime
         self.subscription = subscription ?? SubscriptionModel()
+        self.storefront = storefront ?? UnavailableStorefront()
         self.logger = logger
         self.accountEnvironment = accountEnvironment
+        clock = accountEnvironment?.clock ?? SystemDateProvider()
         if let launcher {
             self.launcher = launcher
         } else if let accountEnvironment {
@@ -217,6 +234,7 @@ public final class AppModel {
     /// projector and its session off the view's lifetime: streams finish, the snapshot is released.
     public func exitSample() {
         guard route == .sample else { return }
+        paywall = nil
         playsBrandMoment = false
         route = .welcome
         guard let ending = home else { return }
@@ -252,8 +270,12 @@ public final class AppModel {
               let coordinator = pending.coordinator else { return }
         pendingSignIn = nil
         firstSync = nil
+        // PAY-06 (M3-B1 O3): the free first sync is over; every later refresh asks the app's gate.
+        pending.allowance?.close()
         activeAccount = record
         completeSignIn(record.accountKey, storeRoot: pending.storeRoot)
+        // PAY-06: the paywall, once, after the Home has rendered this first sync's Dashboard.
+        isFirstSyncPaywallDue = true
         let reloadWidgets = accountEnvironment?.reloadWidgets
         launchWork.replace(with: Task { [weak self] in
             await self?.attach(coordinator)
@@ -304,6 +326,7 @@ public final class AppModel {
         guard let pending = pendingSignIn else { return }
         pendingSignIn = nil
         firstSync = nil
+        pending.allowance?.close()
         guard let environment = accountEnvironment else { return }
         let record = pending.record ?? AccountRecord.derived(credential: pending.credential, target: pending.target)
         let installed = pending.coordinator
@@ -331,9 +354,12 @@ public final class AppModel {
         guard let environment = accountEnvironment else { return nil }
         await teardown.value() // an abandoned sign-in's purge finishes before this one writes
         let provisioned: (AccountRecord, RefreshCoordinator)
+        // PAY-06 (M3-B1 O3): this sign-in's coordinator treats its first sync as free even over a
+        // snapshot an earlier sign-in left behind, until `finishFirstSync()` closes the allowance.
+        let allowance = FirstSyncAllowance(base: environment.entitlement)
         do {
             provisioned = try await AccountSessionFactory.provision(credential: pending.credential, target: pending.target,
-                                                                    environment: environment)
+                                                                    environment: environment.replacingEntitlement(allowance))
         } catch {
             // Stopped part-way. Retry provisions again over what it wrote, and "Choose a Different
             // School" purges it; but if the sign-in was abandoned meanwhile, that purge may have
@@ -357,8 +383,71 @@ public final class AppModel {
         pendingSignIn?.record = record
         pendingSignIn?.coordinator = coordinator
         pendingSignIn?.storeRoot = storeRoot
+        pendingSignIn?.allowance = allowance
         await accountRuntime.install(coordinator)
         return coordinator
+    }
+
+    // MARK: - PAY-06: the paywall's placement; PAY-07: the locks; PAY-10: the school-revoked notice
+
+    /// Where the app is, for `PaywallPlacement` (pure, TallyDomain).
+    func paywallContext() -> PaywallContext {
+        let session: PaywallContext.Session = switch route {
+        case .signedIn: .signedIn
+        case .sample: .sample
+        case .launching, .welcome: .signedOut
+        }
+        let isReconnecting: Bool = if case .authExpired = refreshStatus.freshness { true } else { false }
+        return PaywallContext(session: session, isLocked: lock.isLocked || lock.showsPrivacyCover,
+                              isReconnecting: isReconnecting, accountState: subscription.accountState, now: clock.now(),
+                              gate: SubscriptionGate(isEnforced: subscription.isEnforced))
+    }
+
+    /// PAY-06: once this sign-in's first sync has rendered the Dashboard (`homeIsLoaded`), the paywall,
+    /// once, when there is anything to buy. Until the account's state is known, and while the lock is
+    /// up, it waits; the first time it can decide, the chance is used up, shown or not.
+    public func showFirstSyncPaywallIfDue(homeIsLoaded: Bool) {
+        guard isFirstSyncPaywallDue, homeIsLoaded, paywall == nil else { return }
+        let context = paywallContext()
+        guard context.session == .signedIn, !context.isLocked, context.accountState != nil else { return }
+        isFirstSyncPaywallDue = false
+        if PaywallPlacement.shows(.firstSyncFinished, in: context) {
+            paywall = PaywallRequest(trigger: .firstSyncFinished)
+        }
+    }
+
+    /// PAY-06: a locked feature the student tapped (a locked tab's card, "Subscribe to refresh") asks
+    /// for the paywall.
+    public func showPaywall(for trigger: PaywallTrigger) {
+        guard paywall == nil, PaywallPlacement.shows(trigger, in: paywallContext()) else { return }
+        paywall = PaywallRequest(trigger: trigger)
+    }
+
+    /// The paywall closed (bought, restored or "Not Now").
+    public func dismissPaywall() {
+        paywall = nil
+    }
+
+    /// PAY-06, PAY-07: whether `feature` is locked for the signed-in account now. Nothing is locked in
+    /// sample mode, before sign-in, or before the launch's first entitlement state (the Keychain record
+    /// arrives within milliseconds), so a subscriber never sees a locked card flash at launch.
+    public func locks(_ feature: SubscriptionFeature) -> Bool {
+        guard case .signedIn = route, subscription.accountState != nil else { return false }
+        return !subscription.allows(feature, isSampleMode: false, firstSyncSucceeded: true)
+    }
+
+    /// PAY-10: the school turned off Tally's access to Canvas (`RefreshFailure.schoolDisabled`) while
+    /// the student has a trial or subscription: a full-screen notice with Manage Subscription and
+    /// Request a Refund. The saved data stays readable behind it, and after it is closed.
+    public var showsSchoolRevokedNotice: Bool {
+        guard case .signedIn = route, !isSchoolNoticeDismissed,
+              case .failed(.schoolDisabled, _) = refreshStatus.freshness else { return false }
+        return subscription.accountState?.isActiveEntitlement == true
+    }
+
+    /// PAY-10: "Continue with Saved Data".
+    public func dismissSchoolRevokedNotice() {
+        isSchoolNoticeDismissed = true
     }
 
     // MARK: - Sign-out (plan 06 step 10; perf-app-runtime.md §4.3)
@@ -383,6 +472,9 @@ public final class AppModel {
         guard case .signedIn = route else { return }
         let account = activeAccount
         launchWork.cancel()
+        paywall = nil
+        isFirstSyncPaywallDue = false
+        isSchoolNoticeDismissed = false
         route = .welcome
         playsBrandMoment = true
         lock.resetForSignOut()
@@ -406,6 +498,9 @@ public final class AppModel {
             // account's notifications; any later pass finds the retired coordinator's snapshot gone.
             await ReminderPipeline.drain()
             await subscriptionEngine?.accountDetached() // PAY-07: no effect reaches the purged account
+            // PAY-11 (M3-B1 O2): nothing Tally-owned about the purchase stays; the App Store's
+            // subscription is untouched.
+            await subscriptionEngine?.eraseRecord()
             self?.recordSignOutStep(.runtime)
             if let account, let environment {
                 await AccountSignOut.purge(account: account, retired: retired, environment: environment)
@@ -470,4 +565,6 @@ nonisolated struct PendingSignIn: Sendable {
     var coordinator: RefreshCoordinator?
     /// The store root, resolved off the main actor once provisioned (M3-A: the Home's `UserState`).
     var storeRoot: URL?
+    /// PAY-06 (M3-B1 O3): the coordinator's gate until the first sync finishes.
+    var allowance: FirstSyncAllowance?
 }
