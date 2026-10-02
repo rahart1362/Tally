@@ -95,7 +95,7 @@ extension AccountLifecycleSuites {
             #expect(!model.isFirstSyncPaywallDue, "the one chance was not used up")
             #expect(!model.locks(.fullApp) && !model.locks(.refresh))
             model.showPaywall(for: .lockedFeature)
-            #expect(model.paywall == nil)
+            #expect(model.paywall == nil, "a locked feature asked an entitled student to buy")
             await signOut(model)
         }
 
@@ -104,14 +104,14 @@ extension AccountLifecycleSuites {
             let model = try await makeModel(SubscriptionRig())
             model.bootstrap()
             model.showPaywall(for: .lockedFeature)
-            #expect(model.paywall == nil)
+            #expect(model.paywall == nil, "the paywall before sign-in")
             #expect(!PaywallPlacement.shows(.settings, in: model.paywallContext()), "a purchase offered before sign-in")
             #expect(!model.locks(.fullApp))
 
             model.enterSample()
             #expect(!model.locks(.fullApp), "sample data is locked")
             model.showPaywall(for: .lockedFeature)
-            #expect(model.paywall == nil)
+            #expect(model.paywall == nil, "sample mode showed the paywall by itself")
             #expect(PaywallPlacement.shows(.settings, in: model.paywallContext()))
             #expect(PaywallPlacement.needsInterstitial(.settings, in: model.paywallContext()), "no interstitial in sample mode")
             model.exitSample()

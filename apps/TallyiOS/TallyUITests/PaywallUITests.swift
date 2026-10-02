@@ -94,10 +94,10 @@ final class PaywallUITests: TallyUITestCase {
         assertNoPurchaseControls(app, at: "the failed first sync")
     }
 
-    /// (c) After the first successful sync renders the Dashboard: the paywall, exactly once; (d) closed,
-    /// the locked tabs show the inline card, which asks for it again; a relaunch does not show it.
+    /// (c) After the first successful sync renders the Dashboard: the paywall, exactly once. Closed, it
+    /// does not come back by itself, in this launch or the next.
     @MainActor
-    func testPaywallOnceAfterTheFirstSyncThenLockedCards() throws {
+    func testPaywallOnceAfterTheFirstSync() throws {
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.demoSignIn)
         signInToTheDemoSchool(app)
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
@@ -107,34 +107,44 @@ final class PaywallUITests: TallyUITestCase {
         assertPaywall(app, trial: true)
         tapWhenHittable(app.buttons["paywall.close"], in: app)
         XCTAssertTrue(eventually(timeout: scaled(10)) { !self.element("paywall.root", in: app).exists })
-        XCTAssertTrue(element("subscription.refreshBanner", in: app).waitForExistence(timeout: scaled(10)),
-                      "no 'Subscribe to refresh' over the saved data. Hierarchy: \(app.debugDescription)")
-
-        // (d) A locked tab: the inline card in place of the screen.
-        openTab("Courses", in: app)
-        let seePlans = app.buttons["subscription.locked.seePlans"]
-        XCTAssertTrue(seePlans.waitForExistence(timeout: scaled(10)), "Courses is not locked. Hierarchy: \(app.debugDescription)")
+        openTab("Calendar", in: app)
         openTab("Dashboard", in: app)
         XCTAssertFalse(element("paywall.root", in: app).waitForExistence(timeout: scaled(3)), "the paywall came back by itself")
-
-        // The card asks for the paywall: shown from a locked feature.
-        openTab("Insights", in: app)
-        tapWhenHittable(app.buttons["subscription.locked.seePlans"], in: app)
-        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
-                      "the locked card did not open the paywall. Hierarchy: \(app.debugDescription)")
-        tapWhenHittable(app.buttons["paywall.close"], in: app)
-        XCTAssertTrue(eventually(timeout: scaled(10)) { !self.element("paywall.root", in: app).exists })
         app.terminate()
 
-        // Exactly once: a relaunch of the same account never shows it by itself.
         let relaunched = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts)
         XCTAssertTrue(relaunched.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
                       "the relaunch did not reach the Home. Hierarchy: \(relaunched.debugDescription)")
         XCTAssertFalse(element("paywall.root", in: relaunched).waitForExistence(timeout: scaled(5)),
                        "the paywall showed again at a relaunch")
-        openTab("To-Do", in: relaunched)
-        XCTAssertTrue(relaunched.buttons["subscription.locked.seePlans"].waitForExistence(timeout: scaled(10)),
-                      "To-Do is not locked after a relaunch. Hierarchy: \(relaunched.debugDescription)")
+    }
+
+    /// (d) A signed-in account with no trial or subscription: the saved data stays readable under
+    /// "Subscribe to refresh"; the locked tabs show the inline card, whose See Plans opens the paywall
+    /// (a locked feature).
+    @MainActor
+    func testLockedTabsShowTheCardThatOpensThePaywall() throws {
+        seedFlagshipAccount()
+        let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts)
+        XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
+                      "the launch did not reach the Home. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(element("subscription.refreshBanner", in: app).waitForExistence(timeout: scaled(10)),
+                      "no 'Subscribe to refresh' over the saved data. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(element("paywall.root", in: app).exists, "the paywall showed by itself at a launch")
+
+        openTab("Courses", in: app)
+        XCTAssertTrue(app.buttons["subscription.locked.seePlans"].waitForExistence(timeout: scaled(10)),
+                      "Courses is not locked. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["subscription.locked.seePlans"], in: app)
+        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "the locked card did not open the paywall. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["paywall.close"], in: app)
+        XCTAssertTrue(eventually(timeout: scaled(10)) { !self.element("paywall.root", in: app).exists })
+        for tab in ["Calendar", "To-Do", "Insights"] {
+            openTab(tab, in: app)
+            XCTAssertTrue(app.buttons["subscription.locked.seePlans"].waitForExistence(timeout: scaled(10)),
+                          "\(tab) is not locked. Hierarchy: \(app.debugDescription)")
+        }
     }
 
     // MARK: - Steps
