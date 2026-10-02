@@ -130,6 +130,8 @@ Canvas natively supports parent access through **observer** accounts and student
   - PRD §11.8 (BL-15) now covers only the school-admin flows, not seat entitlement.
 - **The seat holder's Settings → Subscription is a follow-up package, M3-B3** (below): a "provided by your school" status, with no Manage Subscription or Request a Refund and no "stays with you" footer, since the school owns the seat.
 - **M3-B2's 57 subscription strings are approved as drafted** (the `subscription.*` keys, listed in `reviews/m3b2-report.md` §3).
+- **M3-B3's 3 school-seat strings are approved as drafted** (`subscription.status.school`, `subscription.settings.footerSchool`, `subscription.schoolOff.bodySeat`; `reviews/m3b3-report.md` §3).
+- **Testing before O4: on a Mac, in the Simulator.** TestFlight can't run without the owner, who would enroll in the Apple Developer Program (O4, still deferred to the MVP). The `Simulator build` workflow (manual dispatch) uploads a smoke-launched Release simulator app, plus INSTALL.txt. The PMO dispatches it at milestones.
 
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
@@ -172,11 +174,12 @@ Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6'
 - M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
 - M3-D wires the entitlement field last.
 
-**Status, 2026-10-02 (afternoon).**
+**Status, 2026-10-02 (evening).**
 - **Merged:** XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27), M3-B1 (#28), the zero-literal gate (#29) and **M3-B2 (#30, `8e6deac`): subscription gating is ON.**
-- **In review:** the PMO's seats PR (assigned seats entitle, plus these docs).
+- **Also merged:** assigned seats (#31) and M3-B3 (#32).
+- **Running:** M3-E2.
 - **Interactive Done is a separate package, M3-D2** (PMO decision, option A of `m3d-report.md` §6). It's an app-process `LiveActivityIntent`: the widget never writes and holds no key. Options B and C (a widget-written outbox; a widget holding the app key) are rejected.
-- **Next:** M3-B3, then M3-E2, then M3-D2, then the M3 exit (the English string freeze).
+- **Next:** M3-D2, then the M3 exit (the English string freeze).
 - **Pacing (Pro plan): one Opus agent at a time.** On 2026-10-01, four agents filled a 5-hour window in about 2.5 h, and three were cut off mid-task. On 2026-10-02, one Opus agent plus the PMO filled one in about 2 h. Add a Sonnet agent only with headroom.
 
 The PMO checks weekly and 5-hour usage before every launch. It holds a launch when the 5-hour window passes about 60%, or when the weekly remainder falls under the package's estimated cost plus about 10%.

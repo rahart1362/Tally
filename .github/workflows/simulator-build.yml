@@ -1,0 +1,127 @@
+name: Simulator build
+# A Release build of Tally for the iOS Simulator, as a downloadable artifact, so the owner can try
+# the app on a Mac without an Apple Developer account (owner, 2026-10-02). It runs in Sample Data
+# mode ("Explore with Sample Data"); real Canvas sign-in waits for O1. The artifact holds the app and
+# INSTALL.txt. Manual dispatch, at milestones:
+#
+#   gh workflow run "Simulator build" --ref main
+#
+# It also runs on a pull request that changes this file, so a change to it is tested before merge.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/simulator-build.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simulator-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  build:
+    name: Release build for the iOS Simulator (downloadable artifact)
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Release build for the simulator (every simulator architecture)
+        run: |
+          set -o pipefail
+          xcodebuild build -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
+            | tee "$RUNNER_TEMP/build.log" | grep -E "error:|BUILD (SUCCEEDED|FAILED)"
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build.log"
+      - name: Check the app (architectures; no UI-test hooks, as for the shipping build)
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/Tally.app"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")"
+          archs="$(lipo -archs "$app/$executable")"
+          echo "architectures: $archs"
+          case " $archs " in *" arm64 "*) ;; *) echo "::error::no arm64 slice (Apple silicon Macs)"; exit 1 ;; esac
+          case " $archs " in *" x86_64 "*) ;; *) echo "::warning::no x86_64 slice: Apple silicon Macs only" ;; esac
+          # `strings` goes to a file first, as in ci.yml: `grep -q` on a pipe would SIGPIPE `strings`.
+          found=0
+          while IFS= read -r binary; do
+            strings -a "$binary" > "$RUNNER_TEMP/strings.txt" 2>/dev/null || true
+            if grep -q 'TallyTestHooks\.' "$RUNNER_TEMP/strings.txt"; then echo "  $binary: contains TallyTestHooks."; found=1; fi
+          done < <(find "$app" -type f \( -perm -u+x -o -name '*.dylib' \))
+          if [ "$found" = 1 ]; then echo "::error::the Release app contains the UI-test hooks"; exit 1; fi
+          echo "no binary contains TallyTestHooks."
+      - name: Launch smoke test (alive 10 s after launch, no crash report)
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/Tally.app"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          udid="$(python3 scripts/ci/pick_ios_simulator.py | sed -n 's/^udid=//p')"
+          marker="$RUNNER_TEMP/launch-marker"
+          touch "$marker"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          launched="$(xcrun simctl launch "$udid" "$bundle_id" 2>&1)" || true
+          echo "$launched"
+          pid="$(echo "$launched" | sed -n 's/.*: \([0-9][0-9]*\)$/\1/p' | tail -1)"
+          sleep 10
+          crashes="$(find "$HOME/Library/Logs/DiagnosticReports" -name 'Tally*' -newer "$marker" 2>/dev/null | wc -l | tr -d ' ')"
+          echo "bundle $bundle_id, pid ${pid:-none}, new crash reports: $crashes"
+          if [ -z "$pid" ] || ! ps -p "$pid" > /dev/null || [ "$crashes" != "0" ]; then
+            echo "::error::the Release simulator app did not stay alive for 10 s"
+            exit 1
+          fi
+      - name: Package the app with install steps
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/Tally.app"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out"
+          ditto -c -k --keepParent "$app" "$out/Tally.app.zip"
+          cat > "$out/INSTALL.txt" <<EOF
+          Tally for the iOS Simulator (Release build of ${GITHUB_SHA}, $(xcodebuild -version | head -1))
+
+          You need a Mac with Xcode 26 or later (free, Mac App Store). Its first launch installs the
+          iOS Simulator; the app needs an iOS 26 simulator.
+
+          1. Unzip Tally.app.zip (double-click it). You get Tally.app.
+          2. In Terminal, clear the download flag:  xattr -dr com.apple.quarantine Tally.app
+          3. Open Simulator (Xcode > Open Developer Tool > Simulator) and start any iPhone.
+          4. Drag Tally.app onto the simulator's screen. Tally appears on the home screen.
+          5. Open Tally and choose "Explore with Sample Data".
+
+          Or, from Terminal, with a simulator already running:
+            xcrun simctl install booted Tally.app && xcrun simctl launch booted ${bundle_id}
+
+          Sample Data mode runs the whole app on a synthetic student and family. Signing in to a real
+          Canvas is not possible yet (it needs a school's developer keys), and purchases can't
+          complete in the Simulator (there is no App Store there).
+          EOF
+          cat "$out/INSTALL.txt"
+          ls -l "$out"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Tally-simulator
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
