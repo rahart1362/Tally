@@ -11,6 +11,8 @@ import XCTest
 ///   §7.7 confirmations.
 final class FamilyUITests: TallyUITestCase {
     private static let outcomeHook = "-TallyTestHooks.familyOutcome"
+    /// Wider than the initials circle and the chevron, narrower than any label with a name.
+    private static let initialsOnlyMaxWidth: CGFloat = 80
 
     // MARK: FAM-14 + FAM-09
 
@@ -75,7 +77,9 @@ final class FamilyUITests: TallyUITestCase {
         enterParentMode(app)
         let switcher = visibleSwitcher(in: app)
         XCTAssertEqual(switcher.label, "Viewing Rowan")
-        XCTAssertFalse(switcher.staticTexts["Rowan"].exists, "the first name shows at AX5")
+        // Initials (a 28-point circle) and the chevron only; with the first name it was 104 points
+        // wide at the default size (CI run 37065562136).
+        XCTAssertLessThan(switcher.frame.width, Self.initialsOnlyMaxWidth, "the first name shows at AX5: \(switcher.frame)")
         try app.performAccessibilityAudit { issue in
             !Self.isFamilyElement(issue.element)
         }
@@ -91,7 +95,7 @@ final class FamilyUITests: TallyUITestCase {
         tapExploreParentMode(app)
         let alert = app.alerts["Link Removed"]
         XCTAssertTrue(alert.waitForExistence(timeout: 20), "Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(alert.staticTexts["You're no longer linked to Skyler in Canvas. Tally removed Skyler's saved data from this iPhone."].exists,
+        XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label == %@", "You're no longer linked to Skyler in Canvas. Tally removed Skyler's saved data from this iPhone.")).firstMatch.exists,
                       "Hierarchy: \(app.debugDescription)")
         alert.buttons["OK"].tap()
         let switcher = visibleSwitcher(in: app)
@@ -111,8 +115,9 @@ final class FamilyUITests: TallyUITestCase {
             tapWhenHittable(row, in: app)
             tapWhenHittable(app.buttons["family.removeFromTally"], in: app)
             let title = "Remove \(name) from Tally?"
-            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-            XCTAssertTrue(app.staticTexts["\(name) stays linked to your Canvas account. Tally will delete \(name)'s saved data from this iPhone. You can add \(name) back from Linked students."].exists)
+            XCTAssertTrue(staticText(title, in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(staticText("\(name) stays linked to your Canvas account. Tally will delete \(name)'s saved data from this iPhone. You can add \(name) back from Linked students.", in: app).exists,
+                          "Hierarchy: \(app.debugDescription)")
             tapConfirmation("Remove from Tally", in: app)
             XCTAssertTrue(text("Linked Students", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         }
@@ -133,8 +138,9 @@ final class FamilyUITests: TallyUITestCase {
         let unlink = app.buttons["family.unlink"]
         XCTAssertTrue(scrollUntilHittable(unlink, in: app), "Hierarchy: \(app.debugDescription)")
         unlink.tap()
-        XCTAssertTrue(app.staticTexts["Unlink Rowan?"].waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(app.staticTexts["You'll stop seeing Rowan's courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Rowan will need to send you a new code. Tally will delete Rowan's saved data from this iPhone."].exists)
+        XCTAssertTrue(staticText("Unlink Rowan?", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(staticText("You'll stop seeing Rowan's courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Rowan will need to send you a new code. Tally will delete Rowan's saved data from this iPhone.", in: app).exists,
+                      "Hierarchy: \(app.debugDescription)")
         tapConfirmation("Cancel", in: app)
         XCTAssertTrue(unlink.waitForExistence(timeout: 10))
     }
@@ -178,7 +184,7 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(observer.label.contains("Dana Sample"))
         observer.tap()
         tapWhenHittable(app.buttons["family.howToRemove"], in: app)
-        XCTAssertTrue(app.staticTexts["Only your school can remove an observer."].waitForExistence(timeout: 10))
+        XCTAssertTrue(staticText("Only your school can remove an observer.", in: app).waitForExistence(timeout: 10))
         tapWhenHittable(app.buttons["family.howToRemoveDone"], in: app)
         tapWhenHittable(app.navigationBars["Dana Sample"].buttons.element(boundBy: 0), in: app)
 
@@ -276,6 +282,12 @@ final class FamilyUITests: TallyUITestCase {
     private func tapConfirmation(_ label: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let button = app.buttons.matching(NSPredicate(format: "label == %@ AND NOT (identifier BEGINSWITH 'family.')", label)).firstMatch
         tapWhenHittable(button, in: app, file: file, line: line)
+    }
+
+    /// A static text by its exact words (a subscript query is capped at 128 characters).
+    @MainActor
+    private func staticText(_ words: String, in app: XCUIApplication) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label == %@", words)).firstMatch
     }
 
     @MainActor

@@ -35,6 +35,8 @@ public struct HomeShellView: View {
     let banner: AnyView?
 
     @Environment(\.scenePhase) private var scenePhase
+    /// FAM-09: the switcher shows initials only from AX1 up; read here, where the size is not clamped.
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// `RootView` puts it here for the sample and signed-in routes; Settings' account actions use it.
     @Environment(AppModel.self) private var appModel: AppModel?
     @State private var isSettingsPresented = false
@@ -244,7 +246,8 @@ public struct HomeShellView: View {
     private var settingsToolbarItem: some ToolbarContent {
         if let family, family.activeStudent != nil {
             ToolbarItem(placement: .principal) {
-                StudentSwitcher(family: family, onManage: { openSettings() }, onAdd: { openSettings(addingStudent: true) })
+                StudentSwitcher(family: family, showsInitialsOnly: typeSize.isAccessibilitySize,
+                                onManage: { openSettings() }, onAdd: { openSettings(addingStudent: true) })
             }
         }
         ToolbarItem(placement: .topBarTrailing) {

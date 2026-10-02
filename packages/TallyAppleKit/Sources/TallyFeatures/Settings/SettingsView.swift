@@ -56,6 +56,7 @@ struct SettingsView: View {
     /// sheet at once (parent mode only).
     private let opensAddStudent: Bool
     @State private var presentsAddStudent = false
+    @State private var presentsInvite = false
     @State private var hasOpenedAddStudent = false
     /// FAM-10: a student's Family & Sharing, while one has a link service (sample mode today).
     @State private var familySharing: FamilySharingModel?
@@ -82,7 +83,8 @@ struct SettingsView: View {
                 privacySection
                 // FAM-10 (M3-E2): a student's Family & Sharing (§7.2), additive; FAM-14's way in.
                 if app?.family == nil, let familySharing {
-                    FamilySharingSection(model: familySharing, onExploreParentMode: parentModeAction)
+                    FamilySharingSection(model: familySharing, presentsInvite: $presentsInvite,
+                                         onExploreParentMode: parentModeAction)
                 }
                 aboutSection
             }
@@ -117,6 +119,11 @@ struct SettingsView: View {
             .sheet(isPresented: $presentsAddStudent) {
                 if let family = app?.family {
                     AddStudentSheet(family: family)
+                }
+            }
+            .sheet(isPresented: $presentsInvite) {
+                if let familySharing {
+                    InviteSheet(model: familySharing)
                 }
             }
         }

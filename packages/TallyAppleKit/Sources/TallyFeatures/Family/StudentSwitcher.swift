@@ -14,6 +14,8 @@ import TallyStrings
 /// (`FamilyModel.select`).
 struct StudentSwitcher: View {
     let family: FamilyModel
+    /// From AX1 up (the shell's own size: toolbar content gets a clamped one, CI run 37065562136).
+    let showsInitialsOnly: Bool
     let onManage: () -> Void
     let onAdd: () -> Void
 
@@ -33,14 +35,19 @@ struct StudentSwitcher: View {
                     Button(String(localized: L10n.FamilyUI.manageLinkedStudents()), action: onManage)
                     Button(String(localized: L10n.FamilyUI.addStudentEllipsis()), action: onAdd)
                 } label: {
-                    StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: true)
+                    // The menu's label is a button of its own inside the bar item: it gets the same label.
+                    StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: true,
+                                         showsInitialsOnly: showsInitialsOnly)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
                 }
                 .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
                 .accessibilityHint(Text(L10n.FamilyUI.switchHint()))
                 .accessibilityIdentifier("family.switcher")
                 .sensoryFeedback(.selection, trigger: family.activeSubject)
             } else {
-                StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: false)
+                StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: false,
+                                     showsInitialsOnly: showsInitialsOnly)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
                     .accessibilityIdentifier("family.switcher")
@@ -54,12 +61,12 @@ struct StudentSwitcherLabel: View {
     let student: FamilyStudent
     let colorIndex: Int
     let showsChevron: Bool
-    @Environment(\.dynamicTypeSize) private var typeSize
+    let showsInitialsOnly: Bool
 
     var body: some View {
         HStack(spacing: TallySpacing.xs) {
             StudentAvatar(initials: student.initials, colorIndex: colorIndex)
-            if !typeSize.isAccessibilitySize {
+            if !showsInitialsOnly {
                 Text(verbatim: StudentNameText.truncated(student.firstName))
                     .font(TallyTypography.body.weight(.semibold))
                     .foregroundStyle(TallyColor.textPrimary)

@@ -247,11 +247,14 @@ struct AddStudentSheet: View {
 /// A student's Family & Sharing: what observers can see, "Invite a Parent", who is linked in Canvas
 /// (each opening "How to Remove"), the codes this iPhone created and, in sample mode, the way into
 /// the sample parent view (FAM-14).
+///
+/// Settings presents the invite sheet: a `.sheet` on these sections would attach to each of them
+/// (a modifier on a group of Form sections applies per section; CI run 37065562136).
 struct FamilySharingSection: View {
     let model: FamilySharingModel
+    @Binding var presentsInvite: Bool
     /// Sample mode only: the fictional parent's view.
     let onExploreParentMode: (() -> Void)?
-    @State private var presentsInvite = false
 
     var body: some View {
         Group {
@@ -311,9 +314,6 @@ struct FamilySharingSection: View {
                     Text(L10n.FamilyUI.sampleViewAsParentFooter())
                 }
             }
-        }
-        .sheet(isPresented: $presentsInvite) {
-            InviteSheet(model: model)
         }
     }
 }
