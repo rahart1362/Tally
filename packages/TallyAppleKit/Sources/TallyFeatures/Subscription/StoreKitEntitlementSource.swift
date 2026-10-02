@@ -144,10 +144,17 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
         }
     }
 
+    /// An organization's assigned seat. The iOS 27 SDK names it `Transaction.OwnershipType.assigned`,
+    /// declared as `Self(rawValue: "ASSIGNED")` and back-deployed to iOS 15; the iOS 26.5 SDK that
+    /// CI's Xcode 26.6 builds with has no name for it, so it is matched by raw value (M3-B2 report,
+    /// D13 and O9). Switch to `.assigned` when CI builds with Xcode 27.
+    static let assignedOwnership = Transaction.OwnershipType(rawValue: "ASSIGNED")
+
     static func ownership(_ type: Transaction.OwnershipType) -> SubscriptionFacts.Ownership {
         switch type {
         case .purchased: .purchased
         case .familyShared: .familyShared
+        case Self.assignedOwnership: .assigned
         default: .other
         }
     }

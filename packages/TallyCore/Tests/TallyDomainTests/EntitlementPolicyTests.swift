@@ -106,11 +106,28 @@ struct EntitlementPolicyTests {
         Case(name: "a lapsed parent plan does not lapse the student role",
              facts: [fact(parent, revoked: -day)], expected: .preview),
 
+        // A school's assigned seat (owner decision 2026-10-02): entitles like a purchase
+        Case(name: "an assigned seat is entitled to its expiry", facts: [fact(ownership: .assigned)],
+             expected: .entitled(until: at(30 * day))),
+        Case(name: "an assigned parent seat entitles the parent role", facts: [fact(parent, ownership: .assigned)],
+             role: .parent, expected: .entitled(until: at(30 * day))),
+        Case(name: "a revoked assigned seat lapses at the revocation",
+             facts: [fact(revoked: -day, ownership: .assigned)], expected: .lapsed(since: at(-day))),
+        Case(name: "an assigned seat beside a family-shared one: the seat's expiry",
+             facts: [fact(expires: 400 * day, ownership: .familyShared), fact(expires: 90 * day, ownership: .assigned)],
+             expected: .entitled(until: at(90 * day))),
+
         // What does not count
         Case(name: "an upgraded transaction is ignored", facts: [fact(upgraded: true)], expected: .preview),
         Case(name: "family sharing is off: a shared transaction is ignored", facts: [fact(ownership: .familyShared)],
              expected: .preview),
         Case(name: "any other ownership is ignored (fails closed)", facts: [fact(ownership: .other)], expected: .preview),
+        Case(name: "an unverified assigned seat is ignored", facts: [fact(verified: false, ownership: .assigned)],
+             expected: .preview),
+        Case(name: "an upgraded assigned seat is ignored", facts: [fact(upgraded: true, ownership: .assigned)],
+             expected: .preview),
+        Case(name: "an assigned parent seat never unlocks the student role", facts: [fact(parent, ownership: .assigned)],
+             expected: .preview),
         Case(name: "an unknown product is ignored", facts: [fact("dev.tally-app.tally.monthly")], expected: .preview),
         Case(name: "a transaction with no expiry entitles nothing", facts: [fact(expires: nil)], expected: .preview),
 
@@ -148,6 +165,12 @@ struct EntitlementPolicyTests {
     @Test("The case table covers at least 20 cases (pricing-licensing.md PAY-02)")
     func enoughCases() {
         #expect(Self.cases.count >= 20)
+    }
+
+    @Test("Only a purchase or an organization's assigned seat can entitle; every other ownership fails closed")
+    func entitlingOwnerships() {
+        let entitling = SubscriptionFacts.Ownership.allCases.filter(\.entitles)
+        #expect(entitling == [.purchased, .assigned])
     }
 
     @Test("The order of the transactions never changes the answer")
