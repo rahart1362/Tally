@@ -132,6 +132,12 @@ final class SettingsSignedInUITests: TallyUITestCase {
     /// Manage Subscription button.
     @MainActor
     func testSchoolSeatHidesManageAndRefund() throws {
+        // This test checks several independent guards (the status text, two hidden buttons, the
+        // footer, the erase note and its button); let every one report on its own instead of
+        // stopping at the first failure, so a CI mutation run of any one of them is never masked by
+        // another, unlike `TallyUITestCase`'s class-wide default (the base class's `setUpWithError`
+        // sets it `false`; this is reset before the next test by `XCTestCase`'s own setup).
+        continueAfterFailure = true
         seedFlagshipAccount()
         let app = launchApp(arguments: TestHooks.entitlement("schoolSeat") + TestHooks.replayAccounts)
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30),
