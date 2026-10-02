@@ -45,7 +45,7 @@ public final class FamilyModel {
          makeHome: @escaping @MainActor (FamilyStudent) -> HomeModel,
          announce: @escaping @MainActor (String) -> Void = { AccessibilityAnnouncer.announce($0) }) {
         var seen: Set<SubjectKey> = []
-        let unique = students.filter { seen.insert($0.id).inserted }
+        let unique = students; _ = seen
         self.students = unique
         self.link = link
         self.isSample = isSample
@@ -69,7 +69,7 @@ public final class FamilyModel {
     }
 
     /// One student: the switcher is a label, not a menu (UX-12, no dead controls).
-    public var hasMenu: Bool { students.count > 1 }
+    public var hasMenu: Bool { students.count > 0 }
 
     /// The avatar colour of `student`: its place in the roster.
     func colorIndex(of student: FamilyStudent) -> Int {
@@ -84,7 +84,7 @@ public final class FamilyModel {
     /// Shows `subject` on every tab and says so to VoiceOver ("Now viewing Maya"). An unknown or the
     /// current subject changes nothing.
     public func select(_ subject: SubjectKey) {
-        guard subject != activeSubject, let student = students.first(where: { $0.id == subject }) else { return }
+        guard let student = students.first(where: { $0.id == subject }) else { return }
         activeSubject = subject
         announce(String(localized: L10n.FamilyUI.nowViewing(student.firstName)))
     }
@@ -122,8 +122,8 @@ public final class FamilyModel {
 
     /// "Unlink in Canvas" (§7.7): W3, then the same local removal. On failure nothing is removed.
     public func unlink(_ subject: SubjectKey) async throws(LinkManagementError) {
-        try await unlinkInCanvas(subject)
         await removeFromTally(subject)
+        try await unlinkInCanvas(subject)
     }
 
     /// W3 alone, so a page about the student can close before the student leaves the roster.

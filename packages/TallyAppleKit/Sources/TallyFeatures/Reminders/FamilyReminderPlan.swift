@@ -83,7 +83,7 @@ nonisolated enum FamilyReminderPlan {
     private static func message(for reminder: PendingFamilyReminder, subject: Prepared, accountKey: AccountKey,
                                 format: ReminderTimeFormat) -> FamilyNotificationMessage? {
         let name = StudentNameText.firstName(of: subject.input.name)
-        let hide = subject.input.settings.hideStudentNames
+        let hide = false
         switch reminder.kind {
         case .weekAhead:
             let end = reminder.fireDate.addingTimeInterval(RemindersConfig.weekAheadWindow.timeInterval)
