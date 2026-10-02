@@ -10,12 +10,20 @@ public struct SubscriptionFacts: Sendable, Equatable {
         case purchased
         /// Shared through Family Sharing, which is off for every Tally plan (PRD §11.1).
         case familyShared
+        /// A seat an organization (a school) assigned through Apple's volume purchasing
+        /// (`Transaction.OwnershipType.assigned`): entitles like a purchase (owner decision 2026-10-02).
+        case assigned
         /// Any other way StoreKit reports, or a type this build does not know: never entitles (fail
-        /// closed). The owner decided on 2026-10-02 that a seat an organization assigns entitles, but
-        /// StoreKit names that seat (`Transaction.OwnershipType.assigned`) only from the iOS 27 SDK.
-        /// The iOS 26.5 SDK that CI's Xcode 26.6 builds with has no such value, so such a seat lands
-        /// here for now (M3-B2 report, O9).
+        /// closed).
         case other
+
+        /// Whether a transaction held this way can entitle (`EntitlementPolicy` rule 2).
+        public var entitles: Bool {
+            switch self {
+            case .purchased, .assigned: true
+            case .familyShared, .other: false
+            }
+        }
     }
 
     /// The subscription's renewal state (StoreKit's `Product.SubscriptionInfo.RenewalState`).
@@ -98,8 +106,9 @@ public enum EntitlementState: Sendable, Equatable {
 /// **Rules** (pricing-licensing.md §6 PAY-02; PRD §11.5):
 /// 1. Sample mode is `.demo`, whatever StoreKit holds.
 /// 2. Only a transaction that is **verified**, for **this role's product** (exact ID), **not
-///    upgraded** and **purchased** counts. Anything else is ignored, as if absent: unverified input
-///    never entitles; a parent plan never unlocks the student role, or the reverse.
+///    upgraded** and **purchased or assigned by an organization** counts. Anything else is ignored,
+///    as if absent: unverified input never entitles; a parent plan never unlocks the student role,
+///    or the reverse; Family Sharing never entitles.
 /// 3. A refund or revocation ends access at once: `.lapsed(since: revocationDate)`.
 /// 4. A billing grace period entitles to its end (`gracePeriodExpirationDate`).
 /// 5. A renewal state that settles the question (`expired`, `inBillingRetryPeriod`, `revoked`)
@@ -124,7 +133,7 @@ public enum EntitlementPolicy {
                                     now: Date, offlineGrace: Duration = SubscriptionConfig.offlineGracePeriod) -> EntitlementState {
         let productID = products.productID(for: role)
         let counted = facts.filter { fact in
-            fact.isVerified && fact.productID == productID && !fact.isUpgraded && fact.ownership == .purchased
+            fact.isVerified && fact.productID == productID && !fact.isUpgraded && fact.ownership.entitles
         }
         let effectiveNow = counted.compactMap(\.signedDate).reduce(now) { max($0, $1) }
         var entitledUntil: Date?

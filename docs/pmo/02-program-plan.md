@@ -124,6 +124,13 @@ Canvas natively supports parent access through **observer** accounts and student
 
   It also writes a plain-language "How Tally complies" statement for the privacy policy, the store listing and schools. **It is not legal advice:** a licensed attorney reviews and signs off before submission (M6).
 
+### Owner decisions on subscriptions (2026-10-02)
+- **School-assigned seats unlock Tally** (M3-B1 O1; a refinement of P6, multiseat on). A seat an organization assigns through Apple's volume purchasing (open to subscriptions from 2026-10-22) entitles like a purchase: still verified, the exact product and not upgraded. Family Sharing and unknown ownership types still never entitle.
+  - **Wired in the PMO's seats PR.** CI's Xcode 26.6 / iOS 26.5 SDK has no name for the seat, so it's matched by raw value `"ASSIGNED"`, which the iOS 27 SDK names `.assigned` and back-deploys to iOS 15. The evidence is in `reviews/m3b2-report.md` D13.
+  - PRD §11.8 (BL-15) now covers only the school-admin flows, not seat entitlement.
+- **The seat holder's Settings → Subscription is a follow-up package, M3-B3** (below): a "provided by your school" status, with no Manage Subscription or Request a Refund and no "stays with you" footer, since the school owns the seat.
+- **M3-B2's 57 subscription strings are approved as drafted** (the `subscription.*` keys, listed in `reviews/m3b2-report.md` §3).
+
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
 - Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
@@ -158,19 +165,21 @@ What changed:
 | **L10N-03b** | Sonnet | The last 18 literal files and the §3.3 fixes. M3-D sweeps the 2 widget files | XG-04/06 merged |
 | **M3-B2** | Opus | Paywall, placement, Settings → Subscription, sample-mode purchase, notices; switches gating on | M3-B1 merged |
 | **M3-E2** | Opus | FAM-09 switcher, FAM-10 Family settings, FAM-11 widgets with `StudentEntity`, FAM-14 UI path | M3-D, M3-E1, L10N-03b merged |
+| **M3-B3** | Sonnet | A school seat's Settings → Subscription: a "provided by your school" status; Manage Subscription, Request a Refund and the "stays with you" footer hidden for a seat | the seats PR merged |
+| **M3-D2** | Opus | Interactive Done (option A, an app-process `LiveActivityIntent`), plus M3-B2's O1: the access-end boundary in `GlanceTimeline.swift` | M3-E2 merged |
 
 Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6's dependencies:
 - M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
 - M3-D wires the entitlement field last.
 
-**Status, 2026-10-02 06:40 UTC.**
-- **Merged:** XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27) and M3-B1 (#28).
-- **Running:** M3-B2.
+**Status, 2026-10-02 (afternoon).**
+- **Merged:** XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27), M3-B1 (#28), the zero-literal gate (#29) and **M3-B2 (#30, `8e6deac`): subscription gating is ON.**
+- **In review:** the PMO's seats PR (assigned seats entitle, plus these docs).
 - **Interactive Done is a separate package, M3-D2** (PMO decision, option A of `m3d-report.md` §6). It's an app-process `LiveActivityIntent`: the widget never writes and holds no key. Options B and C (a widget-written outbox; a widget holding the app key) are rejected.
-- **Next:** M3-D2, then M3-E2, then the M3 exit.
-- **Pacing (Pro plan): at most 2 agents at once.** On 2026-10-01, four agents filled a 5-hour window in about 2.5 h, and three were cut off mid-task.
+- **Next:** M3-B3, then M3-E2, then M3-D2, then the M3 exit (the English string freeze).
+- **Pacing (Pro plan): one Opus agent at a time.** On 2026-10-01, four agents filled a 5-hour window in about 2.5 h, and three were cut off mid-task. On 2026-10-02, one Opus agent plus the PMO filled one in about 2 h. Add a Sonnet agent only with headroom.
 
-The PMO checks weekly and 5-hour usage at each hand-off. It holds a launch when the 5-hour window passes about 80%, or when the weekly remainder falls under the reserve.
+The PMO checks weekly and 5-hour usage before every launch. It holds a launch when the 5-hour window passes about 60%, or when the weekly remainder falls under the package's estimated cost plus about 10%.
 
 ## 3. Roadmap (milestones and exit gates)
 
