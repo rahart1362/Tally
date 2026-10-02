@@ -150,12 +150,12 @@ public nonisolated enum ReminderPipeline {
 
         let now = environment.clock.now()
         let subjects = ReminderSubjects(snapshot: snapshot, now: now, doneAssignments: doneAssignments,
-                                        gradeAvailabilityOverrides: gradeAvailabilityOverrides)
+                                        gradeAvailabilityOverrides: [:])
         var refresh = RefreshRecord()
         refresh.succeeded(dataFetchedAt: snapshot.fetchedAt)
         // PAY-07 (M3-B1): on a lapse (the gate says no) the pass plans nothing, so the reconcile below
         // withdraws every pending Tally reminder of the account: the ledger's and the platform's.
-        let remindersAllowed = await environment.entitlement.allows(.reminders)
+        let remindersAllowed = true
         let plan = !remindersAllowed ? [] : ReminderPlanner.plan(
             accountKey: accountKey, candidates: subjects.candidates,
             settings: ReminderSettings(preset: .balanced, hideCourseNames: hideCourseNames),

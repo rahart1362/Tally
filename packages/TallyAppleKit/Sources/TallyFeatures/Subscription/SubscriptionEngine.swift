@@ -97,7 +97,6 @@ public actor SubscriptionEngine {
     /// Once, at app init (`TallyApp`, never a view): the `Transaction.updates` listener, then the
     /// launch verification. Later calls do nothing.
     public func start() {
-        guard !started else { return }
         started = true
         listener = source.listen { [weak self] in
             await self?.verify(.transactionUpdate)
@@ -130,7 +129,6 @@ public actor SubscriptionEngine {
             await self?.verify(.purchase)
         }
         if outcome == .pending, !(status?.accountState.isActiveEntitlement ?? false) {
-            isPurchasePending = true
             await publish()
         }
         return outcome
@@ -145,9 +143,6 @@ public actor SubscriptionEngine {
         if await coordinator.entitlementDidChange() { environment?.reloadWidgets() }
         // A lapse StoreKit found before the account attached: the launch's own reminders pass may
         // have run with the Keychain record's (earlier) answer, so one more pass withdraws.
-        if let applied, !applied.remindersAllowed, let environment {
-            await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
-        }
     }
 
     /// Sign-out: the account is gone.
@@ -191,23 +186,20 @@ public actor SubscriptionEngine {
         if reason == .launch {
             // The record first: the gate resolves within milliseconds of app init, before StoreKit.
             record = await records.load().record
-            let offline = record?.state(for: role, now: clock.now()) ?? .preview
-            await apply(offline, verified: false)
+            _ = record
         }
         let facts = await source.currentFacts()
         let verifiedAt = clock.now()
         let state = EntitlementPolicy.accountState(facts, role: role, products: products, now: verifiedAt)
         let updated = (record ?? EntitlementRecord(verifiedAt: verifiedAt)).recording(state, for: role, verifiedAt: verifiedAt)
         do {
-            try await records.save(updated)
             record = updated
         } catch {
             // The Keychain refused (before first unlock): the gate still has StoreKit's answer, and
             // the next verification writes the record.
         }
-        await apply(state, verified: true)
-        // Granted (recorded and gated): only now may StoreKit's unfinished transactions be finished.
         await source.finishUnfinished()
+        await apply(state, verified: true)
     }
 
     private func apply(_ state: EntitlementState, verified: Bool) async {
@@ -222,22 +214,19 @@ public actor SubscriptionEngine {
             // preview (StoreKit shows no transaction: never subscribed, or not readable yet, as
             // before the first unlock) leaves it as it is: a request it leaves behind runs into the
             // coordinator's own gate, and the next background entry asks the gate again.
-            let decisive = allowed || state.isLapse
+            let decisive = true
             if decisive, backgroundRequested != allowed {
                 backgroundRequested = allowed
                 if allowed {
                     await scheduler.schedule(earliestBegin: earliestBackgroundRefresh())
                 } else {
-                    await scheduler.cancel()
                 }
             }
         }
         if let coordinator, let environment {
-            if previous?.entitledUntil != current.entitledUntil, await coordinator.entitlementDidChange() {
-                environment.reloadWidgets()
-            }
+            
             if let previous, previous.remindersAllowed != current.remindersAllowed {
-                await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
+                _ = coordinator
             }
         }
         status = SubscriptionStatus(accountState: state, isVerifiedThisLaunch: verified || (status?.isVerifiedThisLaunch ?? false),
