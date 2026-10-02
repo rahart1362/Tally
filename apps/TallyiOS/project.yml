@@ -40,6 +40,12 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: Tally
+      # M3-D: the Control Center controls' app intents. A control's action must be compiled into
+      # the app and the widget extension both (Apple, "Creating controls to perform actions
+      # across the system"), and the system performs these in the app's process. The widget target
+      # takes the same directory through its own `TallyWidgets` source, so the widget isolation
+      # gate scans it (scripts/ci/check_widget_isolation.py).
+      - path: TallyWidgets/Shared
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
@@ -95,6 +101,12 @@ targets:
         product: TallyFeatures
       - package: TallyAppleKit
         product: TallyIntents
+      # M3-D: the app's App Intents (`Tally/Intents/`) read the glance (`GlanceReader.appProcess`)
+      # and phrase their answers (`GlanceIntentAnswers`, `L10n`).
+      - package: TallyAppleKit
+        product: TallyGlance
+      - package: TallyAppleKit
+        product: TallyStrings
       # The composition root (`TallyApp.swift`, `AppEnvironment.swift`) imports
       # TallyDomain and TallySync directly; since perf-app-runtime.md §7 step 7
       # `.backgroundTask` reaches the account's coordinator through

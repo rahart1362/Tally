@@ -3588,6 +3588,894 @@
           }
         }
       }
+    },
+    "widget.answer.asOf" : {
+      "comment" : "Spoken answer, last: when Tally's data is from, because it is more than 3 hours old. The placeholder is a time, with the weekday when it is from an earlier day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@."
+          }
+        }
+      }
+    },
+    "widget.answer.dueNext" : {
+      "comment" : "Spoken answer to 'What's due next?'. The placeholder is a list of assignments, such as 'Lab Report 4 (BIO 101), due today at 6:00 PM and Quiz 3 (CHEM 110), due Friday at 9:00 AM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next up: %@."
+          }
+        }
+      }
+    },
+    "widget.answer.dueToday" : {
+      "comment" : "Spoken answer to 'What's due today?'. The placeholder is a list of assignments, such as 'Lab Report 4 (BIO 101), due today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due today: %@."
+          }
+        }
+      }
+    },
+    "widget.answer.item" : {
+      "comment" : "One assignment in a spoken answer. 1: its title from Canvas. 2: its course code from Canvas. 3: when it is due, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@), due %3$@"
+          }
+        }
+      }
+    },
+    "widget.answer.itemHidden" : {
+      "comment" : "One assignment in a spoken answer when 'Hide course names' is on. The placeholder is when it is due, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An assignment, due %@"
+          }
+        }
+      }
+    },
+    "widget.answer.itemNoCourse" : {
+      "comment" : "One assignment with no course in a spoken answer. 1: its title from Canvas. 2: when it is due, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, due %2$@"
+          }
+        }
+      }
+    },
+    "widget.answer.join" : {
+      "comment" : "Joins two sentences of a spoken answer. Use the language's usual separator between sentences.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "widget.answer.more" : {
+      "comment" : "Spoken answer, after the list: how many more assignments are due after the ones read out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Plus %lld more."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Plus %lld more."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.answer.moreAtLeast" : {
+      "comment" : "Spoken answer, after the list: at least this many more assignments are due after the ones read out (there may be more).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Plus %lld or more."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Plus %lld or more."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.answer.nothingSoon" : {
+      "comment" : "Spoken answer to 'What's due next?' when no open assignment is coming up.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is due soon."
+          }
+        }
+      }
+    },
+    "widget.answer.nothingToday" : {
+      "comment" : "Spoken answer to 'What's due today?' when no open assignment is due later today.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing else is due today."
+          }
+        }
+      }
+    },
+    "widget.answer.overdue" : {
+      "comment" : "Spoken answer, after the list: how many open assignments are past their due time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You also have %lld overdue."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You also have %lld overdue."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.answer.when.today" : {
+      "comment" : "In a spoken answer, when an assignment is due. The placeholder is a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "today at %@"
+          }
+        }
+      }
+    },
+    "widget.answer.when.tomorrow" : {
+      "comment" : "In a spoken answer, when an assignment is due. The placeholder is a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tomorrow at %@"
+          }
+        }
+      }
+    },
+    "widget.answer.when.weekday" : {
+      "comment" : "In a spoken answer, when an assignment is due. 1: a weekday such as 'Friday'. 2: a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "widget.asOf" : {
+      "comment" : "Widget footer when its data is more than 3 hours old. The placeholder is a time, with the weekday when it is from an earlier day, such as '2:14 PM' or 'Tue 2:14 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@"
+          }
+        }
+      }
+    },
+    "widget.band.aRange" : {
+      "comment" : "A grade band: the course average is in the A range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A range"
+          }
+        }
+      }
+    },
+    "widget.band.bRange" : {
+      "comment" : "A grade band: the course average is in the B range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "B range"
+          }
+        }
+      }
+    },
+    "widget.band.cRange" : {
+      "comment" : "A grade band: the course average is in the C range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C range"
+          }
+        }
+      }
+    },
+    "widget.band.dRange" : {
+      "comment" : "A grade band: the course average is in the D range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D range"
+          }
+        }
+      }
+    },
+    "widget.band.fRange" : {
+      "comment" : "A grade band: the course average is in the F range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "F range"
+          }
+        }
+      }
+    },
+    "widget.band.none" : {
+      "comment" : "A grade band when Canvas gave a grade Tally cannot place in a band.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grade"
+          }
+        }
+      }
+    },
+    "widget.band.notPassing" : {
+      "comment" : "A grade band for a pass/fail course: not passing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not passing"
+          }
+        }
+      }
+    },
+    "widget.band.passing" : {
+      "comment" : "A grade band for a pass/fail course: passing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passing"
+          }
+        }
+      }
+    },
+    "widget.counts.join" : {
+      "comment" : "Joins two widget footer counts, such as '+2 more' and '1 overdue'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "widget.counts.later" : {
+      "comment" : "Widget footer: how many more open assignments are due after the ones shown.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld more"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld more"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.counts.laterAtLeast" : {
+      "comment" : "Widget footer: at least this many more open assignments are due after the ones shown (there may be more).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld or more"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld or more"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.counts.overdue" : {
+      "comment" : "Widget footer: how many open assignments are past their due time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld overdue"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld overdue"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.due.date" : {
+      "comment" : "When an assignment is due, more than a week away. The placeholder is a date such as 'Oct 14'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@"
+          }
+        }
+      }
+    },
+    "widget.due.today" : {
+      "comment" : "When an assignment is due. The placeholder is a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due today, %@"
+          }
+        }
+      }
+    },
+    "widget.due.tomorrow" : {
+      "comment" : "When an assignment is due. The placeholder is a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due tomorrow, %@"
+          }
+        }
+      }
+    },
+    "widget.due.weekday" : {
+      "comment" : "When an assignment is due within the week. 1: a weekday such as 'Tuesday'. 2: a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "widget.focus.allAlerts" : {
+      "comment" : "Focus filter summary in iOS Settings: every Tally alert comes through during this Focus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All alerts"
+          }
+        }
+      }
+    },
+    "widget.focus.allCourses" : {
+      "comment" : "Focus filter summary in iOS Settings: Tally shows every course during this Focus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All courses"
+          }
+        }
+      }
+    },
+    "widget.focus.onlyUrgent" : {
+      "comment" : "Focus filter summary in iOS Settings: only urgent Tally alerts come through during this Focus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only urgent alerts"
+          }
+        }
+      }
+    },
+    "widget.header.dueSoon" : {
+      "comment" : "Widget header above the next three assignments due. Shown in capital letters.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due soon"
+          }
+        }
+      }
+    },
+    "widget.header.nextUp" : {
+      "comment" : "Widget header above the next assignment due. Shown in capital letters.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next up"
+          }
+        }
+      }
+    },
+    "widget.header.standing" : {
+      "comment" : "Widget header above the student's average grade band. Shown in capital letters.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standing"
+          }
+        }
+      }
+    },
+    "widget.header.weekAhead" : {
+      "comment" : "Widget header above the next seven days and what is due on each. Shown in capital letters.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week ahead"
+          }
+        }
+      }
+    },
+    "widget.hiddenAssignment" : {
+      "comment" : "Shown instead of an assignment's title on widgets when the student turned on 'Hide course names'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignment"
+          }
+        }
+      }
+    },
+    "widget.inline.next" : {
+      "comment" : "One-line Lock Screen widget. 1: the assignment's title from Canvas (or 'Assignment'). 2: when it is due, such as '6:00 PM' or 'Tue 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next: %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "widget.item.courseAndTime" : {
+      "comment" : "Lock Screen widget line. 1: the course code from Canvas, such as 'BIO 101'. 2: when it is due, such as '6:00 PM' or 'Tue 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "widget.message.openTally" : {
+      "comment" : "Widget text when Tally has no data to show yet (signed out, or the widget cannot read Tally's data).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see what's due."
+          }
+        }
+      }
+    },
+    "widget.message.short.openTally" : {
+      "comment" : "Lock Screen widget text, very short: Tally has no data to show here yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally"
+          }
+        }
+      }
+    },
+    "widget.message.short.subscribe" : {
+      "comment" : "Lock Screen widget text, very short: the student's subscription does not include widgets right now.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe in Tally"
+          }
+        }
+      }
+    },
+    "widget.message.short.unlock" : {
+      "comment" : "Lock Screen widget text, very short: the iPhone must be unlocked once before Tally's data can be read.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock your iPhone"
+          }
+        }
+      }
+    },
+    "widget.message.subscribe" : {
+      "comment" : "Widget text when the student's Tally subscription does not include widgets right now (no subscription, or it has ended).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to subscribe and see what's due."
+          }
+        }
+      }
+    },
+    "widget.message.unlock" : {
+      "comment" : "Widget text before the iPhone has been unlocked once since it started: Tally's data cannot be read yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock your iPhone to see what's next."
+          }
+        }
+      }
+    },
+    "widget.message.update" : {
+      "comment" : "Widget text when the student is signed in but Tally has not finished its first sync.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to update."
+          }
+        }
+      }
+    },
+    "widget.nothingNow" : {
+      "comment" : "Next Up widget when no open assignment is due later.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to do right now"
+          }
+        }
+      }
+    },
+    "widget.nothingSoon" : {
+      "comment" : "Widget text when no open assignment is coming up.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing due soon"
+          }
+        }
+      }
+    },
+    "widget.refresh.failed" : {
+      "comment" : "Answer after 'Refresh Tally': the refresh failed. The placeholder is when the saved data is from, such as '2:14 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally couldn't refresh. It's showing data from %@."
+          }
+        }
+      }
+    },
+    "widget.refresh.failedNoData" : {
+      "comment" : "Answer after 'Refresh Tally': the refresh failed and nothing is saved yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally couldn't refresh yet."
+          }
+        }
+      }
+    },
+    "widget.refresh.offline" : {
+      "comment" : "Answer after 'Refresh Tally': no internet connection. The placeholder is when the saved data is from, such as '2:14 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're offline. Tally is showing data from %@."
+          }
+        }
+      }
+    },
+    "widget.refresh.offlineNoData" : {
+      "comment" : "Answer after 'Refresh Tally': no internet connection and nothing saved yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're offline, so Tally couldn't refresh."
+          }
+        }
+      }
+    },
+    "widget.refresh.openTally" : {
+      "comment" : "Answer after 'Refresh Tally' when Tally can't refresh from here: the student isn't signed in, is exploring sample data, or Tally isn't open.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to refresh."
+          }
+        }
+      }
+    },
+    "widget.refresh.signInExpired" : {
+      "comment" : "Answer after 'Refresh Tally': the student must sign in to Canvas again in the app.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Canvas sign-in expired. Open Tally to sign in again."
+          }
+        }
+      }
+    },
+    "widget.refresh.stillRunning" : {
+      "comment" : "Answer after 'Refresh Tally': the refresh is taking longer than expected and goes on.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally is still refreshing. Check back in a moment."
+          }
+        }
+      }
+    },
+    "widget.refresh.updated" : {
+      "comment" : "Answer after 'Refresh Tally': the refresh worked.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally is up to date."
+          }
+        }
+      }
+    },
+    "widget.standing.hiddenByInstructor" : {
+      "comment" : "Standing widget, next to a course: the instructor hides the course total in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden by instructor"
+          }
+        }
+      }
+    },
+    "widget.standing.hiddenWhileLocked" : {
+      "comment" : "Standing widget while the iPhone is locked: the grade is hidden.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden while locked"
+          }
+        }
+      }
+    },
+    "widget.today.caption" : {
+      "comment" : "Lock Screen gauge, under the number of assignments still due today. Keep it very short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "today"
+          }
+        }
+      }
+    },
+    "widget.today.title" : {
+      "comment" : "Lock Screen gauge's label: how many assignments are still due today.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due today"
+          }
+        }
+      }
+    },
+    "widget.week.atLeast" : {
+      "comment" : "Week Ahead widget: at least this many assignments are due that day (there may be more).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld+"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld+"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "widget.week.busy" : {
+      "comment" : "Week Ahead widget: under a day with many assignments due. Keep it short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy"
+          }
+        }
+      }
+    },
+    "widget.when.short.tomorrow" : {
+      "comment" : "Short due time on a Lock Screen widget, for tomorrow. The placeholder is a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow %@"
+          }
+        }
+      }
+    },
+    "widget.when.short.weekday" : {
+      "comment" : "Short due time on a Lock Screen widget, within the week. 1: an abbreviated weekday such as 'Tue'. 2: a time such as '6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
