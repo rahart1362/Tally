@@ -243,6 +243,7 @@ public final class AppModel {
         paywall = nil
         playsBrandMoment = false
         route = .welcome
+        exitSampleFamily()
         guard let ending = home else { return }
         home = nil
         teardown.replace(with: Task { await ending.end() })
@@ -253,7 +254,7 @@ public final class AppModel {
     /// Sample mode's "Explore Parent Mode": the sample family's roster is read off the main actor,
     /// then parent mode starts in one assignment, so the shell switches whole. Sample mode only.
     public func enterSampleFamily() async {
-        guard family == nil, !isEnteringFamily else { return }
+        guard route == .sample, family == nil, !isEnteringFamily else { return }
         isEnteringFamily = true
         defer { isEnteringFamily = false }
         guard let roster = try? await SampleFamilyRoster.load(), route == .sample, family == nil else { return }

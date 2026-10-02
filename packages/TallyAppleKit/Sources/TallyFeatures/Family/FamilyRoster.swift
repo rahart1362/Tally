@@ -89,7 +89,7 @@ nonisolated enum FamilyAvatarPalette {
         RGB(red: 0.651, green: 0.200, blue: 0.161), // red
         RGB(red: 0.110, green: 0.443, blue: 0.259), // green
         RGB(red: 0.588, green: 0.318, blue: 0.039), // amber
-        RGB(red: 0.655, green: 0.729, blue: 0.808), // slate
+        RGB(red: 0.255, green: 0.329, blue: 0.408), // slate
     ]
 
     static func color(at index: Int) -> RGB {
@@ -122,7 +122,7 @@ nonisolated enum FamilyLinkProblem: Equatable, Sendable {
     init(_ error: LinkManagementError) {
         switch error {
         case .invalidOrExpiredCode: self = .codeRejected
-        case .selfRegistrationOff: self = .scopeMissing
+        case .selfRegistrationOff: self = .inviteRefused
         case .scopeMissing: self = .scopeMissing
         case .throttled: self = .throttled
         case .network: self = .network

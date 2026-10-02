@@ -182,7 +182,7 @@ public nonisolated enum ReminderPipeline {
         // M3-E2 (FAM-08 wiring): the parent reminders of the account's observer subjects, in the
         // slots the account's own left, under the same entitlement gate. Words only through
         // TallyStrings' renderer, from messages that carry no grade (R10a).
-        let observerSubjects = await observers.observerSubjects(of: accountKey)
+        let observerSubjects = remindersAllowed ? await observers.observerSubjects(of: accountKey) : []
         let familyPlan = FamilyReminderPlan.plan(accountKey: accountKey, subjects: observerSubjects, now: now, format: format,
                                                  cap: TallyConfig.pendingNotificationCap - desired.count)
         for planned in familyPlan where planned.reminder.fireDate > now && contents[planned.reminder.id] == nil {

@@ -211,7 +211,7 @@ actor SampleFamilyLinkService: FamilyLinkService {
 
     func addStudent(pairingCode: String) async throws(LinkManagementError) -> ObservedUser {
         if outcome == .scopeMissing { throw .scopeMissing }
-        return ObservedUser(canvasUserID: "9", name: "Made Up", avatarURL: nil)
+        throw .invalidOrExpiredCode
     }
 
     func unlink(observeeCanvasUserID: String) async throws(LinkManagementError) {
