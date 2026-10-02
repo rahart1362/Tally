@@ -176,7 +176,14 @@ struct WidgetIntentsTests {
         return Set(matches.compactMap { Range($0.range(at: 1), in: metadata).map { String(metadata[$0]) } })
     }
 
-    @Test("The build ships every intent: the app's and the widget's metadata name them, and every title resolves")
+    /// Not under a sanitizer (`TestRuntime.sanitized`, as the accessibility-tree tests). Those jobs build one
+    /// architecture in Debug, where Xcode 26.6 links `TallyWidgets.debug.dylib` and the `__preview.dylib` stub
+    /// with the same `-dependency_info` file. When the stub links last, the metadata processor finds no
+    /// AppIntents dependency and writes an empty `Metadata.appintents` (PR #26's TSan run 36950934685: "Metadata
+    /// extraction skipped. No AppIntents.framework dependency found"). That is a property of the build, not of
+    /// threads or memory. `ios-build`'s Debug test build keeps this guard (it caught MV5 in run 36946959574).
+    @Test("The build ships every intent: the app's and the widget's metadata name them, and every title resolves",
+          .enabled(if: !TestRuntime.sanitized))
     func appIntentsMetadata() throws {
         let app = Bundle.main
         let plugins = try #require(app.builtInPlugInsURL)
