@@ -124,7 +124,7 @@ struct WidgetGlanceRenderTests {
 
     @Test("copy: one label per grade band, counts, and a message for every read failure")
     func copy() {
-        let labels = GradeBand.allCases.map(GlanceText.bandLabel)
+        let labels = GradeBand.allCases.map { GlanceText.bandLabel($0) }
         #expect(Set(labels).count == GradeBand.allCases.count)
         #expect(labels.allSatisfy { !$0.isEmpty })
         #expect(GlanceText.counts(later: 0, overdue: 0) == nil)

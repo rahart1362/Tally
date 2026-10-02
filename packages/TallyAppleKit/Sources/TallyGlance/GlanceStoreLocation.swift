@@ -65,3 +65,24 @@ public enum GlanceStoreLocation {
     }
     #endif
 }
+
+#if canImport(Darwin)
+extension GlanceReader {
+    /// The app's own read of the glance, for its App Intents (the Siri and Shortcuts answers,
+    /// integrations.md §2.4: "Intents read glance.v1"). It reads what the widget reads, with the
+    /// same widget-audience-only key reader, so an intent can never open the snapshot either.
+    ///
+    /// The app keeps every vault key in its default Keychain groups until a Team ID exists
+    /// (`AppEnvironment.live()`, GL-02), and a query with no access group searches all of the
+    /// process's groups (encryption.md §3.4), so this passes none. With a Team ID the widget key
+    /// moves to the App Group group, which the app is entitled to, so the same query still finds it.
+    /// `nil` store root (no App Group ID in the app's Info.plist, a build misconfiguration) reads
+    /// as `.unavailable`.
+    public static func appProcess(infoDictionary: [String: Any]? = Bundle.main.infoDictionary,
+                                  bundleIdentifier: String? = Bundle.main.bundleIdentifier) -> GlanceReader {
+        let appGroupID = (infoDictionary?[GlanceConfiguration.appGroupIDKey] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        return GlanceReader(storeRoot: appGroupID.flatMap { GlanceStoreLocation.appGroupStoreRoot(appGroupID: $0) },
+                            keyStore: WidgetVaultKeyReader(appBundleID: bundleIdentifier ?? "", accessGroup: nil))
+    }
+}
+#endif

@@ -1,0 +1,258 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "intent.course.type" : {
+      "comment" : "App Intents: the name of a course as a kind of thing, shown in Shortcuts and in Focus settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Course"
+          }
+        }
+      }
+    },
+    "intent.destination.nextUp" : {
+      "comment" : "App Intents: the part of Tally the Next Up control opens: the assignments due next.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Up"
+          }
+        }
+      }
+    },
+    "intent.destination.type" : {
+      "comment" : "App Intents: the name of the kind of thing the Next Up control opens (a part of the Tally app).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Screen"
+          }
+        }
+      }
+    },
+    "intent.dueNext.description" : {
+      "comment" : "Shortcuts: the description of the What's Due Next action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tells you the next assignments due in your courses."
+          }
+        }
+      }
+    },
+    "intent.dueNext.shortTitle" : {
+      "comment" : "Shortcuts and Spotlight: the short title of the What's Due Next shortcut. Keep it short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Next"
+          }
+        }
+      }
+    },
+    "intent.dueNext.title" : {
+      "comment" : "Shortcuts and Siri: the name of the action that reads out the next assignments due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's Due Next"
+          }
+        }
+      }
+    },
+    "intent.dueToday.description" : {
+      "comment" : "Shortcuts: the description of the What's Due Today action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tells you the assignments still due today."
+          }
+        }
+      }
+    },
+    "intent.dueToday.shortTitle" : {
+      "comment" : "Shortcuts and Spotlight: the short title of the What's Due Today shortcut. Keep it short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Today"
+          }
+        }
+      }
+    },
+    "intent.dueToday.title" : {
+      "comment" : "Shortcuts and Siri: the name of the action that reads out the assignments still due today.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's Due Today"
+          }
+        }
+      }
+    },
+    "intent.focus.courses" : {
+      "comment" : "Focus settings: the Tally filter's option that picks which courses' alerts come through during this Focus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Courses"
+          }
+        }
+      }
+    },
+    "intent.focus.description" : {
+      "comment" : "Focus settings: the description of Tally's Focus filter.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which of Tally's alerts come through during this Focus."
+          }
+        }
+      }
+    },
+    "intent.focus.onlyUrgent" : {
+      "comment" : "Focus settings: the Tally filter's switch that lets only urgent alerts through during this Focus.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only Urgent Alerts"
+          }
+        }
+      }
+    },
+    "intent.focus.title" : {
+      "comment" : "Focus settings: the name of Tally's Focus filter. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Alerts"
+          }
+        }
+      }
+    },
+    "intent.open.description" : {
+      "comment" : "Shortcuts and controls: the description of the action that opens Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens Tally to what's due next."
+          }
+        }
+      }
+    },
+    "intent.open.target" : {
+      "comment" : "App Intents: the name of the Open Tally action's option that says which part of Tally to open.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screen"
+          }
+        }
+      }
+    },
+    "intent.open.title" : {
+      "comment" : "Shortcuts and controls: the name of the action that opens Tally. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally"
+          }
+        }
+      }
+    },
+    "intent.refresh.description" : {
+      "comment" : "Shortcuts and controls: the description of the Refresh Tally action.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshes Tally's saved Canvas data."
+          }
+        }
+      }
+    },
+    "intent.refresh.shortTitle" : {
+      "comment" : "Shortcuts and Spotlight: the short title of the Refresh Tally shortcut. Keep it short.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "intent.refresh.title" : {
+      "comment" : "Shortcuts, Siri and controls: the name of the action that refreshes Tally's data. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Tally"
+          }
+        }
+      }
+    },
+    "intent.widget.description" : {
+      "comment" : "Widget settings: the description of a Tally widget's settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows what's due in your courses."
+          }
+        }
+      }
+    },
+    "intent.widget.title" : {
+      "comment" : "Widget settings: the title of a Tally widget's settings. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Widget"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
