@@ -112,6 +112,26 @@ extension AccountLifecycleSuites {
             #expect(again == .reconciled(scheduled: 0, cancelled: 0))
         }
 
+        /// The subscription gate says no to reminders (PAY-07).
+        struct NoReminders: EntitlementGating {
+            func allowsRefresh(_ trigger: RefreshTrigger, hasCommittedSnapshot: Bool) async -> Bool { true }
+            func allows(_ feature: SubscriptionFeature) async -> Bool { feature != .reminders }
+            func glanceEntitledUntil() async -> Date? { nil }
+        }
+
+        @Test("Parent reminders sit behind the same entitlement gate as the account's own: a lapse plans none")
+        func entitlementGateCoversParentReminders() async throws {
+            let observers = try await Self.observers()
+            let rig = try ReminderAnswersRig(now: Self.now)
+            let gated = rig.environment.replacingEntitlement(NoReminders())
+            let coordinator = rig.coordinator(over: observers[0].snapshot)
+            _ = await ReminderPipeline.reconcile(coordinator: coordinator, environment: gated, timeZone: ReminderAnswersRig.timeZone,
+                                                 locale: Locale(identifier: "en_US"), observers: StaticObservers(subjects: observers))
+            let pending = await rig.platform.pendingContents()
+            #expect(!pending.keys.contains { id in observers.contains { id.contains(".\($0.subject.id.rawValue).") } },
+                    "a parent reminder was scheduled without the entitlement")
+        }
+
         @Test("Each planned parent reminder finds its assignment again from E1's identifier (no reminder dropped silently)")
         func everyPlannedReminderHasAMessage() async throws {
             let observers = try await Self.observers()

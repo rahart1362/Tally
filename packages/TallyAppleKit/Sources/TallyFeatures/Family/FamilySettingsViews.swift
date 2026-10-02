@@ -499,7 +499,10 @@ struct PairingCodeSection: View {
         } footer: {
             Text(L10n.FamilyUI.codeWarning())
         }
-        .task(id: sent.invite.code) { qrCode = PairingInviteText.qrCode(for: sent.invite.code) }
+        .task(id: sent.invite.code) {
+            // Drawn off the main actor (Core Image's first context is slow); shown here.
+            if let png = await PairingInviteText.qrCodePNG(for: sent.invite.code) { qrCode = UIImage(data: png) }
+        }
     }
 }
 
@@ -508,7 +511,7 @@ enum PairingInviteText {
     /// The QR code's side, in points.
     static let qrSide: CGFloat = 180
     /// How much the QR generator's 1-point modules are scaled before display.
-    static let qrScale: CGFloat = 8
+    nonisolated static let qrScale: CGFloat = 8
 
     /// "Fri, Oct 2", in the app's formatting locale.
     static func expiry(_ date: Date) -> String {
@@ -522,14 +525,16 @@ enum PairingInviteText {
         return String(localized: L10n.FamilyUI.shareMessage(school, invite.code, expiry))
     }
 
-    /// The code as a QR image (the code text alone), for a parent beside the student.
-    static func qrCode(for code: String) -> UIImage? {
+    /// The code as a QR image's PNG (the code text alone), for a parent beside the student. Off the
+    /// main actor.
+    @concurrent
+    nonisolated static func qrCodePNG(for code: String) async -> Data? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(code.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: qrScale, y: qrScale)),
               let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
-        return UIImage(cgImage: image)
+        return UIImage(cgImage: image).pngData()
     }
 }
 

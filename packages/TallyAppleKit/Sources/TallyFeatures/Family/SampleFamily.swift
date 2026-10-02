@@ -158,6 +158,14 @@ actor SampleFamilyLinkService: FamilyLinkService {
     private let outcome: SampleFamilyOutcome?
     private let clock: any DateProviding
     private var replay: SampleFamilyReplay?
+    /// Codes made so far: each sample code is the next of a fixed sequence (no random values in app
+    /// code, `ScreenSourceHygieneTests`).
+    private var issued = 0
+    /// Canvas-like code characters (no 0/O or 1/I to misread).
+    private static let codeAlphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+    /// The sequence's start and step: any fixed values that give varied 6-character codes.
+    private static let codeSeed = 3_095_196
+    private static let codeStep = 7_919
 
     init(outcome: SampleFamilyOutcome? = SampleFamilyLinkService.scriptedOutcome(), clock: any DateProviding = SystemDateProvider(),
          replay: SampleFamilyReplay? = nil) {
@@ -191,8 +199,13 @@ actor SampleFamilyLinkService: FamilyLinkService {
         case .scopeMissing?: throw .scopeMissing
         default: break
         }
-        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        let code = String((0..<FamilyUIConfig.pairingCodeLength).map { _ in alphabet.randomElement() ?? "X" })
+        var value = Self.codeSeed + issued * Self.codeStep
+        issued += 1
+        var code = ""
+        for _ in 0..<FamilyUIConfig.pairingCodeLength {
+            code.append(Self.codeAlphabet[value % Self.codeAlphabet.count])
+            value /= Self.codeAlphabet.count
+        }
         return PairingInvite(code: code, expiresAt: clock.now().addingTimeInterval(FamilyUIConfig.pairingCodeLifetime.timeInterval))
     }
 
