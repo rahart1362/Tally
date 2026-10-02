@@ -3529,6 +3529,738 @@
         }
       }
     },
+    "subscription.banner.noDate" : {
+      "comment" : "The same notice when the time of the saved data is not known.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe to refresh."
+          }
+        }
+      }
+    },
+    "subscription.banner.savedFrom" : {
+      "comment" : "Above the Home's tabs when there is no trial or subscription: refresh is off and the saved data is shown (PRD §11.2). The argument is when the data was saved, such as 'Sep 30, 2:14 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe to refresh — showing saved data from %@."
+          }
+        }
+      }
+    },
+    "subscription.erase.note" : {
+      "comment" : "Added to the Sign Out & Erase confirmation (PAY-11): erasing Tally's data leaves the App Store subscription as it is.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This doesn't cancel your Tally subscription. To cancel it, choose Manage Subscription."
+          }
+        }
+      }
+    },
+    "subscription.feature.dueDates" : {
+      "comment" : "Paywall, what's included: assignments and the calendar, refreshed from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due dates, To-Do and Calendar, kept up to date"
+          }
+        }
+      }
+    },
+    "subscription.feature.grades" : {
+      "comment" : "Paywall, what's included: the grade features. Never shown to a school whose grades are not in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades and what-if for every course"
+          }
+        }
+      }
+    },
+    "subscription.feature.insights" : {
+      "comment" : "Paywall, what's included: the Insights tab, Home Screen widgets and Shortcuts.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights, widgets and Shortcuts"
+          }
+        }
+      }
+    },
+    "subscription.feature.privacy" : {
+      "comment" : "Paywall, what's included: Tally has no server; the student's Canvas data stays on the device.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your data stays on this iPhone"
+          }
+        }
+      }
+    },
+    "subscription.feature.reminders" : {
+      "comment" : "Paywall, what's included: due-date reminders.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders before work is due"
+          }
+        }
+      }
+    },
+    "subscription.feature.workload" : {
+      "comment" : "Paywall, what's included, for a school whose grades are not in Canvas: insights about the workload (no grades), widgets and Shortcuts.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workload insights, widgets and Shortcuts"
+          }
+        }
+      }
+    },
+    "subscription.interstitial.checkMySchool" : {
+      "comment" : "Sample data note's button: leaves the sample data to find the student's school.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check My School"
+          }
+        }
+      }
+    },
+    "subscription.interstitial.continue" : {
+      "comment" : "Sample data note's button: goes on to the plans.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "subscription.interstitial.message" : {
+      "comment" : "Sample data: the note shown before the plans (App Review sees it too).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Annual works at schools where Tally is enabled. Check that yours is one of them before you subscribe."
+          }
+        }
+      }
+    },
+    "subscription.interstitial.title" : {
+      "comment" : "Sample data, Settings > Subscription > See Plans: the title of the note shown before the plans.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally works at enabled schools"
+          }
+        }
+      }
+    },
+    "subscription.locked.body" : {
+      "comment" : "A locked tab's card, under its title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Courses, Calendar, To-Do and Insights come with a subscription. Your Dashboard stays free."
+          }
+        }
+      }
+    },
+    "subscription.locked.title" : {
+      "comment" : "A locked tab's card (Courses, Calendar, To-Do, Insights) for a student without a trial or subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Part of Tally Annual"
+          }
+        }
+      }
+    },
+    "subscription.manage" : {
+      "comment" : "Button that opens Apple's subscription management sheet (cancel, change).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Subscription"
+          }
+        }
+      }
+    },
+    "subscription.name.student" : {
+      "comment" : "The name of Tally's student subscription, as the App Store sells it (PRD §11.1). The paywall's title and the plan in Settings > Subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Annual"
+          }
+        }
+      }
+    },
+    "subscription.paywall.duration" : {
+      "comment" : "Paywall, under the title: how long one subscription period lasts (Apple requires the length on the paywall). The argument is a length such as '1 year'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription length: %@"
+          }
+        }
+      }
+    },
+    "subscription.paywall.failed" : {
+      "comment" : "Paywall, after a purchase failed or could not be verified.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The purchase didn't finish. Try again, or use Restore Purchases."
+          }
+        }
+      }
+    },
+    "subscription.paywall.included" : {
+      "comment" : "Paywall: the heading above the list of what the subscription includes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's included"
+          }
+        }
+      }
+    },
+    "subscription.paywall.loading" : {
+      "comment" : "Paywall, while the price loads from the App Store (a progress indicator's label).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking the App Store"
+          }
+        }
+      }
+    },
+    "subscription.paywall.notNow" : {
+      "comment" : "Paywall button that closes it without buying.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Now"
+          }
+        }
+      }
+    },
+    "subscription.paywall.nothingToRestore" : {
+      "comment" : "After Restore Purchases found no Tally subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There's no Tally subscription to restore for this Apple Account."
+          }
+        }
+      }
+    },
+    "subscription.paywall.pending" : {
+      "comment" : "Paywall, after Ask to Buy: the purchase waits for a parent's approval.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for approval. Tally unlocks as soon as your purchase is approved."
+          }
+        }
+      }
+    },
+    "subscription.paywall.renewal" : {
+      "comment" : "Paywall: the auto-renewal disclosure under the price.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renews automatically until you cancel. Cancel anytime in Settings at least 24 hours before it renews."
+          }
+        }
+      }
+    },
+    "subscription.paywall.restoreFailed" : {
+      "comment" : "After Restore Purchases could not reach the App Store.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't reach the App Store to restore purchases. Try again later."
+          }
+        }
+      }
+    },
+    "subscription.paywall.startFreeTrial" : {
+      "comment" : "Paywall's purchase button when this Apple Account can get the free trial.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Free Trial"
+          }
+        }
+      }
+    },
+    "subscription.paywall.subscribe" : {
+      "comment" : "Paywall's purchase button when there is no free trial for this Apple Account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe"
+          }
+        }
+      }
+    },
+    "subscription.paywall.trial" : {
+      "comment" : "Paywall, only when this Apple Account can get the free trial. 1: the trial's length, such as '1 month'. 2: the price per period, such as '$9.99/year'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ free, then %2$@"
+          }
+        }
+      }
+    },
+    "subscription.paywall.tryAgain" : {
+      "comment" : "Paywall button that asks the App Store for the price again.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        }
+      }
+    },
+    "subscription.paywall.unavailable" : {
+      "comment" : "Paywall, when the App Store returned no price.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store isn't available right now. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "subscription.period.days" : {
+      "comment" : "A length of time in days, such as '1 day', used inside other subscription sentences: the subscription length and the free trial's length.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subscription.period.months" : {
+      "comment" : "A length of time in months, such as '1 month', used inside other subscription sentences: the subscription length and the free trial's length.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld months"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subscription.period.weeks" : {
+      "comment" : "A length of time in weeks, such as '1 week', used inside other subscription sentences: the subscription length and the free trial's length.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld week"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weeks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subscription.period.years" : {
+      "comment" : "A length of time in years, such as '1 year', used inside other subscription sentences: the subscription length and the free trial's length.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld year"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld years"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subscription.price.every" : {
+      "comment" : "Paywall price for a period other than one year. 1: the App Store's price text, such as '$9.99'. 2: a length, such as '6 months'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ every %2$@"
+          }
+        }
+      }
+    },
+    "subscription.price.perYear" : {
+      "comment" : "Paywall: the subscription's price, its most prominent text. The argument is the App Store's own price text, such as '$9.99'; never reformat it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/year"
+          }
+        }
+      }
+    },
+    "subscription.price.perYear.spoken" : {
+      "comment" : "VoiceOver label of the paywall's price (the visible text is '$9.99/year'). The argument is the App Store's price text, such as '$9.99'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ per year"
+          }
+        }
+      }
+    },
+    "subscription.privacyPolicy" : {
+      "comment" : "Paywall link to Tally's Privacy Policy.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        }
+      }
+    },
+    "subscription.redeemCode" : {
+      "comment" : "Button that opens Apple's sheet for redeeming an offer code (paywall, Settings > Subscription).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redeem Code"
+          }
+        }
+      }
+    },
+    "subscription.requestRefund" : {
+      "comment" : "Button that opens Apple's refund request sheet. Tally cannot refund; Apple decides.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request a Refund"
+          }
+        }
+      }
+    },
+    "subscription.restorePurchases" : {
+      "comment" : "Button that asks the App Store for this Apple Account's purchases again (paywall, Settings > Subscription).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.body" : {
+      "comment" : "The school-revoked notice's text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school's Canvas no longer lets Tally connect, so Tally can't refresh. Your saved data stays readable. Your subscription is still active: you can cancel it, or ask Apple for a refund."
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.continue" : {
+      "comment" : "The school-revoked notice's button that closes it and shows the saved data.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue with Saved Data"
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.title" : {
+      "comment" : "Full-screen notice when the school's Canvas rejects Tally (the school disabled Tally's access) while the student has a subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school turned off Tally"
+          }
+        }
+      }
+    },
+    "subscription.seePlans" : {
+      "comment" : "Button that opens the paywall (Settings > Subscription, a locked tab's card, the 'Subscribe to refresh' notice).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Plans"
+          }
+        }
+      }
+    },
+    "subscription.settings.footer" : {
+      "comment" : "Settings > Subscription footer (PRD §11.4).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your subscription belongs to your Apple Account, so it stays with you if you move to another school where Tally is enabled. Apple handles payment, renewals and refunds."
+          }
+        }
+      }
+    },
+    "subscription.settings.noRefund" : {
+      "comment" : "Settings > Subscription, after Request a Refund found no purchase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There's no Tally purchase on this Apple Account to refund."
+          }
+        }
+      }
+    },
+    "subscription.settings.plan" : {
+      "comment" : "Settings > Subscription: the label of the row naming the plan.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan"
+          }
+        }
+      }
+    },
+    "subscription.settings.status" : {
+      "comment" : "Settings > Subscription: the label of the row with the subscription's state.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        }
+      }
+    },
+    "subscription.settings.title" : {
+      "comment" : "Settings row and page title for the subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription"
+          }
+        }
+      }
+    },
+    "subscription.status.active" : {
+      "comment" : "Subscription state. The argument is a date, such as 'Oct 2, 2027' (the end of the current period; it renews unless cancelled).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active until %@"
+          }
+        }
+      }
+    },
+    "subscription.status.checking" : {
+      "comment" : "Subscription state before the App Store has answered.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking"
+          }
+        }
+      }
+    },
+    "subscription.status.ended" : {
+      "comment" : "Subscription state after it ended or was refunded. The argument is a date, such as 'Sep 30, 2026'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended %@"
+          }
+        }
+      }
+    },
+    "subscription.status.notSubscribed" : {
+      "comment" : "Subscription state: no trial or subscription on this Apple Account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not subscribed"
+          }
+        }
+      }
+    },
+    "subscription.status.pending" : {
+      "comment" : "Subscription state after Ask to Buy, until a parent approves.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for approval"
+          }
+        }
+      }
+    },
+    "subscription.termsOfUse" : {
+      "comment" : "Paywall link to Tally's Terms of Use.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Use"
+          }
+        }
+      }
+    },
     "welcome.benefit.deadlines" : {
       "comment" : "Welcome screen benefit row.",
       "extractionState" : "manual",
