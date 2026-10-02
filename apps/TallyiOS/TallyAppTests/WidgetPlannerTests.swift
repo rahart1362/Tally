@@ -30,9 +30,15 @@ struct WidgetPlannerTests {
                       excused: excused, submitted: submitted)
     }
 
+    /// M3-B2: enforcement is on, so a glance carries the student's entitlement (to December) unless a
+    /// test says otherwise; with none, the widgets and the intents are locked.
+    private static let entitledUntil = date(6, 10, month: 12)
+
     private static func glance(_ items: [GlanceDueItem], courses: [GlanceCourse] = [],
-                               grades: GlanceGradeSummary = .notOptedIn) -> GlanceProjection {
-        GlanceProjection(generation: 1, asOf: asOf, gradeSummary: grades, courses: courses, dueSoon: items)
+                               grades: GlanceGradeSummary = .notOptedIn,
+                               entitledUntil: Date? = WidgetPlannerTests.entitledUntil) -> GlanceProjection {
+        GlanceProjection(generation: 1, asOf: asOf, gradeSummary: grades, courses: courses, dueSoon: items,
+                         entitledUntil: entitledUntil)
     }
 
     private static func summary(_ glance: GlanceProjection, at moment: Date = now) throws -> GlanceSummary {
@@ -163,15 +169,26 @@ struct WidgetPlannerTests {
         #expect(GlanceTimelinePlanner.relevance(of: .placeholder, at: Self.now).duration == 0)
     }
 
-    @Test("The subscription seam: every glance is unlocked until M3-B1's entitlement lands, so a glance plans summaries")
+    @Test("The subscription seam (M3-B2): the glance's entitlement decides; none, or one past the offline grace, is locked")
     func accessSeam() throws {
-        let glance = Self.glance([Self.item("noon", Self.date(6, 12))])
+        let items = [Self.item("noon", Self.date(6, 12))]
+        let glance = Self.glance(items)
         #expect(GlanceAccess.isUnlocked(glance, at: Self.now))
         #expect(GlanceTimelinePlanner.moment(of: glance, at: Self.now, calendar: Self.calendar).content != .message(.subscriptionRequired))
-        #expect(GlanceMessage.allCases.contains(.subscriptionRequired), "the locked state the widgets show once it is wired")
         #expect(!GlanceDisplayPolicy.hidesCourseNames(glance), "the glance does not carry 'Hide course names' yet")
         let summary = try Self.summary(glance)
         #expect(!summary.hidesCourseNames)
+
+        // No entitlement (never subscribed, lapsed, or a glance written before the field): locked.
+        let unentitled = Self.glance(items, entitledUntil: nil)
+        #expect(!GlanceAccess.isUnlocked(unentitled, at: Self.now))
+        #expect(GlanceTimelinePlanner.moment(of: unentitled, at: Self.now, calendar: Self.calendar).content == .message(.subscriptionRequired))
+        #expect(GlanceIntentAnswers.courses(.loaded(unentitled), now: Self.now).isEmpty)
+        // Expired: open through the offline grace, locked from its end on (fails closed).
+        let grace = SubscriptionConfig.offlineGracePeriod.timeInterval
+        let expired = Self.glance(items, entitledUntil: Self.asOf)
+        #expect(GlanceAccess.isUnlocked(expired, at: Self.asOf + grace - 1))
+        #expect(!GlanceAccess.isUnlocked(expired, at: Self.asOf + grace))
     }
 
     // MARK: The intents' answers

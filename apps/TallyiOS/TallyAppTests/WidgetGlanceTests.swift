@@ -50,7 +50,8 @@ final class WidgetGlanceTests: XCTestCase {
                 let owner = SnapshotStore(root: root, accountKey: account,
                                           sealer: VaultSealer(account: account.rawValue, keyring: VaultKeyring(store: appStore),
                                                               mayCreateKeys: true))
-                try await owner.commit(snapshot, includeGrades: true)
+                // M3-B2: entitled, so the timeline renders the content rather than the locked message.
+                try await owner.commit(snapshot, includeGrades: true, entitledUntil: GlanceStoreFixture.entitledUntil)
             } catch {
                 XCTFail("the app-side commit failed: \(error)")
             }

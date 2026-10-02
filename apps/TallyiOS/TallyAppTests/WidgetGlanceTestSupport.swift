@@ -17,6 +17,10 @@ struct GlanceStoreFixture {
         appKeys = InMemoryVaultKeyStore()
     }
 
+    /// M3-B2: enforcement is on, so a glance the widgets plan from carries an entitlement (PAY-04's
+    /// `entitledUntil`); with none they show the locked message. Far ahead, so no test reaches it.
+    static let entitledUntil = Date.distantFuture
+
     static func account(_ userID: String) -> AccountKey {
         AccountKey.derive(host: "canvas.example.edu", userID: userID)
     }
@@ -29,10 +33,11 @@ struct GlanceStoreFixture {
     /// Commits a synthetic snapshot (`CanvasSnapshotFixture`) for `account` and returns its glance.
     @discardableResult
     func commit(_ account: AccountKey, fetchedAt: Date = Date(timeIntervalSince1970: 1_790_600_400),
-                generation: UInt64 = 1, includeGrades: Bool = false, dueItemCount: Int = 3) async throws -> GlanceProjection {
+                generation: UInt64 = 1, includeGrades: Bool = false, dueItemCount: Int = 3,
+                entitledUntil: Date? = GlanceStoreFixture.entitledUntil) async throws -> GlanceProjection {
         let snapshot = CanvasSnapshotFixture.make(generation: generation, accountKey: account, fetchedAt: fetchedAt,
                                                   dueItemCount: dueItemCount)
-        return try await ownerStore(account).commit(snapshot, includeGrades: includeGrades)
+        return try await ownerStore(account).commit(snapshot, includeGrades: includeGrades, entitledUntil: entitledUntil)
     }
 
     func accountDirectory(_ account: AccountKey) -> URL {

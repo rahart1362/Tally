@@ -38,12 +38,13 @@ struct EntitlementRecordTests {
         #expect(EntitlementAccess.covers(entitledUntil: until, at: Self.now, notBefore: Self.at(-10 * Self.day), isEnforced: true))
     }
 
-    @Test("Not enforced (main until M3-B2): every surface is open, with or without an expiry")
+    @Test("Not enforced (by injection): every surface is open, with or without an expiry; the switch is on since M3-B2")
     func notEnforcedIsOpen() {
         #expect(EntitlementAccess.covers(entitledUntil: nil, at: Self.now, isEnforced: false))
         #expect(EntitlementAccess.covers(entitledUntil: Self.at(-400 * Self.day), at: Self.now, isEnforced: false))
-        #expect(SubscriptionConfig.isGatingEnforced == false, "the switch stays off on main until M3-B2 ships the paywall")
-        #expect(EntitlementAccess.covers(entitledUntil: nil, at: Self.now), "the default follows the switch")
+        #expect(SubscriptionConfig.isGatingEnforced == true, "M3-B2 shipped the paywall: enforcement is on")
+        #expect(!EntitlementAccess.covers(entitledUntil: nil, at: Self.now), "the default follows the switch: no expiry, no access")
+        #expect(EntitlementAccess.covers(entitledUntil: Self.at(30 * Self.day), at: Self.now), "the default follows the switch")
     }
 
     @Test("The record's state: entitled inside the grace, lapsed after it, preview without an expiry")
@@ -138,10 +139,11 @@ struct SubscriptionGateTableTests {
         }
     }
 
-    @Test("The default gate follows the switch, which is off on main")
+    @Test("The default gate follows the switch, which is on since M3-B2")
     func defaultFollowsTheSwitch() {
         #expect(SubscriptionGate().isEnforced == SubscriptionConfig.isGatingEnforced)
-        #expect(SubscriptionGate().allows(.reminders, in: .lapsed(since: Self.now), at: Self.now))
+        #expect(!SubscriptionGate().allows(.reminders, in: .lapsed(since: Self.now), at: Self.now))
+        #expect(SubscriptionGate().allows(.signOutAndErase, in: .lapsed(since: Self.now), at: Self.now))
     }
 }
 

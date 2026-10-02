@@ -54,7 +54,8 @@ final class TallyPerfUITests: TallyUITestCase {
     @MainActor
     private func measuredApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.replayAccounts
+        // M3-B2: entitled, as every UI-test launch is, so the measured launch refreshes as before.
+        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.entitled + TestHooks.replayAccounts
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         return app
     }

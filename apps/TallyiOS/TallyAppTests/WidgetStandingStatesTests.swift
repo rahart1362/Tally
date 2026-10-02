@@ -36,7 +36,9 @@ struct WidgetStandingStatesTests {
 
     /// The Standing widget's summary for the glance the app would commit, a minute after the fetch.
     private static func summary(_ snapshot: CanvasSnapshot, includeGrades: Bool) throws -> GlanceSummary {
-        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades)
+        // M3-B2: enforcement is on, so the glance carries the student's entitlement.
+        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
+                                                   entitledUntil: GlanceStoreFixture.entitledUntil)
         return try summary(of: .loaded(glance))
     }
 
@@ -133,7 +135,8 @@ struct WidgetStandingStatesTests {
         defer { fixture.remove() }
         let account = GlanceStoreFixture.account("external-grades")
         let snapshot = try await Self.persona(keeping: Self.noneInCanvas, account: account)
-        let committed = try await fixture.ownerStore(account).commit(snapshot, includeGrades: true)
+        let committed = try await fixture.ownerStore(account).commit(snapshot, includeGrades: true,
+                                                                     entitledUntil: GlanceStoreFixture.entitledUntil)
         #expect(committed.schemaVersion == 2)
 
         let result = await GlanceReader(storeRoot: fixture.root, keyStore: fixture.widgetKeys).read()

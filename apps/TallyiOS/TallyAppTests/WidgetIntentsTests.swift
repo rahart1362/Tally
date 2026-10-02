@@ -36,8 +36,10 @@ struct WidgetIntentsTests {
                       submitted: false)
     }
 
+    /// M3-B2: enforcement is on, so the glance carries the student's entitlement (to December).
     private static func glance(asOf: Date = WidgetIntentsTests.date(6, 8, 30), _ items: [GlanceDueItem]) -> GlanceReadResult {
-        .loaded(GlanceProjection(generation: 1, asOf: asOf, gradeSummary: .band(.aRange), courses: [], dueSoon: items))
+        .loaded(GlanceProjection(generation: 1, asOf: asOf, gradeSummary: .band(.aRange), courses: [], dueSoon: items,
+                                 entitledUntil: date(6, 10, month: 12)))
     }
 
     /// The resource's text in en_US, with the narrow and no-break spaces ICU puts in times made plain.

@@ -37,8 +37,10 @@ struct WidgetGlanceTimelineTests {
     private static let staleAt = date(2026, 10, 6, 11, 30) // asOf + 3 h
     private static let midnight = date(2026, 10, 7, 0, 0)
 
+    /// M3-B2: enforcement is on, so the glance carries the student's entitlement.
     private static func glance(grades: GradeBand? = nil) -> GlanceProjection {
-        GlanceProjection(generation: 3, asOf: asOf, overallGradeBand: grades, courses: [], dueSoon: [
+        GlanceProjection(generation: 3, asOf: asOf, gradeSummary: grades.map(GlanceGradeSummary.band) ?? .notOptedIn,
+                         courses: [], dueSoon: [
             item("overdue", due: overdue),
             item("later-today", due: laterToday),
             item("tomorrow", due: tomorrowMorning),
@@ -47,7 +49,7 @@ struct WidgetGlanceTimelineTests {
             item("submitted", due: date(2026, 10, 6, 11, 0), submitted: true),
             item("excused", due: date(2026, 10, 6, 14, 0), excused: true),
             item("undated", due: nil),
-        ])
+        ], entitledUntil: GlanceStoreFixture.entitledUntil)
     }
 
     private static func summary(_ moment: GlanceMoment) -> GlanceSummary? {
@@ -133,8 +135,9 @@ struct WidgetGlanceTimelineTests {
     @Test("a grade reaches the widget only when the glance was built with grades (opt-in, PMO R10)")
     func gradesOnlyWhenOptedIn() throws {
         let snapshot = CanvasSnapshotFixture.make(fetchedAt: Self.asOf)
-        let without = GlanceProjectionBuilder.build(from: snapshot, includeGrades: false)
-        let with = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true)
+        let without = GlanceProjectionBuilder.build(from: snapshot, includeGrades: false,
+                                                    entitledUntil: GlanceStoreFixture.entitledUntil)
+        let with = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true, entitledUntil: GlanceStoreFixture.entitledUntil)
 
         let hidden = GlanceTimelinePlanner.plan(for: .loaded(without), now: Self.now, calendar: Self.calendar)
         let shown = GlanceTimelinePlanner.plan(for: .loaded(with), now: Self.now, calendar: Self.calendar)

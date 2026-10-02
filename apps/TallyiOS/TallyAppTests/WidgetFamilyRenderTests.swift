@@ -120,7 +120,8 @@ struct WidgetFamilyRenderTests {
             GlanceCourse(id: CanvasID("5"), shortCode: "HIST 210", currentGrade: nil, gradeStatus: .notYetPosted),
         ]
         return GlanceProjection(generation: 1, asOf: now.addingTimeInterval(-600),
-                                gradeSummary: band.map(GlanceGradeSummary.band) ?? .notOptedIn, courses: courses, dueSoon: items)
+                                gradeSummary: band.map(GlanceGradeSummary.band) ?? .notOptedIn, courses: courses, dueSoon: items,
+                                entitledUntil: GlanceStoreFixture.entitledUntil) // M3-B2: enforcement is on
     }
 
     private static func entry(_ glance: GlanceProjection) -> GlanceEntry {

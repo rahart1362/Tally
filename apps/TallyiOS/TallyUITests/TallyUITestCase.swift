@@ -62,11 +62,13 @@ class TallyUITestCase: XCTestCase {
         executionTimeAllowance = Self.executionAllowance
     }
 
+    /// M3-B2: with enforcement on, every launch is entitled unless the test says otherwise
+    /// (`TestHooks.entitlement`, passed after this default: the last one wins).
     @MainActor
     @discardableResult
     func launchApp(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += Self.pinnedLocaleArguments + arguments
+        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.entitled + arguments
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         app.launch()
         return app
