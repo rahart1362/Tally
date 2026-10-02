@@ -11,8 +11,9 @@ Every number below comes from a CI log, an xcresult summary, a local run in this
 cited. Exit code 0 was never taken as evidence on its own. Anything not observed is marked
 UNVERIFIED. The journal is `build/logs/journal/2026-10-01-m3d.md`.
 
-<!-- STATUS: hand-off, 2026-10-01. The PR's own run is reported in the PR and in the hand-off reply, not
-     here: recording it would need a docs-only push, which starts another full run. -->
+<!-- STATUS: hand-off, 2026-10-01. PR #26's first run is recorded below; its second run (after the fix push)
+     is reported in the hand-off reply, not here: recording it would need a docs-only push, which starts another
+     full run. -->
 
 ## 1. Summary
 
@@ -43,7 +44,8 @@ budget was three iteration runs and one mutation run, and the PR's run is the on
 | 36941479820 (unit, iteration 2) | `7878069` | Linux jobs success; the Debug build of the app and the widget **succeeded** (metadata included); the test build failed once: an M2 test passed `GlanceText.bandLabel` as a function, which a defaulted `locale` parameter no longer allows |
 | 36943166823 (unit, iteration 3) | `3d236ed` | Linux jobs, hygiene and lint success; the Debug app build succeeded; the test build failed to **link** the widget (`Undefined symbols … TallyDomain.FreshnessState`, `TallyStrings.TallyLocale.effective`, from `RefreshTallyIntent+Widget.o`: in the test build the package products are frameworks, and the widget links TallyGlance alone). The Release device build and its gates passed, the widget isolation gate included (`TallyFeatures: 0 … TallyGlance: 2492, TallyStore: 3335`; `WIDGET \| PASS \| binaries \| 0 problems`). Fixed in `40d3f4f` |
 | 36946959574 (unit, the one mutation run) | `02a36bc` (MV1-MV6 on `40d3f4f`) | Hygiene, TallyCore Linux, sanitizers, lint, perf: success. `ios-build`: the Debug build and, for the first time, the **test build succeeded** (`40d3f4f`'s link fix held); `totalTestCount=419, passedTests=408, failedTests=9, expectedFailures=2`. The 9 failures are exactly the 9 tests the mutations target, each failing both attempts; no other test failed or needed its retry. The Release build and its gates (shipping binaries, no UI-test hooks, widget isolation, widget memory budget) passed. §10 |
-| The PR's run (the one full run) | the PR's head | In the PR and the hand-off reply (see the status note at the top) |
+| 36950934685 (PR #26, the first full run) | `c4874f8` | 7 of 8 required jobs succeeded: hygiene, core-linux, lint, core-sanitizers; `ios-build` (`totalTestCount=452, passedTests=450, failedTests=0, expectedFailures=2`, no failed attempt; the evidence line now reads `key check passed`); `ios-asan` (`449, passed 440, failed 0, skipped 7, expected 2`); `ios-perf` (`PERF-BUDGET \| PASS \| Warm launch to the painted glance … median 0.8591 s <= 3.0 s`; the diagnostic, unbudgeted `testEmptySceneToTask` failed with "Received unexpected number of metrics", which the Makefile reports without gating, and is not M3-D's). **`ios-tsan` failed on one test, mine**: `appIntentsMetadata()` found the widget's `Metadata.appintents` empty (`ThreadSanitizer warnings: 0; errors: 0`). Cause and fix (`e44c9a5`): §10 |
+| PR #26's second run | `e44c9a5` and its docs | In the hand-off reply |
 
 Hygiene evidence (run 36940410627 and every run since): `WIDGET | PASS | sources | 16 Swift files, 6
 modules, 0 problems`; `L10N | PASS | 169 Swift files, 185 literals in 18 files, baseline 185 in 18
@@ -323,7 +325,23 @@ have the same tree object (`7d8ce05e`), so nothing else differs either.
 `M3D-APPINTENTS | … | check passed` from a failing attempt, because the print was unconditional. Fixed in
 `3aa688b`: the line says `key check passed` or `key check failed: N without English`, and no `#expect`
 changed. Verified locally only (a syntax parse of the file, and a replica of the new lines compiled under
-Swift 6 that printed the right verdict for 0, 2 and 3 unresolved keys); its first hosted run is the PR's.
+Swift 6 that printed the right verdict for 0, 2 and 3 unresolved keys). PR #26's first run printed
+`M3D-APPINTENTS | app names 7, widget names 3 | app 19 keys, widget 9 keys | key check passed`.
+
+**PR #26's first run: an Xcode build race in the sanitizer jobs.** `ios-tsan` failed `appIntentsMetadata()`:
+the widget's `Metadata.appintents` was empty. The TSan job builds one architecture in Debug, where Xcode 26.6
+links `TallyWidgets.debug.dylib` and the `__preview.dylib` stub with the same `-dependency_info` file
+(`Objects-normal-tsan/arm64/TallyWidgets_dependency_info.dat`, both `Ld` commands in the job's `tsan.log`).
+The stub linked after the dylib, and the metadata processor then logged `Metadata extraction skipped. No
+AppIntents.framework dependency found.` In every build log on hand, the metadata was written exactly when
+the debug dylib linked after the stub: the widget in the Debug simulator build (stub first, written), the
+widget under TSan (dylib first, skipped), and the app under TSan (stub first, written). So the parallel link
+order decides, and the overwrite is inferred from that, not observed. `ios-build`'s test build for two
+architectures linked no stub and wrote the metadata. Fix `e44c9a5`: the test takes the project's
+`.enabled(if: !TestRuntime.sanitized)` trait, like the accessibility-tree tests (all six of those were skipped
+in that TSan run, so the trait holds there). The metadata is a property of the build, not of threads or memory,
+and `ios-build` keeps the guard. No `#expect` changed. Local evidence: `swiftc -parse`, the 16 hygiene steps,
+`make lint`. The build race itself is OI-D13.
 
 ## 11. Shared files I edited (all additive)
 
@@ -377,6 +395,7 @@ now stale: the intents moved to the targets; one line for whoever owns that file
 | OI-D10 | "What should I do next?" by priority: an intent answered from the projection (`TallyFeatures`), not the glance | PMO |
 | OI-D11 | M2's OI1 (the widget-audience key in the App Group Keychain group, GL-02) and OI2 (read `accounts.json`) are unchanged: on a device the widgets show "Open Tally to update" until GL-02 | PMO / GL-02 |
 | OI-D12 | `packages/TallyAppleKit/Package.swift`'s comment on `TallyIntents` ("AppIntents + AppEntity types, shared by the app and the widget") is stale: the intents moved to the targets (§11) | That file's next owner |
+| OI-D13 | Xcode 26.6, Debug for one architecture (the sanitizer jobs; Xcode's Run on one device): `X.debug.dylib` and `__preview.dylib` share one `-dependency_info` file, so the last link decides whether App Intents metadata is extracted. The test skips sanitizer runs (§10), but a developer's Debug build may lack the widget's (or the app's) intents now and then. Candidate fix, UNVERIFIED (no Xcode here): `ENABLE_DEBUG_DYLIB: NO` on the widget target, and the app target's owner decides for the app | PMO (`project.yml`) |
 
 ## 14. UNVERIFIED
 
@@ -413,5 +432,9 @@ I did not run `agent-ecosystem distill` (it commits and pushes outside this work
   printed from a failing attempt (mutation run 36946959574). A CI log line is a claim, not a verdict.
 - **The xcresult summary prints only the first issue per test**; the xcresult database's `TestIssues` table
   holds every issue (MV5's second bundle was only there). Attribute a batched mutation run from it.
+- **Xcode 26.6 Debug builds for one architecture link `X.debug.dylib` and `__preview.dylib` with the same
+  `-dependency_info` file**, and the last link decides whether App Intents metadata is extracted ("Metadata
+  extraction skipped. No AppIntents.framework dependency found"). Test build artifacts in the plain Debug test
+  build, not in the sanitizer jobs.
 - **TallyGlance's logic runs on Linux**: a scratch package with the Foundation-only files as a module
   named `TallyGlance` against the real TallyCore runs the same hosted test files unchanged.
