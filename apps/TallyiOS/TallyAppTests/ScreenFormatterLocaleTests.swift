@@ -114,7 +114,10 @@ struct ScreenFormatterLocaleTests {
           ])
     func dueTextWithinWeek(identifier: String, expected: String) {
         let f = Self.formatter(Locale(identifier: identifier))
-        #expect(f.dueText(Self.now) == expected)
+        // Run 36944513256: en_US's `timeText` embeds a narrow no-break space before "PM" on this
+        // ICU version. Same normalization as the Percent tests above, so this stays a check of
+        // wording, not of that spacing.
+        #expect(Self.plainSpaces(f.dueText(Self.now)) == expected)
     }
 
     /// Past due: "Was due …" — en_US unchanged; the day word still localizes.
@@ -128,9 +131,10 @@ struct ScreenFormatterLocaleTests {
     /// `untilText` ("Fri at 11:59 PM", for "still accepted until …"): same whole-sentence pattern.
     @Test("untilText: en_US unchanged; the placeholders are locale-formatted")
     func untilText() {
-        #expect(Self.formatter(Locale(identifier: "en_US")).untilText(Self.now) == "today at 2:13 PM")
-        #expect(Self.formatter(Locale(identifier: "en_GB")).untilText(Self.now) == "today at 14:13")
-        #expect(Self.formatter(Locale(identifier: "es_ES")).untilText(Self.now) == "hoy at 14:13")
+        // Same narrow-no-break-space normalization as `dueTextWithinWeek` (en_US's "PM" only).
+        #expect(Self.plainSpaces(Self.formatter(Locale(identifier: "en_US")).untilText(Self.now)) == "today at 2:13 PM")
+        #expect(Self.plainSpaces(Self.formatter(Locale(identifier: "en_GB")).untilText(Self.now)) == "today at 14:13")
+        #expect(Self.plainSpaces(Self.formatter(Locale(identifier: "es_ES")).untilText(Self.now)) == "hoy at 14:13")
     }
 
     // MARK: - Letter grades (ScreenFormatter.spokenLetter: never translate the letter itself)
