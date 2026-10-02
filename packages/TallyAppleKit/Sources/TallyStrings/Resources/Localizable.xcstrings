@@ -2317,6 +2317,366 @@
         }
       }
     },
+    "family.add.codeField" : {
+      "comment" : "Text field for the pairing code a student created.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code from your student"
+          }
+        }
+      }
+    },
+    "family.add.confirm" : {
+      "comment" : "Button: link the student with the entered code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "family.add.footer" : {
+      "comment" : "Footnote under the pairing code field.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codes are case-sensitive. Ask your student for the code from Tally (Settings → Family & Sharing) or from Canvas."
+          }
+        }
+      }
+    },
+    "family.add.title" : {
+      "comment" : "Title of the sheet where a parent enters a student's pairing code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Student"
+          }
+        }
+      }
+    },
+    "family.detail.dueReminders" : {
+      "comment" : "Toggle: remind the parent before the student's work is due. Off by default; the student gets their own reminders.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due-Date Reminders"
+          }
+        }
+      }
+    },
+    "family.detail.gradePosted" : {
+      "comment" : "Toggle: tell the parent a new grade was posted (the grade itself is never shown).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Grade Posted"
+          }
+        }
+      }
+    },
+    "family.detail.missing" : {
+      "comment" : "Toggle: tell the parent when the student's work is past due but Canvas still accepts it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing Work Still Accepted"
+          }
+        }
+      }
+    },
+    "family.detail.notificationsHeader" : {
+      "comment" : "Section header on one linked student's page. The argument is the student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications for %@"
+          }
+        }
+      }
+    },
+    "family.detail.remove" : {
+      "comment" : "Button on a linked student's page: delete that student's data from this iPhone; the Canvas link stays. Also the confirmation's button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Tally"
+          }
+        }
+      }
+    },
+    "family.detail.unlink" : {
+      "comment" : "Destructive button on a linked student's page: remove the observer link in Canvas itself.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlink in Canvas"
+          }
+        }
+      }
+    },
+    "family.detail.weekAhead" : {
+      "comment" : "Toggle: the Sunday evening summary of what the student has due in the next 7 days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week Ahead"
+          }
+        }
+      }
+    },
+    "family.invite.cannot" : {
+      "comment" : "Invite sheet: what a linked parent can't do.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They can't submit work, message as you or change anything."
+          }
+        }
+      }
+    },
+    "family.invite.codeAccessibility" : {
+      "comment" : "VoiceOver label of a pairing code. The argument spells the code one character at a time, such as 'X, 7, Q, 2, K, P'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code: %@"
+          }
+        }
+      }
+    },
+    "family.invite.copy" : {
+      "comment" : "Button: copy the pairing code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "family.invite.create" : {
+      "comment" : "Button: ask Canvas for a one-time pairing code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Code"
+          }
+        }
+      }
+    },
+    "family.invite.labelField" : {
+      "comment" : "Optional text field on the invite sheet: a private label for the code, such as 'Mom'. Kept on this iPhone only.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Who's this for? (only on this iPhone)"
+          }
+        }
+      }
+    },
+    "family.invite.oldestWarning" : {
+      "comment" : "Shown before Create Code when 5 codes from this iPhone are still pending.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creating another code turns off your oldest unused one."
+          }
+        }
+      }
+    },
+    "family.invite.ownAccount" : {
+      "comment" : "Invite sheet: the parent uses their own Canvas parent account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your parent signs in with their own account. You never share your password."
+          }
+        }
+      }
+    },
+    "family.invite.share" : {
+      "comment" : "Button: open the share sheet with the pairing code and instructions.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share…"
+          }
+        }
+      }
+    },
+    "family.invite.shareText" : {
+      "comment" : "Text the student shares with a parent. 1 and 2: the school's name. 3: the pairing code. 4: a formatted date. Never contains grades; the code is never part of a link.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I'd like you to see my %1$@ Canvas in Tally.\n1. Get Tally from the App Store.\n2. Choose %2$@, then \"I'm a parent\".\n3. Sign in or create your parent account.\n4. Enter code %3$@ (case-sensitive, expires %4$@)."
+          }
+        }
+      }
+    },
+    "family.invite.shareTextNoSchool" : {
+      "comment" : "Text the student shares with a parent when Tally doesn't know the school's name. 1: the pairing code. 2: a formatted date. Never contains grades; the code is never part of a link.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I'd like you to see my Canvas in Tally.\n1. Get Tally from the App Store.\n2. Choose my school, then \"I'm a parent\".\n3. Sign in or create your parent account.\n4. Enter code %1$@ (case-sensitive, expires %2$@)."
+          }
+        }
+      }
+    },
+    "family.invite.title" : {
+      "comment" : "Title of the sheet where a student creates a code for a parent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let a parent see your Canvas"
+          }
+        }
+      }
+    },
+    "family.invite.warning" : {
+      "comment" : "Warning under a new pairing code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anyone who enters this code first will be linked to you. Share it only with your parent."
+          }
+        }
+      }
+    },
+    "family.invite.willSee" : {
+      "comment" : "Invite sheet: what a linked parent can see in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They'll see your courses, assignments and due dates, grades and comments, announcements and calendar."
+          }
+        }
+      }
+    },
+    "family.invite.worksOnce" : {
+      "comment" : "Under a new pairing code. The argument is a formatted date, such as 'Fri, Oct 2'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works once · expires %@"
+          }
+        }
+      }
+    },
+    "family.linked.addStudent" : {
+      "comment" : "Button: link another student to this parent account with the student's code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Student"
+          }
+        }
+      }
+    },
+    "family.linked.footer" : {
+      "comment" : "Footer under the Linked Students section in parent mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications about your students never include grades."
+          }
+        }
+      }
+    },
+    "family.linked.header" : {
+      "comment" : "Settings section header in parent mode: the students this parent observes in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linked Students"
+          }
+        }
+      }
+    },
+    "family.linked.hideNames" : {
+      "comment" : "Toggle: parent notifications say 'Your student' instead of the student's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Student Names"
+          }
+        }
+      }
+    },
+    "family.linked.viewed" : {
+      "comment" : "VoiceOver value of the linked-student row whose data the app is showing now.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewing"
+          }
+        }
+      }
+    },
     "family.notification.belowGoal.body" : {
       "comment" : "Parent notification body for the 'needs attention' notification. Never the score or goal value.",
       "extractionState" : "manual",
@@ -2457,6 +2817,522 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@'s week"
+          }
+        }
+      }
+    },
+    "family.observer.copyRequest" : {
+      "comment" : "Button: copy a ready-written request to the school to remove an observer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Request"
+          }
+        }
+      }
+    },
+    "family.observer.howToRemove" : {
+      "comment" : "Button on one observer's page: explains that only the school can remove an observer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to Remove"
+          }
+        }
+      }
+    },
+    "family.observer.howToRemoveBody" : {
+      "comment" : "Body of the how-to-remove sheet. The argument is the observer's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Canvas doesn't let students unlink observers. Contact your school's Canvas support and ask them to remove %@ as an observer on your account."
+          }
+        }
+      }
+    },
+    "family.observer.howToRemoveHeading" : {
+      "comment" : "Heading of the sheet explaining how a student gets an observer removed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only your school can remove an observer."
+          }
+        }
+      }
+    },
+    "family.observer.linked" : {
+      "comment" : "On one observer's page: this person is linked to the student's Canvas account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linked to your Canvas account"
+          }
+        }
+      }
+    },
+    "family.observer.request" : {
+      "comment" : "Text the student pastes into a message to their school. The argument is the observer's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please remove %@ as an observer on my Canvas account."
+          }
+        }
+      }
+    },
+    "family.remove.message" : {
+      "comment" : "Confirmation message before removing a student from Tally only. Every argument is the same student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ stays linked to your Canvas account. Tally will delete %2$@'s saved data from this iPhone. You can add %3$@ back from Linked students."
+          }
+        }
+      }
+    },
+    "family.remove.title" : {
+      "comment" : "Confirmation title before the parent removes a student's data from this iPhone. The argument is the student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove %@ from Tally?"
+          }
+        }
+      }
+    },
+    "family.sample.viewAsParent" : {
+      "comment" : "Sample data only: show the app as a parent who observes two fictional students.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explore Parent Mode"
+          }
+        }
+      }
+    },
+    "family.sample.viewAsParentFooter" : {
+      "comment" : "Sample data only: footnote under Explore Parent Mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Tally as a parent who observes two fictional students."
+          }
+        }
+      }
+    },
+    "family.sample.viewAsStudent" : {
+      "comment" : "Sample data only: return from the parent view to the fictional student's own view.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explore Student Mode"
+          }
+        }
+      }
+    },
+    "family.sharing.expires" : {
+      "comment" : "When a pairing code stops working. The argument is a formatted date, such as 'Fri, Oct 2'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expires %@"
+          }
+        }
+      }
+    },
+    "family.sharing.explainer" : {
+      "comment" : "Explanation at the top of a student's Family & Sharing section.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People linked to your Canvas account as observers (such as parents) can see your courses, assignments and grades in Canvas and in apps like Tally. They can't submit work or act as you."
+          }
+        }
+      }
+    },
+    "family.sharing.header" : {
+      "comment" : "Settings section header for a student: who can see their Canvas, and inviting a parent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family & Sharing"
+          }
+        }
+      }
+    },
+    "family.sharing.invite" : {
+      "comment" : "Button for a student: create a one-time code a parent uses to link to the student's Canvas account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite a Parent"
+          }
+        }
+      }
+    },
+    "family.sharing.inviteLabel" : {
+      "comment" : "Row title for a pairing code the student did not give a name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code"
+          }
+        }
+      }
+    },
+    "family.sharing.invitesFooter" : {
+      "comment" : "Footnote under the student's pairing codes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codes can't be cancelled. They stop working after 7 days or once used."
+          }
+        }
+      }
+    },
+    "family.sharing.invitesHeader" : {
+      "comment" : "Subheading over the pairing codes this student created on this iPhone.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invites from This iPhone"
+          }
+        }
+      }
+    },
+    "family.sharing.linkedFooter" : {
+      "comment" : "Footnote under the list of observers linked to the student's Canvas account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only account-wide links are shown. Links your school made for a single course may not appear."
+          }
+        }
+      }
+    },
+    "family.sharing.linkedHeader" : {
+      "comment" : "Subheading over the list of observers linked to the student's Canvas account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linked in Canvas"
+          }
+        }
+      }
+    },
+    "family.sharing.shareAgain" : {
+      "comment" : "Button: share a pairing code the student already created.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Again"
+          }
+        }
+      }
+    },
+    "family.state.codeRejected" : {
+      "comment" : "Canvas refused the pairing code a parent entered.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That code didn't work. Codes are case-sensitive, work once, and expire after 7 days. Ask your student for a new one."
+          }
+        }
+      }
+    },
+    "family.state.getCodeInCanvas" : {
+      "comment" : "Button: open the school's Canvas settings in Safari, where a student can create a pairing code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get a Code in Canvas"
+          }
+        }
+      }
+    },
+    "family.state.inviteRefused" : {
+      "comment" : "Canvas refused to create a pairing code because the school doesn't allow parent accounts. The argument is the school's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hasn't turned on parent accounts in Canvas, so Tally can't create an invite."
+          }
+        }
+      }
+    },
+    "family.state.linkRemoved" : {
+      "comment" : "Alert message when a student's Canvas link to this parent disappeared. Both arguments are the student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're no longer linked to %1$@ in Canvas. Tally removed %2$@'s saved data from this iPhone."
+          }
+        }
+      }
+    },
+    "family.state.linkRemovedTitle" : {
+      "comment" : "Alert title when a student's Canvas link to this parent disappeared.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link Removed"
+          }
+        }
+      }
+    },
+    "family.state.network" : {
+      "comment" : "A family-linking request to Canvas failed for a network or server reason.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally couldn't reach Canvas. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "family.state.ok" : {
+      "comment" : "Button closing the link-removed alert.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "family.state.parentNoStudents" : {
+      "comment" : "Parent mode with no linked student.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No students linked yet. Ask your student for a code from Tally (Settings → Family & Sharing) or from Canvas (Account → Settings → Pair with Observer)."
+          }
+        }
+      }
+    },
+    "family.state.scopeMissing" : {
+      "comment" : "The school's Tally setup lacks the family permissions, so Tally can't create or use codes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school's Tally setup doesn't include parent invites yet."
+          }
+        }
+      }
+    },
+    "family.state.studentNoObservers" : {
+      "comment" : "A student's Family & Sharing section when no observer is linked.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No one is linked to your Canvas account."
+          }
+        }
+      }
+    },
+    "family.state.throttled" : {
+      "comment" : "The student reached Tally's daily limit of pairing codes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You've created the most codes Tally allows in a day. Try again tomorrow."
+          }
+        }
+      }
+    },
+    "family.state.tryAgain" : {
+      "comment" : "Button after a failed family-linking request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        }
+      }
+    },
+    "family.state.yourSchool" : {
+      "comment" : "Stands for the school's name in a family-linking message when Tally doesn't know it, as in 'Your school hasn't turned on parent accounts in Canvas'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school"
+          }
+        }
+      }
+    },
+    "family.switcher.add" : {
+      "comment" : "Header switcher menu item: starts adding another student with a code.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a student…"
+          }
+        }
+      }
+    },
+    "family.switcher.hint" : {
+      "comment" : "VoiceOver hint of the header student-switcher when the parent has more than one linked student.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-tap to switch student"
+          }
+        }
+      }
+    },
+    "family.switcher.manage" : {
+      "comment" : "Header switcher menu item: opens Settings, where the linked students are listed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage linked students…"
+          }
+        }
+      }
+    },
+    "family.switcher.nowViewing" : {
+      "comment" : "VoiceOver announcement after the parent switches student. The argument is the student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now viewing %@"
+          }
+        }
+      }
+    },
+    "family.switcher.picker" : {
+      "comment" : "Label of the list of linked students inside the header switcher's menu.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Student"
+          }
+        }
+      }
+    },
+    "family.switcher.viewing" : {
+      "comment" : "VoiceOver label of the header student-switcher in parent mode. The argument is the first name of the student whose data is shown.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viewing %@"
+          }
+        }
+      }
+    },
+    "family.unlink.confirm" : {
+      "comment" : "Destructive confirmation button: remove the Canvas observer link to the student.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlink"
+          }
+        }
+      }
+    },
+    "family.unlink.message" : {
+      "comment" : "Confirmation message before unlinking a student in Canvas. Every argument is the same student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll stop seeing %1$@'s courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, %2$@ will need to send you a new code. Tally will delete %3$@'s saved data from this iPhone."
+          }
+        }
+      }
+    },
+    "family.unlink.title" : {
+      "comment" : "Confirmation title before the parent removes the Canvas link to a student. The argument is the student's first name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlink %@?"
           }
         }
       }

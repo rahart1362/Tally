@@ -1,0 +1,97 @@
+{
+  "$comment": "Derived from fixtures/canvas/manifest.json personas.sample-family.routes (8 routes) for FAM-14 sample family mode (packages/TallyAppleKit/Sources/TallyFeatures/Family/SampleFamily.swift). Wholly synthetic. Regenerate: python3 -c \"import json; m=json.load(open('fixtures/canvas/manifest.json')); f=m['personas']['sample-family']; json.dump({'anchor': m['anchor'], 'time_zone': f['time_zone'], 'host': f['host'], 'school': f['school'], 'routes': f['routes']}, open('packages/TallyAppleKit/Sources/TallySampleFixtures/CanvasFixtures/family-manifest.json', 'w'), indent=2)\"",
+  "anchor": "2026-09-28T13:00:00Z",
+  "time_zone": "America/Chicago",
+  "host": "canvas.sample-family.example",
+  "school": "Riverbend Unified (fictional)",
+  "routes": [
+    {
+      "endpoint": "profile",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/users/self/profile",
+      "query": "",
+      "query_match": "",
+      "status": 200,
+      "body": "personas/sample-family/profile.json",
+      "headers": "personas/sample-family/profile.headers.json"
+    },
+    {
+      "endpoint": "observees",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/users/self/observees",
+      "query": "include[]=avatar_url&per_page=100",
+      "query_match": "include[]=avatar_url&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/observees.json",
+      "headers": "personas/sample-family/observees.headers.json"
+    },
+    {
+      "endpoint": "courses",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/users/8800101/courses",
+      "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/rowan/courses.json",
+      "headers": "personas/sample-family/students/rowan/courses.headers.json"
+    },
+    {
+      "endpoint": "courses",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/users/8800102/courses",
+      "query": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "query_match": "enrollment_state=active&include[]=current_grading_period_scores&include[]=observed_users&include[]=teachers&include[]=term&include[]=total_scores&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/skyler/courses.json",
+      "headers": "personas/sample-family/students/skyler/courses.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/courses/61001/assignment_groups",
+      "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/rowan/assignment_groups/61001.json",
+      "headers": "personas/sample-family/students/rowan/assignment_groups/61001.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/courses/61002/assignment_groups",
+      "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/rowan/assignment_groups/61002.json",
+      "headers": "personas/sample-family/students/rowan/assignment_groups/61002.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/courses/61101/assignment_groups",
+      "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/skyler/assignment_groups/61101.json",
+      "headers": "personas/sample-family/students/skyler/assignment_groups/61101.headers.json"
+    },
+    {
+      "endpoint": "assignment_groups",
+      "method": "GET",
+      "host": "canvas.sample-family.example",
+      "path": "/api/v1/courses/61102/assignment_groups",
+      "query": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "query_match": "include[]=assignments&include[]=observed_users&include[]=submission&per_page=100",
+      "status": 200,
+      "body": "personas/sample-family/students/skyler/assignment_groups/61102.json",
+      "headers": "personas/sample-family/students/skyler/assignment_groups/61102.headers.json"
+    }
+  ]
+}
