@@ -11,7 +11,8 @@ Every number below comes from a CI log, an xcresult summary, a local run in this
 cited. Exit code 0 was never taken as evidence on its own. Anything not observed is marked
 UNVERIFIED. The journal is `build/logs/journal/2026-10-01-m3d.md`.
 
-<!-- STATUS: draft; CI evidence is filled in as the runs complete. -->
+<!-- STATUS: hand-off, 2026-10-01. The PR's own run is reported in the PR and in the hand-off reply, not
+     here: recording it would need a docs-only push, which starts another full run. -->
 
 ## 1. Summary
 
@@ -28,6 +29,7 @@ UNVERIFIED. The journal is `build/logs/journal/2026-10-01-m3d.md`.
 | Subscription locked state | Behind one seam, `GlanceAccess.isUnlocked`, `true` until M3-B1 merges (§7) |
 | FAM-11 forward-compatibility | One parameterless configuration intent, one scope seam (§8) |
 | Localization | Every string a catalog key; my two baseline files 25 → 0 literals (§9) |
+| Mutation checks | 12 local (MP1-MP8, MG1-MG4) and 6 hosted (MV1-MV6, run 36946959574): all caught, all restored byte-identical (§10) |
 
 ## 2. Evidence by package
 
@@ -39,14 +41,22 @@ budget was three iteration runs and one mutation run, and the PR's run is the on
 |---|---|---|
 | 36940410627 (unit, iteration 1) | `087629c` | Hygiene, TallyCore Linux, sanitizers, lint, perf: success. `ios-build` failed at the Debug build: no Swift error or warning in this branch's files; the App Intents metadata processor halted on `TypeDisplayRepresentation(…, numericFormat: nil)` ("must be initialized directly with a String literal"), so the app target and the tests were not compiled |
 | 36941479820 (unit, iteration 2) | `7878069` | Linux jobs success; the Debug build of the app and the widget **succeeded** (metadata included); the test build failed once: an M2 test passed `GlanceText.bandLabel` as a function, which a defaulted `locale` parameter no longer allows |
-| RUN3 | | |
-| MUTATION | | |
-| PR | | |
+| 36943166823 (unit, iteration 3) | `3d236ed` | Linux jobs, hygiene and lint success; the Debug app build succeeded; the test build failed to **link** the widget (`Undefined symbols … TallyDomain.FreshnessState`, `TallyStrings.TallyLocale.effective`, from `RefreshTallyIntent+Widget.o`: in the test build the package products are frameworks, and the widget links TallyGlance alone). The Release device build and its gates passed, the widget isolation gate included (`TallyFeatures: 0 … TallyGlance: 2492, TallyStore: 3335`; `WIDGET \| PASS \| binaries \| 0 problems`). Fixed in `40d3f4f` |
+| 36946959574 (unit, the one mutation run) | `02a36bc` (MV1-MV6 on `40d3f4f`) | Hygiene, TallyCore Linux, sanitizers, lint, perf: success. `ios-build`: the Debug build and, for the first time, the **test build succeeded** (`40d3f4f`'s link fix held); `totalTestCount=419, passedTests=408, failedTests=9, expectedFailures=2`. The 9 failures are exactly the 9 tests the mutations target, each failing both attempts; no other test failed or needed its retry. The Release build and its gates (shipping binaries, no UI-test hooks, widget isolation, widget memory budget) passed. §10 |
+| The PR's run (the one full run) | the PR's head | In the PR and the hand-off reply (see the status note at the top) |
 
 Hygiene evidence (run 36940410627 and every run since): `WIDGET | PASS | sources | 16 Swift files, 6
 modules, 0 problems`; `L10N | PASS | 169 Swift files, 185 literals in 18 files, baseline 185 in 18
 files`; `CATALOG | PASS | 6 catalogs, 378 keys, shipping ['en'] | 0 problems`; `PRIVACY | PASS |
 summary | 11 checks, 0 failed, 0 warnings`.
+
+After merging `origin/main` twice (`b6fc641`: PR #23 and PR #24; `f964854`: PR #25, which merged while I
+verified the first), on this worktree's final tree, every `run:` of the hygiene job in `ci.yml` (16 of 16
+passed), among them: `CATALOG | PASS | 6 catalogs, 404 keys` (378 + main's 14 + 12); `L10N | PASS | 175 Swift
+files, 185 literals in 18 files, baseline 185 in 18 files`; `WIDGET | PASS | sources | 16 Swift files, 6 modules, 0 problems`; `PRIVACY | PASS | summary | 11
+checks, 0 failed, 0 warnings`; PR #24's `DEBUG-ONLY TEST SYMBOLS | PASS | 85 test files, 0 problems`; and
+`make lint` (SwiftLint 0.59.1 `--strict`, the merged config with `no_unique_keys_with_values`): `Found 0
+violations, 0 serious in 243 files`.
 
 ## 3. Platform facts this design rests on
 
@@ -208,7 +218,26 @@ Lock Screen) and nothing from the glance (`GlanceMessage.subscriptionRequired`; 
 `WidgetFamilyRenderTests.everyState`). Wiring it to M3-B1's entitlement field is one change there, plus
 the expiry as a timeline boundary.
 
-(The state at hand-off is recorded in §13.)
+**State at hand-off: the seam returns `true`.** M3-B1 has not merged: `origin/main` was `4689bea`
+(PR #25) at the last fetch, and M3-B1 has no PR open. Its branch (`store/m3b1` at `3d0c8a9`, unmerged,
+read only) adds `GlanceProjection.entitledUntil: Date?` and `coversSubscription(at:isEnforced:)`, which
+fails closed `SubscriptionConfig.offlineGracePeriod` (3 days) after `entitledUntil` and is always `true`
+while `SubscriptionConfig.isGatingEnforced` is `false` (off on main until M3-B2 ships). **Where M3-B2 or
+the PMO wires it** once M3-B1 is on main (names as on that branch; check them then):
+
+1. `packages/TallyAppleKit/Sources/TallyGlance/GlanceAccess.swift:13-15`: the body becomes
+   `glance.coversSubscription(at: moment)`. Every caller already asks the seam: the widgets
+   (`GlanceTimeline.swift:268`), and the two spoken answers and the Focus filter's course list
+   (`GlanceIntentAnswers.swift:58`).
+2. `GlanceTimeline.swift:276` (`GlanceTimelinePlanner.boundaries`): add the instant `coversSubscription`
+   turns false (`entitledUntil` plus the grace period) when it is after `now`, so a timeline built before
+   a lapse switches to the locked message at it.
+3. `apps/TallyiOS/TallyAppTests/WidgetPlannerTests.swift:166-175` (`accessSeam()`) asserts "always
+   unlocked" today. It becomes: covered → a summary; lapsed with gating enforced →
+   `.subscriptionRequired`; the boundary present. The test needs the enforcement switch injectable
+   (for example an `isEnforced` parameter on the seam, defaulting to M3-B1's switch). The locked
+   rendering is already tested (`WidgetFamilyRenderTests.everyState(surface:)`), and local mutation MP6
+   (the seam locks every glance) was caught by 14 tests.
 
 ## 8. FAM-11 forward-compatibility
 
@@ -265,7 +294,36 @@ checked again after the restore (`.build-m3d/mutate.py` and its JSON records, gi
 | MG3 | A hard-coded `Text("Due this week")` in `GlanceListWidgetViews.swift` | `GlanceListWidgetViews.swift` (`0c713ac0…ec13e`) | exit 1: L10N \| FAIL \| packages/TallyAppleKit/Sources/TallyGlance/GlanceListWidgetViews.swift: 1 hard-coded literals (a new file); use L10n (TallyStrings), o |
 | MG4 | A key renamed in `L10n+Widgets.swift` but not in the catalog | `L10n+Widgets.swift` (`7e20f4a0…2ccf3`) | exit 1: CATALOG \| FAIL \| packages/TallyAppleKit/Sources/TallyStrings/L10n+Widgets.swift:166: key 'widget.week.busyDay' is not in packages/TallyAppleKit/Sour |
 
-**CI** (the one batched mutation run; filled in after it ran).
+**CI**, the one batched mutation run: run 36946959574 on `02a36bc` (MV1-MV6 applied to `40d3f4f` by
+`.build-m3d/ci_mutations.py`), `scope=unit`. Every mutation was caught by the test written for it, and
+only on the surfaces it touched. Each failing test failed both attempts (the job log's 18 failed-attempt
+warnings, 9 tests × 2, name exactly these 9; the run shows the first 10 as `Failed attempt (retried once)`
+annotations), and no other test failed. Attribution from the xcresult's
+`TestIssues` table, which holds every issue (the console summary prints only the first per test):
+
+| ID | Mutation | File (sha256 at `40d3f4f`) | Caught by [cases] (issues per attempt) |
+|---|---|---|---|
+| MV1 | The medium Standing widget draws course grades while locked (the `.privacy` check and `.privacySensitive()` both removed) | `GlanceWidgetViews.swift` (`65dc617f…a4ed9`) | `standingRedactedWhenLocked(surface:)` [standing-medium only] (3): the locked pixels differ by grade (`lockedA → 36367 bytes` vs `lockedF → 36200 bytes`), and the locked text shows course bands |
+| MV2 | The rectangular Lock Screen accessory draws the overall band | `GlanceAccessoryViews.swift` (`93bc0777…41025`) | `accessoriesIgnoreGrades(surface:mode:)` [next-item-rectangular in full colour, accented and vibrant] (3): `Set(rendered).count → 3`, expected 1; `accessoryTextHasNoGrades(surface:)` [next-item-rectangular] (1): shows 'Arange' |
+| MV3 | Text transparent where the system tints the widget | `GlanceWidgetViews.swift` (`65dc617f…a4ed9`) | `accentedKeepsMeaning(surface:)` [all 5 Home surfaces] (5): the opacity mask is empty |
+| MV4 | "Hide course names" ignored | `GlanceText.swift` (`c938ba40…23918`) | `hideCourseNames(surface:)` [rectangular (3): no "Assignment", shows "LabReport4" and "BIO101"; inline (2)] |
+| MV5 | `intent.open.target` removed from the `AppIntents` table | `AppIntents.xcstrings` (`a4029582…749b4`) | `appIntentsMetadata()` (2): "app: intent.open.target has no English in its AppIntents table", and the same for "widget:". The catalog gate passed with the key gone (`CATALOG \| PASS \| 6 catalogs, 377 keys`), so this hosted test is the only guard |
+| MV6 | Focus criteria lose the separator after the course ID | `FocusFilterCriteria.swift` (`aacf03e1…d9090`) | `focusPredicate()` (2): course 123's predicate matches `;course=1234;`; also `focusCriteria()` (1) and `tallyFocusFilter()` (1) |
+
+M3-D's suites in that run: `WidgetPlannerTests` 11 of 11 passed; `WidgetFamilyRenderTests` 3 passed and 5
+failed (MV1-MV4's targets); `WidgetIntentsTests` 4 passed and 4 failed (MV5's and MV6's). The 2 expected
+failures are main's Keychain known issues (`KeychainVaultKeyStoreTests.swift:84`, and the widget glance's
+"known issue until GL-02"), not this branch's.
+
+**Restore.** `3e87f5e` reverts `02a36bc`. Each of the five files has the same sha256 at `40d3f4f` and at
+`3e87f5e` (`git show <rev>:<path> | sha256sum`; `ci_mutations.py --verify`: 5 of 5 OK), and the two commits
+have the same tree object (`7d8ce05e`), so nothing else differs either.
+
+**No mutation survived, so no test was added.** One finding: MV5's test printed its evidence line
+`M3D-APPINTENTS | … | check passed` from a failing attempt, because the print was unconditional. Fixed in
+`3aa688b`: the line says `key check passed` or `key check failed: N without English`, and no `#expect`
+changed. Verified locally only (a syntax parse of the file, and a replica of the new lines compiled under
+Swift 6 that printed the right verdict for 0, 2 and 3 unresolved keys); its first hosted run is the PR's.
 
 ## 11. Shared files I edited (all additive)
 
@@ -275,6 +333,11 @@ checked again after the restore (`.build-m3d/mutate.py` and its JSON records, gi
 | `packages/TallyAppleKit/Sources/TallyStrings/Resources/Localizable.xcstrings` | 67 new `widget.*` keys, one hunk after `welcome.*` | Run-time widget and answer text |
 | `packages/TallyAppleKit/Sources/TallyStrings/L10n+Widgets.swift` | New file of my own (`extension L10n { enum Widgets }`) | The brief's suggested pattern |
 | `scripts/ci/l10n-baseline.json` | `--update`: my two files removed, nothing else | The brief |
+
+Both merges of `origin/main` met one of these files, the TallyStrings catalog, which PR #23 and PR #25 also
+extended. Git merged it with no conflict each time; checked: valid JSON, no duplicate keys, every entry
+identical to its side; 349 keys = 268 + 67 (mine) + 14 (#23) at `b6fc641`, 361 = 282 + 67 + 12 (#25) at
+`f964854`.
 
 Not edited: `.github/workflows/ci.yml` (no new gate was needed: the existing hygiene steps cover the
 new files, and the hosted tests run in the existing steps), and `packages/TallyAppleKit/Package.swift`
@@ -303,7 +366,7 @@ now stale: the intents moved to the targets; one line for whoever owns that file
 | # | Item | Owner |
 |---|---|---|
 | OI-D1 | **Interactive Done**: the PMO's decision on §6 (option A recommended) | PMO |
-| OI-D2 | Subscription seam wiring (§7): see the hand-off state below | M3-D after M3-B1 merges |
+| OI-D2 | Subscription seam: handed off returning `true` (M3-B1 not merged); the three wiring steps are in §7 | M3-B2 or the PMO, after M3-B1 merges |
 | OI-D3 | Intents launched with Tally not running see no account ("Open Tally to refresh"): register a lazily resolving refresh (and later Done) at launch in `TallyApp.swift` | Composition-root owner (M3-B1 this round) |
 | OI-D4 | Tag notifications with `FocusFilterCriteria.criteria(courseID:level:)` so the Focus filter takes effect; then add its "Hide course names" parameter | `UNNotificationScheduler` / reminders owners |
 | OI-D5 | "Hide course names" (R10) on widgets and answers: the glance must carry `UserState.hideCourseNamesInNotifications`; then `GlanceDisplayPolicy` reads it (one line). The views and answers already honour it (tested) | Glance owner |
@@ -313,6 +376,7 @@ now stale: the intents moved to the targets; one line for whoever owns that file
 | OI-D9 | Routes: the Next Up control and widget taps open Tally where it was; a route to Next up / an item needs the app shell | App shell owner |
 | OI-D10 | "What should I do next?" by priority: an intent answered from the projection (`TallyFeatures`), not the glance | PMO |
 | OI-D11 | M2's OI1 (the widget-audience key in the App Group Keychain group, GL-02) and OI2 (read `accounts.json`) are unchanged: on a device the widgets show "Open Tally to update" until GL-02 | PMO / GL-02 |
+| OI-D12 | `packages/TallyAppleKit/Package.swift`'s comment on `TallyIntents` ("AppIntents + AppEntity types, shared by the app and the widget") is stale: the intents moved to the targets (§11) | That file's next owner |
 
 ## 14. UNVERIFIED
 
@@ -345,5 +409,9 @@ I did not run `agent-ecosystem distill` (it commits and pushes outside this work
   between targets through a subdirectory.
 - **Swift Testing's `Attachment.record(Data, named:)` works on Xcode 26** (`Data: Attachable` since Swift
   6.2), and CI's screenshot export uploads `.png` attachments from TallyAppTests too.
+- **An evidence line must report the outcome it measured.** A test's unconditional `print("… check passed")`
+  printed from a failing attempt (mutation run 36946959574). A CI log line is a claim, not a verdict.
+- **The xcresult summary prints only the first issue per test**; the xcresult database's `TestIssues` table
+  holds every issue (MV5's second bundle was only there). Attribute a batched mutation run from it.
 - **TallyGlance's logic runs on Linux**: a scratch package with the Foundation-only files as a module
   named `TallyGlance` against the real TallyCore runs the same hosted test files unchanged.
