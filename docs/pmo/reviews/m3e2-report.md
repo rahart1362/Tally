@@ -92,11 +92,39 @@ CI: see §5.
 
 ## 4. Mutation checks
 
-See §5 (the batched run).
+One batched iOS run, **37072344290** (`scope=unit`) on `c7cdf61` (11 mutations applied by
+`.build-m3e2/mutate.py` to `b6100a4`; git-ignored), reverted in `2c0ff3d`. Every mutated file was
+restored byte-identical: its sha256 after the revert equals the value recorded before the mutation,
+and `git diff b6100a4 2c0ff3d` is empty. The run: **1100 tests in 210 suites, 18 issues (2 of them
+main's known Keychain issues)**; the 10 failing tests are all mine, each failed both attempts, and no
+other test failed.
+
+| ID | Mutation | File (sha256 before) | Caught by |
+|---|---|---|---|
+| MV1 | A repeated student is kept twice | `FamilyModel.swift` (`288da418…87625`) | `FamilyModelTests.swift:141` (students 2, not 1) |
+| MV2 | One student is a menu | `FamilyModel.swift` | `:142` and `:154` (`hasMenu` true) |
+| MV3 | Unlink removes locally before Canvas agrees | `FamilyModel.swift` | `:164` (no error), `:165` (student gone), `:170` (W3 never sent) |
+| MV4 | Selecting the current student announces again | `FamilyModel.swift` | `:135` (2 announcements) |
+| MV5 | Hide Student Names ignored in parent reminders | `FamilyReminderPlan.swift` (`e01f4e2c…66048`) | `FamilyReminderWiringTests.swift:96` (names a hidden student), `:97` (no "Your student") |
+| MV6 | Parent reminders bypass the entitlement gate | `ReminderPipeline.swift` (`19ee3a4d…05943`) | `FamilyReminderWiringTests.swift:131` |
+| MV7 | Invite refused shows the scope-missing state | `FamilyRoster.swift` (`4dbfca2f…6ad48`) | `FamilyCopyTests.swift:64` |
+| MV8 | A light avatar colour | `FamilyRoster.swift` | `FamilyCopyTests.swift:93` (contrast 1.9) |
+| MV9 | Parent mode opens outside sample mode (first route check removed) | `AppModel.swift` (`b94466c8…93e00`) | **Survived**: `enterSampleFamily()` checks the route again after the roster loads, so behaviour is unchanged; `FamilyModelTests` pins that behaviour |
+| MV10 | Leaving sample mode keeps parent mode | `AppModel.swift` | `FamilyModelTests.swift:114` |
+| MV11 | A sample code links a made-up student | `SampleFamily.swift` (`b7fbdc49…d26e6`) | `FamilyModelTests.swift:233`; the mutation's name literal also failed the hygiene job's L10N gate |
 
 ## 5. CI
 
-<!-- filled in below as runs complete -->
+| Run | Scope, commit | Result |
+|---|---|---|
+| [37061830822](https://github.com/rahart1362/Tally/actions/runs/37061830822) | unit, `4800ee7` | Every target compiled on Xcode 26.6 (app, widget, both test targets). 1098 hosted tests in 210 suites; 1 failure: `ScreenSourceHygieneTests.noRandomValues` on my sample code's `.randomElement(`. Fixed in `00f13ab` (a fixed code sequence). Linux jobs, lint, hygiene: success |
+| [37065562136](https://github.com/rahart1362/Tally/actions/runs/37065562136) | quick, `00f13ab` | Hosted: all pass (550 tests / 105 suites on the floor runtime, main's 2 known issues). UI: 7 of my 11 failed, both attempts, nothing else failed. Fixed in `b6100a4` (journal: a sheet on a Group of Form sections, 128-character queries, an unlabelled inner menu button, the toolbar's clamped type size) |
+| [37072344290](https://github.com/rahart1362/Tally/actions/runs/37072344290) | unit, `c7cdf61` (mutations) | §4. Also the first build of `b6100a4`'s fixes: everything compiled |
+| PR run | `pull_request` | see the hand-off reply |
+
+Budget used: 2 iteration runs, 1 mutation run, then the PR run. No `scope=full` dispatch.
+`origin/main` moved to `9fbd222` (PR #33: a CI workflow and a plan doc), which touches none of my
+files, so no merge (rule 3).
 
 ## 6. Open items
 
