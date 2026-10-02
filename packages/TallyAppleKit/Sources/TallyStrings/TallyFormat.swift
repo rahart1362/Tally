@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Locale-aware formatting helpers (plan 08 §3.3). Each takes the locale explicitly, defaulting
 /// to `TallyLocale.effective`, so tests pin it and callers never format with a different locale
@@ -47,13 +48,33 @@ public enum TallyFormat {
         offset: Int, context: Formatter.Context = .middleOfSentence, locale: Locale = TallyLocale.effective
     ) -> String? {
         guard namedDayOffsets.contains(offset) else { return nil }
+        // Cached per locale, context and offset. A new `RelativeDateTimeFormatter` for every due
+        // date in Course Detail, the course cards and To-Do kept PR #27's sample-entry projection
+        // over its 0.15 s budget (runs 36956322638, 36962237376: 0.1795-0.2760 s).
+        let key = NamedDayKey(locale: locale.identifier, context: context.rawValue, offset: offset)
+        if let cached = namedDayCache.strings.withLock({ $0[key] }) { return cached }
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale
         formatter.dateTimeStyle = .named
         formatter.unitsStyle = .full
         formatter.formattingContext = context
-        return formatter.localizedString(from: DateComponents(day: offset))
+        let text = formatter.localizedString(from: DateComponents(day: offset))
+        namedDayCache.strings.withLock { $0[key] = text }
+        return text
     }
+
+    private struct NamedDayKey: Hashable, Sendable {
+        let locale: String
+        let context: Int
+        let offset: Int
+    }
+
+    /// At most a few entries per locale: 3 offsets × the contexts in use.
+    private final class NamedDayCache: Sendable {
+        let strings = Mutex<[NamedDayKey: String]>([:])
+    }
+
+    private static let namedDayCache = NamedDayCache()
 
     /// "A, B, and C" (en_US), "A, B y C" (es): items joined the way the locale joins a list.
     public static func list(_ items: [String], locale: Locale = TallyLocale.effective) -> String {

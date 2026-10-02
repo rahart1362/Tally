@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// The one locale Tally formats numbers, dates and times with (plan 08 §3.3).
 ///
@@ -13,8 +14,20 @@ public enum TallyLocale {
     /// The UI language actually in use (`Bundle.main.preferredLocalizations.first`) with the
     /// user's region and preferences (`Locale.current`). In the widget, `Bundle.main` is the
     /// extension, which ships the same localizations as the app.
+    ///
+    /// Cached. Building it reads the bundle's localizations and makes a new `Locale`, and when
+    /// every formatted value rebuilt it, the sample-entry projection blew its 0.15 s budget
+    /// (PR #27, run 36956322638: 0.1795 s and 0.2760 s). The cache is cleared when iOS reports a
+    /// new current locale (`NSLocale.currentLocaleDidChangeNotification`): the region and
+    /// preferences change in place, while the UI language changes only with a relaunch.
     public static var effective: Locale {
-        effective(uiLanguage: Bundle.main.preferredLocalizations.first, current: .current)
+        let (cached, generation) = cache.state.withLock { ($0.locale, $0.generation) }
+        if let cached { return cached }
+        cache.observeLocaleChangesOnce()
+        let fresh = effective(uiLanguage: Bundle.main.preferredLocalizations.first, current: .current)
+        // A locale change while `fresh` was being built bumps the generation: don't keep a stale value.
+        cache.state.withLock { if $0.generation == generation { $0.locale = fresh } }
+        return fresh
     }
 
     /// `current` with its language replaced by `uiLanguage` (a localization name such as "en",
@@ -38,4 +51,37 @@ public enum TallyLocale {
 
     /// Xcode's "Base" localization names no language.
     static let baseLocalization = "Base"
+
+    private static let cache = EffectiveLocaleCache()
+}
+
+/// `TallyLocale.effective`'s cache: the locale, a generation that every locale change bumps, and
+/// whether the change observer is registered (once per process).
+private final class EffectiveLocaleCache: Sendable {
+    struct State {
+        var locale: Locale?
+        var generation = 0
+        var observing = false
+    }
+
+    let state = Mutex(State())
+
+    func observeLocaleChangesOnce() {
+        let register = state.withLock { state -> Bool in
+            guard !state.observing else { return false }
+            state.observing = true
+            return true
+        }
+        guard register else { return }
+        // Never removed: the cache lives as long as the process. The block observer is retained by
+        // NotificationCenter, so the returned token isn't needed.
+        _ = NotificationCenter.default.addObserver(
+            forName: NSLocale.currentLocaleDidChangeNotification, object: nil, queue: nil
+        ) { [self] _ in
+            state.withLock { state in
+                state.locale = nil
+                state.generation &+= 1
+            }
+        }
+    }
 }

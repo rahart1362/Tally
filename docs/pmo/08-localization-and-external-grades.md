@@ -91,6 +91,19 @@ Doc-local IDs (L = localization, G = grades), to avoid clashing with O1–O10.
 
 ---
 
+### Owner decisions on XG-04/06's open items (2026-10-01, evening)
+Source: `docs/pmo/reviews/xg04-06-report.md`.
+
+- **O2, copy: approved as drafted.**
+  - "Course Options" (the menu).
+  - "Category weights", with the footer "Each weight is a percent of the grade. Categories you leave blank use this course's setting in Canvas."
+  - "Total: %@", plus the invalid-entry, all-zero and over-100 notes.
+  - "No estimate yet. Enter a score to see one." (VoiceOver).
+- **O3, D3: totals follow Canvas's rule.** Under 100% is scaled up; over 100% is allowed as extra credit, with a note. Totals are not rescaled to 100%.
+- **O3, D4: blank categories in a points-based course keep their points share.** With nothing set, the estimate is Canvas's points rule exactly.
+
+**The literal gate is zero, repo-wide (2026-10-02).** Both sweeps have merged: L10N-03b (PR #27) and M3-D's widget files (PR #26). `scripts/ci/l10n-baseline.json` is now **empty** (0 files), not deleted: the checker needs the file, and exits 2 when it's missing. An empty baseline is the same gate. Any new literal in any file fails CI: a mutation adding `Text("Mutation probe literal")` at `DashboardView.swift:18` failed it (exit 1), and the file was restored byte-identical.
+
 ## 3. Feature A: multilingual support
 
 ### 3.1 Architecture: where each layer's strings live

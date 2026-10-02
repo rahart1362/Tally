@@ -1,5 +1,6 @@
 import Foundation
 import TallyDomain
+import TallyStrings
 
 /// "92% on time this term" (ux-ui.md §3.7.6 Completion).
 public nonisolated struct CompletionInsight: Equatable, Sendable {
@@ -15,7 +16,11 @@ public nonisolated struct CompletionInsight: Equatable, Sendable {
 public nonisolated struct StreakInsight: Equatable, Sendable {
     public let days: Int
     public let headline: String
-    public static let definition = "Days in a row, up to today, on which you submitted at least one assignment."
+    /// `LocalizedStringResource`, not `String` (plan 08 §5, L10N-03a's open item 2 and §1.4: its
+    /// only non-literal call site, `InsightsScreen.swift:119`'s `ScreenSectionHeader(subtitle:)`,
+    /// is converted in this same stream, in the same change, removing the overload-ambiguity risk
+    /// L10N-03a left this blocked on rather than guess at with no local Xcode to check it.)
+    public static let definition = L10n.Insights.streakDefinition()
 }
 
 /// A course that needs a look, and why (ux-ui.md §3.7.6 "At risk": courses with reasons).
@@ -70,7 +75,7 @@ public nonisolated struct InsightsProjection: Equatable, Sendable {
     public var trendIsNotInCanvas = false
 
     public static let empty = InsightsProjection(
-        completion: nil, streak: StreakInsight(days: 0, headline: "No current streak"), risks: [],
+        completion: nil, streak: StreakInsight(days: 0, headline: L10n.string(L10n.Insights.streakNone)), risks: [],
         heavyStretches: [], categoryShares: [], categorySummary: "", trendInput: .empty)
 }
 
@@ -88,7 +93,7 @@ public nonisolated enum InsightsBuilder {
         let (shares, summary) = categoryShares(snapshot, gradeAvailability: index, formatter: formatter)
         let trend = trendInput(snapshot, gradeAvailability: index, now: formatter.now)
         var projection = InsightsProjection(
-            completion: completion(snapshot, now: formatter.now),
+            completion: completion(snapshot, now: formatter.now, locale: formatter.locale),
             streak: streak(snapshot, formatter: formatter),
             risks: risks(snapshot, gradeAvailability: index, formatter: formatter),
             heavyStretches: heavyStretches(snapshot, formatter: formatter),
@@ -103,7 +108,7 @@ public nonisolated enum InsightsBuilder {
 
     /// Of the work that was due before now and expected an online submission (excused work left
     /// out), the share submitted on time: submitted, and not late.
-    static func completion(_ snapshot: CanvasSnapshot, now: Date) -> CompletionInsight? {
+    static func completion(_ snapshot: CanvasSnapshot, now: Date, locale: Locale = TallyLocale.effective) -> CompletionInsight? {
         var due = 0
         var onTime = 0
         for assignment in uniqueAssignments(snapshot) {
@@ -114,10 +119,13 @@ public nonisolated enum InsightsBuilder {
         }
         guard due > 0 else { return nil }
         let share = Double(onTime) / Double(due)
-        let percent = Int((share * 100).rounded())
+        // §3.3 "Percent": the whole-number rounding is unchanged (still `Int((share * 100).rounded())`
+        // before formatting), only the sign's locale placement comes from `.percent` now.
+        let percent = (share * 100).rounded()
+        let percentText = percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))
         return CompletionInsight(onTime: onTime, due: due, share: share,
-                                 headline: "\(percent)% on time this term",
-                                 detail: "\(onTime) of \(due) past-due assignments were submitted on time.")
+                                 headline: L10n.string(L10n.Insights.completionHeadline, percentText),
+                                 detail: String(localized: L10n.Insights.completionDetail(onTime, due)))
     }
 
     // MARK: - Momentum: submission streak
@@ -136,8 +144,10 @@ public nonisolated enum InsightsBuilder {
             guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
             day = previous
         }
-        return StreakInsight(days: count, headline: count == 0 ? "No current streak"
-                                                  : count == 1 ? "1-day streak" : "\(count)-day streak")
+        let headline = count == 0
+            ? L10n.string(L10n.Insights.streakNone)
+            : L10n.string(L10n.Insights.streakDays, count)
+        return StreakInsight(days: count, headline: headline)
     }
 
     // MARK: - At risk
@@ -196,9 +206,10 @@ public nonisolated enum InsightsBuilder {
             let end = formatter.shortDate(last)
             let range = first == end ? first : "\(first)–\(end)"
             let courses = Set(inWindow.map(\.courseID)).count
-            return HeavyStretch(
-                id: start, headline: "\(inWindow.count) items due \(range)",
-                detail: courses == 1 ? "All in one course." : "Across \(courses) courses.")
+            let detail = courses == 1
+                ? L10n.string(L10n.Insights.heavyAllOneCourse)
+                : L10n.string(L10n.Insights.heavyAcrossCourses, courses)
+            return HeavyStretch(id: start, headline: String(localized: L10n.Insights.heavyHeadline(inWindow.count, range)), detail: detail)
         }
     }
 

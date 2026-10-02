@@ -373,6 +373,186 @@
         }
       }
     },
+    "courseDetail.categoriesHeader" : {
+      "comment" : "Course Detail, Grades segment: section header above the category list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categories"
+          }
+        }
+      }
+    },
+    "courseDetail.category.hidden" : {
+      "comment" : "Course Detail, Grades segment: a category's percentage when the course's grades are not shown as percentages at all (letters-only or hidden totals).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden"
+          }
+        }
+      }
+    },
+    "courseDetail.category.noGradesYet" : {
+      "comment" : "Course Detail, Grades segment: a category's percentage before anything in it is graded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No grades yet"
+          }
+        }
+      }
+    },
+    "courseDetail.categoryWeightsHeader" : {
+      "comment" : "Course Detail, Overview: section header above the category-weights chart (also the chart's own accessibility title, byte-identical).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category weights"
+          }
+        }
+      }
+    },
+    "courseDetail.currentGradeCountsGradedOnly" : {
+      "comment" : "Course Detail, Grades segment footer: the current percentage counts graded work only.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current grade counts graded work only."
+          }
+        }
+      }
+    },
+    "courseDetail.currentGradeCountsGradedOnly.fragment" : {
+      "comment" : "Course Detail hero's combined VoiceOver label: one fragment in a comma-joined list, so it starts lowercase and has no closing period (contrast courseDetail.currentGradeCountsGradedOnly, the footer sentence).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "current grade counts graded work only"
+          }
+        }
+      }
+    },
+    "courseDetail.gradeDistribution.sentence" : {
+      "comment" : "Course Detail's grade distribution, one sentence. Each placeholder is an already-formatted percentage: 1 the class minimum, 2 the class maximum, 3 the class average, 4 the student's own.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Class range %1$@–%2$@, average %3$@. You: %4$@."
+          }
+        }
+      }
+    },
+    "courseDetail.gradeDistributionHeader" : {
+      "comment" : "Course Detail, Overview: section header above the grade distribution (shown only when Canvas returns score statistics).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grade distribution"
+          }
+        }
+      }
+    },
+    "courseDetail.gradedItemAccessibility" : {
+      "comment" : "Course Detail, Overview: a recently-graded item's combined VoiceOver label. 1: the assignment's title from Canvas. 2: the spoken score. 3: an already-formatted, spoken day.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, posted %3$@"
+          }
+        }
+      }
+    },
+    "courseDetail.instructorsHeaderOne" : {
+      "comment" : "Course Detail, Overview: section header above the instructor list, exactly one instructor.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructor"
+          }
+        }
+      }
+    },
+    "courseDetail.instructorsHeaderOther" : {
+      "comment" : "Course Detail, Overview: section header above the instructor list, more than one instructor (or, in principle, zero).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructors"
+          }
+        }
+      }
+    },
+    "courseDetail.lettersOnlyFooter" : {
+      "comment" : "Course Detail, Grades segment footer: the course shows letter grades only, so there is no category percentage.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This course shows letter grades only."
+          }
+        }
+      }
+    },
+    "courseDetail.navigationTitle.fallback" : {
+      "comment" : "Course Detail's navigation title before the course detail has loaded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Course"
+          }
+        }
+      }
+    },
+    "courseDetail.nextDueHeader" : {
+      "comment" : "Course Detail, Overview: section header above the next due item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next due"
+          }
+        }
+      }
+    },
+    "courseDetail.noAssignmentsYet" : {
+      "comment" : "Course Detail, Assignments segment: shown when Canvas has no assignments for this course yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No assignments in Canvas yet."
+          }
+        }
+      }
+    },
     "courseDetail.notInCanvas.line" : {
       "comment" : "Course Detail, in place of the recent grades and the category percentages, when the school does not appear to enter this course's grades into Canvas.",
       "extractionState" : "manual",
@@ -381,6 +561,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Grades for this course aren't in Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.openInCanvas" : {
+      "comment" : "Toolbar button that opens this course in the Canvas app or website (also used by the To-Do tab's swipe action, byte-identical).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Canvas"
           }
         }
       }
@@ -441,6 +633,246 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yes"
+          }
+        }
+      }
+    },
+    "courseDetail.passFail.complete" : {
+      "comment" : "Maps Canvas's fixed pass/fail submission token 'complete' to a localized word (§3.3 'Pass/fail tokens'). Any other submission grade (a letter grade) passes through untouched.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete"
+          }
+        }
+      }
+    },
+    "courseDetail.passFail.incomplete" : {
+      "comment" : "Maps Canvas's fixed pass/fail submission token 'incomplete' to a localized word (§3.3 'Pass/fail tokens').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incomplete"
+          }
+        }
+      }
+    },
+    "courseDetail.pointsBased" : {
+      "comment" : "A category's (or a what-if group's) weight label when the course sums points instead of using instructor-set weights.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Points-based"
+          }
+        }
+      }
+    },
+    "courseDetail.postedOn" : {
+      "comment" : "Course Detail, Overview: a recently-graded item's posted day. The placeholder is an already-formatted day, such as 'Thu' or 'yesterday'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posted %@"
+          }
+        }
+      }
+    },
+    "courseDetail.recentGradesHeader" : {
+      "comment" : "Course Detail, Overview: section header above recently posted grades.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent grades"
+          }
+        }
+      }
+    },
+    "courseDetail.scoreOutOf" : {
+      "comment" : "VoiceOver's spoken form of a points score, such as '92/100' read as '92 out of 100'. Both placeholders are already-formatted point values (§3.3 'Points and \"9/10\"': the visual form keeps the slash; only the spoken form is a whole-sentence key).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ out of %2$@"
+          }
+        }
+      }
+    },
+    "courseDetail.section.graded" : {
+      "comment" : "Course Detail, Assignments segment: section header for graded work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graded"
+          }
+        }
+      }
+    },
+    "courseDetail.section.missing" : {
+      "comment" : "Course Detail, Assignments segment: section header for missing work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing"
+          }
+        }
+      }
+    },
+    "courseDetail.section.past" : {
+      "comment" : "Course Detail, Assignments segment: section header for past work with nothing to submit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past"
+          }
+        }
+      }
+    },
+    "courseDetail.section.submitted" : {
+      "comment" : "Course Detail, Assignments segment: section header for submitted, ungraded work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Submitted"
+          }
+        }
+      }
+    },
+    "courseDetail.section.upcoming" : {
+      "comment" : "Course Detail, Assignments segment: section header for work not yet due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upcoming"
+          }
+        }
+      }
+    },
+    "courseDetail.segment.assignments" : {
+      "comment" : "Course Detail's three segments (a segmented control).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignments"
+          }
+        }
+      }
+    },
+    "courseDetail.segment.grades" : {
+      "comment" : "Course Detail's three segments (a segmented control).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades"
+          }
+        }
+      }
+    },
+    "courseDetail.segment.overview" : {
+      "comment" : "Course Detail's three segments (a segmented control).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
+          }
+        }
+      }
+    },
+    "courseDetail.segmentedControl.accessibilityLabel" : {
+      "comment" : "Accessibility label of Course Detail's Overview/Assignments/Grades segmented control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show"
+          }
+        }
+      }
+    },
+    "courseDetail.unavailable.description" : {
+      "comment" : "Course Detail's unavailable state, body text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This course isn't in your latest Canvas data."
+          }
+        }
+      }
+    },
+    "courseDetail.unavailable.title" : {
+      "comment" : "Course Detail: shown instead of the screen when the course is not in the latest Canvas data.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Course unavailable"
+          }
+        }
+      }
+    },
+    "courseDetail.weightOfGrade" : {
+      "comment" : "A category's (or a what-if group's) share of the course grade. The placeholder is an already-formatted percentage, such as '40%'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of grade"
+          }
+        }
+      }
+    },
+    "courseDetail.weightsPointsBased" : {
+      "comment" : "Course Detail, under the category-weights chart: the course has no instructor-set weights, so each category's share is its share of the course's points.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This course adds up points, so each category's share is its share of the points."
+          }
+        }
+      }
+    },
+    "courseDetail.weightsSetByInstructor" : {
+      "comment" : "Course Detail, under the category-weights chart: the instructor set these weights in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set by your instructor."
           }
         }
       }
@@ -565,6 +997,126 @@
         }
       }
     },
+    "courseDetail.whatIf.goalAnyScoreReaches" : {
+      "comment" : "The what-if sheet's goal-mode answer: every possible score already reaches the target. The placeholder is an already-formatted whole-number percentage.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Any score reaches %@."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalAssignmentPicker" : {
+      "comment" : "The what-if sheet's goal-mode picker label: which item to solve for.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignment"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalCannotChangeGrade" : {
+      "comment" : "The what-if sheet's goal-mode answer: this item cannot change the course grade (for example, it carries no weight).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This assignment can't change your grade."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalFooter" : {
+      "comment" : "The what-if sheet's goal-mode section footer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other assignments keep the scores you entered above."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalHeader" : {
+      "comment" : "The what-if sheet's goal-mode section header.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalMinimumOrMore" : {
+      "comment" : "The what-if sheet's goal-mode answer: the lowest score (as an already-formatted point value) that reaches the target, out of the item's total points (also already-formatted).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@/%2$@ or more"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalTarget" : {
+      "comment" : "The what-if sheet's goal-mode stepper label. The placeholder is an already-formatted whole-number percentage, such as '90%'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target: %@"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalUnreachableEvenAtMax" : {
+      "comment" : "The what-if sheet's goal-mode answer: even the maximum score cannot reach the target. The placeholder is the item's total points, already formatted (shown twice, as 'N/N').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not reachable, even with %1$@/%2$@."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.goalWorkingItOut" : {
+      "comment" : "The what-if sheet's goal-mode answer before the first result has landed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working it out…"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.groupHeader" : {
+      "comment" : "The what-if sheet's section header for a category of items, outside the 'kept outside Canvas' estimate mode. The placeholder is an already-localized weight phrase, such as '30% of grade' or 'Points-based'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "courseDetail.whatIf.hiddenTotals" : {
       "comment" : "Why the what-if calculator is not offered: the instructor hides the course total in Canvas.",
       "extractionState" : "manual",
@@ -585,6 +1137,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What-if isn't available for a course that shows letter grades only."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.lowerByOnePoint" : {
+      "comment" : "The what-if sheet's stepper decrement button, accessibility label. The placeholder is the item's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lower %@ by 1 point"
           }
         }
       }
@@ -625,6 +1189,366 @@
         }
       }
     },
+    "courseDetail.whatIf.projected" : {
+      "comment" : "The what-if sheet's spoken summary: a projected grade with no baseline to compare (an estimate's first score). The placeholder is an already-formatted spoken percentage, such as '91.4'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected %@ percent"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.projectedDown" : {
+      "comment" : "The what-if sheet's spoken summary: the projected grade is lower than the current grade. 1: the projected percentage. 2: how many points lower. 3: the current percentage. All already-formatted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected %1$@ percent, down %2$@ points from your current %3$@ percent"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.projectedSame" : {
+      "comment" : "The what-if sheet's spoken summary: the projected grade is the same as the current grade. The placeholder is an already-formatted spoken percentage.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected %@ percent, the same as your current grade"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.projectedUp" : {
+      "comment" : "The what-if sheet's spoken summary: the projected grade is higher than the current grade. 1: the projected percentage. 2: how many points higher. 3: the current percentage. All already-formatted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected %1$@ percent, up %2$@ points from your current %3$@ percent"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.quickFillAccessibility" : {
+      "comment" : "The what-if sheet's quick-fill chip, accessibility label. 1: the item's title from Canvas. 2: the percent it fills to, as a plain number (read as '… percent').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set %1$@ to %2$lld percent"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.raiseByOnePoint" : {
+      "comment" : "The what-if sheet's stepper increment button, accessibility label. The placeholder is the item's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raise %@ by 1 point"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.resetButton" : {
+      "comment" : "The what-if sheet's toolbar button that clears every hypothetical score and weight.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.scoreFieldAccessibility" : {
+      "comment" : "The what-if sheet's score entry field, accessibility label. 1: the item's title from Canvas. 2: the already-localized 'out of N' text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Score for %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.scoreFieldPrompt" : {
+      "comment" : "The what-if sheet's score entry field placeholder.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Score"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.simulationLabel" : {
+      "comment" : "The what-if sheet's sticky summary label (an em dash separates the two clauses).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulation — not your real grade"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.sliderAccessibility" : {
+      "comment" : "The what-if sheet's score slider, accessibility label. The placeholder is the item's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Score for %@"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.summaryLabel" : {
+      "comment" : "The what-if sheet's sticky summary label before the projected grade.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.workingItOut" : {
+      "comment" : "The what-if sheet's spoken summary before the first answer has landed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projected grade: working it out"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIfFooter" : {
+      "comment" : "Course Detail, under the what-if button, only when the what-if is offered: explains what it does.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See how scores on work that isn't graded yet would change your grade. Nothing is sent to Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIfHeader" : {
+      "comment" : "Course Detail, Overview: section header above the what-if button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What-If"
+          }
+        }
+      }
+    },
+    "courses.card.nextDue" : {
+      "comment" : "A course card's next-due line. 1: the assignment's title from Canvas. 2: an already-formatted due-date phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next: %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "courses.card.nextDueSpoken" : {
+      "comment" : "A course card's combined VoiceOver label, the next-due fragment. 1: the assignment's title from Canvas. 2: an already-formatted, spoken due-date phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "next %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "courses.edit.doneButton" : {
+      "comment" : "Courses tab toolbar button that leaves reorder mode (started from Edit, so this is a distinct context from a sheet's Done).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "courses.edit.editButton" : {
+      "comment" : "Courses tab toolbar button that enters reorder mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "courses.empty.description" : {
+      "comment" : "Courses tab, empty state body text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When your school adds you to courses in Canvas, they'll appear here."
+          }
+        }
+      }
+    },
+    "courses.empty.refresh" : {
+      "comment" : "Courses tab, empty state: button that requests a refresh.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "courses.empty.title" : {
+      "comment" : "Courses tab: shown when the student has no courses.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No courses yet"
+          }
+        }
+      }
+    },
+    "courses.formatter.atTime" : {
+      "comment" : "Combines an already-formatted day and time, such as for 'still accepted until Fri at 11:59 PM'. 1: the day. 2: the time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "courses.formatter.dueAtTime" : {
+      "comment" : "A due-date phrase, within the coming week: a day and a time. 1: an already-formatted day. 2: an already-formatted time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "courses.formatter.dueDay" : {
+      "comment" : "A due-date phrase, further out than a week: the day alone, already formatted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@"
+          }
+        }
+      }
+    },
+    "courses.formatter.letterMinus" : {
+      "comment" : "VoiceOver's spoken form of a minus letter grade, such as 'A-' read as 'A minus'. The placeholder is the base letter, from Canvas, never translated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ minus"
+          }
+        }
+      }
+    },
+    "courses.formatter.letterPlus" : {
+      "comment" : "VoiceOver's spoken form of a plus letter grade, such as 'A+' read as 'A plus'. The placeholder is the base letter, from Canvas, never translated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ plus"
+          }
+        }
+      }
+    },
+    "courses.formatter.wasDue" : {
+      "comment" : "A due-date phrase for work whose due date has passed. The placeholder is an already-formatted day, such as 'Thu' or 'yesterday'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was due %@"
+          }
+        }
+      }
+    },
+    "courses.health.aboveCutoffReason" : {
+      "comment" : "A course's 'needs attention' reason: the score is just above a letter-grade cutoff. 1: a gap phrase. 2: an already-formatted percentage, the cutoff.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ the %2$@ cutoff"
+          }
+        }
+      }
+    },
+    "courses.health.aboveGoalReason" : {
+      "comment" : "A course's 'needs attention' reason: the score is just above the goal. 1: a gap phrase such as 'Just above' or '0.4 points above'. 2: an already-formatted percentage, the goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ your %2$@ goal"
+          }
+        }
+      }
+    },
     "courses.health.atRisk" : {
       "comment" : "A course's status chip: several missing items, or the grade is well below the goal.",
       "extractionState" : "manual",
@@ -633,6 +1557,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "At risk"
+          }
+        }
+      }
+    },
+    "courses.health.belowGoalReason" : {
+      "comment" : "A course's 'needs attention'/'at risk' reason. The placeholder is an already-formatted percentage: the student's goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Below your %@ goal"
+          }
+        }
+      }
+    },
+    "courses.health.justAbove" : {
+      "comment" : "A course health reason's gap phrase: under a tenth of a point above a goal or cutoff.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just above"
+          }
+        }
+      }
+    },
+    "courses.health.missingItemsStillAccepted" : {
+      "comment" : "A course card/detail reason: how many missing items are still accepted (not past their lock date). A plural key; English's 'one' category only ever matches exactly 1, so the placeholder renders '1' there too.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld missing item is still accepted"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld missing items are still accepted"
+                }
+              }
+            }
           }
         }
       }
@@ -657,6 +1629,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "On track"
+          }
+        }
+      }
+    },
+    "courses.health.pointAbove" : {
+      "comment" : "A course health reason's gap phrase: exactly 1 point above a goal or cutoff.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 point above"
+          }
+        }
+      }
+    },
+    "courses.health.pointsAboveCount" : {
+      "comment" : "A course health reason's gap phrase: any other distance above a goal or cutoff. The placeholder is an already-formatted point value, such as '0.4' or '2.3'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ points above"
+          }
+        }
+      }
+    },
+    "courses.loading" : {
+      "comment" : "Courses tab: shown while the first projection is loading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading your courses…"
+          }
+        }
+      }
+    },
+    "courses.navigationTitle" : {
+      "comment" : "The Courses tab's navigation title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Courses"
           }
         }
       }
@@ -745,6 +1765,66 @@
         }
       }
     },
+    "dashboard.band.failing" : {
+      "comment" : "Dashboard hero's grade band word for a pass/fail course that is failing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failing"
+          }
+        }
+      }
+    },
+    "dashboard.band.high" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        }
+      }
+    },
+    "dashboard.band.low" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        }
+      }
+    },
+    "dashboard.band.medium" : {
+      "comment" : "Dashboard Next Up item's priority band word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
+    "dashboard.band.passing" : {
+      "comment" : "Dashboard hero's grade band word for a pass/fail course that is passing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passing"
+          }
+        }
+      }
+    },
     "dashboard.changes.count" : {
       "comment" : "Dashboard chip, first part: how many things changed in Canvas since the last refresh (grades, new assignments, due dates, announcements).",
       "extractionState" : "manual",
@@ -755,7 +1835,7 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld change"
+                  "value" : "1 change"
                 }
               },
               "other" : {
@@ -777,6 +1857,102 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ since %2$@"
+          }
+        }
+      }
+    },
+    "dashboard.dueSoon.empty" : {
+      "comment" : "Dashboard's Due Soon section when nothing is due in the next 7 days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing due in the next 7 days"
+          }
+        }
+      }
+    },
+    "dashboard.dueSoonHeader" : {
+      "comment" : "Dashboard section header above the due-soon list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due soon"
+          }
+        }
+      }
+    },
+    "dashboard.failed.description" : {
+      "comment" : "Dashboard failed-state body text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in, or explore with sample data, to see your dashboard."
+          }
+        }
+      }
+    },
+    "dashboard.failed.title" : {
+      "comment" : "Dashboard: shown when the student is signed out and not in sample mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No dashboard yet"
+          }
+        }
+      }
+    },
+    "dashboard.greeting" : {
+      "comment" : "Dashboard's header above the hero. 1: a time-of-day word (morning/afternoon/evening), already localized. 2: the student's display name from Canvas, never translated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "dashboard.greeting.afternoon" : {
+      "comment" : "The time-of-day word in the Dashboard's greeting ('Good afternoon, Alex').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "afternoon"
+          }
+        }
+      }
+    },
+    "dashboard.greeting.evening" : {
+      "comment" : "The time-of-day word in the Dashboard's greeting ('Good evening, Alex').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "evening"
+          }
+        }
+      }
+    },
+    "dashboard.greeting.morning" : {
+      "comment" : "The time-of-day word in the Dashboard's greeting ('Good morning, Alex').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "morning"
           }
         }
       }
@@ -925,6 +2101,78 @@
         }
       }
     },
+    "dashboard.loading" : {
+      "comment" : "Dashboard: shown while the first projection is loading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading your dashboard…"
+          }
+        }
+      }
+    },
+    "dashboard.navigationTitle" : {
+      "comment" : "The Dashboard tab's navigation title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dashboard"
+          }
+        }
+      }
+    },
+    "dashboard.needsAttention.empty" : {
+      "comment" : "Dashboard's Needs Attention section when nothing needs attention.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All clear"
+          }
+        }
+      }
+    },
+    "dashboard.needsAttentionHeader" : {
+      "comment" : "Dashboard section header, shown both while loading (a skeleton) and once loaded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs attention"
+          }
+        }
+      }
+    },
+    "dashboard.nextUp.empty" : {
+      "comment" : "Dashboard's Next Up section when there is nothing to do.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to do right now"
+          }
+        }
+      }
+    },
+    "dashboard.nextUpHeader" : {
+      "comment" : "Dashboard section header, shown both while loading (a skeleton) and once loaded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next up"
+          }
+        }
+      }
+    },
     "dashboard.reason.courseBelowGoal" : {
       "comment" : "Next Up reason, after the due-date part: the course is below the student's goal.",
       "extractionState" : "manual",
@@ -1029,6 +2277,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Still accepted"
+          }
+        }
+      }
+    },
+    "dashboard.skeletonRow" : {
+      "comment" : "Dashboard's loading skeleton: a redacted placeholder row shown under a section header before the full projection arrives.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading this section"
+          }
+        }
+      }
+    },
+    "dashboard.skeletonSection.spoken" : {
+      "comment" : "Accessibility label of a Dashboard skeleton section while it loads. The placeholder is the section's own header text, already localized.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, loading"
+          }
+        }
+      }
+    },
+    "dashboard.weekAheadHeader" : {
+      "comment" : "Dashboard section header above the week strip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week ahead"
           }
         }
       }
@@ -1597,6 +2881,474 @@
         }
       }
     },
+    "home.settingsButton" : {
+      "comment" : "Accessibility label of the Home shell's Settings toolbar button (a person icon).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "home.tab.calendar" : {
+      "comment" : "Home shell tab bar label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        }
+      }
+    },
+    "home.tab.courses" : {
+      "comment" : "Home shell tab bar label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Courses"
+          }
+        }
+      }
+    },
+    "home.tab.dashboard" : {
+      "comment" : "Home shell tab bar label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dashboard"
+          }
+        }
+      }
+    },
+    "home.tab.insights" : {
+      "comment" : "Home shell tab bar label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights"
+          }
+        }
+      }
+    },
+    "home.tab.toDo" : {
+      "comment" : "Home shell tab bar label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To-Do"
+          }
+        }
+      }
+    },
+    "insights.categoryBreakdown.subtitle" : {
+      "comment" : "Insights, under the Category breakdown header: what the chart means.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What your grades are made of, on average across your courses."
+          }
+        }
+      }
+    },
+    "insights.categoryBreakdownHeader" : {
+      "comment" : "Insights card header and chart accessibility title (byte-identical), above the category-weights chart.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category breakdown"
+          }
+        }
+      }
+    },
+    "insights.categoryShare.axisCategory" : {
+      "comment" : "Audio Graph axis title for the category-breakdown chart's category axis.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        }
+      }
+    },
+    "insights.categoryShare.axisTitle" : {
+      "comment" : "Audio Graph axis title for the category-breakdown chart's value axis.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share of grade"
+          }
+        }
+      }
+    },
+    "insights.completion.detail" : {
+      "comment" : "Completion card detail line. 1: how many were submitted on time. 2: how many were due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld past-due assignments were submitted on time."
+          }
+        }
+      }
+    },
+    "insights.completion.headline" : {
+      "comment" : "Completion card headline. The placeholder is an already-formatted whole-number percentage, such as '92%'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ on time this term"
+          }
+        }
+      }
+    },
+    "insights.completion.subtitle" : {
+      "comment" : "Insights, under the Completion header: what it means.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past-due work you turned in on time this term."
+          }
+        }
+      }
+    },
+    "insights.completionHeader" : {
+      "comment" : "Insights card header above the completion ring.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completion"
+          }
+        }
+      }
+    },
+    "insights.empty.description" : {
+      "comment" : "Insights tab, empty state body text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights appear once your courses have graded work."
+          }
+        }
+      }
+    },
+    "insights.empty.title" : {
+      "comment" : "Insights tab: shown before any course has graded work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No insights yet"
+          }
+        }
+      }
+    },
+    "insights.heavy.acrossCourses" : {
+      "comment" : "A heavy-stretch's detail line: the items span more than one course. The placeholder is the number of distinct courses (always 2 or more; exactly 1 uses insights.heavy.allOneCourse instead).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Across %lld courses."
+          }
+        }
+      }
+    },
+    "insights.heavy.allOneCourse" : {
+      "comment" : "A heavy-stretch's detail line when every item is in the same course.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All in one course."
+          }
+        }
+      }
+    },
+    "insights.heavy.empty" : {
+      "comment" : "Insights: shown when no heavy stretch is coming up.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No heavy stretches coming up."
+          }
+        }
+      }
+    },
+    "insights.heavy.headline" : {
+      "comment" : "A heavy-stretch's headline. 1: how many items. 2: an already-formatted date range, such as 'Oct 12–13'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld items due %2$@"
+          }
+        }
+      }
+    },
+    "insights.heavy.subtitle" : {
+      "comment" : "Insights, under the Heavy stretches header: what the list means.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two-day windows with a lot due in the next 10 days."
+          }
+        }
+      }
+    },
+    "insights.heavyHeader" : {
+      "comment" : "Insights card header above the heavy-stretch list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heavy stretches"
+          }
+        }
+      }
+    },
+    "insights.momentumHeader" : {
+      "comment" : "Insights card header above the submission streak.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Momentum"
+          }
+        }
+      }
+    },
+    "insights.navigationTitle" : {
+      "comment" : "The Insights tab's navigation title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights"
+          }
+        }
+      }
+    },
+    "insights.performanceTrend.subtitle" : {
+      "comment" : "Insights, under the Performance trend header: what the chart means.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average of your courses, from when each grade was posted."
+          }
+        }
+      }
+    },
+    "insights.performanceTrendHeader" : {
+      "comment" : "Insights card header; also the trend chart's accessibility label and Audio Graph title (byte-identical).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance trend"
+          }
+        }
+      }
+    },
+    "insights.risks.empty" : {
+      "comment" : "Insights: shown when no course needs a look.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every course is on track."
+          }
+        }
+      }
+    },
+    "insights.risks.subtitle" : {
+      "comment" : "Insights, under the Needs a look header: what the list means.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Courses at risk or close to a line, and why."
+          }
+        }
+      }
+    },
+    "insights.risksHeader" : {
+      "comment" : "Insights card header above the at-risk course list.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs a look"
+          }
+        }
+      }
+    },
+    "insights.spokenDate" : {
+      "comment" : "Audio Graph axis title for the performance-trend chart's date axis.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        }
+      }
+    },
+    "insights.spokenPercent" : {
+      "comment" : "A number read aloud as a percentage for VoiceOver/Audio Graphs, such as '92 percent'. The placeholder is an already-formatted number.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ percent"
+          }
+        }
+      }
+    },
+    "insights.streak.days" : {
+      "comment" : "Momentum card headline: the current submission streak length. A plural key.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1-day streak"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld-day streak"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "insights.streak.definition" : {
+      "comment" : "Momentum card's stated definition of a submission streak (ux-ui.md requires it spelled out).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days in a row, up to today, on which you submitted at least one assignment."
+          }
+        }
+      }
+    },
+    "insights.streak.none" : {
+      "comment" : "Momentum card headline: no current submission streak.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No current streak"
+          }
+        }
+      }
+    },
+    "insights.trend.axisAverage" : {
+      "comment" : "Audio Graph series name for the performance-trend chart.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average of your courses"
+          }
+        }
+      }
+    },
+    "insights.trend.axisAverageShort" : {
+      "comment" : "Audio Graph y-axis title for the performance-trend chart (distinct from insights.trend.axisAverage, the longer series name).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
+          }
+        }
+      }
+    },
+    "insights.trend.failed" : {
+      "comment" : "Insights: shown when the trend computation failed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The trend couldn't be worked out."
+          }
+        }
+      }
+    },
+    "insights.trend.notEnoughData" : {
+      "comment" : "Trend chart: shown until there are at least two graded data points.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend appears after a couple of graded assignments."
+          }
+        }
+      }
+    },
     "insights.trend.notInCanvas" : {
       "comment" : "Insights, in place of the performance trend chart, when the student's grades are not in Canvas.",
       "extractionState" : "manual",
@@ -1605,6 +3357,162 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Trends appear when grades are posted in Canvas."
+          }
+        }
+      }
+    },
+    "insights.trend.range.month" : {
+      "comment" : "Trend chart range picker: 1 month, abbreviated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1M"
+          }
+        }
+      }
+    },
+    "insights.trend.range.month.spoken" : {
+      "comment" : "Trend chart range picker's accessibility label: 1 month, spelled out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last month"
+          }
+        }
+      }
+    },
+    "insights.trend.range.quarter" : {
+      "comment" : "Trend chart range picker: 3 months, abbreviated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3M"
+          }
+        }
+      }
+    },
+    "insights.trend.range.quarter.spoken" : {
+      "comment" : "Trend chart range picker's accessibility label: 3 months, spelled out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last 3 months"
+          }
+        }
+      }
+    },
+    "insights.trend.range.term" : {
+      "comment" : "Trend chart range picker: the whole term, abbreviated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Term"
+          }
+        }
+      }
+    },
+    "insights.trend.range.term.spoken" : {
+      "comment" : "Trend chart range picker's accessibility label: the whole term, spelled out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This term"
+          }
+        }
+      }
+    },
+    "insights.trend.rangePicker" : {
+      "comment" : "Accessibility/control label of the trend's 1M/3M/Term range picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Range"
+          }
+        }
+      }
+    },
+    "insights.trend.span.month" : {
+      "comment" : "Trend summary sentence's trailing phrase for the 1-month range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "over the last month"
+          }
+        }
+      }
+    },
+    "insights.trend.span.quarter" : {
+      "comment" : "Trend summary sentence's trailing phrase for the 3-month range.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "over the last 3 months"
+          }
+        }
+      }
+    },
+    "insights.trend.span.term" : {
+      "comment" : "Trend summary sentence's trailing phrase for the Term range, such as 'Steady at 90 percent this term'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this term"
+          }
+        }
+      }
+    },
+    "insights.trend.summary.down" : {
+      "comment" : "Trend summary sentence: the grade moved down. 1, 2: already-formatted spoken percentages (first, last). 3: an already-localized span phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Down from %1$@ to %2$@ %3$@"
+          }
+        }
+      }
+    },
+    "insights.trend.summary.steady" : {
+      "comment" : "Trend summary sentence: the grade did not move meaningfully. 1: an already-formatted spoken percentage, such as '90.1 percent'. 2: an already-localized span phrase, such as 'this term'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steady at %1$@ %2$@"
+          }
+        }
+      }
+    },
+    "insights.trend.summary.up" : {
+      "comment" : "Trend summary sentence: the grade moved up. 1, 2: already-formatted spoken percentages (first, last). 3: an already-localized span phrase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up from %1$@ to %2$@ %3$@"
           }
         }
       }
@@ -2121,6 +4029,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This week"
+          }
+        }
+      }
+    },
+    "notifications.category.hiddenPreviewPlaceholder" : {
+      "comment" : "What the system shows instead of the notification body when the student has Show Previews off, or the device is locked: never a course or assignment name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally reminder"
+          }
+        }
+      }
+    },
+    "notifications.generic.belowGoal.body" : {
+      "comment" : "Generic notification body: a course dropped below the student's goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see where you stand."
+          }
+        }
+      }
+    },
+    "notifications.generic.belowGoal.title" : {
+      "comment" : "Generic notification title: a course dropped below the student's goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Below your goal"
+          }
+        }
+      }
+    },
+    "notifications.generic.digest.body" : {
+      "comment" : "Generic notification body: a change digest.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see your updates."
+          }
+        }
+      }
+    },
+    "notifications.generic.digest.title" : {
+      "comment" : "Generic notification title: a change digest.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What changed"
+          }
+        }
+      }
+    },
+    "notifications.generic.due.body" : {
+      "comment" : "Generic notification body: work is due soon.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see what's due."
+          }
+        }
+      }
+    },
+    "notifications.generic.due.title" : {
+      "comment" : "Generic (no student content) notification title: work is due soon.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due soon"
+          }
+        }
+      }
+    },
+    "notifications.generic.exam.body" : {
+      "comment" : "Generic notification body: an exam is coming up.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally for the details."
+          }
+        }
+      }
+    },
+    "notifications.generic.exam.title" : {
+      "comment" : "Generic notification title: an exam is coming up.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exam coming up"
+          }
+        }
+      }
+    },
+    "notifications.generic.followup.body" : {
+      "comment" : "Generic notification body: a follow-up reminder.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see what's left."
+          }
+        }
+      }
+    },
+    "notifications.generic.followup.title" : {
+      "comment" : "Generic notification title: a follow-up reminder for still-missing work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still to do"
+          }
+        }
+      }
+    },
+    "notifications.generic.gradePosted.body" : {
+      "comment" : "Generic notification body: a new grade was posted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see it."
+          }
+        }
+      }
+    },
+    "notifications.generic.gradePosted.title" : {
+      "comment" : "Generic notification title: a new grade was posted (never the grade itself, R10).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New grade posted"
+          }
+        }
+      }
+    },
+    "notifications.generic.sentinel.body" : {
+      "comment" : "Generic notification body: Tally has not refreshed in a while.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to update your data."
+          }
+        }
+      }
+    },
+    "notifications.generic.sentinel.title" : {
+      "comment" : "Generic notification title: Tally has not refreshed in a while.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally hasn't refreshed"
+          }
+        }
+      }
+    },
+    "notifications.generic.weekAhead.body" : {
+      "comment" : "Generic notification body: the week-ahead summary.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to plan your week."
+          }
+        }
+      }
+    },
+    "notifications.generic.weekAhead.title" : {
+      "comment" : "Generic notification title: the week-ahead summary.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your week ahead"
           }
         }
       }
@@ -2901,6 +5013,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Turn On Reminders"
+          }
+        }
+      }
+    },
+    "sampleData.banner.exit" : {
+      "comment" : "Sample-data banner's button that leaves sample mode, back to Welcome.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exit"
+          }
+        }
+      }
+    },
+    "sampleData.banner.label" : {
+      "comment" : "The persistent banner shown above every screen in sample-data mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SAMPLE DATA"
           }
         }
       }
@@ -4257,6 +6393,378 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terms of Use"
+          }
+        }
+      }
+    },
+    "todo.closedTalkToInstructor" : {
+      "comment" : "A To-Do item's late note: the lock date has passed, so missing work can no longer be submitted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed — talk to your instructor"
+          }
+        }
+      }
+    },
+    "todo.empty.description" : {
+      "comment" : "To-Do tab, empty state body text.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is missing, and nothing is due."
+          }
+        }
+      }
+    },
+    "todo.empty.title" : {
+      "comment" : "To-Do tab: shown when nothing is missing or due.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're all caught up"
+          }
+        }
+      }
+    },
+    "todo.loading" : {
+      "comment" : "To-Do tab: shown while the first projection is loading.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading your work…"
+          }
+        }
+      }
+    },
+    "todo.markDone.accessibility" : {
+      "comment" : "To-Do row's completion control, accessibility label when not yet done. The placeholder is the assignment's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark %@ done"
+          }
+        }
+      }
+    },
+    "todo.markDoneButton" : {
+      "comment" : "To-Do's bottom-bar button that marks every selected item done.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark Done"
+          }
+        }
+      }
+    },
+    "todo.markedDone.accessibility" : {
+      "comment" : "To-Do row's completion control, accessibility label when already done (lets VoiceOver undo it). The placeholder is the assignment's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marked done. Mark %@ not done"
+          }
+        }
+      }
+    },
+    "todo.markedDoneInTally" : {
+      "comment" : "Shown on a To-Do item the student marked done locally (Tally's own mark, never written to Canvas).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marked done in Tally"
+          }
+        }
+      }
+    },
+    "todo.navigationTitle" : {
+      "comment" : "The To-Do tab's navigation title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To-Do"
+          }
+        }
+      }
+    },
+    "todo.notSubmittedInCanvas" : {
+      "comment" : "Shown on a To-Do item the student marked done locally, while Canvas still expects an online submission.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not submitted in Canvas"
+          }
+        }
+      }
+    },
+    "todo.priorityWord" : {
+      "comment" : "A To-Do item's priority flag, shown for high-priority work only.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High priority"
+          }
+        }
+      }
+    },
+    "todo.section.dueLater" : {
+      "comment" : "To-Do section header: work due later than 7 days out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due later"
+          }
+        }
+      }
+    },
+    "todo.section.dueThisWeek" : {
+      "comment" : "To-Do section header: work due within 7 days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due this week"
+          }
+        }
+      }
+    },
+    "todo.section.missingOverdue" : {
+      "comment" : "To-Do section header: missing and overdue work.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing & overdue"
+          }
+        }
+      }
+    },
+    "todo.selectMode.cancel" : {
+      "comment" : "To-Do toolbar button: leaves multi-select mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "todo.selectMode.select" : {
+      "comment" : "To-Do toolbar button: enters multi-select mode.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        }
+      }
+    },
+    "todo.sort.course" : {
+      "comment" : "To-Do sort order picker option, and the picker's current-selection label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Course"
+          }
+        }
+      }
+    },
+    "todo.sort.dueDate" : {
+      "comment" : "To-Do sort order picker option, and the picker's current-selection label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Date"
+          }
+        }
+      }
+    },
+    "todo.sort.priority" : {
+      "comment" : "To-Do sort order picker option, and the picker's current-selection label.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority"
+          }
+        }
+      }
+    },
+    "todo.sortByLabel" : {
+      "comment" : "To-Do toolbar menu's control label (not shown as text, a Picker label).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort by"
+          }
+        }
+      }
+    },
+    "todo.sortMenuLabel" : {
+      "comment" : "To-Do toolbar button that opens the sort-order menu.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort"
+          }
+        }
+      }
+    },
+    "todo.status.excused" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excused"
+          }
+        }
+      }
+    },
+    "todo.status.graded" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graded"
+          }
+        }
+      }
+    },
+    "todo.status.late" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Late"
+          }
+        }
+      }
+    },
+    "todo.status.missing" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing"
+          }
+        }
+      }
+    },
+    "todo.status.notSubmitted" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not submitted"
+          }
+        }
+      }
+    },
+    "todo.status.submitted" : {
+      "comment" : "A To-Do item's Canvas status chip.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Submitted"
+          }
+        }
+      }
+    },
+    "todo.stillAccepted" : {
+      "comment" : "A To-Do item's late note: missing, but Canvas still accepts it, with no lock date.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still accepted"
+          }
+        }
+      }
+    },
+    "todo.stillAcceptedUntil" : {
+      "comment" : "A To-Do item's late note: missing, but Canvas still accepts it until this already-formatted day and time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still accepted until %@"
+          }
+        }
+      }
+    },
+    "todo.swipe.done" : {
+      "comment" : "To-Do row swipe action: marks an item done.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "todo.swipe.notDone" : {
+      "comment" : "To-Do row swipe action: un-marks a done item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Done"
           }
         }
       }

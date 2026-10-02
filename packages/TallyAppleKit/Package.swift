@@ -51,6 +51,12 @@ let package = Package(
                 // (architecture.md §3.1: TallySync <- TallyPlatform is an expected edge).
                 .product(name: "TallySync", package: "TallyCore"),
                 "TallyFeatures",
+                // Plan 08 L10N-03b: the generic (no student content) notification titles/bodies
+                // `ReminderContent.generic(for:)` builds go through `L10n.Notifications.*`, the
+                // same one allowed source of UI strings every other Apple-only target uses
+                // (depending on it directly, rather than relying on the transitive re-export
+                // `TallyFeatures` doesn't provide: SwiftPM dependencies are not transitive).
+                "TallyStrings",
             ]
         ),
 
