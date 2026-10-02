@@ -6229,6 +6229,18 @@
         }
       }
     },
+    "subscription.schoolOff.bodySeat" : {
+      "comment" : "M3-B3: the school-revoked notice's text when the account's only entitlement is a school-assigned seat, without the cancel/refund sentence (the school, not the student, holds that purchase).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school's Canvas no longer lets Tally connect, so Tally can't refresh. Your saved data stays readable."
+          }
+        }
+      }
+    },
     "subscription.schoolOff.continue" : {
       "comment" : "The school-revoked notice's button that closes it and shows the saved data.",
       "extractionState" : "manual",
@@ -6273,6 +6285,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your subscription belongs to your Apple Account, so it stays with you if you move to another school where Tally is enabled. Apple handles payment, renewals and refunds."
+          }
+        }
+      }
+    },
+    "subscription.settings.footerSchool" : {
+      "comment" : "M3-B3: Settings > Subscription footer when the account's only entitlement is a school-assigned seat, replacing the Apple-Account footer (owner decision 2026-10-02).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your school provides this subscription through Apple. For questions about it, ask your school."
           }
         }
       }
@@ -6381,6 +6405,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for approval"
+          }
+        }
+      }
+    },
+    "subscription.status.school" : {
+      "comment" : "M3-B3: subscription state when the account's only entitlement is a school-assigned seat, not this Apple Account's own purchase (owner decision 2026-10-02). The argument is a date, such as 'Oct 2, 2027'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provided by your school until %@"
           }
         }
       }

@@ -7,13 +7,21 @@ public nonisolated struct SubscriptionStatus: Sendable, Equatable {
     /// The account's entitlement, as the gate decides with it: StoreKit's answer, or the Keychain
     /// record's until StoreKit answers.
     public var accountState: EntitlementState
+    /// M3-B3: how the account holds whatever currently entitles it (a purchase or a school's
+    /// assigned seat), from `EntitlementPolicy.holding` over StoreKit's facts. **Nil before StoreKit
+    /// has answered this launch:** the Keychain record (`accountState`'s offline source) carries no
+    /// ownership, so the launch's first, unverified publish cannot say; a view should show today's
+    /// purchase UI until it is known, same as `.purchase`.
+    public var holding: SubscriptionHolding?
     /// StoreKit has answered since this launch (PAY-04: re-verified at every launch).
     public var isVerifiedThisLaunch: Bool
     /// Ask to Buy: a purchase is waiting for a parent's approval.
     public var isPurchasePending: Bool
 
-    public init(accountState: EntitlementState, isVerifiedThisLaunch: Bool, isPurchasePending: Bool) {
+    public init(accountState: EntitlementState, holding: SubscriptionHolding?, isVerifiedThisLaunch: Bool,
+               isPurchasePending: Bool) {
         self.accountState = accountState
+        self.holding = holding
         self.isVerifiedThisLaunch = isVerifiedThisLaunch
         self.isPurchasePending = isPurchasePending
     }
@@ -209,13 +217,16 @@ public actor SubscriptionEngine {
     private func run(_ reason: Reason) async {
         if reason == .launch {
             // The record first: the gate resolves within milliseconds of app init, before StoreKit.
+            // The record carries no ownership (EntitlementRecord.swift), so the holding is unknown
+            // until StoreKit's facts arrive below.
             record = await records.load().record
             let offline = record?.state(for: role, now: clock.now()) ?? .preview
-            await apply(offline, verified: false)
+            await apply(offline, holding: nil, verified: false)
         }
         let facts = await source.currentFacts()
         let verifiedAt = clock.now()
         let state = EntitlementPolicy.accountState(facts, role: role, products: products, now: verifiedAt)
+        let holding = EntitlementPolicy.holding(facts, role: role, products: products, now: verifiedAt)
         let updated = (record ?? EntitlementRecord(verifiedAt: verifiedAt)).recording(state, for: role, verifiedAt: verifiedAt)
         do {
             try await records.save(updated)
@@ -224,12 +235,12 @@ public actor SubscriptionEngine {
             // The Keychain refused (before first unlock): the gate still has StoreKit's answer, and
             // the next verification writes the record.
         }
-        await apply(state, verified: true)
+        await apply(state, holding: holding, verified: true)
         // Granted (recorded and gated): only now may StoreKit's unfinished transactions be finished.
         await source.finishUnfinished()
     }
 
-    private func apply(_ state: EntitlementState, verified: Bool) async {
+    private func apply(_ state: EntitlementState, holding: SubscriptionHolding?, verified: Bool) async {
         await gate.update(state)
         if state.isActiveEntitlement { isPurchasePending = false }
         let current = Applied(remindersAllowed: await gate.allows(.reminders), entitledUntil: state.entitledUntil)
@@ -259,7 +270,8 @@ public actor SubscriptionEngine {
                 await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
             }
         }
-        status = SubscriptionStatus(accountState: state, isVerifiedThisLaunch: verified || (status?.isVerifiedThisLaunch ?? false),
+        status = SubscriptionStatus(accountState: state, holding: holding,
+                                    isVerifiedThisLaunch: verified || (status?.isVerifiedThisLaunch ?? false),
                                     isPurchasePending: isPurchasePending)
         await publish()
     }

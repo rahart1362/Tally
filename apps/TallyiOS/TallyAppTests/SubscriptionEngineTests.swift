@@ -336,6 +336,44 @@ extension AccountLifecycleSuites {
             #expect(model.subscription.allows(.fullApp, isSampleMode: true, firstSyncSucceeded: false))
             #expect(!model.subscription.allows(.fullApp, isSampleMode: false, firstSyncSucceeded: true))
         }
+
+        // MARK: M3-B3: how the account holds its entitlement
+
+        @Test("Before StoreKit answers this launch the holding is unknown (today's purchase UI); a purchase reads .purchase")
+        @MainActor
+        func holdingUnknownThenPurchase() async throws {
+            let until = F.now.addingTimeInterval(20 * F.day)
+            let rig = SubscriptionRig(facts: [F.active()], record: EntitlementRecord(studentUntil: until, verifiedAt: F.now))
+            rig.source.holdReads()
+            let model = SubscriptionModel(engine: rig.engine)
+            model.start()
+            #expect(try await HomeTestSupport.waitUntil { model.accountState == .entitled(until: until) },
+                    "the record's offline state never reached the model")
+            #expect(model.holding == nil, "the holding must be unknown before StoreKit answered")
+            #expect(!model.isSchoolSeat, "unknown must not read as a school seat")
+            rig.source.release()
+            #expect(try await HomeTestSupport.waitUntil { model.isVerifiedThisLaunch })
+            #expect(model.holding == .purchase)
+            #expect(!model.isSchoolSeat)
+        }
+
+        @Test("A school-assigned seat reads .schoolSeat; a purchase beside it still reads .purchase")
+        @MainActor
+        func holdingSeatAndPurchase() async throws {
+            let seatRig = SubscriptionRig(facts: [F.active(ownership: .assigned)])
+            let seatModel = SubscriptionModel(engine: seatRig.engine)
+            seatModel.start()
+            #expect(try await HomeTestSupport.waitUntil { seatModel.isVerifiedThisLaunch })
+            #expect(seatModel.holding == .schoolSeat)
+            #expect(seatModel.isSchoolSeat)
+
+            let bothRig = SubscriptionRig(facts: [F.active(ownership: .assigned), F.active(until: 10 * F.day)])
+            let bothModel = SubscriptionModel(engine: bothRig.engine)
+            bothModel.start()
+            #expect(try await HomeTestSupport.waitUntil { bothModel.isVerifiedThisLaunch })
+            #expect(bothModel.holding == .purchase, "a purchase beside a seat still has its own purchase to manage")
+            #expect(!bothModel.isSchoolSeat)
+        }
     }
 }
 #endif

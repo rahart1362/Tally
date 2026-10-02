@@ -41,7 +41,7 @@ struct SubscriptionSettingsView: View {
                         .accessibilityIdentifier("subscription.seePlans")
                 }
             } footer: {
-                Text(L10n.Subscription.settingsFooter())
+                Text(isSchoolSeat ? L10n.Subscription.settingsFooterSchool() : L10n.Subscription.settingsFooter())
             }
             Section {
                 Button(String(localized: L10n.Subscription.restorePurchases())) {
@@ -51,14 +51,19 @@ struct SubscriptionSettingsView: View {
                 .accessibilityIdentifier("subscription.restore")
                 Button(String(localized: L10n.Subscription.redeemCode())) { actions.redeem() }
                     .accessibilityIdentifier("subscription.redeem")
-                Button(String(localized: L10n.Subscription.manage())) { actions.manage() }
-                    .accessibilityIdentifier("subscription.manage")
-                if hasPurchase {
-                    Button(String(localized: L10n.Subscription.requestRefund())) {
-                        Task { await actions.requestRefund() }
+                // M3-B3: a school-assigned seat is the school's purchase, not the student's: Manage
+                // Subscription and Request a Refund would open Apple's sheets for a purchase this
+                // Apple Account does not hold.
+                if !isSchoolSeat {
+                    Button(String(localized: L10n.Subscription.manage())) { actions.manage() }
+                        .accessibilityIdentifier("subscription.manage")
+                    if hasPurchase {
+                        Button(String(localized: L10n.Subscription.requestRefund())) {
+                            Task { await actions.requestRefund() }
+                        }
+                        .disabled(actions.isWorking)
+                        .accessibilityIdentifier("subscription.refund")
                     }
-                    .disabled(actions.isWorking)
-                    .accessibilityIdentifier("subscription.refund")
                 }
                 if let notice = actions.notice {
                     Text(SubscriptionActionsText.text(notice))
@@ -91,11 +96,17 @@ struct SubscriptionSettingsView: View {
     }
 
     private var statusText: String {
-        SubscriptionStatusText.status(appModel.subscription.accountState, isPurchasePending: appModel.subscription.isPurchasePending)
+        SubscriptionStatusText.status(appModel.subscription.accountState, holding: appModel.subscription.holding,
+                                      isPurchasePending: appModel.subscription.isPurchasePending)
     }
 
     private var isActive: Bool {
         appModel.subscription.accountState?.isActiveEntitlement == true
+    }
+
+    /// M3-B3: `false` (today's purchase UI) before StoreKit has answered this launch.
+    private var isSchoolSeat: Bool {
+        appModel.subscription.isSchoolSeat
     }
 
     /// A trial or subscription this Apple Account bought, current or ended: what a refund is about.

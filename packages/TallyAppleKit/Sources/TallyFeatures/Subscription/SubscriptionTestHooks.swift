@@ -8,7 +8,7 @@ import TallyDomain
 /// paywall's tests have an offer to show. StoreKit Testing serves nothing to an app a UI test
 /// launches on CI (M3-B1 report O8), so the engine's source and the storefront are stand-ins.
 ///
-/// Launch argument `-TallyTestHooks.entitlement <entitled|none|lapsed>`; the last one given wins
+/// Launch argument `-TallyTestHooks.entitlement <entitled|none|lapsed|schoolSeat>`; the last one given wins
 /// (`TallyUITestCase.launchApp` passes `entitled`, and a test passes another after it).
 ///
 /// **Never in a shipping build**, like `LaunchTestHooks`: this file compiles only under `DEBUG`, or
@@ -25,6 +25,10 @@ public nonisolated struct SubscriptionTestHooks: Sendable {
         case notSubscribed = "none"
         /// A Tally Annual that expired a month before each verification.
         case lapsed
+        /// M3-B3: a verified Tally Annual held as an organization's assigned seat, for a year from
+        /// each verification (`SubscriptionFacts.Ownership.assigned`): Settings and the school-revoked
+        /// notice hide Manage Subscription and Request a Refund for one.
+        case schoolSeat
     }
 
     public let entitlement: Entitlement?
@@ -82,6 +86,10 @@ nonisolated final class HookEntitlementSource: EntitlementSourcing {
             return [SubscriptionFacts(productID: products.studentAnnual, isVerified: true,
                                       expirationDate: now.addingTimeInterval(-Self.lapsedFor), renewalState: .expired,
                                       signedDate: now)]
+        case .schoolSeat:
+            return [SubscriptionFacts(productID: products.studentAnnual, isVerified: true,
+                                      expirationDate: now.addingTimeInterval(Self.entitledFor), ownership: .assigned,
+                                      renewalState: .subscribed, signedDate: now)]
         }
     }
 

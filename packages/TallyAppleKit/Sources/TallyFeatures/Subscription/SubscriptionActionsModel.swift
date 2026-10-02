@@ -91,7 +91,9 @@ final class SubscriptionActionsModel {
 /// Settings → Subscription's words for the account's state (the Apple Account's, not the session's:
 /// in sample mode a purchase still shows as active).
 nonisolated enum SubscriptionStatusText {
-    static func status(_ state: EntitlementState?, isPurchasePending: Bool) -> String {
+    /// M3-B3: `holding` picks the entitled wording; `nil` (not yet known) and `.purchase` read the
+    /// same, today's "Active until %@" (PAY-08's original text).
+    static func status(_ state: EntitlementState?, holding: SubscriptionHolding? = nil, isPurchasePending: Bool) -> String {
         if isPurchasePending, state?.isActiveEntitlement != true {
             return String(localized: L10n.Subscription.statusPending())
         }
@@ -101,7 +103,9 @@ nonisolated enum SubscriptionStatusText {
         case .demo?, .preview?:
             return String(localized: L10n.Subscription.statusNotSubscribed())
         case .entitled(let until)?:
-            return String(localized: L10n.Subscription.statusActive(until: until.formatted(date: .abbreviated, time: .omitted)))
+            let date = until.formatted(date: .abbreviated, time: .omitted)
+            return holding == .schoolSeat ? String(localized: L10n.Subscription.statusSchool(until: date))
+                                          : String(localized: L10n.Subscription.statusActive(until: date))
         case .lapsed(let since)?:
             return String(localized: L10n.Subscription.statusEnded(since.formatted(date: .abbreviated, time: .omitted)))
         }

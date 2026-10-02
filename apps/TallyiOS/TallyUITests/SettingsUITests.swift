@@ -124,6 +124,45 @@ final class SettingsSignedInUITests: TallyUITestCase {
                       "Sign Out & Erase did not return to Welcome. Hierarchy: \(app.debugDescription)")
         XCTAssertFalse(app.staticTexts[TestHooks.flagshipHero].exists)
     }
+
+    /// M3-B3: a school-assigned seat (`TestHooks.entitlement("schoolSeat")`, the test-only
+    /// entitlement and App Store) is the school's purchase, not the student's: Settings →
+    /// Subscription hides Manage Subscription and Request a Refund and shows the school status and
+    /// footer, and the Sign Out & Erase confirmation leaves out the "doesn't cancel" note and its
+    /// Manage Subscription button.
+    @MainActor
+    func testSchoolSeatHidesManageAndRefund() throws {
+        seedFlagshipAccount()
+        let app = launchApp(arguments: TestHooks.entitlement("schoolSeat") + TestHooks.replayAccounts)
+        XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30),
+                      "the seeded launch never painted the dashboard. Hierarchy: \(app.debugDescription)")
+        openSettings(app)
+
+        let subscriptionRow = app.buttons["settings.subscription"]
+        XCTAssertTrue(scrollUntilHittable(subscriptionRow, in: app), "no Subscription row. Hierarchy: \(app.debugDescription)")
+        subscriptionRow.tap()
+        XCTAssertTrue(app.navigationBars["Subscription"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+
+        let status = element("subscription.status", in: app)
+        XCTAssertTrue(eventually(timeout: scaled(10)) { status.exists && status.label.contains("Provided by your school") },
+                      "a school seat did not show the school status. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(app.buttons["subscription.manage"].exists,
+                       "Manage Subscription shown for a school seat. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(app.buttons["subscription.refund"].exists,
+                       "Request a Refund shown for a school seat. Hierarchy: \(app.debugDescription)")
+        let footer = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Your school provides this subscription'")).firstMatch
+        XCTAssertTrue(scrollUntilHittable(footer, in: app), "no school-seat footer. Hierarchy: \(app.debugDescription)")
+
+        app.navigationBars["Subscription"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'"))
+            .firstMatch.waitForExistence(timeout: 10), "no confirmation with the spec's copy. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS \"This doesn't cancel your Tally subscription\""))
+            .firstMatch.exists, "a school seat has nothing to cancel, but the confirmation still says so. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(app.buttons["Manage Subscription"].exists,
+                       "a school seat's erase confirmation still offers Manage Subscription. Hierarchy: \(app.debugDescription)")
+    }
 }
 
 extension TallyUITestCase {

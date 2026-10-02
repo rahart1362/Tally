@@ -317,6 +317,18 @@ struct SubscriptionModelsTests {
         #expect(SubscriptionStatusText.status(.lapsed(since: until), isPurchasePending: false).hasPrefix("Ended "))
     }
 
+    @Test("M3-B3: a school seat reads 'Provided by your school'; a purchase, and the holding not yet known, read 'Active' (today's purchase UI)")
+    func statusTextHolding() {
+        let until = Date(timeIntervalSince1970: 1_822_000_000)
+        let date = until.formatted(date: .abbreviated, time: .omitted)
+        #expect(SubscriptionStatusText.status(.entitled(until: until), holding: .purchase, isPurchasePending: false)
+            == "Active until \(date)")
+        #expect(SubscriptionStatusText.status(.entitled(until: until), holding: nil, isPurchasePending: false)
+            == "Active until \(date)", "unknown (before StoreKit answered) must read as a purchase, never as a seat")
+        #expect(SubscriptionStatusText.status(.entitled(until: until), holding: .schoolSeat, isPurchasePending: false)
+            == "Provided by your school until \(date)")
+    }
+
     @Test("The UI-test hook: the last -TallyTestHooks.entitlement wins; its purchase entitles; no hook, no stand-in")
     func uiTestHook() async throws {
         let products = F.products
@@ -334,6 +346,18 @@ struct SubscriptionModelsTests {
         #expect(await lapsed.storefront()?.offer(for: .student)?.freeTrial == nil, "a lapsed account offered the trial")
         let lapsedFacts = await lapsed.source(products: products, clock: TestClock(F.now))?.currentFacts() ?? []
         #expect(EntitlementPolicy.accountState(lapsedFacts, role: .student, products: products, now: F.now).entitledUntil == nil)
+    }
+
+    @Test("M3-B3: the UI-test hook can express a school seat cheaply; its facts hold as .schoolSeat, not a trial")
+    func uiTestHookSchoolSeat() async throws {
+        let products = F.products
+        let hooks = SubscriptionTestHooks(arguments: ["-TallyTestHooks.entitlement", "schoolSeat"])
+        #expect(hooks.entitlement == .schoolSeat)
+        let source = try #require(hooks.source(products: products, clock: TestClock(F.now)))
+        let facts = await source.currentFacts()
+        #expect(EntitlementPolicy.accountState(facts, role: .student, products: products, now: F.now).entitledUntil != nil)
+        #expect(EntitlementPolicy.holding(facts, role: .student, products: products, now: F.now) == .schoolSeat)
+        #expect(await hooks.storefront()?.offer(for: .student)?.freeTrial == nil, "a seat is not trial-eligible")
     }
 }
 
