@@ -143,6 +143,11 @@ public actor SubscriptionEngine {
         self.coordinator = coordinator
         self.environment = environment
         if await coordinator.entitlementDidChange() { environment?.reloadWidgets() }
+        // A lapse StoreKit found before the account attached: the launch's own reminders pass may
+        // have run with the Keychain record's (earlier) answer, so one more pass withdraws.
+        if let applied, !applied.remindersAllowed, let environment {
+            await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
+        }
     }
 
     /// Sign-out: the account is gone.

@@ -166,6 +166,19 @@ extension AccountLifecycleSuites {
             #expect(account.platform.pending.isEmpty)
         }
 
+        @Test("An account attached after a lapse loses the reminders a pass scheduled earlier")
+        func attachAfterLapseWithdraws() async throws {
+            let rig = await SubscriptionRig(facts: [F.expired()]).started()
+            let account = try await rig.unattachedAccount()
+            // The launch's own pass ran while the gate still had the Keychain record's answer.
+            await rig.gate.update(.entitled(until: F.now.addingTimeInterval(F.day)))
+            _ = await account.reminderPass()
+            #expect(!account.platform.pending.isEmpty)
+            await rig.gate.update(.lapsed(since: F.now.addingTimeInterval(-60))) // StoreKit's answer
+            await rig.engine.accountAttached(account.coordinator, environment: account.environment)
+            #expect(account.platform.pending.isEmpty, "the attach left the lapsed account's reminders pending")
+        }
+
         @Test("A pass while lapsed plans nothing and withdraws what is pending (.withdrawn)")
         func passWhileLapsedWithdraws() async throws {
             let rig = await SubscriptionRig(facts: [F.active()]).started()
