@@ -242,7 +242,7 @@ private struct PaywallLegalLinks: View {
 
     @ViewBuilder
     private var links: some View {
-        if let terms = SubscriptionLinks.termsOfUse {
+        if let terms = SubscriptionLinks.termsOfUse, terms.path.isEmpty {
             Link(destination: terms) {
                 Text(L10n.Subscription.termsOfUse())
             }

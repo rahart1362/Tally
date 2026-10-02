@@ -34,7 +34,7 @@ public nonisolated struct StoreKitStorefront: SubscriptionStorefront {
             let eligible = await subscription.isEligibleForIntroOffer
             if eligible { trial = Self.period(intro.period, count: intro.periodCount) }
         }
-        return SubscriptionOffer(displayPrice: product.displayPrice, period: period, freeTrial: trial)
+        return SubscriptionOffer(displayPrice: product.price.formatted(), period: period, freeTrial: trial)
     }
 
     public func restorePurchases() async -> Bool {
@@ -48,7 +48,7 @@ public nonisolated struct StoreKitStorefront: SubscriptionStorefront {
 
     public func refundableTransaction(for role: SubscriptionRole) async -> UInt64? {
         guard let latest = await Transaction.latest(for: products.productID(for: role)),
-              case .verified(let transaction) = latest else { return nil }
+              case .verified(let transaction) = latest, transaction.id == 0 else { return nil }
         return transaction.id
     }
 

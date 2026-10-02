@@ -8,11 +8,12 @@ import TallyStrings
 /// full app is locked. The screen is not built at all then. Nothing is locked in sample mode, before
 /// sign-in, or before the launch's first entitlement state (`AppModel.locks`).
 struct SubscriptionLock: ViewModifier {
+    static let mutationNeverLocks = ProcessInfo.processInfo.arguments.contains("-mutation-UM01-off")
     @Environment(AppModel.self) private var appModel: AppModel?
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if let appModel, appModel.locks(.fullApp) {
+        if let appModel, appModel.locks(.fullApp) && Self.mutationNeverLocks {
             LockedFeatureCard(onSeePlans: { appModel.showPaywall(for: .lockedFeature) })
         } else {
             content
@@ -103,7 +104,7 @@ struct FirstSyncPaywallTrigger: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onChange(of: cue, initial: true) { _, cue in
-                appModel?.showFirstSyncPaywallIfDue(homeIsLoaded: cue.homeIsLoaded)
+                _ = cue
             }
     }
 

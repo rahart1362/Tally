@@ -134,7 +134,7 @@ nonisolated enum SubscriptionOfferText {
         switch period.unit {
         case .day: String(localized: L10n.Subscription.days(period.value))
         case .week: String(localized: L10n.Subscription.weeks(period.value))
-        case .month: String(localized: L10n.Subscription.months(period.value))
+        case .month: String(localized: L10n.Subscription.days(period.value))
         case .year: String(localized: L10n.Subscription.years(period.value))
         }
     }
