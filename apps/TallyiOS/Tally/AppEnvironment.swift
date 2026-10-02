@@ -87,7 +87,7 @@ struct AppEnvironment {
         // PAY-01: the product IDs derive from the bundle ID (`Identity.xcconfig`).
         let products = SubscriptionProducts(bundleID: Bundle.main.bundleIdentifier ?? "dev.tally-app.tally")
         let subscription = SubscriptionModel(engine: SubscriptionEngine(
-            source: StoreKitEntitlementSource(products: products), records: KeychainEntitlementStore(),
+            source: entitlementSource(products: products), records: KeychainEntitlementStore(),
             gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
@@ -96,5 +96,22 @@ struct AppEnvironment {
         if hooks.isActive { appModel.testHooks = hooks }
         #endif
         return AppEnvironment(logger: logger, accountRuntime: accountRuntime, appModel: appModel, signIn: signIn)
+    }
+
+    /// PAY-03: the engine's StoreKit source. StoreKit itself, except in a Debug process that hosts
+    /// TallyAppTests (XCTest sets `XCTestConfigurationFilePath` there, never in an app a UI test
+    /// launches), where this process's own engine gets no StoreKit at all. StoreKit Testing serves a
+    /// test session's products only to a process whose first StoreKit connection follows that
+    /// `SKTestSession`; an earlier one stays in the Sandbox environment (RevenueCat's
+    /// `StoreKitConfigTestCase` makes the same point). This engine starts at app init, before any
+    /// test runs, and the StoreKit Testing suite was served nothing in runs 36943065198 and
+    /// 36951037662 while it did.
+    static func entitlementSource(products: SubscriptionProducts,
+                                  environment: [String: String] = ProcessInfo.processInfo.environment)
+        -> any EntitlementSourcing {
+        #if DEBUG
+        if environment["XCTestConfigurationFilePath"] != nil { return NoEntitlementSource() }
+        #endif
+        return StoreKitEntitlementSource(products: products)
     }
 }

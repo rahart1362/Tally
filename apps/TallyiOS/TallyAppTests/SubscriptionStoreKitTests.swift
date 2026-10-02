@@ -4,6 +4,7 @@ import StoreKit
 import StoreKitTest
 import Testing
 import TallyDomain
+@testable import Tally
 @testable import TallyFeatures
 
 /// DEBUG only: StoreKit Testing serves the hosted Debug runs (and their sanitizer runs); the Release
@@ -255,10 +256,13 @@ struct SubscriptionStoreKitTests {
 /// that names its own suite's members is a circular reference (run 36946834779's build failure).
 ///
 /// Run 36943065198 (iPhone 17 Pro, iOS 26.5) did not serve Tally Annual from `Products.storekit`'s
-/// first version (every purchase was `.unavailable`; the parent product was never asked for). That
-/// version lacked the `_storeKitErrors` settings and gave its free trial a `numberOfPeriods`, unlike
-/// every Xcode-saved version 4 file. The control separates the two possible causes: a runtime that
-/// serves nothing (skipped) and a file StoreKit Testing does not accept (a failure).
+/// first version (every purchase was `.unavailable`; the parent product was never asked for), and
+/// run 36951037662 (the same runtime) did not serve this control either, so it skipped the suite.
+/// In both, the host app's own subscription engine had connected to StoreKit at app init, before
+/// any `SKTestSession` existed; the composition root no longer gives it StoreKit in a process that
+/// hosts these tests (`AppEnvironment.entitlementSource`, pinned by `StoreKitTestHostTests`). What
+/// is left to skip for is a runtime that serves nothing; a file StoreKit Testing does not accept
+/// still fails `productsLoad`.
 enum StoreKitProbe {
     static let productID = "dev.tally-app.tally.storekit-probe"
 
@@ -284,6 +288,20 @@ enum StoreKitProbe {
         #else
         return true
         #endif
+    }
+}
+
+/// PAY-03: a process that hosts TallyAppTests leaves StoreKit to the StoreKit Testing suite, whose
+/// `SKTestSession` must come before the process's first StoreKit connection (`StoreKitProbe`).
+@Suite("PAY-03: the test host leaves StoreKit to the StoreKit Testing suite")
+struct StoreKitTestHostTests {
+    @Test("This process's engine gets no StoreKit source; an app process gets StoreKit")
+    func testHostGetsNoStoreKit() {
+        let products = SubscriptionProducts(bundleID: "dev.tally-app.tally")
+        #expect(ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+                "XCTest no longer marks the process that hosts the tests")
+        #expect(AppEnvironment.entitlementSource(products: products) is NoEntitlementSource)
+        #expect(AppEnvironment.entitlementSource(products: products, environment: [:]) is StoreKitEntitlementSource)
     }
 }
 #endif
