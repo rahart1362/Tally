@@ -20,11 +20,30 @@ import TallyDomain
 ///
 /// `@MainActor`, like the test session's own use from a test: `SKTestSession` is a StoreKitTest
 /// class with no isolation guarantees of its own, so it stays on one actor.
+///
+/// **Not on the iOS 26.3-26.5 simulators.** There `SKTestSession` serves no products: in run
+/// 36943065198 (iPhone 17 Pro, iOS 26.5) `Product.products(for:)` returned none of the bundled
+/// configuration's, so every scenario failed before it began; a public project reports the same
+/// range (stanlsv/sayboard, `SayboardTests/StoreKitConfigurationTests.swift`). The suite runs on
+/// the deployment-floor runtime (iOS 26.2) of every quick and pull-request run, and on iOS 27 in
+/// the forward-compat job. Linux's `check_storekit_products.py` checks the file's content everywhere.
 @Suite("PAY-01, PAY-03: StoreKit Testing moves the entitlement within one foreground", .serialized,
-       .timeLimit(.minutes(3)))
+       .timeLimit(.minutes(3)),
+       .enabled(if: SubscriptionStoreKitTests.storeKitTestingServesProducts,
+                "SKTestSession serves no products on the iOS 26.3-26.5 simulators"))
 @MainActor
 struct SubscriptionStoreKitTests {
     static let products = SubscriptionProducts(bundleID: "dev.tally-app.tally")
+
+    /// False on the simulator runtimes where `SKTestSession` serves no products (iOS 26.3-26.5).
+    nonisolated static var storeKitTestingServesProducts: Bool {
+        #if targetEnvironment(simulator)
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return !(version.majorVersion == 26 && (3...5).contains(version.minorVersion))
+        #else
+        return true
+        #endif
+    }
 
     private final class BundleToken {}
 
@@ -93,7 +112,8 @@ struct SubscriptionStoreKitTests {
     func productsLoad() async throws {
         let stage = try await Stage.make()
         let loaded = try await Product.products(for: Self.products.all)
-        let student = try #require(loaded.first { $0.id == Self.products.studentAnnual })
+        let student = try #require(loaded.first { $0.id == Self.products.studentAnnual },
+                                   "StoreKit Testing served \(loaded.map(\.id)) on iOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
         let parent = try #require(loaded.first { $0.id == Self.products.parentAnnual })
         #expect(student.type == .autoRenewable && parent.type == .autoRenewable)
         #expect(student.price == Decimal(string: "9.99"))
