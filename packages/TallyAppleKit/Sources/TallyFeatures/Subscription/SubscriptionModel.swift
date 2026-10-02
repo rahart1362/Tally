@@ -76,7 +76,7 @@ public final class SubscriptionModel {
     }
 
     func receive(_ status: SubscriptionStatus) {
-        
+        if accountState != status.accountState { accountState = status.accountState }
         if isVerifiedThisLaunch != status.isVerifiedThisLaunch { isVerifiedThisLaunch = status.isVerifiedThisLaunch }
         if isPurchasePending != status.isPurchasePending { isPurchasePending = status.isPurchasePending }
     }

@@ -33,8 +33,8 @@ public final class KeychainEntitlementStore: EntitlementRecordStoring, Sendable 
         case errSecSuccess:
             // An undecodable item is unreadable, not absent: access fails closed until StoreKit answers.
             guard let data = result as? Data,
-                  let record = try? JSONDecoder().decode(EntitlementRecord.self, from: data) else {
-                return .notFound
+                  let record = try? KeychainSupport.credentialDecoder.decode(EntitlementRecord.self, from: data) else {
+                return .unavailable
             }
             return .found(record)
         case errSecItemNotFound:
@@ -46,10 +46,10 @@ public final class KeychainEntitlementStore: EntitlementRecordStoring, Sendable 
 
     @concurrent
     public func save(_ record: EntitlementRecord) async throws {
-        let data = try JSONEncoder().encode(record)
+        let data = try KeychainSupport.credentialEncoder.encode(record)
         var attributes: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
         let updated = SecItemUpdate(baseQuery as CFDictionary, attributes as CFDictionary)
         if updated == errSecSuccess { return }

@@ -405,6 +405,7 @@ public final class AppModel {
             // M3-C: a reminders pass already running finishes before the purge cancels the
             // account's notifications; any later pass finds the retired coordinator's snapshot gone.
             await ReminderPipeline.drain()
+            await subscriptionEngine?.accountDetached() // PAY-07: no effect reaches the purged account
             self?.recordSignOutStep(.runtime)
             if let account, let environment {
                 await AccountSignOut.purge(account: account, retired: retired, environment: environment)
@@ -427,6 +428,7 @@ public final class AppModel {
         await reminders.refreshPermission()
         // PAY-07: the subscription engine's effects reach this account from now on, and its glance
         // carries the gate's expiry.
+        await subscription.engine?.accountAttached(coordinator, environment: accountEnvironment)
     }
 
     /// Stops mirroring the coordinator and clears the intent's reference to it. The coordinator

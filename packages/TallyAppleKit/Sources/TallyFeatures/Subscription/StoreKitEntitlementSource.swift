@@ -65,6 +65,7 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
                 guard case .verified(let transaction) = result, products.role(of: transaction.productID) != nil else {
                     continue
                 }
+                await onUpdate() // granted: verified, recorded, gated
                 await transaction.finish()
             }
         }
@@ -87,6 +88,7 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
         switch result {
         case .success(let verification):
             guard case .verified(let transaction) = verification else { return .unverified }
+            await onGranted()
             await transaction.finish()
             return .purchased
         case .pending:
@@ -134,7 +136,7 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
     static func renewalState(_ state: Product.SubscriptionInfo.RenewalState) -> SubscriptionFacts.RenewalState? {
         switch state {
         case .subscribed: .subscribed
-        case .expired: nil
+        case .expired: .expired
         case .inBillingRetryPeriod: .inBillingRetryPeriod
         case .inGracePeriod: .inGracePeriod
         case .revoked: .revoked
