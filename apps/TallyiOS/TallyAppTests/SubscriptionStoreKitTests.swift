@@ -21,29 +21,20 @@ import TallyDomain
 /// `@MainActor`, like the test session's own use from a test: `SKTestSession` is a StoreKitTest
 /// class with no isolation guarantees of its own, so it stays on one actor.
 ///
-/// **Not on the iOS 26.3-26.5 simulators.** There `SKTestSession` serves no products: in run
-/// 36943065198 (iPhone 17 Pro, iOS 26.5) `Product.products(for:)` returned none of the bundled
-/// configuration's, so every scenario failed before it began; a public project reports the same
-/// range (stanlsv/sayboard, `SayboardTests/StoreKitConfigurationTests.swift`). The suite runs on
-/// the deployment-floor runtime (iOS 26.2) of every quick and pull-request run, and on iOS 27 in
-/// the forward-compat job. Linux's `check_storekit_products.py` checks the file's content everywhere.
+/// **Where it runs: wherever StoreKit Testing serves a subscription at all.** On a simulator the
+/// suite first asks for the one subscription of a control configuration (`StoreKitProbe`, below)
+/// and is skipped, with that reason, only when StoreKit Testing serves none of it; on a device it
+/// always runs. A runtime that serves the control but not `Products.storekit`'s two products fails
+/// `productsLoad`, which names what was served: a fault of this repository's file is never skipped.
+/// Linux's `check_storekit_products.py` checks the file's content everywhere.
 @Suite("PAY-01, PAY-03: StoreKit Testing moves the entitlement within one foreground", .serialized,
        .timeLimit(.minutes(3)),
-       .enabled(if: SubscriptionStoreKitTests.storeKitTestingServesProducts,
-                "SKTestSession serves no products on the iOS 26.3-26.5 simulators"))
+       .enabled("StoreKit Testing serves no subscription of the control configuration on this simulator runtime") {
+           await StoreKitProbe.servesSubscriptions()
+       })
 @MainActor
 struct SubscriptionStoreKitTests {
     static let products = SubscriptionProducts(bundleID: "dev.tally-app.tally")
-
-    /// False on the simulator runtimes where `SKTestSession` serves no products (iOS 26.3-26.5).
-    nonisolated static var storeKitTestingServesProducts: Bool {
-        #if targetEnvironment(simulator)
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        return !(version.majorVersion == 26 && (3...5).contains(version.minorVersion))
-        #else
-        return true
-        #endif
-    }
 
     private final class BundleToken {}
 
@@ -112,6 +103,8 @@ struct SubscriptionStoreKitTests {
     func productsLoad() async throws {
         let stage = try await Stage.make()
         let loaded = try await Product.products(for: Self.products.all)
+        // On failure the console line itself shows which IDs StoreKit Testing served.
+        #expect(loaded.map(\.id).sorted() == Self.products.all.sorted())
         let student = try #require(loaded.first { $0.id == Self.products.studentAnnual },
                                    "StoreKit Testing served \(loaded.map(\.id)) on iOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
         let parent = try #require(loaded.first { $0.id == Self.products.parentAnnual })
@@ -252,6 +245,45 @@ struct SubscriptionStoreKitTests {
             return
         }
         await stage.end()
+    }
+}
+
+/// Whether StoreKit Testing serves subscriptions on this runtime at all, asked with a control
+/// configuration (`StoreKitProbe.storekit`, in this test target's folder): one plain auto-renewable
+/// subscription with no offers, in the shape Xcode saves a version 4 file, sharing nothing with
+/// `Products.storekit`. Outside `SubscriptionStoreKitTests`, whose `@Suite` trait calls it: a trait
+/// that names its own suite's members is a circular reference (run 36946834779's build failure).
+///
+/// Run 36943065198 (iPhone 17 Pro, iOS 26.5) did not serve Tally Annual from `Products.storekit`'s
+/// first version (every purchase was `.unavailable`; the parent product was never asked for). That
+/// version lacked the `_storeKitErrors` settings and gave its free trial a `numberOfPeriods`, unlike
+/// every Xcode-saved version 4 file. The control separates the two possible causes: a runtime that
+/// serves nothing (skipped) and a file StoreKit Testing does not accept (a failure).
+enum StoreKitProbe {
+    static let productID = "dev.tally-app.tally.storekit-probe"
+
+    private final class BundleToken {}
+
+    /// True on a device, and when the control's subscription is served. Also true when the control
+    /// is missing from the test bundle, so a packaging fault runs (and fails) the suite instead of
+    /// skipping it. False only when StoreKit Testing cannot open the control or serves none of it.
+    @MainActor
+    static func servesSubscriptions() async -> Bool {
+        #if targetEnvironment(simulator)
+        guard let url = Bundle(for: BundleToken.self).url(forResource: "StoreKitProbe", withExtension: "storekit") else {
+            return true
+        }
+        guard let session = try? SKTestSession(contentsOf: url) else { return false }
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        let served = (try? await Product.products(for: [productID])) ?? []
+        session.clearTransactions()
+        session.resetToDefaultState()
+        return served.contains { $0.id == productID }
+        #else
+        return true
+        #endif
     }
 }
 #endif
