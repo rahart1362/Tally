@@ -10,8 +10,11 @@ public struct SubscriptionFacts: Sendable, Equatable {
         case purchased
         /// Shared through Family Sharing, which is off for every Tally plan (PRD §11.1).
         case familyShared
-        /// Any other way StoreKit reports (an organization's seat, a type this build does not
-        /// know): never entitles (fail closed; school-paid seats are backlog BL-15).
+        /// Any other way StoreKit reports, or a type this build does not know: never entitles (fail
+        /// closed). The owner decided on 2026-10-02 that a seat an organization assigns entitles, but
+        /// StoreKit names that seat (`Transaction.OwnershipType.assigned`) only from the iOS 27 SDK.
+        /// The iOS 26.5 SDK that CI's Xcode 26.6 builds with has no such value, so such a seat lands
+        /// here for now (M3-B2 report, O9).
         case other
     }
 

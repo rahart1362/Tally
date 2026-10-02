@@ -14,6 +14,12 @@ enum TestHooks {
     static let appLockOn = ["-TallyTestHooks.appLock", "on"]
 
     static func appLockGrace(_ period: String) -> [String] { ["-TallyTestHooks.appLockGrace", period] }
+    /// M3-B2 (`SubscriptionTestHooks`): a test-only entitlement and App Store, `entitled`, `none` or
+    /// `lapsed`; the last one given wins. Enforcement is on, so every `launchApp` passes `entitled`
+    /// first (signed-in flows keep their refresh, tabs and reminders), and the paywall's tests pass
+    /// `none` or `lapsed` after it.
+    static func entitlement(_ state: String) -> [String] { ["-TallyTestHooks.entitlement", state] }
+    static let entitled = entitlement("entitled")
     /// `success`, `cancel`, `lockout`, `passcodeNotSet`, `biometryUnavailable`, or a comma-separated
     /// sequence of them.
     static func deviceAuth(_ results: String) -> [String] { ["-TallyTestHooks.deviceAuth", results] }

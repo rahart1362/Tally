@@ -200,6 +200,7 @@ public actor CanvasClient {
         switch error {
         case .reauthRequired: .authExpired
         case .transient: .server // network/server trouble refreshing the token, not a Canvas API response
+        case .schoolDisabled: .schoolDisabled // PAY-10: the school turned off Tally's developer key
         }
     }
 }

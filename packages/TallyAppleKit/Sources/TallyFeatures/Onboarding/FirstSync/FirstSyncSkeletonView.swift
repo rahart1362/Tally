@@ -120,7 +120,9 @@ struct FirstSyncSkeletonView: View {
             L10n.Onboarding.FirstSync.failureAuthExpired()
         case .rateLimited, .server:
             L10n.Onboarding.FirstSync.failureServerSlow()
-        case .contract, .unknown:
+        // PAY-10's `.schoolDisabled` comes from a token refresh, which a first sync (a token issued
+        // moments before) does not reach: the generic message covers it.
+        case .contract, .unknown, .schoolDisabled:
             L10n.Onboarding.FirstSync.failureUnknown()
         }
     }

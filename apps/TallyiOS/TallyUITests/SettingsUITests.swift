@@ -114,6 +114,10 @@ final class SettingsSignedInUITests: TallyUITestCase {
         tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'"))
             .firstMatch.waitForExistence(timeout: 10), "no confirmation with the spec's copy. Hierarchy: \(app.debugDescription)")
+        // PAY-11 (M3-B2): erasing does not cancel the subscription, says so, and links to Manage Subscription.
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS \"This doesn't cancel your Tally subscription\""))
+            .firstMatch.exists, "the confirmation does not say the subscription stays. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Manage Subscription"].exists, "no Manage Subscription in the confirmation. Hierarchy: \(app.debugDescription)")
         let confirm = app.buttons.matching(NSPredicate(format: "label == 'Sign Out & Erase' AND identifier != 'settings.signOut'")).firstMatch
         tapWhenHittable(confirm, in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.buttons["Find My School"].waitForExistence(timeout: 15),

@@ -39,8 +39,9 @@ public nonisolated struct SubscriptionStatus: Sendable, Equatable {
 /// account comes from `AppModel` (`accountAttached`); the engine never resolves it itself, which
 /// would move the launch's snapshot decode.
 ///
-/// With enforcement off (`SubscriptionConfig.isGatingEnforced`, until M3-B2) every gate answer is
-/// "allowed", so no effect ever withdraws anything; the engine still verifies, records and mirrors.
+/// With enforcement off (`SubscriptionConfig.isGatingEnforced`, on since M3-B2; tests inject `false`)
+/// every gate answer is "allowed", so no effect ever withdraws anything; the engine still verifies,
+/// records and mirrors.
 public actor SubscriptionEngine {
     public nonisolated let gate: EntitlementGate
     public nonisolated let products: SubscriptionProducts
@@ -158,6 +159,24 @@ public actor SubscriptionEngine {
 
     /// Whether an account's coordinator is attached (tests).
     var isAccountAttached: Bool { coordinator != nil }
+
+    /// PAY-11 (M3-B1 O2): Sign out & erase. The Keychain record is deleted and this engine forgets its
+    /// copy, after any verification already queued (so none writes the old record back). The App
+    /// Store subscription itself is untouched; a later verification records StoreKit's answer afresh.
+    public func eraseRecord() async {
+        let previous = tail
+        let erase = Task { [weak self] in
+            await previous?.value
+            await self?.forgetRecord()
+        }
+        tail = erase
+        await erase.value
+    }
+
+    private func forgetRecord() async {
+        record = nil
+        await records.reset()
+    }
 
     /// B6: the scene entered the background; the background refresh is requested again (it
     /// replaces the pending request) while the gate allows it.

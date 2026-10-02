@@ -30,8 +30,8 @@ public enum SubscriptionFeature: String, Sendable, CaseIterable {
 /// | `firstSync`, `savedSnapshot`, `signOutAndErase` | yes | yes | yes | yes |
 /// | every other feature | yes | no | while `now < until + offlineGrace` | no |
 ///
-/// With enforcement off (`SubscriptionConfig.isGatingEnforced`, `false` until M3-B2 ships the
-/// paywall) every answer is yes.
+/// With enforcement off (`SubscriptionConfig.isGatingEnforced`, on since M3-B2 shipped the paywall;
+/// tests inject `false`) every answer is yes.
 public struct SubscriptionGate: Sendable, Equatable {
     public let isEnforced: Bool
     public let offlineGrace: Duration

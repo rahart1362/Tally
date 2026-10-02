@@ -107,7 +107,8 @@ struct WidgetGlanceRenderTests {
         let owner = SnapshotStore(root: fixture.root, accountKey: account,
                                   sealer: VaultSealer(account: account.rawValue, keyring: VaultKeyring(store: appStore),
                                                       mayCreateKeys: true))
-        let committed = try await owner.commit(snapshot, includeGrades: true)
+        // M3-B2: entitled, so the timeline renders the content rather than the locked message.
+        let committed = try await owner.commit(snapshot, includeGrades: true, entitledUntil: GlanceStoreFixture.entitledUntil)
 
         let result = await GlanceReader(storeRoot: fixture.root,
                                         keyStore: WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: nil)).read()

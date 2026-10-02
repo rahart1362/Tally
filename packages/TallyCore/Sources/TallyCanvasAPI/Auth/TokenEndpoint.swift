@@ -12,6 +12,9 @@ public enum TokenEndpointError: Error, Sendable, Equatable {
     case malformed
     /// The token belongs to a different Canvas user than the stored account.
     case userMismatch
+    /// PAY-10 (M3-B2): Canvas rejected the client itself (`invalid_client`, RFC 6749 §5.2): the
+    /// school turned off or deleted Tally's developer key. Not the student's sign-in.
+    case invalidClient
 }
 
 /// `POST /login/oauth2/token` for a public (PKCE) client: never a client secret,
@@ -50,6 +53,7 @@ public struct TokenEndpoint: Sendable {
         guard (200..<300).contains(response.status) else {
             let error = try? JSONDecoder().decode(OAuthErrorBody.self, from: response.body)
             if error?.error == "invalid_grant" { throw .invalidGrant }
+            if error?.error == "invalid_client" { throw .invalidClient }
             throw .rejected(status: response.status)
         }
         guard let body = try? JSONDecoder().decode(TokenBody.self, from: response.body),
