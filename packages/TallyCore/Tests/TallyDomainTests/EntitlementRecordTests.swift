@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TallyTestSupport
 @testable import TallyDomain
 
 /// PAY-04: the offline record and the one access rule for surfaces without StoreKit. Expiry and
@@ -146,7 +147,7 @@ struct SubscriptionGateTableTests {
 
 /// PAY-07: the app's stateful gate (an actor): the launch's wait for the first state, its timeout
 /// (fails closed), updates, and the expiry the glance mirrors.
-@Suite("EntitlementGate (PAY-07): the app's one gate", .timeLimit(.minutes(1)))
+@Suite("EntitlementGate (PAY-07): the app's one gate", .timeLimit(.minutes(TestTimeBudget.minutes(1))))
 struct EntitlementGateTests {
     static let now = Date(timeIntervalSince1970: 1_790_000_000)
     static let clock = FixedDate(now)
