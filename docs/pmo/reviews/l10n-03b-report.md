@@ -10,6 +10,10 @@
   the ratchet file, until the PMO's follow-up PR deletes it once PR #26 and this PR are both on
   `main`, which is the point at which the gate becomes zero-repo-wide, per plan 08 §5's row for this
   package.
+- **Performance (§9, added after hand-off):** PR #27 failed only the required `ios-perf` budget
+  "Sample entry to full projection" (0.18-0.37 s against 0.15 s). Measured cause:
+  `String(localized:)` costs 200-320 µs per call with this catalog, and the sweep put several hundred
+  calls on the projection. Fixed by looking each key up once (`L10n.string`), English unchanged.
 - **Author:** Localization Sweep Engineer (work package L10N-03b) — this hand-off continues a prior
   session of the same work package that ended at the account's usage limit; see the journal for the
   exact baton-pass point (`build/logs/journal/2026-10-01-l10n03b.md`, "session ended at the usage
@@ -301,3 +305,112 @@ On `l10n/sweep-b`, from `c54745d`:
 | `a7b9fca` | Revert `257bf3c`, byte-identical (`sha256` confirmed) |
 | `1281eee` | Journal and report: iteration run 3 (green) and the mutation run's dispatch |
 | *(final: this report's close-out and hand-off, the PR)* |
+| `73fa4db` | Close-out of the report and journal for hand-off |
+| `4276f0b` | PMO: keep main's literal baseline in this PR (§7) |
+| `fd8c537` | The L10N-03b engineer's record of `4276f0b` (was `f9fb5ea`, never pushed; replayed onto the PMO's commits, same diff) |
+| `16489c8` | PMO: `TallyLocale.effective` cached (§9: harmless, not the cost) |
+| `159ba82` | PMO: `TallyFormat.namedDay` caches its strings (§9: harmless, not the cost) |
+| `c651d62` | §9: `L10n.string`, each key looked up once; 102 projection lookups through it; `L10nLookupTests` |
+| `795e635` | §9: right-to-left arguments and texts stay on `String(localized:)` (it isolates them) |
+| *(next)* | §9 and the performance journal |
+
+## 9. Performance: the sample-entry budget (added after hand-off)
+
+Performance engineer (Claude Opus 5.5). Journal: `build/logs/journal/2026-10-02-l10n03b-perf.md`.
+
+### 9.1 The failure
+
+PR #27's only failing required job was `ios-perf`'s "Sample entry to full projection (flagship)",
+median <= 0.15 s (`perf/budgets.json`). PR runs: 0.1795 s and 0.2760 s (36956322638), 0.2586 s
+(36962237376), 0.3687 s (36967405930, iterations 0.37, 0.42, 0.34, 0.19, 0.40: every iteration slow,
+so a steady cost, not a cold cache). Main: 0.0925 s at this PR's merge base (`4689bea`, run
+36950378695), then **0.2089 s, a failure on main** (`47e88c9`, run 36959895073) and 0.1307 s
+(`bb17e95`, run 36969681199). A PR run tests the merge with main (`refs/pull/27/merge`). The PMO's two
+fixes (`TallyLocale.effective` and `namedDay` cached) were in and had not helped.
+
+### 9.2 Measured, not guessed
+
+A temporary diagnostic test (`PerfDiagnosticTests`, on throwaway branches only, never on this branch)
+timed every stage of the pipeline and about 35 primitives, the same file on this branch and on main's
+code, two `scope=unit` runs in parallel: **36973677502** (this branch) and **36973679483** (main
+`bb17e95`). It reported through known issues (the iOS console keeps only lines with "error:"). Debug
+build; thread CPU time, which the suites running in parallel do not inflate.
+
+| Measure (Debug) | main's code (361 keys) | this branch (501 keys) |
+|---|---|---|
+| `String(localized: LocalizedStringResource)` plain / `%@` / plural | 74.6 / 74.8 / 92.5 µs | **317.4 / 198.8 / 274.4 µs** |
+| the same key through `Bundle.localizedString` / `String(localized: "key", …, bundle:)` | 0.95 / 5.6 µs | 1.15 / 8.3 µs |
+| `LocalizedStringResource` construction | 0.55-1.5 µs | 0.56-1.7 µs |
+| percent, number, time, weekday, `.list`, `namedDay` | 0.9-3.7 µs | 0.35-11 µs |
+| `ScreenFormatter.dueText` | 10-16 µs | **280-341 µs** |
+| cards / details / To-Do / Calendar / Insights | 1.3 / 6.7 / 3.1 / 11.4 / 2.1 ms | 9.4 / **119.2** / 25.5 / 20.5 / 13.5 ms |
+| `ScreenProjections.build` | 28.0 ms | **294.4 ms** |
+| the perf test's loop (AppModel, wall) | 64-74 ms | **262-385 ms** |
+| dashboard, digest, availability, `validUntil` | 1.6, 0, 0, 0.4 ms | 1.9, 0, 0, 0.3 ms |
+
+**The hot spot is `String(localized: LocalizedStringResource)`:** each call reads the catalog again.
+This sweep put several hundred such calls on the projection: every due date twice (shown and spoken),
+every status chip, spoken score, posted date and VoiceOver label. Nothing else moved. The PMO's two
+caches are confirmed cheap now (0.4 µs each) and were not the cost.
+
+The per-call cost grows with the catalog (75 µs at 361 keys, 199-317 µs at 501), which also fits
+main's own slide after M3-D's widget keys (294 -> 361 keys; 0.09 s -> 0.13-0.21 s). Two data points
+on two runners (the PR's runner was 1.2-2.5x slower on other primitives too): a hypothesis about the
+mechanism, not a measurement of it.
+
+### 9.3 The fix
+
+`L10n.string` (`TallyStrings/L10n+Lookup.swift`) keeps what `String(localized:)` returned, per key,
+table, bundle and locale identifier: a key's text; for `String` arguments, the text with a private-use
+placeholder per argument, filled in one pass; for a plural, the text per number in
+`L10n.cachedCounts` (0...999). Each overload takes the `L10n` function itself, never a built resource,
+so a key cannot be cached with one call's arguments. `Mutex` in a `Sendable` class; no
+`nonisolated(unsafe)`, `Task.detached` or `uniqueKeysWithValues`. 102 lookups in the projection's
+builders go through it; three rare mixed-`Int` lookups stay direct.
+
+- **Right-to-left text stays on `String(localized:)`.** The new test caught it in run 36976127452:
+  `String(localized:)` wraps a right-to-left argument in Unicode isolates ("Was due
+  \u{2068}שלום\u{2069}"; an RLM too), which a placeholder fill does not. Any argument or text with a
+  right-to-left character or a bidi control now takes the uncached path, exactly as before (`795e635`).
+- **English byte-identical.** `String(localized:)` inserts a left-to-right `%@` argument unchanged, so
+  filling it in afterwards gives the same bytes. Evidence: `L10nLookupTests` (30 keys; arguments with
+  placeholders, `%` signs, format specifiers, combining marks, emoji, Hebrew, Arabic, bidi controls);
+  in 36976127452 every other suite passed, including every test that asserts the screens' English;
+  a Linux probe of the fill against `String(format:)` (1,575 pairs) and of the fallback against a
+  stand-in that isolates as iOS did (2,020 checks), 0 differences.
+- **Shared file, flagged:** `Calendar/CalendarProjection.swift` is L10N-03a's code, outside this PR's
+  screens. Its 13 lookups go through `L10n.string` too (call sites only): they slow down with this
+  PR's larger catalog (Calendar 11.4 ms on main, 20.5 ms here), and main has little margin.
+- **Cold cost:** a process's first projection still looks each distinct key up once (about 70 keys).
+
+Measured on the fix (36976127452, Debug, vs this branch before; main in brackets): cards 0.8 ms
+[1.3], details 12.7 [6.7], To-Do 6.1 [3.1], Calendar 1.6 [11.4], Insights 2.7 [2.1],
+`ScreenProjections.build` **20.0 ms [28.0]** (was 294.4), `HomeProjector.project` 21-28 ms [22-27],
+the perf test's loop **61-62 ms [64-74]** (was 262-385), `dueText` 22-29 µs (was 280-341);
+`L10n.string` 1.4-6.4 µs per call.
+
+### 9.4 Mutation checks (run 36976129558, this package's one mutation run)
+
+| Mutation | Guard | Result |
+|---|---|---|
+| MV1: `fill` as a sequential find-and-replace | `L10nLookupTests` two/three arguments | **caught**: 296 and 1,044 issues per attempt against 240 and 720 without it; the extra cases are the arguments holding a placeholder ("Due x\u{E000} at " for "Due \u{E001}x\u{E000} at ") |
+| MV2: a plural cached without its number | `L10nLookupTests` plurals | **caught**: 186 issues per attempt ("3 items" for "0 items"); passed without it |
+| (no right-to-left fallback: the code before `795e635`) | `L10nLookupTests` one/two/three arguments | **caught** in 36976127452: 976 issues per attempt, every one with Hebrew or an RLM |
+
+MV1 and MV2 lived only on the throwaway branch `perf/l10n03b-mut`; `L10n+Lookup.swift` on this branch
+at `c651d62` had sha256 `77beb36f0682…2a63` before and after.
+
+### 9.5 Open items
+
+- **The PR run is the proof of the budget** (Release, `ios-perf`): its result is in the hand-off reply,
+  not here (pushing this report starts that run).
+- **Right-to-left Canvas text in the swept phrases now carries U+2068/U+2069.** Not from this fix:
+  the sweep moved these phrases from string interpolation to `String(localized:)`, which isolates a
+  right-to-left argument; pre-sweep main did not. Left-to-right text is byte-identical. Arguably the
+  correct rendering; the owner's call.
+- **Main is close to the budget on its own** (0.1307 s and a 0.2089 s failure, runs 36969681199 and
+  36959895073), and the per-call cost seems to grow with the catalog. The remaining
+  `String(localized:)` calls elsewhere (views, Settings, Freshness) are outside the projection and
+  were not changed. A device calibration of the budget (D-P3) is still open.
+- **Throwaway branches** (`perf/l10n03b-diag`, `perf/main-diag`, `perf/l10n03b-diag2`,
+  `perf/l10n03b-mut`) are deleted after the PR run; none had a PR.
