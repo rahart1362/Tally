@@ -30,10 +30,11 @@ public struct UserState: Codable, Sendable, Equatable {
     /// `hideCourseNamesInNotifications`, defaulted `false` on migration (`UserStateMigration`);
     /// v3 adds `digestThresholds` (owner decision 2026-09-27), defaulted to 0.5 pt everywhere;
     /// v4 adds the screens' local state, `courseOrder` and `doneAssignments` (M3-A O3), and
-    /// `reminderTipDismissedUntil` (M3-C O1), empty or nil on migration.
+    /// `reminderTipDismissedUntil` (M3-C O1), empty or nil on migration; v5 adds
+    /// `gradesOutsideCanvasOverride` (plan 08 G-3, XG-04), empty (every course Automatic) on migration.
     /// Owner decision D-E4 (2026-09-27): user state is NOT backed up; a new install or data wipe
     /// starts from these defaults while Canvas data is fetched fresh.
-    public static let currentSchemaVersion = 4
+    public static let currentSchemaVersion = 5
 
     public let schemaVersion: Int
     public var showGradesInGlance: Bool
@@ -48,11 +49,20 @@ public struct UserState: Codable, Sendable, Equatable {
     public var doneAssignments: Set<CanvasID<Assignment>>
     /// The Dashboard's reminders tip stays hidden until this time (UX-WP-12); nil shows it.
     public var reminderTipDismissedUntil: Date?
+    /// The student's answer to "This course's grades are kept outside Canvas" per course (plan 08
+    /// G-3, XG-04): `GradeAvailabilityOverride`'s raw values, which are a persisted contract
+    /// (`"keptOutsideCanvas"` is Yes, `"inCanvas"` is No). Automatic is absent. Stored by raw value
+    /// rather than as the enum so that a value this build does not know reads as Automatic instead
+    /// of failing the whole decode, which would reset every other setting
+    /// (`UserStateStore`'s `resetUserStateAndTell`). Read and write it through
+    /// `gradeAvailabilityOverrides`.
+    public var gradesOutsideCanvasOverride: [CanvasID<Course>: String]
 
     public init(showGradesInGlance: Bool = false, hideCourseNamesInNotifications: Bool = false,
                 manualClassTimes: [ManualClassTime] = [], digestThresholds: DigestThresholds = .default,
                 courseOrder: [CanvasID<Course>] = [], doneAssignments: Set<CanvasID<Assignment>> = [],
-                reminderTipDismissedUntil: Date? = nil) {
+                reminderTipDismissedUntil: Date? = nil,
+                gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]) {
         schemaVersion = Self.currentSchemaVersion
         self.showGradesInGlance = showGradesInGlance
         self.hideCourseNamesInNotifications = hideCourseNamesInNotifications
@@ -61,6 +71,15 @@ public struct UserState: Codable, Sendable, Equatable {
         self.courseOrder = courseOrder
         self.doneAssignments = doneAssignments
         self.reminderTipDismissedUntil = reminderTipDismissedUntil
+        gradesOutsideCanvasOverride = gradeAvailabilityOverrides.mapValues(\.rawValue)
+    }
+
+    /// `gradesOutsideCanvasOverride` as the classifier takes it (`GradeAvailabilityIndex`'s
+    /// `overrides`). A raw value this build does not know is left out, so that course is
+    /// Automatic; setting the map writes only known values.
+    public var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] {
+        get { gradesOutsideCanvasOverride.compactMapValues(GradeAvailabilityOverride.init(rawValue:)) }
+        set { gradesOutsideCanvasOverride = newValue.mapValues(\.rawValue) }
     }
 }
 
@@ -70,6 +89,18 @@ enum UserStateMigration {
         let schemaVersion: Int
         let showGradesInGlance: Bool
         let manualClassTimes: [ManualClassTime]
+    }
+
+    /// The v4 shape: everything before the grades-outside-Canvas overrides (XG-04).
+    private struct V4: Decodable {
+        let schemaVersion: Int
+        let showGradesInGlance: Bool
+        let hideCourseNamesInNotifications: Bool
+        let manualClassTimes: [ManualClassTime]
+        let digestThresholds: DigestThresholds
+        let courseOrder: [CanvasID<Course>]
+        let doneAssignments: Set<CanvasID<Assignment>>
+        let reminderTipDismissedUntil: Date?
     }
 
     /// The v3 shape: everything before the screens' local state.
@@ -93,6 +124,14 @@ enum UserStateMigration {
         switch try peekSchemaVersion(data) {
         case UserState.currentSchemaVersion:
             return try JSONDecoder().decode(UserState.self, from: data)
+        case 4:
+            // Every v4 field kept; every course starts Automatic (plan 08 XG-04).
+            let v4 = try JSONDecoder().decode(V4.self, from: data)
+            return UserState(showGradesInGlance: v4.showGradesInGlance,
+                              hideCourseNamesInNotifications: v4.hideCourseNamesInNotifications,
+                              manualClassTimes: v4.manualClassTimes, digestThresholds: v4.digestThresholds,
+                              courseOrder: v4.courseOrder, doneAssignments: v4.doneAssignments,
+                              reminderTipDismissedUntil: v4.reminderTipDismissedUntil)
         case 3:
             let v3 = try JSONDecoder().decode(V3.self, from: data)
             return UserState(showGradesInGlance: v3.showGradesInGlance,

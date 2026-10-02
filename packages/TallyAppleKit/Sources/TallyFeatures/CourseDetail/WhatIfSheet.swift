@@ -1,12 +1,17 @@
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
+import TallyStrings
 
 /// UX-WP-16: the what-if sheet (ux-ui.md §3.7.3), `.medium` to `.large`. A sticky summary says
 /// "Simulation — not your real grade" with the `flask` symbol; rows are the course's ungraded work
 /// by category, each with a numeric field, a ±1-point stepper that VoiceOver adjusts, and quick-fill
 /// chips; goal mode answers "what do I need on X for Y%?". All grade math is `WhatIfModel`'s,
 /// through `GradeWork`.
+///
+/// Plan 08 XG-06: for a course whose grades are kept outside Canvas (`setup.estimate`), the sheet
+/// opens with the owner's approved disclaimer, then the category weights the student may set; the
+/// category sections name the category only (its weight is in the weights section).
 struct WhatIfSheet: View {
     let model: WhatIfModel
     @Environment(\.dismiss) private var dismiss
@@ -14,13 +19,27 @@ struct WhatIfSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                if let estimate = model.setup.estimate {
+                    Section {
+                        Text(L10n.WhatIfEstimate.disclaimer())
+                            .font(TallyTypography.footnote)
+                            .foregroundStyle(TallyColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("whatif.disclaimer")
+                    }
+                    WhatIfWeightsSection(estimate: estimate, model: model)
+                }
                 ForEach(model.setup.groups) { group in
                     Section {
                         ForEach(group.items) { item in
                             WhatIfItemRow(item: item, model: model)
                         }
                     } header: {
-                        Text("\(group.name) · \(group.weightText)")
+                        if model.setup.estimate != nil {
+                            Text(verbatim: group.name)
+                        } else {
+                            Text("\(group.name) · \(group.weightText)")
+                        }
                     }
                 }
                 WhatIfGoalSection(model: model)
@@ -37,7 +56,7 @@ struct WhatIfSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Reset") { model.reset() }
-                        .disabled(model.scores.isEmpty)
+                        .disabled(!model.canReset)
                         .accessibilityIdentifier("whatif.reset")
                 }
             }
@@ -66,7 +85,7 @@ private struct WhatIfSummary: View {
                 Text("Projected")
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
-                Text(WhatIfCopy.percent(model.projected))
+                Text(verbatim: model.hasNoGrade ? WhatIfCopy.noGradeDash : WhatIfCopy.percent(model.projected))
                     .font(.system(.title, design: .serif).bold())
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
@@ -79,7 +98,8 @@ private struct WhatIfSummary: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline))
+            .accessibilityLabel(model.hasNoGrade ? WhatIfCopy.noGradeSpoken
+                                : WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline))
             .accessibilityIdentifier("whatif.projected")
         }
         .padding(.horizontal, TallySpacing.screenMargin)
@@ -164,6 +184,114 @@ private struct WhatIfItemRow: View {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
         return try? Double(trimmed, format: .number.locale(locale))
+    }
+}
+
+/// Plan 08 XG-06: each category's weight, its total, and why an entry is not used. Every field is
+/// a control of at least 44 pt on screen (`WhatIfWeightInput.minimumHeight`) with its own label.
+private struct WhatIfWeightsSection: View {
+    let estimate: WhatIfEstimateSetup
+    let model: WhatIfModel
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        Section {
+            ForEach(estimate.categories) { category in
+                WhatIfWeightField(category: category, model: model)
+            }
+            Text(L10n.WhatIfEstimate.total(WhatIfCopy.weightTotal(model.weightTotal, locale: locale)))
+                .font(TallyTypography.subheadline.weight(.semibold))
+                .foregroundStyle(TallyColor.textPrimary)
+                .accessibilityIdentifier("whatif.weights.total")
+            if model.weightsOutcome == .allZero {
+                WhatIfWeightNote(text: L10n.WhatIfEstimate.allZero(), identifier: "whatif.weights.allZero")
+            } else if model.weightTotalIsOverHundred {
+                WhatIfWeightNote(text: L10n.WhatIfEstimate.overHundred(), identifier: "whatif.weights.overHundred")
+            }
+        } header: {
+            Text(L10n.WhatIfEstimate.weightsHeader())
+        } footer: {
+            Text(L10n.WhatIfEstimate.weightsFooter())
+        }
+    }
+}
+
+/// One category's weight: its name, then a number field whose placeholder is the weight it keeps
+/// when left blank. An entry that cannot be used says so beneath it, in words and with a symbol.
+private struct WhatIfWeightField: View {
+    let category: WhatIfWeightCategory
+    let model: WhatIfModel
+    @State private var text = ""
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.xs) {
+            Text(verbatim: category.name)
+                .font(TallyTypography.body)
+                .foregroundStyle(TallyColor.textPrimary)
+                .accessibilityHidden(true)
+            WhatIfWeightInput(text: $text, category: category)
+            if model.invalidWeights.contains(category.id) {
+                WhatIfWeightNote(text: L10n.WhatIfEstimate.invalidWeight(), identifier: "whatif.weight.invalid")
+            }
+        }
+        .padding(.vertical, TallySpacing.xs)
+        .onChange(of: text) { _, typed in
+            model.setWeight(WhatIfModel.weightEntry(typed, locale: locale), for: category.id)
+        }
+        .onChange(of: model.resetCount) { _, _ in
+            text = ""
+        }
+    }
+}
+
+/// The weight's number field and its tap target: the whole box, at least `minimumHeight` tall,
+/// puts the cursor in the field (A11Y-04). Its label names the category for VoiceOver and Voice
+/// Control.
+struct WhatIfWeightInput: View {
+    /// Drawn at 46 pt so it still measures at least 44 pt when the system shows the sheet scaled
+    /// by 0.960 at the medium height (`ScoreStepper.buttonSide`, PR #6).
+    static let minimumHeight: CGFloat = 46
+
+    @Binding var text: String
+    let category: WhatIfWeightCategory
+    @FocusState private var isFocused: Bool
+
+    init(text: Binding<String>, category: WhatIfWeightCategory) {
+        _text = text
+        self.category = category
+    }
+
+    var body: some View {
+        TextField(text: $text, prompt: Text(verbatim: category.defaultText)) {
+            Text(L10n.WhatIfEstimate.weightLabel(category.name))
+        }
+        .keyboardType(.decimalPad)
+        .textFieldStyle(.roundedBorder)
+        .focused($isFocused)
+        .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { isFocused = true }
+        .accessibilityLabel(Text(L10n.WhatIfEstimate.weightLabel(category.name)))
+        .accessibilityIdentifier("whatif.weight")
+    }
+}
+
+/// A note under the weights: words and a symbol, never colour alone (A11Y-06).
+private struct WhatIfWeightNote: View {
+    let text: LocalizedStringResource
+    let identifier: String
+
+    var body: some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle")
+        }
+        .font(TallyTypography.footnote)
+        .foregroundStyle(TallyColor.textSecondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 }
 

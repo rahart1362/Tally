@@ -69,6 +69,10 @@ struct CourseDetailView: View {
             }
         }
         .toolbar {
+            // Plan 08 XG-04 (G-3): the course's "grades kept outside Canvas" answer.
+            ToolbarItem(placement: .topBarTrailing) {
+                GradeOverrideMenu(courseID: detail.id)
+            }
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = detail.canvasURL {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -282,6 +286,70 @@ struct CourseDetailView: View {
 
     private static func percent(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(1))) + "%"
+    }
+}
+
+/// Plan 08 XG-04 (owner decision G-3): Course Detail's menu holds "This course's grades are kept
+/// outside Canvas: Automatic / Yes / No". The answer is the student's (`HomeModel`, kept with the
+/// course order); a change re-projects every screen at once and, for a signed-in account, rewrites
+/// the widget's glance.
+struct GradeOverrideMenu: View {
+    let courseID: CanvasID<Course>
+    @Environment(HomeModel.self) private var model
+
+    var body: some View {
+        Menu {
+            Picker(selection: Binding(
+                get: { GradeOverrideChoice(model.gradeAvailabilityOverride(for: courseID)) },
+                set: { model.setGradeAvailabilityOverride($0.override, for: courseID) })) {
+                ForEach(GradeOverrideChoice.allCases) { choice in
+                    Text(choice.title).tag(choice)
+                }
+            } label: {
+                Text(L10n.GradeOverride.title())
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
+        } label: {
+            Label {
+                Text(L10n.GradeOverride.menu())
+            } icon: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+        .accessibilityIdentifier("courseDetail.menu")
+    }
+}
+
+/// The three answers to "This course's grades are kept outside Canvas" (plan 08 G-3), and the
+/// override each one stores: Automatic stores none.
+nonisolated enum GradeOverrideChoice: String, CaseIterable, Identifiable, Sendable {
+    case automatic, yes, no
+
+    var id: Self { self }
+
+    init(_ override: GradeAvailabilityOverride?) {
+        switch override {
+        case nil: self = .automatic
+        case .keptOutsideCanvas?: self = .yes
+        case .inCanvas?: self = .no
+        }
+    }
+
+    var override: GradeAvailabilityOverride? {
+        switch self {
+        case .automatic: nil
+        case .yes: .keptOutsideCanvas
+        case .no: .inCanvas
+        }
+    }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .automatic: L10n.GradeOverride.automatic()
+        case .yes: L10n.GradeOverride.yes()
+        case .no: L10n.GradeOverride.no()
+        }
     }
 }
 

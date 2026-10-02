@@ -32,9 +32,12 @@ public actor InMemoryUserStateAccess: UserStateAccess {
 
 /// A signed-in account's `UserState`: sealed on disk by `UserStateStore`, and every save is handed
 /// to the account's `RefreshCoordinator`: `digestThresholds` (`updateDigestThresholds`), so the
-/// next commit's "What changed" uses it (owner decision DG-1); and `showGradesInGlance`
+/// next commit's "What changed" uses it (owner decision DG-1); `showGradesInGlance`
 /// (`updateIncludeGrades`), which rebuilds the glance on disk at once, then the widget reloads, so
-/// turning grades off takes them off the widget now (PMO R10; M3-A O11).
+/// turning grades off takes them off the widget now (PMO R10; M3-A O11); and the "grades kept
+/// outside Canvas" answers (`updateGradeAvailabilityOverrides`, plan 08 XG-04), which every later
+/// commit's index uses (the glance, the digest) and which rebuild the glance at once the same way,
+/// so the widget agrees with the Dashboard.
 public actor AccountUserStateAccess: UserStateAccess {
     public enum AccessError: Error, Equatable {
         /// `UserStateStore.load()` reported a state this build must not overwrite (written by a
@@ -74,7 +77,9 @@ public actor AccountUserStateAccess: UserStateAccess {
         try await store.save(state)
         if let coordinator = await runtime.coordinator() {
             await coordinator.updateDigestThresholds(state.digestThresholds)
-            if await coordinator.updateIncludeGrades(state.showGradesInGlance) { reloadWidgets() }
+            let gradesRewrote = await coordinator.updateIncludeGrades(state.showGradesInGlance)
+            let overridesRewrote = await coordinator.updateGradeAvailabilityOverrides(state.gradeAvailabilityOverrides)
+            if gradesRewrote || overridesRewrote { reloadWidgets() }
         }
         return state
     }

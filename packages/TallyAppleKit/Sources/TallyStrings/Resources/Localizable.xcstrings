@@ -385,6 +385,66 @@
         }
       }
     },
+    "courseDetail.override.automatic" : {
+      "comment" : "Answer to 'This course's grades are kept outside Canvas': Tally decides from what Canvas shows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        }
+      }
+    },
+    "courseDetail.override.menu" : {
+      "comment" : "Label of the Course Detail toolbar menu (an ellipsis button) that holds the course's settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Course Options"
+          }
+        }
+      }
+    },
+    "courseDetail.override.no" : {
+      "comment" : "Answer to 'This course's grades are kept outside Canvas': no, they are in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
+        }
+      }
+    },
+    "courseDetail.override.title" : {
+      "comment" : "Course Detail menu: a setting whose answers are Automatic, Yes and No. Yes means the student's school keeps this course's grades in another system (for example a district grade portal), not in Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This course's grades are kept outside Canvas"
+          }
+        }
+      }
+    },
+    "courseDetail.override.yes" : {
+      "comment" : "Answer to 'This course's grades are kept outside Canvas': yes, they are.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yes"
+          }
+        }
+      }
+    },
     "courseDetail.whatIf.button" : {
       "comment" : "Button that opens the what-if calculator, where the student tries scores on work that isn't graded yet.",
       "extractionState" : "manual",
@@ -393,6 +453,114 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try What-If Scores"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.allZero" : {
+      "comment" : "In the what-if calculator, when every category weight the student set or left is 0.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At least one category needs a weight above 0. Until then, Tally uses this course's setting in Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.disclaimer" : {
+      "comment" : "At the top of the what-if calculator for a course whose grades the school keeps in another system: the student types their real scores and Tally estimates the course grade.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimate only. Your school keeps grades outside Canvas, so Tally uses this course's Canvas categories, which may not match how your school weighs your grade."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.invalidWeight" : {
+      "comment" : "Under a category weight the student typed that is not a number from 0 to 100.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a number from 0 to 100. Until then, this category uses its setting in Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.none" : {
+      "comment" : "Accessibility label of the what-if calculator's summary when there is no grade to estimate yet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No estimate yet. Enter a score to see one."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.overHundred" : {
+      "comment" : "In the what-if calculator, when the category weights add up to more than 100 percent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These weights add up to more than 100%, so the estimate can come out higher than your real grade."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.total" : {
+      "comment" : "The sum of the category weights in the what-if calculator. The placeholder is a percentage, for example 100%.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total: %@"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.weightLabel" : {
+      "comment" : "Accessibility label of a number field in the what-if calculator. The placeholder is the name of an assignment category from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight for %@, percent of grade"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.weightsFooter" : {
+      "comment" : "Under the category weights in the what-if calculator.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each weight is a percent of the grade. Categories you leave blank use this course's setting in Canvas."
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.estimate.weightsHeader" : {
+      "comment" : "Section header in the what-if calculator: how much each assignment category counts toward the course grade.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category weights"
           }
         }
       }
