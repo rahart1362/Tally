@@ -72,13 +72,27 @@ public struct RootView: View {
                 }
             case .signedIn:
                 // The account's Home over its coordinator (`AccountHomeSource`), built by the launch
-                // or by the first sync's root switch.
+                // or by the first sync's root switch. M3-B2: "Subscribe to refresh" above the tabs
+                // while refresh is locked (PAY-07), and the school-revoked notice over the Home, never
+                // over the lock (PAY-10).
                 if let home = appModel.home {
-                    HomeShellView(model: home)
+                    HomeShellView(model: home, banner: AnyView(SubscriptionRefreshBanner(appModel: appModel, home: home)))
                         .environment(appModel) // M3-A: Settings' "Sign Out & Erase" and App Lock
+                        .fullScreenCover(isPresented: schoolRevokedNotice) {
+                            SchoolRevokedNoticeView(appModel: appModel)
+                        }
                 }
             }
         }
+    }
+}
+
+extension RootView {
+    /// PAY-10: `AppModel.showsSchoolRevokedNotice`; closing it is "Continue with Saved Data".
+    private var schoolRevokedNotice: Binding<Bool> {
+        Binding(get: { appModel.showsSchoolRevokedNotice }, set: { isPresented in
+            if !isPresented { appModel.dismissSchoolRevokedNotice() }
+        })
     }
 }
 

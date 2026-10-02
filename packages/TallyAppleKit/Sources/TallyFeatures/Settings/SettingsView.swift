@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 import TallyDesignSystem
 import TallyDomain
@@ -11,6 +12,10 @@ nonisolated enum SettingsCopy {
     static var signOutTitle: LocalizedStringResource { L10n.Settings.signOutTitle() }
     /// ux-ui.md §3.7.7, SEC §3, ASC R9.
     static var signOutConfirmation: LocalizedStringResource { L10n.Settings.signOutConfirmation() }
+    /// PAY-11 (M3-B2): the confirmation's message, then that erasing does not cancel the subscription.
+    static var signOutMessage: String {
+        String(localized: signOutConfirmation) + "\n\n" + String(localized: L10n.Subscription.eraseKeepsSubscription())
+    }
     static var disclaimer: LocalizedStringResource { L10n.Account.disclaimer() }
     static var thresholdFooter: LocalizedStringResource { L10n.Settings.thresholdFooter() }
     /// M2-C2 OI5: the Standing widget's copy points here ("if you choose to show grades in widgets").
@@ -39,6 +44,8 @@ struct SettingsView: View {
     @State private var settings: SettingsModel?
     @State private var lockSettings: AppLockSettingsModel?
     @State private var confirmsSignOut = false
+    /// PAY-11: the confirmation's Manage Subscription (Apple's sheet).
+    @State private var presentsManageSubscriptions = false
     @State private var showsSampleFeedNote = false
     @State private var backgroundRefresh = BackgroundRefreshState.unknown
 
@@ -67,10 +74,13 @@ struct SettingsView: View {
                     dismiss()
                     app?.signOut()
                 }
+                // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap away.
+                Button(String(localized: L10n.Subscription.manage())) { presentsManageSubscriptions = true }
                 Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
             } message: {
-                Text(SettingsCopy.signOutConfirmation)
+                Text(verbatim: SettingsCopy.signOutMessage)
             }
+            .manageSubscriptionsSheet(isPresented: $presentsManageSubscriptions)
             .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
                 Button(String(localized: L10n.Calendar.subscribeAlertOK()), role: .cancel) {}
             } message: {
@@ -111,6 +121,7 @@ struct SettingsView: View {
                 Text(L10n.Settings.sampleModeCaption())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
+                subscriptionRow
                 if let app, app.route == .sample {
                     Button(String(localized: L10n.Settings.exitSampleData())) {
                         dismiss()
@@ -125,6 +136,7 @@ struct SettingsView: View {
                 if let name = home.account.displayName {
                     LabeledContent(String(localized: L10n.Settings.signedInAsLabel()), value: name)
                 }
+                subscriptionRow
                 if let app, case .signedIn = app.route {
                     Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
                         confirmsSignOut = true
@@ -134,6 +146,24 @@ struct SettingsView: View {
             }
         } header: {
             Text(L10n.Settings.accountHeader())
+        }
+    }
+
+    /// PAY-08, PAY-09 (M3-B2): Settings → Subscription, in sample mode too (App Review buys there).
+    @ViewBuilder
+    private var subscriptionRow: some View {
+        if let app {
+            NavigationLink {
+                SubscriptionSettingsView(appModel: app, school: home.dashboard.hero.school, onCheckMySchool: {
+                    dismiss()
+                    app.exitSample()
+                })
+            } label: {
+                LabeledContent(String(localized: L10n.Subscription.settingsTitle()),
+                               value: SubscriptionStatusText.status(app.subscription.accountState,
+                                                                    isPurchasePending: app.subscription.isPurchasePending))
+            }
+            .accessibilityIdentifier("settings.subscription")
         }
     }
 

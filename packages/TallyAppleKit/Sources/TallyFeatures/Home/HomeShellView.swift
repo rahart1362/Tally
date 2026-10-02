@@ -68,6 +68,7 @@ public struct HomeShellView: View {
                         NavigationStack {
                             CoursesScreen()
                                 .modifier(FreshnessSubtitle())
+                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
                                 .toolbar { settingsToolbarItem }
                         }
                     }
@@ -77,6 +78,7 @@ public struct HomeShellView: View {
                         NavigationStack {
                             CalendarScreen()
                                 .modifier(FreshnessSubtitle())
+                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
                                 .toolbar { settingsToolbarItem }
                         }
                     }
@@ -86,6 +88,7 @@ public struct HomeShellView: View {
                         NavigationStack {
                             ToDoScreen()
                                 .modifier(FreshnessSubtitle())
+                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
                                 .toolbar { settingsToolbarItem }
                         }
                     }
@@ -97,6 +100,7 @@ public struct HomeShellView: View {
                         NavigationStack {
                             InsightsScreen()
                                 .modifier(FreshnessSubtitle())
+                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
                                 .toolbar { settingsToolbarItem }
                         }
                     }
@@ -121,6 +125,8 @@ public struct HomeShellView: View {
         // Delivered on the main run loop: these notifications may be posted from any thread, and
         // an `onReceive` action formed in `body` is main-actor isolated (SE-0423 would trap).
         .onReceive(Self.clockChanges) { _ in model.clockDidChange() }
+        // PAY-06 (M3-B2): the paywall, once after the first sync, and for a locked feature.
+        .modifier(HomePaywallPresenter(home: model))
     }
 
     /// The tab bar's selection. A tab is marked built in the same update that selects it, so its
