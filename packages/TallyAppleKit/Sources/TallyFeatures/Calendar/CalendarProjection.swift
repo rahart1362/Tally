@@ -216,14 +216,14 @@ public nonisolated enum CalendarBuilder {
         let timeText: String
         let spokenTime: String
         if entry.isAllDay {
-            timeText = String(localized: L10n.Calendar.allDay())
-            spokenTime = String(localized: L10n.Calendar.allDaySpoken())
+            timeText = L10n.string(L10n.Calendar.allDay)
+            spokenTime = L10n.string(L10n.Calendar.allDaySpoken)
         } else if entry.kind == .due {
-            timeText = String(localized: L10n.Calendar.due(formatter.timeText(entry.start)))
-            spokenTime = String(localized: L10n.Calendar.dueSpoken(formatter.timeText(entry.start)))
+            timeText = L10n.string(L10n.Calendar.due, formatter.timeText(entry.start))
+            spokenTime = L10n.string(L10n.Calendar.dueSpoken, formatter.timeText(entry.start))
         } else if let endAt = entry.end {
-            timeText = String(localized: L10n.Calendar.timeRange(formatter.timeText(entry.start), formatter.timeText(endAt)))
-            spokenTime = String(localized: L10n.Calendar.timeRangeSpoken(formatter.timeText(entry.start), formatter.timeText(endAt)))
+            timeText = L10n.string(L10n.Calendar.timeRange, formatter.timeText(entry.start), formatter.timeText(endAt))
+            spokenTime = L10n.string(L10n.Calendar.timeRangeSpoken, formatter.timeText(entry.start), formatter.timeText(endAt))
         } else {
             timeText = formatter.timeText(entry.start)
             spokenTime = timeText
@@ -231,15 +231,15 @@ public nonisolated enum CalendarBuilder {
 
         let conflictText: String? = conflicts.first.map { first in
             conflicts.count == 1
-                ? String(localized: L10n.Calendar.overlapsWith(first))
+                ? L10n.string(L10n.Calendar.overlapsWith, first)
                 : String(localized: L10n.Calendar.overlapsWithMore(first, conflicts.count - 1))
         }
         var spoken = [entry.title]
         if let code = entry.course?.code { spoken.append(code) }
-        if entry.isExam { spoken.append(String(localized: L10n.Calendar.examSpoken())) }
+        if entry.isExam { spoken.append(L10n.string(L10n.Calendar.examSpoken)) }
         spoken.append(spokenTime)
         if let location = entry.location { spoken.append(location) }
-        if let conflictText { spoken.append(String(localized: L10n.Calendar.conflictSpoken(conflictText))) }
+        if let conflictText { spoken.append(L10n.string(L10n.Calendar.conflictSpoken, conflictText)) }
 
         return AgendaItem(
             id: entry.id, kind: entry.kind, title: entry.title, courseCode: entry.course?.code,
@@ -255,13 +255,13 @@ public nonisolated enum CalendarBuilder {
     static func agendaDay(_ dayStart: Date, items: [AgendaItem], isToday: Bool, formatter: ScreenFormatter) -> AgendaDay {
         let heading = formatter.dayHeading(dayStart)
         let count = items.count
-        let spokenCount = String(localized: L10n.Calendar.itemCount(count))
+        let spokenCount = L10n.string(L10n.Calendar.itemCount, count)
         var strip = [formatter.dayHeading(dayStart, spoken: true)]
-        if isToday { strip.append(String(localized: L10n.Calendar.todaySpoken())) }
+        if isToday { strip.append(L10n.string(L10n.Calendar.todaySpoken)) }
         strip.append(spokenCount)
         let earliestHour = items.filter { !$0.isAllDay }.map { $0.startMinute / 60 }.min() ?? defaultTimelineStartHour
         return AgendaDay(
-            id: dayStart, heading: isToday ? String(localized: L10n.Calendar.headingToday(heading)) : heading, items: items,
+            id: dayStart, heading: isToday ? L10n.string(L10n.Calendar.headingToday, heading) : heading, items: items,
             timedItems: items.filter { !$0.isAllDay }, isToday: isToday,
             dayNumber: formatter.dayNumber(dayStart), weekdayLetter: formatter.weekdayLetter(dayStart),
             dotCount: min(3, count), stripLabel: strip.joined(separator: ", "),

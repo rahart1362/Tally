@@ -11,17 +11,17 @@ public nonisolated enum TrendRange: String, CaseIterable, Identifiable, Equatabl
 
     public var label: String {
         switch self {
-        case .month: String(localized: L10n.Insights.trendRangeMonth())
-        case .quarter: String(localized: L10n.Insights.trendRangeQuarter())
-        case .term: String(localized: L10n.Insights.trendRangeTerm())
+        case .month: L10n.string(L10n.Insights.trendRangeMonth)
+        case .quarter: L10n.string(L10n.Insights.trendRangeQuarter)
+        case .term: L10n.string(L10n.Insights.trendRangeTerm)
         }
     }
 
     public var spokenLabel: String {
         switch self {
-        case .month: String(localized: L10n.Insights.trendRangeMonthSpoken())
-        case .quarter: String(localized: L10n.Insights.trendRangeQuarterSpoken())
-        case .term: String(localized: L10n.Insights.trendRangeTermSpoken())
+        case .month: L10n.string(L10n.Insights.trendRangeMonthSpoken)
+        case .quarter: L10n.string(L10n.Insights.trendRangeQuarterSpoken)
+        case .term: L10n.string(L10n.Insights.trendRangeTermSpoken)
         }
     }
 
@@ -153,19 +153,19 @@ public nonisolated enum GradeTrend {
     /// same pattern `TallyStrings/Render/DashboardText.swift` uses for its reused fragments.
     static func summary(_ points: [TrendPoint], range: TrendRange, formatter: ScreenFormatter) -> String {
         guard points.count >= minimumPoints, let first = points.first, let last = points.last else {
-            return String(localized: L10n.Insights.trendNotEnoughData())
+            return L10n.string(L10n.Insights.trendNotEnoughData)
         }
-        let span = String(localized: range == .term ? L10n.Insights.trendSpanTerm()
-                           : range == .month ? L10n.Insights.trendSpanMonth() : L10n.Insights.trendSpanQuarter())
+        let span = L10n.string(range == .term ? L10n.Insights.trendSpanTerm
+                               : range == .month ? L10n.Insights.trendSpanMonth : L10n.Insights.trendSpanQuarter)
         let change = last.percent - first.percent
         if abs(change) < steadyThreshold {
-            return String(localized: L10n.Insights.trendSummarySteady(formatter.spokenPercent(last.percent), span))
+            return L10n.string(L10n.Insights.trendSummarySteady, formatter.spokenPercent(last.percent), span)
         }
         let firstText = formatter.spokenPercent(first.percent)
         let lastText = formatter.spokenPercent(last.percent)
         return change > 0
-            ? String(localized: L10n.Insights.trendSummaryUp(firstText, lastText, span))
-            : String(localized: L10n.Insights.trendSummaryDown(firstText, lastText, span))
+            ? L10n.string(L10n.Insights.trendSummaryUp, firstText, lastText, span)
+            : L10n.string(L10n.Insights.trendSummaryDown, firstText, lastText, span)
     }
 }
 

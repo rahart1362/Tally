@@ -83,12 +83,12 @@ public nonisolated enum WhatIfUnavailable: Equatable, Sendable {
 
     public var text: String {
         switch self {
-        case .notInCanvas: String(localized: L10n.CourseDetail.whatIfNotInCanvas())
-        case .notGradedInCanvas: String(localized: L10n.Grades.notGradedDetail())
-        case .hiddenTotals: String(localized: L10n.CourseDetail.whatIfHiddenTotals())
-        case .noGradePosted: String(localized: L10n.CourseDetail.whatIfNoGradePosted())
-        case .lettersOnly: String(localized: L10n.CourseDetail.whatIfLettersOnly())
-        case .nothingToTry: String(localized: L10n.CourseDetail.whatIfNothingToTry())
+        case .notInCanvas: L10n.string(L10n.CourseDetail.whatIfNotInCanvas)
+        case .notGradedInCanvas: L10n.string(L10n.Grades.notGradedDetail)
+        case .hiddenTotals: L10n.string(L10n.CourseDetail.whatIfHiddenTotals)
+        case .noGradePosted: L10n.string(L10n.CourseDetail.whatIfNoGradePosted)
+        case .lettersOnly: L10n.string(L10n.CourseDetail.whatIfLettersOnly)
+        case .nothingToTry: L10n.string(L10n.CourseDetail.whatIfNothingToTry)
         }
     }
 }
@@ -239,7 +239,7 @@ public nonisolated enum CourseDetailBuilder {
 
         var heroWords = [course.name, course.courseCode, grade.spoken]
         if percentagesVisible, course.scores?.currentScore != nil {
-            heroWords.append(String(localized: L10n.CourseDetail.currentGradeCountsGradedOnlyFragment()))
+            heroWords.append(L10n.string(L10n.CourseDetail.currentGradeCountsGradedOnlyFragment))
         }
         // The dash's own words already say "Grade not in Canvas".
         if health != .gradeNotInCanvas { heroWords.append(health.label) }
@@ -262,7 +262,7 @@ public nonisolated enum CourseDetailBuilder {
             whatIf: whatIf,
             whatIfUnavailable: whatIf != nil ? nil
                 : whatIfUnavailable(course: course, grade: grade, percentagesVisible: percentagesVisible),
-            recentGradesNote: keptOutside ? String(localized: L10n.CourseDetail.notInCanvasLine()) : nil,
+            recentGradesNote: keptOutside ? L10n.string(L10n.CourseDetail.notInCanvasLine) : nil,
             canvasURL: course.htmlURL,
             distribution: nil)
     }
@@ -324,15 +324,15 @@ public nonisolated enum CourseDetailBuilder {
     /// returns the original `grade` unchanged whenever it isn't one of the two known tokens.
     static func gradeText(_ grade: String) -> String {
         switch grade.lowercased() {
-        case "complete": String(localized: L10n.CourseDetail.passFailComplete())
-        case "incomplete": String(localized: L10n.CourseDetail.passFailIncomplete())
+        case "complete": L10n.string(L10n.CourseDetail.passFailComplete)
+        case "incomplete": L10n.string(L10n.CourseDetail.passFailIncomplete)
         default: grade
         }
     }
 
     static func scoreText(_ assignment: Assignment, lettersOnly: Bool, formatter: ScreenFormatter) -> String? {
         guard let submission = assignment.submission, submission.postedAt != nil else { return nil }
-        if submission.excused { return String(localized: L10n.ToDo.statusExcused()) }
+        if submission.excused { return L10n.string(L10n.ToDo.statusExcused) }
         if lettersOnly { return submission.grade.map(gradeText) }
         guard let score = submission.score else { return submission.grade.map(gradeText) }
         guard let possible = assignment.pointsPossible, possible > 0 else { return formatter.pointsText(score) }
@@ -344,11 +344,11 @@ public nonisolated enum CourseDetailBuilder {
     /// something to find in every language's score text). "X out of Y" is a whole-sentence key.
     static func spokenScore(_ assignment: Assignment, lettersOnly: Bool, formatter: ScreenFormatter) -> String? {
         guard let submission = assignment.submission, submission.postedAt != nil else { return nil }
-        if submission.excused { return String(localized: L10n.ToDo.statusExcused()) }
+        if submission.excused { return L10n.string(L10n.ToDo.statusExcused) }
         if lettersOnly { return submission.grade.map(gradeText) }
         guard let score = submission.score else { return submission.grade.map(gradeText) }
         guard let possible = assignment.pointsPossible, possible > 0 else { return formatter.pointsText(score) }
-        return String(localized: L10n.CourseDetail.scoreOutOf(formatter.pointsText(score), formatter.pointsText(possible)))
+        return L10n.string(L10n.CourseDetail.scoreOutOf, formatter.pointsText(score), formatter.pointsText(possible))
     }
 
     static func recentGraded(groups: [AssignmentGroup], lettersOnly: Bool, formatter: ScreenFormatter) -> [GradedItem] {
@@ -363,12 +363,12 @@ public nonisolated enum CourseDetailBuilder {
             .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.id < $1.0.id }
             .prefix(recentGradedLimit)
             .map { assignment, posted, text in
-                let postedText = String(localized: L10n.CourseDetail.postedOn(formatter.dayText(posted)))
+                let postedText = L10n.string(L10n.CourseDetail.postedOn, formatter.dayText(posted))
                 let spoken = spokenScore(assignment, lettersOnly: lettersOnly, formatter: formatter) ?? text
                 return GradedItem(
                     id: assignment.id, title: assignment.name, scoreText: text, postedText: postedText,
-                    accessibilityLabel: String(localized: L10n.CourseDetail.gradedItemAccessibility(
-                        assignment.name, spoken, formatter.dayText(posted, spoken: true))))
+                    accessibilityLabel: L10n.string(L10n.CourseDetail.gradedItemAccessibility,
+                                                    assignment.name, spoken, formatter.dayText(posted, spoken: true)))
             }
     }
 
@@ -415,11 +415,11 @@ public nonisolated enum CourseDetailBuilder {
             buckets[kind, default: []].append((row, key))
         }
         let titles: [CourseAssignmentSection.Kind: String] = [
-            .upcoming: String(localized: L10n.CourseDetail.sectionUpcoming()),
-            .missing: String(localized: L10n.CourseDetail.sectionMissing()),
-            .submitted: String(localized: L10n.CourseDetail.sectionSubmitted()),
-            .graded: String(localized: L10n.CourseDetail.sectionGraded()),
-            .past: String(localized: L10n.CourseDetail.sectionPast()),
+            .upcoming: L10n.string(L10n.CourseDetail.sectionUpcoming),
+            .missing: L10n.string(L10n.CourseDetail.sectionMissing),
+            .submitted: L10n.string(L10n.CourseDetail.sectionSubmitted),
+            .graded: L10n.string(L10n.CourseDetail.sectionGraded),
+            .past: L10n.string(L10n.CourseDetail.sectionPast),
         ]
         return CourseAssignmentSection.Kind.allCases.compactMap { kind in
             guard let entries = buckets[kind], !entries.isEmpty else { return nil }
@@ -465,8 +465,8 @@ public nonisolated enum CourseDetailBuilder {
     /// "40% of grade" (§3.3 "Percent": `ScreenFormatter.trimmedPercentText`, not a hand-appended
     /// "%", so the sign's position and spacing follow the locale), or "Points-based".
     static func weightOfGradeText(_ weight: Double, appliesWeights: Bool, formatter: ScreenFormatter) -> String {
-        guard appliesWeights else { return String(localized: L10n.CourseDetail.pointsBased()) }
-        return String(localized: L10n.CourseDetail.weightOfGrade(formatter.trimmedPercentText(weight)))
+        guard appliesWeights else { return L10n.string(L10n.CourseDetail.pointsBased) }
+        return L10n.string(L10n.CourseDetail.weightOfGrade, formatter.trimmedPercentText(weight))
     }
 
     /// Plan 08 XG-06: the what-if for a course whose grades are kept outside Canvas. The student

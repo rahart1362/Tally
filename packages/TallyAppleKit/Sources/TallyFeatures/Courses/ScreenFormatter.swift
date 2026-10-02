@@ -68,17 +68,17 @@ public nonisolated struct ScreenFormatter: Sendable {
         let offset = dayOffset(to: due)
         let day = dayText(due, spoken: spoken)
         if due < now {
-            return String(localized: L10n.Courses.wasDue(day))
+            return L10n.string(L10n.Courses.wasDue, day)
         }
         // The time matters within the coming week; further out, the day alone.
         return (0...6).contains(offset)
-            ? String(localized: L10n.Courses.dueAtTime(day, timeText(due)))
-            : String(localized: L10n.Courses.dueDay(day))
+            ? L10n.string(L10n.Courses.dueAtTime, day, timeText(due))
+            : L10n.string(L10n.Courses.dueDay, day)
     }
 
     /// "Fri at 11:59 PM", for "still accepted until …".
     public func untilText(_ date: Date, spoken: Bool = false) -> String {
-        String(localized: L10n.Courses.atTime(dayText(date, spoken: spoken), timeText(date)))
+        L10n.string(L10n.Courses.atTime, dayText(date, spoken: spoken), timeText(date))
     }
 
     /// "Mon, Sep 28" (a day heading), "Monday, September 28" when `spoken`.
@@ -121,7 +121,7 @@ public nonisolated struct ScreenFormatter: Sendable {
     /// "90.1 percent", for VoiceOver. The number is locale-aware (§3.3 "Percent"); " percent" is a
     /// whole-sentence key, never a hand-appended English word.
     public func spokenPercent(_ percent: Double) -> String {
-        String(localized: L10n.Insights.spokenPercent(percent.formatted(.number.precision(.fractionLength(1)).locale(locale))))
+        L10n.string(L10n.Insights.spokenPercent, percent.formatted(.number.precision(.fractionLength(1)).locale(locale)))
     }
 
     /// "92", "8.5": a score or point value with at most two decimals. Not a percentage (§3.3 "Points
@@ -150,10 +150,10 @@ public nonisolated struct ScreenFormatter: Sendable {
     /// "minus"/"plus" words are catalog keys.
     public static func spokenLetter(_ letter: String) -> String {
         if letter.hasSuffix("-") {
-            return String(localized: L10n.Courses.letterMinus(String(letter.dropLast())))
+            return L10n.string(L10n.Courses.letterMinus, String(letter.dropLast()))
         }
         if letter.hasSuffix("+") {
-            return String(localized: L10n.Courses.letterPlus(String(letter.dropLast())))
+            return L10n.string(L10n.Courses.letterPlus, String(letter.dropLast()))
         }
         return letter
     }

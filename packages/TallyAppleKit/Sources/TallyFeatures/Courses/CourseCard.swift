@@ -27,14 +27,14 @@ public nonisolated struct CourseCard: Identifiable, Equatable, Sendable {
     /// "No grade yet" stands in for a grade the student cannot see (ux-ui.md §3.2.3: never "0%"),
     /// and "—" for a grade kept outside Canvas (plan 08 §4.5).
     public var gradeText: String {
-        percentText ?? letter ?? (notInCanvas == nil ? String(localized: L10n.Grades.noGradeYet()) : GradeNotInCanvas.dash)
+        percentText ?? letter ?? (notInCanvas == nil ? L10n.string(L10n.Grades.noGradeYet) : GradeNotInCanvas.dash)
     }
 
     /// The ⓘ button's VoiceOver label, "About grades for ENG-10": only for a course whose grades
     /// are kept outside Canvas (a course with no graded work has no bubble and no Tell My School).
     public var infoButtonLabel: String? {
         guard case .keptOutside = notInCanvas else { return nil }
-        return String(localized: L10n.Grades.infoButton(courseCode: code))
+        return L10n.string(L10n.Grades.infoButton(courseCode:), code)
     }
 }
 
@@ -64,14 +64,14 @@ public nonisolated enum CourseCardBuilder {
         let grade = GradeDisplay(course: course, availability: availability, school: school, formatter: formatter)
         let next = nextDue(in: groups, now: formatter.now)
         let nextText = next.map {
-            String(localized: L10n.Courses.cardNextDue($0.name, formatter.dueText($0.dueAt ?? formatter.now)))
+            L10n.string(L10n.Courses.cardNextDue, $0.name, formatter.dueText($0.dueAt ?? formatter.now))
         }
 
         var spoken = [course.name, course.courseCode, grade.spoken]
         if !health.health.isSaidByTheGrade { spoken.append(health.health.label) }
         if let next {
-            spoken.append(String(localized: L10n.Courses.cardNextDueSpoken(
-                next.name, formatter.dueText(next.dueAt ?? formatter.now, spoken: true))))
+            spoken.append(L10n.string(L10n.Courses.cardNextDueSpoken,
+                                      next.name, formatter.dueText(next.dueAt ?? formatter.now, spoken: true)))
         }
         return CourseCard(
             id: course.id, name: course.name, code: course.courseCode, paletteIndex: paletteIndex,
@@ -108,16 +108,16 @@ public nonisolated enum GradeNotInCanvas: Equatable, Sendable {
     /// The caption under the dash.
     public var caption: String {
         switch self {
-        case .keptOutside: String(localized: L10n.Grades.notInCanvasCaption())
-        case .notGraded: String(localized: L10n.Grades.notGradedCaption())
+        case .keptOutside: L10n.string(L10n.Grades.notInCanvasCaption)
+        case .notGraded: L10n.string(L10n.Grades.notGradedCaption)
         }
     }
 
     /// What VoiceOver reads for the dash and its caption: "Grade not in Canvas", never "dash".
     public var spoken: String {
         switch self {
-        case .keptOutside: String(localized: L10n.Grades.notInCanvasStatus())
-        case .notGraded: String(localized: L10n.Grades.notGradedCaption())
+        case .keptOutside: L10n.string(L10n.Grades.notInCanvasStatus)
+        case .notGraded: L10n.string(L10n.Grades.notGradedCaption)
         }
     }
 }
@@ -174,21 +174,21 @@ public nonisolated struct GradeDisplay: Equatable, Sendable {
         case .hiddenTotals:
             letter = nil
             percentText = nil
-            hiddenReason = String(localized: L10n.Grades.hiddenByInstructor())
+            hiddenReason = L10n.string(L10n.Grades.hiddenByInstructor)
         case .lettersOnly:
             letter = course.scores?.currentGrade
             percentText = nil
-            hiddenReason = letter == nil ? String(localized: L10n.Grades.notPostedYet()) : nil
+            hiddenReason = letter == nil ? L10n.string(L10n.Grades.notPostedYet) : nil
         case .visible:
             letter = course.scores?.currentGrade
             percentText = course.scores?.currentScore.map(formatter.percentText)
-            hiddenReason = (letter == nil && percentText == nil) ? String(localized: L10n.Grades.notPostedYet()) : nil
+            hiddenReason = (letter == nil && percentText == nil) ? L10n.string(L10n.Grades.notPostedYet) : nil
         }
         var words: [String] = []
         if let letter { words.append(ScreenFormatter.spokenLetter(letter)) }
         if course.gradeVisibility == .visible, let score = course.scores?.currentScore {
             words.append(formatter.spokenPercent(score))
         }
-        spoken = words.isEmpty ? String(localized: L10n.Grades.noGradeYet()) : words.joined(separator: ", ")
+        spoken = words.isEmpty ? L10n.string(L10n.Grades.noGradeYet) : words.joined(separator: ", ")
     }
 }

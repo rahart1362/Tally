@@ -75,7 +75,7 @@ public nonisolated struct InsightsProjection: Equatable, Sendable {
     public var trendIsNotInCanvas = false
 
     public static let empty = InsightsProjection(
-        completion: nil, streak: StreakInsight(days: 0, headline: String(localized: L10n.Insights.streakNone())), risks: [],
+        completion: nil, streak: StreakInsight(days: 0, headline: L10n.string(L10n.Insights.streakNone)), risks: [],
         heavyStretches: [], categoryShares: [], categorySummary: "", trendInput: .empty)
 }
 
@@ -124,7 +124,7 @@ public nonisolated enum InsightsBuilder {
         let percent = (share * 100).rounded()
         let percentText = percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))
         return CompletionInsight(onTime: onTime, due: due, share: share,
-                                 headline: String(localized: L10n.Insights.completionHeadline(percentText)),
+                                 headline: L10n.string(L10n.Insights.completionHeadline, percentText),
                                  detail: String(localized: L10n.Insights.completionDetail(onTime, due)))
     }
 
@@ -145,8 +145,8 @@ public nonisolated enum InsightsBuilder {
             day = previous
         }
         let headline = count == 0
-            ? String(localized: L10n.Insights.streakNone())
-            : String(localized: L10n.Insights.streakDays(count))
+            ? L10n.string(L10n.Insights.streakNone)
+            : L10n.string(L10n.Insights.streakDays, count)
         return StreakInsight(days: count, headline: headline)
     }
 
@@ -207,8 +207,8 @@ public nonisolated enum InsightsBuilder {
             let range = first == end ? first : "\(first)–\(end)"
             let courses = Set(inWindow.map(\.courseID)).count
             let detail = courses == 1
-                ? String(localized: L10n.Insights.heavyAllOneCourse())
-                : String(localized: L10n.Insights.heavyAcrossCourses(courses))
+                ? L10n.string(L10n.Insights.heavyAllOneCourse)
+                : L10n.string(L10n.Insights.heavyAcrossCourses, courses)
             return HeavyStretch(id: start, headline: String(localized: L10n.Insights.heavyHeadline(inWindow.count, range)), detail: detail)
         }
     }
