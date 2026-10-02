@@ -151,15 +151,27 @@ the first real compilation check for this file, the same as for every iOS change
 | Run | Commit | Scope | Result |
 |---|---|---|---|
 | **36942228400** | `6e139a8` | unit | **Failed.** Every Linux job and SwiftLint green; `iOS build + test` failed with 4 Swift compile errors, all in `ScreenFormatterLocaleTests.swift` (`#expect`'s comment parameter is `Testing.Comment`, which a string literal converts to automatically but a bare `String` variable does not). Everything else — every edited Feature file, all ~190 new `L10n` functions, the `Package.swift` change — compiled clean. Fixed by wrapping each bare variable as a new string-interpolation literal (confirmed against an already-working precedent in the same test target, `GradeNotInCanvasViewTests.swift:55`). 1 of 3 iteration runs spent. |
+| **36944513256** | `7189908` | unit | **Failed (compiled clean this time).** All Linux jobs, lint and hygiene green. `iOS build + test` built for testing successfully but 3 hosted tests failed (plus 2 pre-existing, unrelated `known issues` in `GradeParityTests.swift:67`, TallyCore, nothing to do with this stream): `dueTextWithinWeek`'s en_US case, `untilText`'s en_US assertion, and the pre-existing (predates this stream) `ScreenProjectionTests.percents()` de_DE case. Root-caused by hex-dumping the saved log (not guessed): en_US's `timeText` embeds **U+202F** (narrow no-break space) before "PM" on this ICU version — confirmed via `python3` `repr()` on the raw log bytes — while the hardcoded test literals used a plain space; separately, `percentText`'s de_DE output is `"90,1\u{00A0}%"` (U+00A0 before "%"), the real, correct, locale-aware spacing now that §3.3's fix replaced the old `+ "%"` concatenation `ScreenProjectionTests.percents()` (predates this stream) still assumed produced no space. Both are test-expectation bugs, not production bugs: the code is correctly using the system's own locale-aware formatters. Fixed in `de15e72` by extending `ScreenFormatterLocaleTests`'s existing `plainSpaces()` NBSP-normalization helper (already used for the Percent tests) to the two sentence-assembly tests, and inlining the same normalization in `ScreenProjectionTests.percents()`. No production code or English string changed. This was the 1st of the hand-off brief's budget of 2 more iteration runs (continue.md v2); 1 remains. |
 
 ## 5. Mutation checks
 
 ### 5.1 Local (Linux): literal gate
 
-*(to be completed: a new literal added to a file at baseline 0, `check_localizable_literals.py` →
-FAIL, reverted, sha256 before/after.)*
+Run locally (no Xcode needed — `check_localizable_literals.py` is pure Python over the Swift source,
+the same check the Linux `hygiene` CI job runs): appended an unreachable
+`private func _l10n03bMutationCheck() -> Text { Text("New literal mutation check") }` to
+`Courses/CoursesScreen.swift` (one of this stream's files, at baseline 0).
 
-### 5.2 CI: the §3.3 locale-matrix tests
+- **Before:** `sha256 f24bef6ca53f1a6d150ddc18fb54ef7cd581c291022ea60056715901b072f38f`; gate `PASS`
+  (162 Swift files, 25 literals in 2 files — both M3-D's — matching the baseline exactly).
+- **Mutated:** gate → `FAIL`, exit 1: `CoursesScreen.swift: 1 hard-coded literals (a new file); ...
+  CoursesScreen.swift:167: ui-api: "New literal mutation check"`; `162 Swift files, 26 literals in 3
+  files, baseline 25 in 2 files`. Caught exactly as the acceptance criterion requires.
+- **Reverted** (`git checkout --`): `sha256 f24bef6ca53f1a6d150ddc18fb54ef7cd581c291022ea60056715901b072f38f`
+  — identical to before, confirmed byte-for-byte, not just by `git status` (which also shows clean).
+  Gate back to `PASS`, same counts as before.
+
+### 5.2 CI: break one §3.3 fix (batched into the one mutation run)
 
 *(to be completed: batched into the one mutation run, per the CI budget.)*
 
