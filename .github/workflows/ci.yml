@@ -140,6 +140,8 @@ jobs:
         run: |
           python3 scripts/ci/check_string_catalogs.py --self-test
           python3 scripts/ci/check_string_catalogs.py .
+      - name: StoreKit products derive from the bundle ID (PAY-01, M3-B1)
+        run: python3 scripts/ci/check_storekit_products.py --self-test && python3 scripts/ci/check_storekit_products.py .
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)

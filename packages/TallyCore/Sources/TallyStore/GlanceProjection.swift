@@ -102,6 +102,9 @@ public struct GlanceDueItem: Codable, Sendable, Equatable, Identifiable {
 /// each course gains `gradeStatus`. A schema-1 file still decodes (`init(from:)`): its band
 /// becomes the summary, and its courses have no status. The store rebuilds it at the next load of
 /// the snapshot (`SnapshotStore`), and the next commit rewrites it anyway.
+///
+/// `entitledUntil` (PAY-04, M3-B1) is additive within schema 2: optional, absent from a glance
+/// written before it, which reads as "no verified entitlement".
 public struct GlanceProjection: Codable, Sendable, Equatable {
     public static let currentSchemaVersion = 2
 
@@ -112,6 +115,20 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     public let gradeSummary: GlanceGradeSummary
     public let courses: [GlanceCourse]
     public let dueSoon: [GlanceDueItem]
+    /// PAY-04 (M3-B1): the expiry of this account's last verified trial or subscription
+    /// (`EntitlementPolicy`'s `.entitled(until:)`, the Keychain record's), mirrored here so the
+    /// widgets and the intents decide without StoreKit: `coversSubscription(at:)`. An expiry date
+    /// only, never a receipt, a transaction ID or a price (encryption.md §3.3). `nil`: no verified
+    /// entitlement (never subscribed, lapsed, refunded), or a glance written before this field.
+    public let entitledUntil: Date?
+
+    /// PAY-04, PAY-07: whether the subscription covers the widgets' and intents' content at
+    /// `moment` (`EntitlementAccess.covers`, with the glance's `asOf` as a time this device has
+    /// reached). Fails closed `SubscriptionConfig.offlineGracePeriod` after `entitledUntil`;
+    /// always true while gating is not enforced.
+    public func coversSubscription(at moment: Date, isEnforced: Bool = SubscriptionConfig.isGatingEnforced) -> Bool {
+        EntitlementAccess.covers(entitledUntil: entitledUntil, at: moment, notBefore: asOf, isEnforced: isEnforced)
+    }
 
     /// The overall band, when the summary has one.
     public var overallGradeBand: GradeBand? {
@@ -142,10 +159,10 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     }
 
     public init(generation: UInt64, asOf: Date, gradeSummary: GlanceGradeSummary, courses: [GlanceCourse],
-                dueSoon: [GlanceDueItem]) {
+                dueSoon: [GlanceDueItem], entitledUntil: Date? = nil) {
         schemaVersion = Self.currentSchemaVersion
         self.generation = generation; self.asOf = asOf; self.gradeSummary = gradeSummary
-        self.courses = courses; self.dueSoon = dueSoon
+        self.courses = courses; self.dueSoon = dueSoon; self.entitledUntil = entitledUntil
     }
 
     /// Schema 1's shape, for tests and tools: a band, or no grades shown.
@@ -156,7 +173,7 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, generation, asOf, gradeSummary, courses, dueSoon
+        case schemaVersion, generation, asOf, gradeSummary, courses, dueSoon, entitledUntil
     }
 
     /// Schema 1's grade field.
@@ -169,6 +186,7 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
         asOf = try container.decode(Date.self, forKey: .asOf)
         courses = try container.decode([GlanceCourse].self, forKey: .courses)
         dueSoon = try container.decode([GlanceDueItem].self, forKey: .dueSoon)
+        entitledUntil = try container.decodeIfPresent(Date.self, forKey: .entitledUntil)
         if schemaVersion >= 2 {
             gradeSummary = try container.decode(GlanceGradeSummary.self, forKey: .gradeSummary)
         } else {
@@ -192,8 +210,13 @@ public enum GlanceProjectionBuilder {
     /// `gradeAvailability` is the snapshot's `GradeAvailabilityIndex` (plan 08 §4.3: at commit the
     /// coordinator builds it once, with the student's overrides, at the snapshot's `fetchedAt`).
     /// `nil` builds it the same way with no override (the store's self-heal, tests).
+    ///
+    /// `entitledUntil` (PAY-04) is the expiry the entitlement gate mirrors (the coordinator's
+    /// `EntitlementGating.glanceEntitledUntil()`); the store's self-heal carries the old glance's
+    /// forward. Never derived from the snapshot.
     public static func build(from snapshot: CanvasSnapshot, includeGrades: Bool,
-                             gradeAvailability: GradeAvailabilityIndex? = nil) -> GlanceProjection {
+                             gradeAvailability: GradeAvailabilityIndex? = nil,
+                             entitledUntil: Date? = nil) -> GlanceProjection {
         let availability = gradeAvailability
             ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: snapshot.fetchedAt)
         // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
@@ -212,7 +235,8 @@ public enum GlanceProjectionBuilder {
                                 gradeSummary: gradeSummary(of: snapshot.courses, availability: availability,
                                                            includeGrades: includeGrades),
                                 courses: courses,
-                                dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID))
+                                dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID),
+                                entitledUntil: entitledUntil)
     }
 
     /// Plan 08 §4.4 row 15: a band only for a course whose grades are in Canvas and not hidden by

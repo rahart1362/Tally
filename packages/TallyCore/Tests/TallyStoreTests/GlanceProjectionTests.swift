@@ -76,6 +76,15 @@ struct GlanceProjectionTests {
         // Plan 08 XG-02 (schema 2): `gradeSummary` replaced `overallGradeBand`; each course gained
         // `gradeStatus` (a state, never a grade value).
         #expect(Set(json.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon"])
+
+        // PAY-04 (M3-B1): `entitledUntil`, an expiry date only, present when the gate mirrors one
+        // (encryption.md §3.3). Absent above: no entitlement mirrored.
+        let entitled = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true,
+                                                     entitledUntil: Date(timeIntervalSince1970: 1_800_000_000))
+        let entitledJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(entitled)) as! [String: Any]
+        #expect(Set(entitledJSON.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon",
+                                           "entitledUntil"])
+        #expect(entitledJSON["entitledUntil"] is Double, "a date, never a receipt or a transaction ID")
         #expect(Set((json["gradeSummary"] as! [String: Any]).keys) == ["state", "band"])
 
         let course = (json["courses"] as! [[String: Any]])[0]

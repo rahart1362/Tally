@@ -62,17 +62,18 @@ public actor SnapshotStore {
     /// glance from it. `includeGrades` is the caller's resolved `UserState.showGradesInGlance`
     /// (never defaulted to true by this type). `gradeAvailability` is the snapshot's index from
     /// the coordinator (plan 08 §4.3); `nil` classifies with no override
-    /// (`GlanceProjectionBuilder.build`).
+    /// (`GlanceProjectionBuilder.build`). `entitledUntil` is the expiry the glance mirrors (PAY-04,
+    /// the coordinator's entitlement gate).
     @discardableResult
     public func commit(_ snapshot: CanvasSnapshot, includeGrades: Bool,
-                       gradeAvailability: GradeAvailabilityIndex? = nil) throws -> GlanceProjection {
+                       gradeAvailability: GradeAvailabilityIndex? = nil, entitledUntil: Date? = nil) throws -> GlanceProjection {
         if let current = currentOnDiskGeneration(), current >= snapshot.generation {
             throw SnapshotStoreError.staleGeneration(attempted: snapshot.generation, current: current)
         }
         try prepare()
         try access.write(try JSONEncoder().encode(snapshot), .snapshot, to: layout.url(for: .snapshot), excludeFromBackup: true)
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
-                                                   gradeAvailability: gradeAvailability)
+                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil)
         try writeGlance(glance)
         return glance
     }
@@ -81,13 +82,15 @@ public actor SnapshotStore {
     /// Widgets": turning grades off must take them out of the widget's file now, not at the next
     /// refresh (PMO R10). Writes only when `snapshot` is the committed one (its generation is the
     /// one on disk) and returns the new glance; otherwise writes nothing and returns nil, so it can
-    /// never put a glance for an older or newer snapshot on disk.
+    /// never put a glance for an older or newer snapshot on disk. Also for a change of entitlement
+    /// (PAY-04: `entitledUntil`).
     @discardableResult
     public func rewriteGlance(from snapshot: CanvasSnapshot, includeGrades: Bool,
-                              gradeAvailability: GradeAvailabilityIndex? = nil) throws -> GlanceProjection? {
+                              gradeAvailability: GradeAvailabilityIndex? = nil,
+                              entitledUntil: Date? = nil) throws -> GlanceProjection? {
         guard isOwner, currentOnDiskGeneration() == snapshot.generation else { return nil }
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
-                                                   gradeAvailability: gradeAvailability)
+                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil)
         try writeGlance(glance)
         return glance
     }
@@ -138,9 +141,10 @@ public actor SnapshotStore {
 
     private func selfHealGlanceIfNeeded(for snapshot: CanvasSnapshot) {
         guard isOwner else { return } // a non-owner (the widget) never repairs anything
-        let (needsRebuild, priorIncludedGrades) = glanceNeedsRebuild(comparedTo: snapshot.generation)
+        let (needsRebuild, priorIncludedGrades, priorEntitledUntil) = glanceNeedsRebuild(comparedTo: snapshot.generation)
         guard needsRebuild else { return }
-        let rebuilt = GlanceProjectionBuilder.build(from: snapshot, includeGrades: priorIncludedGrades)
+        let rebuilt = GlanceProjectionBuilder.build(from: snapshot, includeGrades: priorIncludedGrades,
+                                                    entitledUntil: priorEntitledUntil)
         try? writeGlance(rebuilt)
     }
 
@@ -152,15 +156,20 @@ public actor SnapshotStore {
     /// Plan 08 XG-02: schema 2 says whether the user opted in (`gradeSummary`), including an
     /// opted-in user with no band to show, whom the old reading (any band present) took for
     /// opted out. A glance of an older schema is rebuilt, carrying its opt-in forward.
-    private func glanceNeedsRebuild(comparedTo generation: UInt64) -> (needsRebuild: Bool, priorIncludedGrades: Bool) {
+    ///
+    /// PAY-04 (M3-B1): the mirrored expiry (`entitledUntil`) is carried forward the same way; with
+    /// no readable glance there is none, which fails closed until the app's next verification
+    /// rewrites it.
+    private func glanceNeedsRebuild(comparedTo generation: UInt64)
+        -> (needsRebuild: Bool, priorIncludedGrades: Bool, priorEntitledUntil: Date?) {
         switch access.read(.glance, at: layout.url(for: .glance)) {
         case .absent, .failed:
-            return (true, false)
+            return (true, false, nil)
         case .plaintext(let data):
-            guard let glance = try? JSONDecoder().decode(GlanceProjection.self, from: data) else { return (true, false) }
+            guard let glance = try? JSONDecoder().decode(GlanceProjection.self, from: data) else { return (true, false, nil) }
             let includedGrades = glance.gradeSummary != .notOptedIn
             let outdated = glance.generation < generation || glance.schemaVersion < GlanceProjection.currentSchemaVersion
-            return (outdated, includedGrades)
+            return (outdated, includedGrades, glance.entitledUntil)
         }
     }
 

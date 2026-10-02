@@ -31,6 +31,10 @@ public nonisolated struct AccountEnvironment: Sendable {
     public let gatewayOverride: (@Sendable (AccountRecord) async -> any CanvasGateway)?
     /// First launch of a fresh install: removes Keychain items an earlier build left behind.
     public let removeLegacyCredentials: @Sendable () -> Void
+    /// PAY-07 (M3-B1): the subscription's one gate, which the account's coordinator (refresh, the
+    /// glance's `entitledUntil`) and every reminders pass ask. The composition root passes the
+    /// app's `EntitlementGate`; ungated by default (tests, previews).
+    public let entitlement: any EntitlementGating
 
     public init(
         storeRoot: @escaping @Sendable () throws -> URL,
@@ -43,7 +47,8 @@ public nonisolated struct AccountEnvironment: Sendable {
         logger: any TallyLogger = NoOpLogger(),
         clock: any DateProviding = SystemDateProvider(),
         gatewayOverride: (@Sendable (AccountRecord) async -> any CanvasGateway)? = nil,
-        removeLegacyCredentials: @escaping @Sendable () -> Void = {}
+        removeLegacyCredentials: @escaping @Sendable () -> Void = {},
+        entitlement: any EntitlementGating = UngatedEntitlement()
     ) {
         self.storeRoot = storeRoot
         self.credentialStore = credentialStore
@@ -56,6 +61,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         self.clock = clock
         self.gatewayOverride = gatewayOverride
         self.removeLegacyCredentials = removeLegacyCredentials
+        self.entitlement = entitlement
     }
 
     /// A copy with the gateway replaced (test hooks).
@@ -63,7 +69,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: override,
-                           removeLegacyCredentials: removeLegacyCredentials)
+                           removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
     }
 
     /// A copy with the transport replaced (test hooks: the stubbed token endpoint).
@@ -71,7 +77,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
-                           removeLegacyCredentials: removeLegacyCredentials)
+                           removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
     }
 
     /// The account's sealed snapshot store (its `glance` and `snapshot` files).
