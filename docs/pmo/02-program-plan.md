@@ -124,6 +124,47 @@ Canvas natively supports parent access through **observer** accounts and student
 
   It also writes a plain-language "How Tally complies" statement for the privacy policy, the store listing and schools. **It is not legal advice:** a licensed attorney reviews and signs off before submission (M6).
 
+### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
+The owner saw too many CI cancellations and too much rework. Measured that day:
+- Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
+- Every stream appended to one shared journal, so every second PR conflicted. Each conflict meant a merge and another full run.
+- The PMO's own pushes cancelled in-progress runs.
+- A PR run needed 7 macOS jobs against GitHub's 5 concurrent slots, so runs queued.
+- `ios-build` hit its 60-min limit.
+
+What changed:
+
+| Area | Rule | Where |
+|---|---|---|
+| **CI** | A PR run carries only the 4 required macOS jobs. The 3 report-only ones run on main pushes and on full dispatches. | PR #21 |
+| **CI** | One automatic retry per failed iOS test, with every failed attempt kept visible as a warning annotation. | PR #21 |
+| **CI** | A `unit` dispatch scope: `ios-build` without the UI tests, the smallest-iPhone run and the floor run, for iterating. | PR #21 |
+| **CI** | `ios-build` timeout 90 min. | PR #21 |
+| **Agents** | **One full run per work package: the PR run.** Agents open their own PR and never dispatch `scope=full`. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | At most 3 iteration runs and 1 batched mutation run per package; verify locally first. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | A per-package journal file under `build/logs/journal/`. Never the shared journal. | [`agent-rules.md`](agent-rules.md) |
+| **Agents** | Merge `main` only when needed, and never push onto an in-progress run. | [`agent-rules.md`](agent-rules.md) |
+| **PMO** | One PMO PR per wave boundary. | — |
+| **PMO** | An event-driven wait (a CI completion, or a stall with no run active) replaces 30-min polling. | — |
+| **PMO** | Weekly-usage pacing: launch a package only when the remaining weekly budget covers its estimated cost plus about 10% for the PMO. Otherwise hold it for the reset, rather than strand it mid-task. | — |
+
+**Streams (owner, 2026-10-01 evening: "deploy subagents… to accelerate… final M3 delivery").** Four agents on disjoint files, each brief naming every stream's files:
+
+| Stream | Model | Scope | Starts after |
+|---|---|---|---|
+| **M3-B1** | Opus | Subscription engine, no UI: PAY-01–04, PAY-07; gating off on `main` until M3-B2. Also XG-04's O1 (reminders honour the per-course answer) | XG-04/06 merged |
+| **M3-D** | Opus | UX-WP-29 widgets, StandBy, rendering modes, App Shortcuts, Control, Focus filter, interactive Done. The subscription "unlocked?" check is a stub until M3-B1 merges | now |
+| **M3-E1** | Sonnet | Family core: FAM-08 parent-notification planner (R10a property test), FAM-14 sample-family data | now |
+| **L10N-03b** | Sonnet | The last 18 literal files and the §3.3 fixes. M3-D sweeps the 2 widget files | XG-04/06 merged |
+| **M3-B2** | Opus | Paywall, placement, Settings → Subscription, sample-mode purchase, notices; switches gating on | M3-B1 merged |
+| **M3-E2** | Opus | FAM-09 switcher, FAM-10 Family settings, FAM-11 widgets with `StudentEntity`, FAM-14 UI path | M3-D, M3-E1, L10N-03b merged |
+
+Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6's dependencies:
+- M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
+- M3-D wires the entitlement field last.
+
+The PMO checks weekly and 5-hour usage at each hand-off. It holds a launch when the 5-hour window passes about 80%, or when the weekly remainder falls under the reserve.
+
 ## 3. Roadmap (milestones and exit gates)
 
 Work-package IDs refer to the specialist reports. Every gate uses the validation pyramid: re-read artefacts, and never accept exit code 0 alone.

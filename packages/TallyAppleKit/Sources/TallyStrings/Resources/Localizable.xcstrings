@@ -2317,6 +2317,150 @@
         }
       }
     },
+    "family.notification.belowGoal.body" : {
+      "comment" : "Parent notification body for the 'needs attention' notification. Never the score or goal value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to see details."
+          }
+        }
+      }
+    },
+    "family.notification.belowGoal.title" : {
+      "comment" : "Parent notification title: a course needs attention for the named student. 1: the student's first name, or 'Your student'. 2: the course code from Canvas. Never the score or goal.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ needs attention"
+          }
+        }
+      }
+    },
+    "family.notification.due.body" : {
+      "comment" : "Parent due-date reminder body. The argument is a day and time, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@."
+          }
+        }
+      }
+    },
+    "family.notification.due.finalBody" : {
+      "comment" : "Parent's last due-date reminder body: Tally cannot know whether the work was submitted since. The argument is a day and time, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@, if your student hasn't submitted yet."
+          }
+        }
+      }
+    },
+    "family.notification.gradePosted.title" : {
+      "comment" : "Parent notification title: a new grade was posted for the named student. The grade itself is never shown. The argument is the student's first name, or 'Your student'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · New grade posted"
+          }
+        }
+      }
+    },
+    "family.notification.missing.noClosingDate" : {
+      "comment" : "Parent notification body when Canvas gives no date after which the student's work is no longer accepted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past due. Canvas lists no closing date."
+          }
+        }
+      }
+    },
+    "family.notification.missing.stillAcceptedUntil" : {
+      "comment" : "Parent notification body: Canvas still accepts the student's work until this day and time, such as 'Fri at 11:59 PM'. Never the points lost.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still accepted until %@."
+          }
+        }
+      }
+    },
+    "family.notification.student.hidden" : {
+      "comment" : "Stands for a linked student's name in a parent notification when the parent turned on Hide Student Names.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your student"
+          }
+        }
+      }
+    },
+    "family.notification.subject.title" : {
+      "comment" : "Parent notification title naming a student and one assignment. 1: the student's first name, or 'Your student'. 2: the assignment's title from Canvas.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "family.notification.weekAhead.count" : {
+      "comment" : "Parent notification body: how many items are due in the student's next 7 days. Never the student's grade.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld due"
+          }
+        }
+      }
+    },
+    "family.notification.weekAhead.countWithBusiest" : {
+      "comment" : "Parent notification body. 1: how many items are due in the student's next 7 days. 2: the weekday with the most, such as 'Thursday'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld due · busiest %2$@"
+          }
+        }
+      }
+    },
+    "family.notification.weekAhead.title" : {
+      "comment" : "Parent notification title: the Sunday week-ahead summary for one linked student. The argument is the student's first name, or 'Your student' when the parent turned on Hide Student Names.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@'s week"
+          }
+        }
+      }
+    },
     "freshness.authExpired.long" : {
       "comment" : "Stale breadcrumb: the sign-in expired, showing saved data. The placeholder is an already-formatted time or date.",
       "extractionState" : "manual",
