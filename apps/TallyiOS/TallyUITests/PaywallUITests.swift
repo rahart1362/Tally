@@ -39,8 +39,11 @@ final class PaywallUITests: TallyUITestCase {
         app.buttons["paywall.purchase"].tap()
         XCTAssertTrue(eventually(timeout: scaled(15)) { !self.element("paywall.root", in: app).exists },
                       "the paywall stayed open after the purchase. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Active until'")).firstMatch
-            .waitForExistence(timeout: scaled(10)), "Settings → Subscription did not show the purchase. Hierarchy: \(app.debugDescription)")
+        // A Form's `LabeledContent` is one element whose label joins both parts: "Status, Active until …"
+        // (runs 36976774341 and 36982429683, whose screen recordings show the page doing just that).
+        let status = element("subscription.status", in: app)
+        XCTAssertTrue(eventually(timeout: scaled(10)) { status.exists && status.label.contains("Active until") },
+                      "Settings → Subscription did not show the purchase. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(app.buttons["subscription.refund"].waitForExistence(timeout: scaled(5)),
                       "no Request a Refund for a purchase. Hierarchy: \(app.debugDescription)")
     }
