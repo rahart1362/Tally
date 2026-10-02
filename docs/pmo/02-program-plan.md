@@ -163,6 +163,13 @@ Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6'
 - M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
 - M3-D wires the entitlement field last.
 
+**Status, 2026-10-02 06:40 UTC.**
+- **Merged:** XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27) and M3-B1 (#28).
+- **Running:** M3-B2.
+- **Interactive Done is a separate package, M3-D2** (PMO decision, option A of `m3d-report.md` §6). It's an app-process `LiveActivityIntent`: the widget never writes and holds no key. Options B and C (a widget-written outbox; a widget holding the app key) are rejected.
+- **Next:** M3-D2, then M3-E2, then the M3 exit.
+- **Pacing (Pro plan): at most 2 agents at once.** On 2026-10-01, four agents filled a 5-hour window in about 2.5 h, and three were cut off mid-task.
+
 The PMO checks weekly and 5-hour usage at each hand-off. It holds a launch when the 5-hour window passes about 80%, or when the weekly remainder falls under the reserve.
 
 ## 3. Roadmap (milestones and exit gates)
