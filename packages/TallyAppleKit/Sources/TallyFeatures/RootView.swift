@@ -78,21 +78,11 @@ public struct RootView: View {
                 if let home = appModel.home {
                     HomeShellView(model: home, banner: AnyView(SubscriptionRefreshBanner(appModel: appModel, home: home)))
                         .environment(appModel) // M3-A: Settings' "Sign Out & Erase" and App Lock
-                        .fullScreenCover(isPresented: schoolRevokedNotice) {
-                            SchoolRevokedNoticeView(appModel: appModel)
-                        }
+                        // In a view of its own, so its presentation never touches the Home's sheet.
+                        .background { SchoolRevokedNoticePresenter(appModel: appModel) }
                 }
             }
         }
-    }
-}
-
-extension RootView {
-    /// PAY-10: `AppModel.showsSchoolRevokedNotice`; closing it is "Continue with Saved Data".
-    private var schoolRevokedNotice: Binding<Bool> {
-        Binding(get: { appModel.showsSchoolRevokedNotice }, set: { isPresented in
-            if !isPresented { appModel.dismissSchoolRevokedNotice() }
-        })
     }
 }
 

@@ -111,11 +111,22 @@ public struct HomeShellView: View {
             .tint(TallyColor.accent)
         }
         .environment(model)
-        .sheet(isPresented: $isSettingsPresented) {
-            // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
-            SettingsView()
-                .environment(model)
-                .environment(appModel)
+        // The Home's one sheet: Settings, or M3-B2's paywall (`AppModel.paywall`). One presenter: with
+        // two chained `.sheet` modifiers here, the subscription changing under Settings closed it (run
+        // 36976774341).
+        .sheet(item: presentedSheet) { sheet in
+            switch sheet {
+            case .settings:
+                // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
+                SettingsView()
+                    .environment(model)
+                    .environment(appModel)
+            case .paywall(let request):
+                if let appModel {
+                    PaywallView(model: PaywallModel(trigger: request.trigger, school: model.dashboard.hero.school,
+                                                    subscription: appModel.subscription, storefront: appModel.storefront))
+                }
+            }
         }
         .task { await model.start() }
         .task(id: model.validUntil) { await model.reprojectWhenStale() }
@@ -125,8 +136,23 @@ public struct HomeShellView: View {
         // Delivered on the main run loop: these notifications may be posted from any thread, and
         // an `onReceive` action formed in `body` is main-actor isolated (SE-0423 would trap).
         .onReceive(Self.clockChanges) { _ in model.clockDidChange() }
-        // PAY-06 (M3-B2): the paywall, once after the first sync, and for a locked feature.
-        .modifier(HomePaywallPresenter(home: model))
+        // PAY-06 (M3-B2): the paywall, once, after the first sync rendered the Dashboard.
+        .modifier(FirstSyncPaywallTrigger(home: model))
+    }
+
+    /// Settings while its button asked for it; otherwise the paywall `AppModel` asked for, if any.
+    private var presentedSheet: Binding<HomeSheet?> {
+        Binding(get: {
+            if isSettingsPresented { return .settings }
+            return appModel?.paywall.map(HomeSheet.paywall)
+        }, set: { sheet in
+            guard sheet == nil else { return }
+            if isSettingsPresented {
+                isSettingsPresented = false
+            } else {
+                appModel?.dismissPaywall()
+            }
+        })
     }
 
     /// The tab bar's selection. A tab is marked built in the same update that selects it, so its

@@ -66,6 +66,22 @@ struct SchoolRevokedNoticeView: View {
     }
 }
 
+/// PAY-10: presents the notice full screen while `AppModel.showsSchoolRevokedNotice`; closing it is
+/// "Continue with Saved Data". A clear view of its own behind the Home (`RootView`), so this
+/// presentation and the Home's sheet never share a presenter.
+struct SchoolRevokedNoticePresenter: View {
+    let appModel: AppModel
+
+    var body: some View {
+        Color.clear
+            .fullScreenCover(isPresented: Binding(get: { appModel.showsSchoolRevokedNotice }, set: { isPresented in
+                if !isPresented { appModel.dismissSchoolRevokedNotice() }
+            })) {
+                SchoolRevokedNoticeView(appModel: appModel)
+            }
+    }
+}
+
 /// Apple's own sheets, bound to `SubscriptionActionsModel` (PAY-08, PAY-10): Manage Subscription,
 /// Redeem Code and Request a Refund. When one closes, the engine re-verifies (a cancellation, a refund
 /// or a redeemed code shows at once). The completions are `@Sendable` (no actor), so they are safe

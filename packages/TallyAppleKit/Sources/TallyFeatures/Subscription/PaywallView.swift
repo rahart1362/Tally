@@ -18,7 +18,7 @@ import TallyStrings
 /// Every text is a Dynamic Type style and the content scrolls, so it works at the largest
 /// accessibility size (AX5); VoiceOver reads the price as "$9.99 per year". It closes by itself once
 /// the trial or subscription is active (a purchase, a restore, a redeemed code or an approved Ask to
-/// Buy). Presented by the Home (`HomePaywallPresenter`) and by Settings → Subscription.
+/// Buy). Presented by the Home (`HomeShellView`'s one sheet) and by Settings → Subscription.
 struct PaywallView: View {
     @State private var model: PaywallModel
     @State private var presentsRedeem = false

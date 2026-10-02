@@ -93,23 +93,15 @@ struct SubscriptionRefreshBanner: View {
     }
 }
 
-/// PAY-06: the Home's paywall sheet (`AppModel.paywall`): once after this sign-in's first sync has
-/// rendered the Dashboard, and for a locked feature. The paywall's G-6 variant follows the Dashboard's
-/// school summary.
-struct HomePaywallPresenter: ViewModifier {
+/// PAY-06: asks `AppModel` for the first-sync paywall whenever what it waits for changes: its turn,
+/// the Dashboard's full projection, the account's state and the lock. The Home shell presents it
+/// (`AppModel.paywall`, in its one sheet).
+struct FirstSyncPaywallTrigger: ViewModifier {
     let home: HomeModel
     @Environment(AppModel.self) private var appModel: AppModel?
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: Binding(get: { appModel?.paywall }, set: { request in
-                if request == nil { appModel?.dismissPaywall() }
-            })) { request in
-                if let appModel {
-                    PaywallView(model: PaywallModel(trigger: request.trigger, school: home.dashboard.hero.school,
-                                                    subscription: appModel.subscription, storefront: appModel.storefront))
-                }
-            }
             .onChange(of: cue, initial: true) { _, cue in
                 appModel?.showFirstSyncPaywallIfDue(homeIsLoaded: cue.homeIsLoaded)
             }
@@ -121,6 +113,19 @@ struct HomePaywallPresenter: ViewModifier {
         FirstSyncPaywallCue(isDue: appModel?.isFirstSyncPaywallDue ?? false, homeIsLoaded: home.phase == .loaded,
                             accountState: appModel?.subscription.accountState,
                             isLocked: (appModel?.lock.isLocked ?? false) || (appModel?.lock.showsPrivacyCover ?? false))
+    }
+}
+
+/// The Home shell's one sheet (`HomeShellView.presentedSheet`): Settings, or the paywall.
+nonisolated enum HomeSheet: Identifiable, Equatable, Sendable {
+    case settings
+    case paywall(PaywallRequest)
+
+    var id: String {
+        switch self {
+        case .settings: "settings"
+        case .paywall(let request): request.id.uuidString
+        }
     }
 }
 

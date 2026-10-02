@@ -79,9 +79,14 @@ struct SubscriptionSettingsView: View {
         } message: {
             Text(L10n.Subscription.interstitialMessage())
         }
-        .sheet(item: $paywall) { request in
-            PaywallView(model: PaywallModel(trigger: request.trigger, school: school, subscription: appModel.subscription,
-                                            storefront: appModel.storefront))
+        // The paywall from a view of its own, apart from Apple's sheets above (two presentations on one
+        // view can close each other: run 36976774341).
+        .background {
+            Color.clear
+                .sheet(item: $paywall) { request in
+                    PaywallView(model: PaywallModel(trigger: request.trigger, school: school, subscription: appModel.subscription,
+                                                    storefront: appModel.storefront))
+                }
         }
     }
 
