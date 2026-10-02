@@ -37,3 +37,10 @@ The binding rules every engineering agent's brief carries, versioned here so bri
     4. Wait for the PR run with ONE background poll. Fix failures in your files (the fix push restarts the run, which is expected).
     5. Reply with a concise summary: the PR number, final commit, PR run ID, the required jobs' results, and open items. Never merge, and don't start other streams' work.
 11. **Journal.** Write your journal entries in a NEW file of your own, `build/logs/journal/<YYYY-MM-DD>-<wp-id>.md`, one entry per verified step. **Never edit `build/logs/iteration_journal.md`:** two streams appending to one file made every second PR conflict, which cost an extra full CI run.
+12. **Two traps that cost full runs (2026-10-01). CI enforces both since PR #24.**
+    - **No `Dictionary(uniqueKeysWithValues:)` in shipping code.** It traps on a repeated key; see `crash-safety-2.md` §8. PR #23 and PR #25 both added some.
+      - Use `Dictionary(_:uniquingKeysWith:)`, and say which value wins.
+      - Remove duplicates from caller-provided lists before counting or dividing by their size.
+    - **Tests that use DEBUG-only test support** (`AccountHarness` and others) **go inside `#if DEBUG`.** Only `ios-perf` builds the tests in Release, so a miss shows up only in the PR run (PR #23). Check with `python3 scripts/ci/check_debug_only_test_symbols.py .`.
+13. **Localized text in loops (2026-10-02, PR #27).** `String(localized: LocalizedStringResource)` re-reads the catalog on every call: 75-320 µs, growing with the catalog. In projection, row and other per-item code, use `L10n.string(...)` (`TallyStrings/L10n+Lookup.swift`), which caches by key, locale and plural count. Measure before optimising: two guessed caches didn't help, and one measured diagnostic found it.
+
