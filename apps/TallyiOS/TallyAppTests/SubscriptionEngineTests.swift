@@ -148,11 +148,16 @@ extension AccountLifecycleSuites {
         @Test("A preview (StoreKit shows nothing, e.g. not readable yet) never withdraws the background request")
         func previewKeepsTheBackgroundRequest() async {
             let rig = await SubscriptionRig(facts: [F.active()]).started()
-            #expect(rig.scheduler.pending != nil)
+            #expect(rig.scheduler.schedules == 1)
             rig.source.setFacts([])
             await rig.engine.foreground()
             #expect(await rig.gate.current == .preview)
-            #expect(rig.scheduler.cancels == 0 && rig.scheduler.pending != nil)
+            rig.source.setFacts([F.active()])
+            await rig.engine.foreground()
+            // Kept all along: never withdrawn, so never asked for again (whichever call a
+            // regression drops, the count of the other shows it).
+            #expect(rig.scheduler.schedules == 1 && rig.scheduler.cancels == 0 && rig.scheduler.pending != nil,
+                    "a preview withdrew the request: \(rig.scheduler.schedules) requests, \(rig.scheduler.cancels) withdrawals")
         }
 
         @Test("Lapse runs one reminders pass, which withdraws every pending reminder")
