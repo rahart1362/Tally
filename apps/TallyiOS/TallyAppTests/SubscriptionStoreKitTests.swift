@@ -54,6 +54,10 @@ struct SubscriptionStoreKitTests {
             session.resetToDefaultState()
             session.disableDialogs = true
             session.clearTransactions()
+            // The scenario starts once StoreKit Testing serves both products, or after 10 s (then
+            // `productsLoad` and every purchase fail on their own): a new session can answer with an
+            // empty list for a moment (`StoreKitProbe.servedProductIDs`).
+            _ = await StoreKitProbe.servedProductIDs(products.all, within: .seconds(10))
             let gate = EntitlementGate(isEnforced: true)
             let engine = SubscriptionEngine(source: StoreKitEntitlementSource(products: products), gate: gate,
                                             products: products)
@@ -260,19 +264,22 @@ struct SubscriptionStoreKitTests {
 /// run 36951037662 (the same runtime) did not serve this control either, so it skipped the suite.
 /// In both, the host app's own subscription engine had connected to StoreKit at app init, before
 /// any `SKTestSession` existed; the composition root no longer gives it StoreKit in a process that
-/// hosts these tests (`AppEnvironment.entitlementSource`, pinned by `StoreKitTestHostTests`). What
-/// is left to skip for is a runtime that serves nothing; a file StoreKit Testing does not accept
-/// still fails `productsLoad`.
+/// hosts these tests (`AppEnvironment.entitlementSource`, pinned by `StoreKitTestHostTests`). Run
+/// 36954768450 (that fix in, the same runtime) still skipped the suite, asking for the control
+/// once while the run was planned; hence the probe's patience. A file StoreKit Testing does not
+/// accept still fails `productsLoad`, never a skip.
 enum StoreKitProbe {
     static let productID = "dev.tally-app.tally.storekit-probe"
 
     private final class BundleToken {}
 
-    /// True on a device, and when the control's subscription is served. Also true when the control
-    /// is missing from the test bundle, so a packaging fault runs (and fails) the suite instead of
-    /// skipping it. False only when StoreKit Testing cannot open the control or serves none of it.
+    /// True on a device, and when the control's subscription is served within `patience`. Also true
+    /// when the control is missing from the test bundle, so a packaging fault runs (and fails) the
+    /// suite instead of skipping it. False only when StoreKit Testing cannot open the control or
+    /// serves none of it. Swift Testing asks this while it plans the run, moments after the app's
+    /// launch, hence the patience.
     @MainActor
-    static func servesSubscriptions() async -> Bool {
+    static func servesSubscriptions(patience: Duration = .seconds(20)) async -> Bool {
         #if targetEnvironment(simulator)
         guard let url = Bundle(for: BundleToken.self).url(forResource: "StoreKitProbe", withExtension: "storekit") else {
             return true
@@ -281,13 +288,26 @@ enum StoreKitProbe {
         session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
-        let served = (try? await Product.products(for: [productID])) ?? []
+        let served = await servedProductIDs([productID], within: patience)
         session.clearTransactions()
         session.resetToDefaultState()
-        return served.contains { $0.id == productID }
+        return served.contains(productID)
         #else
         return true
         #endif
+    }
+
+    /// Which of `ids` StoreKit Testing serves, asked again every half second until it serves all of
+    /// them or `patience` runs out. StoreKit Testing can answer with an empty list for a few seconds
+    /// after a session is set up (RevenueCat's StoreKit tests wait, and retry an empty fixture lookup,
+    /// for the same reason). Never an assertion: the caller's own expectations decide.
+    static func servedProductIDs(_ ids: [String], within patience: Duration) async -> Set<String> {
+        let deadline = ContinuousClock.now + patience
+        while true {
+            let served = Set(((try? await Product.products(for: ids)) ?? []).map(\.id))
+            if served.isSuperset(of: ids) || ContinuousClock.now >= deadline { return served }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
     }
 }
 
