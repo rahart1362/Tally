@@ -208,6 +208,47 @@ struct EntitlementPolicyTests {
     }
 }
 
+/// M3-B3 (owner decision 2026-10-02): `EntitlementPolicy.holding`, over the same counted
+/// transactions as `accountState`. Reuses `EntitlementPolicyTests`' fixtures (`fact`, `products`,
+/// `now`, `day`), since both describe the same plain values.
+@Suite("EntitlementPolicy.holding: how the account holds whatever currently entitles it")
+struct EntitlementPolicyHoldingTests {
+    typealias E = EntitlementPolicyTests
+
+    struct Case: Sendable, CustomTestStringConvertible {
+        let name: String
+        let facts: [SubscriptionFacts]
+        var role: SubscriptionRole = .student
+        let expected: SubscriptionHolding
+        var testDescription: String { name }
+    }
+
+    static let cases: [Case] = [
+        Case(name: "a school seat only: .schoolSeat", facts: [E.fact(ownership: .assigned)], expected: .schoolSeat),
+        Case(name: "a purchase only: .purchase", facts: [E.fact()], expected: .purchase),
+        Case(name: "a purchase beside a seat: .purchase (the student still has a purchase to manage or refund)",
+             facts: [E.fact(expires: 10 * E.day), E.fact(ownership: .assigned)], expected: .purchase),
+        Case(name: "a lapsed purchase beside an active seat: .schoolSeat (the lapsed purchase no longer entitles)",
+             facts: [E.fact(revoked: -E.day), E.fact(ownership: .assigned)], expected: .schoolSeat),
+        Case(name: "an unverified purchase beside a seat: .schoolSeat (the unverified purchase is ignored)",
+             facts: [E.fact(verified: false), E.fact(ownership: .assigned)], expected: .schoolSeat),
+        Case(name: "no transaction at all: .none", facts: [], expected: .none),
+        Case(name: "a lapsed purchase and nothing else: .none", facts: [E.fact(revoked: -E.day)], expected: .none),
+        Case(name: "an upgraded seat is ignored: .none", facts: [E.fact(upgraded: true, ownership: .assigned)], expected: .none),
+        Case(name: "the wrong role: a parent seat never holds the student role", facts: [E.fact(E.parent, ownership: .assigned)],
+             expected: .none),
+        Case(name: "the wrong role: a student seat never holds the parent role", facts: [E.fact(ownership: .assigned)],
+             role: .parent, expected: .none),
+        Case(name: "family sharing never holds anything: .none", facts: [E.fact(ownership: .familyShared)], expected: .none),
+    ]
+
+    @Test("One case per rule and boundary", arguments: cases)
+    func holding(_ testCase: Case) {
+        let holding = EntitlementPolicy.holding(testCase.facts, role: testCase.role, products: E.products, now: E.now)
+        #expect(holding == testCase.expected)
+    }
+}
+
 /// PAY-01: the product IDs derive from the bundle ID, and only an exact ID maps to a role.
 @Suite("SubscriptionProducts (PAY-01): IDs from the bundle ID")
 struct SubscriptionProductsTests {
