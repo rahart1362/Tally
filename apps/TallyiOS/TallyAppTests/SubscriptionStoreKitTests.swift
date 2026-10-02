@@ -13,8 +13,9 @@ import TallyDomain
 /// PAY-01 and PAY-03 (M3-B1) over the real StoreKit, through StoreKit Testing: an `SKTestSession`
 /// over the repository's `Products.storekit` (bundled into this test target), the real
 /// `StoreKitEntitlementSource` and a real `SubscriptionEngine` with enforcement turned on by
-/// injection. Each scenario acts in the test session, waits until the session itself shows the
-/// change (StoreKit Testing applies it out of process), then runs **one** foreground
+/// injection. Each scenario acts in the test session (renewal and expiry: at one second a day),
+/// waits until StoreKit's own view, the one the engine reads, shows the change (StoreKit Testing
+/// applies it out of process, and its session sees it first), then runs **one** foreground
 /// (`SubscriptionEngine.foreground()`), after which the policy's state must have moved.
 ///
 /// Serialized: one `SKTestSession` configures the whole process's StoreKit test environment.
@@ -77,15 +78,35 @@ struct SubscriptionStoreKitTests {
             session.allTransactions().last { $0.productIdentifier == products.studentAnnual && predicate($0) }
         }
 
-        /// Waits (up to 30 s) until the test session itself shows `condition`: StoreKit Testing applies
-        /// an action out of process. Never the app's state: that moves only through the one foreground.
-        func sessionShows(_ condition: () -> Bool) async -> Bool {
-            let deadline = ContinuousClock.now + .seconds(30)
-            while !condition() {
-                guard ContinuousClock.now < deadline else { return false }
-                try? await Task.sleep(for: .milliseconds(20))
+        /// Waits (up to `timeout`) until StoreKit's own view shows `condition` for Tally Annual's
+        /// latest verified transaction (`Transaction.latest(for:)`, which the engine reads at its next
+        /// foreground). Not the test session's view: in run 36956766992 the session showed a renewal,
+        /// an expiry, a refund and a resolved purchase while StoreKit's view did not yet. Never the
+        /// app's state: that moves only through the one foreground.
+        func storeKitShows(timeout: Duration = .seconds(30), _ condition: (Transaction) async -> Bool) async -> Bool {
+            let deadline = ContinuousClock.now + timeout
+            while ContinuousClock.now < deadline {
+                if case .verified(let transaction)? = await Transaction.latest(for: products.studentAnnual),
+                   await condition(transaction) {
+                    return true
+                }
+                try? await Task.sleep(for: .milliseconds(100))
             }
-            return true
+            return false
+        }
+
+        /// One second of the session is one day, so the one-month trial ends after about 30 s and
+        /// renews into the paid year, or expires when auto-renewal is off: the renewal and expiry
+        /// scenarios then reach StoreKit's view even if the session's forced renewal or expiry does
+        /// not (in run 36956766992 neither had when the engine read it, 0.3 s after the session showed
+        /// it; RevenueCat's suites use this rate rather than either). Raw value 6 is
+        /// `oneSecondIsOneDay`, deprecated in favour of a renaming RevenueCat found not to behave the same.
+        func accelerateTime() {
+            guard let rate = SKTestSession.TimeRate(rawValue: 6) else {
+                Issue.record("SKTestSession.TimeRate has no raw value 6 (oneSecondIsOneDay)")
+                return
+            }
+            session.timeRate = rate
         }
 
         /// A purchase of Tally Annual that entitled, after one foreground.
@@ -155,13 +176,16 @@ struct SubscriptionStoreKitTests {
         await stage.end()
     }
 
-    @Test("Renewal (StoreKit Testing's forced renewal): the expiry moves later within one foreground")
+    @Test("Renewal (StoreKit Testing's accelerated time): the expiry moves later within one foreground")
     func renewal() async throws {
         let stage = try await Stage.make()
+        stage.accelerateTime()
         let first = try await stage.purchased()
-        let before = stage.session.allTransactions().count
-        try stage.session.forceRenewalOfSubscription(productIdentifier: Self.products.studentAnnual)
-        #expect(await stage.sessionShows { stage.session.allTransactions().count > before }, "no renewal transaction")
+        // The forced renewal, once StoreKit's view shows it; failing that, the trial's own renewal
+        // into the paid year about 30 s after the purchase.
+        try? stage.session.forceRenewalOfSubscription(productIdentifier: Self.products.studentAnnual)
+        #expect(await stage.storeKitShows(timeout: .seconds(90)) { ($0.expirationDate ?? .distantPast) > first },
+                "StoreKit never showed the renewal")
         await stage.engine.foreground()
         let state = await stage.gate.current
         guard case .entitled(let renewed) = state else {
@@ -176,9 +200,17 @@ struct SubscriptionStoreKitTests {
     @Test("Expiry: lapsed within one foreground")
     func expiry() async throws {
         let stage = try await Stage.make()
+        stage.accelerateTime()
         _ = try await stage.purchased()
-        try stage.session.expireSubscription(productIdentifier: Self.products.studentAnnual)
-        #expect(await stage.sessionShows { (stage.transaction()?.expirationDate ?? .distantFuture) <= Date() })
+        let trial = try #require(stage.transaction())
+        // Auto-renewal off: the trial ends about 30 s after the purchase, with no renewal. The test
+        // session's forced expiry, if StoreKit's view ever takes it, only brings that forward.
+        try stage.session.disableAutoRenewForTransaction(identifier: trial.identifier)
+        try? stage.session.expireSubscription(productIdentifier: Self.products.studentAnnual)
+        #expect(await stage.storeKitShows(timeout: .seconds(90)) { transaction in
+            guard let expiry = transaction.expirationDate, expiry <= Date() else { return false }
+            return await transaction.subscriptionStatus?.state == .expired
+        }, "StoreKit never showed the expiry")
         await stage.engine.foreground()
         let state = await stage.gate.current
         guard case .lapsed = state else {
@@ -195,7 +227,7 @@ struct SubscriptionStoreKitTests {
         _ = try await stage.purchased()
         let refunded = try #require(stage.transaction())
         try stage.session.refundTransaction(identifier: refunded.identifier)
-        #expect(await stage.sessionShows { stage.transaction { $0.identifier == refunded.identifier }?.cancelDate != nil })
+        #expect(await stage.storeKitShows { $0.revocationDate != nil }, "StoreKit never showed the refund")
         await stage.engine.foreground()
         let state = await stage.gate.current
         guard case .lapsed(let since) = state else {
@@ -216,6 +248,7 @@ struct SubscriptionStoreKitTests {
         #expect(await stage.gate.current == .preview, "nothing is granted while the purchase waits")
         let pending = try #require(stage.transaction { $0.pendingAskToBuyConfirmation })
         try stage.session.approveAskToBuyTransaction(identifier: pending.identifier)
+        #expect(await stage.storeKitShows { _ in true }, "StoreKit never showed the approved purchase")
         // PAY-03: "Ask to Buy pending → granted via `updates`": the listener grants it, no foreground.
         let deadline = ContinuousClock.now + .seconds(30)
         while await stage.gate.current?.isActiveEntitlement != true, ContinuousClock.now < deadline {
@@ -241,7 +274,8 @@ struct SubscriptionStoreKitTests {
         stage.session.interruptedPurchasesEnabled = false
         let interrupted = try #require(stage.transaction { $0.hasPurchaseIssue })
         try stage.session.resolveIssueForTransaction(identifier: interrupted.identifier)
-        #expect(await stage.sessionShows { stage.transaction { $0.identifier == interrupted.identifier }?.hasPurchaseIssue == false })
+        #expect(await stage.storeKitShows { ($0.expirationDate ?? .distantPast) > Date() && $0.revocationDate == nil },
+                "StoreKit never showed the purchase once its issue was resolved")
         await stage.engine.foreground()
         let state = await stage.gate.current
         guard case .entitled = state else {
