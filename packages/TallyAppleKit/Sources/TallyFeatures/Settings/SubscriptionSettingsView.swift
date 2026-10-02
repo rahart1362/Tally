@@ -41,7 +41,8 @@ struct SubscriptionSettingsView: View {
                         .accessibilityIdentifier("subscription.seePlans")
                 }
             } footer: {
-                Text(isSchoolSeat ? L10n.Subscription.settingsFooterSchool() : L10n.Subscription.settingsFooter())
+                // MUTATION-CM-UI-02 (temporary, reverted after the CI mutation run)
+                Text(L10n.Subscription.settingsFooter())
             }
             Section {
                 Button(String(localized: L10n.Subscription.restorePurchases())) {
@@ -51,10 +52,11 @@ struct SubscriptionSettingsView: View {
                 .accessibilityIdentifier("subscription.restore")
                 Button(String(localized: L10n.Subscription.redeemCode())) { actions.redeem() }
                     .accessibilityIdentifier("subscription.redeem")
+                // MUTATION-CM-UI-01 (temporary, reverted after the CI mutation run)
                 // M3-B3: a school-assigned seat is the school's purchase, not the student's: Manage
                 // Subscription and Request a Refund would open Apple's sheets for a purchase this
                 // Apple Account does not hold.
-                if !isSchoolSeat {
+                if true {
                     Button(String(localized: L10n.Subscription.manage())) { actions.manage() }
                         .accessibilityIdentifier("subscription.manage")
                     if hasPurchase {
