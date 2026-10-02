@@ -254,6 +254,12 @@ extension L10n {
                 comment: "Subscription state: no trial or subscription on this Apple Account.")
         }
 
+        public static func statusSchool(until date: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.status.school", defaultValue: "Provided by your school until \(date)", bundle: #bundle,
+                comment: "M3-B3: subscription state when the account's only entitlement is a school-assigned seat, not this Apple Account's own purchase (owner decision 2026-10-02). The argument is a date, such as 'Oct 2, 2027'.")
+        }
+
         public static func statusEnded(_ date: String) -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.status.ended", defaultValue: "Ended \(date)", bundle: #bundle,
@@ -302,6 +308,12 @@ extension L10n {
                 comment: "Settings > Subscription footer (PRD §11.4).")
         }
 
+        public static func settingsFooterSchool() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.settings.footerSchool", defaultValue: "Your school provides this subscription through Apple. For questions about it, ask your school.", bundle: #bundle,
+                comment: "M3-B3: Settings > Subscription footer when the account's only entitlement is a school-assigned seat, replacing the Apple-Account footer (owner decision 2026-10-02).")
+        }
+
         public static func lockedTitle() -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.locked.title", defaultValue: "Part of Tally Annual", bundle: #bundle,
@@ -336,6 +348,12 @@ extension L10n {
             LocalizedStringResource(
                 "subscription.schoolOff.body", defaultValue: "Your school's Canvas no longer lets Tally connect, so Tally can't refresh. Your saved data stays readable. Your subscription is still active: you can cancel it, or ask Apple for a refund.", bundle: #bundle,
                 comment: "The school-revoked notice's text.")
+        }
+
+        public static func schoolOffBodySeat() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.schoolOff.bodySeat", defaultValue: "Your school's Canvas no longer lets Tally connect, so Tally can't refresh. Your saved data stays readable.", bundle: #bundle,
+                comment: "M3-B3: the school-revoked notice's text when the account's only entitlement is a school-assigned seat, without the cancel/refund sentence (the school, not the student, holds that purchase).")
         }
 
         public static func schoolOffContinue() -> LocalizedStringResource {

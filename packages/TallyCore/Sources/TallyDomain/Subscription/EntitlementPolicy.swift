@@ -101,6 +101,19 @@ public enum EntitlementState: Sendable, Equatable {
     }
 }
 
+/// How the account holds whatever currently entitles it (`EntitlementPolicy.holding`; owner decision
+/// 2026-10-02): nothing to manage or refund, a purchase on this Apple Account, or an organization's
+/// assigned seat. M3-B3: Settings and the school-revoked notice hide Manage Subscription and Request
+/// a Refund for a seat, since the school, not the student, holds that purchase.
+public enum SubscriptionHolding: Sendable, Equatable {
+    /// No counted transaction currently entitles (a lapse, or never subscribed).
+    case none
+    /// At least one counted, still-entitling transaction was bought on this Apple Account.
+    case purchase
+    /// Every counted, still-entitling transaction is an organization's assigned seat.
+    case schoolSeat
+}
+
 /// PAY-02: who is entitled to what, from plain values, with no StoreKit, clock or I/O of its own.
 ///
 /// **Rules** (pricing-licensing.md §6 PAY-02; PRD §11.5):
@@ -131,11 +144,8 @@ public enum EntitlementPolicy {
     /// `.lapsed`; `inSession` applies rules 1 and 7's first-sync part).
     public static func accountState(_ facts: [SubscriptionFacts], role: SubscriptionRole, products: SubscriptionProducts,
                                     now: Date, offlineGrace: Duration = SubscriptionConfig.offlineGracePeriod) -> EntitlementState {
-        let productID = products.productID(for: role)
-        let counted = facts.filter { fact in
-            fact.isVerified && fact.productID == productID && !fact.isUpgraded && fact.ownership.entitles
-        }
-        let effectiveNow = counted.compactMap(\.signedDate).reduce(now) { max($0, $1) }
+        let counted = countedFacts(facts, role: role, products: products)
+        let effectiveNow = newestSignedDate(counted, now: now)
         var entitledUntil: Date?
         var lapsedSince: Date?
         for fact in counted {
@@ -148,6 +158,39 @@ public enum EntitlementPolicy {
         if let entitledUntil { return .entitled(until: entitledUntil) }
         if let lapsedSince { return .lapsed(since: lapsedSince) }
         return .preview
+    }
+
+    /// How the account holds whatever currently entitles it (M3-B3; owner decision 2026-10-02), over
+    /// the same counted transactions as `accountState`: `.none` when nothing currently entitles
+    /// (`accountState` is `.lapsed` or `.preview`); otherwise `.purchase` when any still-entitling
+    /// transaction was bought on this Apple Account (even beside a seat, since the student then has a
+    /// purchase of their own to manage or refund); else `.schoolSeat`, when every still-entitling
+    /// transaction is an organization's assigned seat.
+    public static func holding(_ facts: [SubscriptionFacts], role: SubscriptionRole, products: SubscriptionProducts,
+                               now: Date, offlineGrace: Duration = SubscriptionConfig.offlineGracePeriod) -> SubscriptionHolding {
+        let counted = countedFacts(facts, role: role, products: products)
+        let effectiveNow = newestSignedDate(counted, now: now)
+        let entitling = counted.filter { fact in
+            if case .entitled = access(of: fact, at: effectiveNow, offlineGrace: offlineGrace) { return true }
+            return false
+        }
+        guard !entitling.isEmpty else { return .none }
+        return entitling.contains { $0.ownership == .purchased } ? .purchase : .schoolSeat
+    }
+
+    /// Rule 2's filter, shared by `accountState` and `holding`: verified, this role's exact product,
+    /// not upgraded, and held a way that can entitle.
+    private static func countedFacts(_ facts: [SubscriptionFacts], role: SubscriptionRole,
+                                     products: SubscriptionProducts) -> [SubscriptionFacts] {
+        let productID = products.productID(for: role)
+        return facts.filter { fact in
+            fact.isVerified && fact.productID == productID && !fact.isUpgraded && fact.ownership.entitles
+        }
+    }
+
+    /// Rule 6's clock skew: the later of `now` and the newest App Store signed date among `counted`.
+    private static func newestSignedDate(_ counted: [SubscriptionFacts], now: Date) -> Date {
+        counted.compactMap(\.signedDate).reduce(now) { max($0, $1) }
     }
 
     private enum Access {

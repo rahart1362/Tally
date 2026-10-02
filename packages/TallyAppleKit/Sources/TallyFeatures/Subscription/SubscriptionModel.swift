@@ -18,6 +18,10 @@ public final class SubscriptionModel {
     /// The account's entitlement, as the gate decides with it: StoreKit's answer, or the Keychain
     /// record's until StoreKit answers. `nil` until the launch's first state.
     public private(set) var accountState: EntitlementState?
+    /// M3-B3: how the account holds whatever currently entitles it. `nil` before StoreKit has
+    /// answered this launch (`SubscriptionStatus.holding`): Settings and the school-revoked notice
+    /// show today's purchase UI (as if `.purchase`) until it is known.
+    public private(set) var holding: SubscriptionHolding?
     /// StoreKit has answered since this launch (PAY-04: re-verified at every launch).
     public private(set) var isVerifiedThisLaunch = false
     /// Ask to Buy: a purchase is waiting for a parent's approval (M3-B2 says so).
@@ -77,7 +81,13 @@ public final class SubscriptionModel {
 
     func receive(_ status: SubscriptionStatus) {
         if accountState != status.accountState { accountState = status.accountState }
+        if holding != status.holding { holding = status.holding }
         if isVerifiedThisLaunch != status.isVerifiedThisLaunch { isVerifiedThisLaunch = status.isVerifiedThisLaunch }
         if isPurchasePending != status.isPurchasePending { isPurchasePending = status.isPurchasePending }
     }
+
+    /// M3-B3: whether the account's entitlement is a school's assigned seat, not this Apple
+    /// Account's own purchase. `false` before StoreKit has answered (`holding == nil`), so a view
+    /// shows today's purchase UI until it is known.
+    public var isSchoolSeat: Bool { holding == .schoolSeat }
 }

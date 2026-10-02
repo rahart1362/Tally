@@ -20,10 +20,11 @@ enum SubscriptionFixtures {
     static let now = ReminderTestSupport.anchor
     static let day: TimeInterval = 24 * 60 * 60
 
+    /// M3-B3: `ownership: .assigned` is a school's seat, synthetic like every other value here.
     static func active(until offset: TimeInterval = 300 * day, productID: String = products.studentAnnual,
-                       verified: Bool = true) -> SubscriptionFacts {
+                       verified: Bool = true, ownership: SubscriptionFacts.Ownership = .purchased) -> SubscriptionFacts {
         SubscriptionFacts(productID: productID, isVerified: verified, expirationDate: now.addingTimeInterval(offset),
-                          renewalState: .subscribed, signedDate: now.addingTimeInterval(-60))
+                          ownership: ownership, renewalState: .subscribed, signedDate: now.addingTimeInterval(-60))
     }
 
     static func expired(at offset: TimeInterval = -60) -> SubscriptionFacts {

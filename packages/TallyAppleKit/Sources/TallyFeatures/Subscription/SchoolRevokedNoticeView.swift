@@ -31,7 +31,9 @@ struct SchoolRevokedNoticeView: View {
                     .foregroundStyle(TallyColor.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("schoolOff.title")
-                Text(L10n.Subscription.schoolOffBody())
+                // M3-B3: a school-assigned seat has no cancel/refund sentence or buttons — the
+                // school, not the student, holds that purchase.
+                Text(isSchoolSeat ? L10n.Subscription.schoolOffBodySeat() : L10n.Subscription.schoolOffBody())
                     .font(TallyTypography.body)
                     .foregroundStyle(TallyColor.textSecondary)
                 if let notice = actions.notice {
@@ -41,15 +43,17 @@ struct SchoolRevokedNoticeView: View {
                         .accessibilityIdentifier("schoolOff.notice")
                 }
                 VStack(spacing: TallySpacing.md) {
-                    Button(String(localized: L10n.Subscription.manage())) { actions.manage() }
-                        .buttonStyle(.tallyPrimary)
-                        .accessibilityIdentifier("schoolOff.manage")
-                    Button(String(localized: L10n.Subscription.requestRefund())) {
-                        Task { await actions.requestRefund() }
+                    if !isSchoolSeat {
+                        Button(String(localized: L10n.Subscription.manage())) { actions.manage() }
+                            .buttonStyle(.tallyPrimary)
+                            .accessibilityIdentifier("schoolOff.manage")
+                        Button(String(localized: L10n.Subscription.requestRefund())) {
+                            Task { await actions.requestRefund() }
+                        }
+                        .buttonStyle(.tallySecondary)
+                        .disabled(actions.isWorking)
+                        .accessibilityIdentifier("schoolOff.refund")
                     }
-                    .buttonStyle(.tallySecondary)
-                    .disabled(actions.isWorking)
-                    .accessibilityIdentifier("schoolOff.refund")
                     Button(String(localized: L10n.Subscription.schoolOffContinue())) {
                         appModel.dismissSchoolRevokedNotice()
                     }
@@ -63,6 +67,11 @@ struct SchoolRevokedNoticeView: View {
         }
         .background(TallyColor.bgCanvas)
         .modifier(SubscriptionSheets(actions: actions))
+    }
+
+    /// M3-B3: `false` (today's purchase UI) before StoreKit has answered this launch.
+    private var isSchoolSeat: Bool {
+        appModel.subscription.isSchoolSeat
     }
 }
 

@@ -13,8 +13,12 @@ nonisolated enum SettingsCopy {
     /// ux-ui.md §3.7.7, SEC §3, ASC R9.
     static var signOutConfirmation: LocalizedStringResource { L10n.Settings.signOutConfirmation() }
     /// PAY-11 (M3-B2): the confirmation's message, then that erasing does not cancel the subscription.
-    static var signOutMessage: String {
-        String(localized: signOutConfirmation) + "\n\n" + String(localized: L10n.Subscription.eraseKeepsSubscription())
+    /// M3-B3: a school-assigned seat has nothing to cancel on this Apple Account, so the note is left
+    /// off for one.
+    static func signOutMessage(isSchoolSeat: Bool) -> String {
+        let base = String(localized: signOutConfirmation)
+        guard !isSchoolSeat else { return base }
+        return base + "\n\n" + String(localized: L10n.Subscription.eraseKeepsSubscription())
     }
     static var disclaimer: LocalizedStringResource { L10n.Account.disclaimer() }
     static var thresholdFooter: LocalizedStringResource { L10n.Settings.thresholdFooter() }
@@ -74,11 +78,15 @@ struct SettingsView: View {
                     dismiss()
                     app?.signOut()
                 }
-                // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap away.
-                Button(String(localized: L10n.Subscription.manage())) { presentsManageSubscriptions = true }
+                // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap
+                // away. M3-B3: omitted for a school-assigned seat, which this Apple Account has
+                // nothing to cancel.
+                if !isSchoolSeat {
+                    Button(String(localized: L10n.Subscription.manage())) { presentsManageSubscriptions = true }
+                }
                 Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
             } message: {
-                Text(verbatim: SettingsCopy.signOutMessage)
+                Text(verbatim: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat))
             }
             .manageSubscriptionsSheet(isPresented: $presentsManageSubscriptions)
             .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
@@ -109,6 +117,12 @@ struct SettingsView: View {
     private var isSignedIn: Bool {
         guard let app, case .signedIn = app.route else { return false }
         return true
+    }
+
+    /// M3-B3: `false` (today's purchase UI) without an `AppModel`, or before StoreKit has answered
+    /// this launch.
+    private var isSchoolSeat: Bool {
+        app?.subscription.isSchoolSeat == true
     }
 
     // MARK: - Account
@@ -159,8 +173,10 @@ struct SettingsView: View {
                     app.exitSample()
                 })
             } label: {
+                // M3-B3: holding, so a school seat reads "Provided by your school…" here too, not
+                // just on the pushed Subscription page.
                 LabeledContent(String(localized: L10n.Subscription.settingsTitle()),
-                               value: SubscriptionStatusText.status(app.subscription.accountState,
+                               value: SubscriptionStatusText.status(app.subscription.accountState, holding: app.subscription.holding,
                                                                     isPurchasePending: app.subscription.isPurchasePending))
             }
             .accessibilityIdentifier("settings.subscription")
