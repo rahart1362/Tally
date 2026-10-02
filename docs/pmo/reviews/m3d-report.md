@@ -31,7 +31,22 @@ UNVERIFIED. The journal is `build/logs/journal/2026-10-01-m3d.md`.
 
 ## 2. Evidence by package
 
-(Filled in from the CI runs.)
+Required jobs: `hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`, `ios-asan`, `ios-tsan`,
+`ios-perf`. Iteration runs used `-f scope=unit` (Linux jobs and `ios-build` without the UI tests); the
+budget was three iteration runs and one mutation run, and the PR's run is the one full run.
+
+| Run | Head | What it showed |
+|---|---|---|
+| 36940410627 (unit, iteration 1) | `087629c` | Hygiene, TallyCore Linux, sanitizers, lint, perf: success. `ios-build` failed at the Debug build: no Swift error or warning in this branch's files; the App Intents metadata processor halted on `TypeDisplayRepresentation(…, numericFormat: nil)` ("must be initialized directly with a String literal"), so the app target and the tests were not compiled |
+| 36941479820 (unit, iteration 2) | `7878069` | Linux jobs success; the Debug build of the app and the widget **succeeded** (metadata included); the test build failed once: an M2 test passed `GlanceText.bandLabel` as a function, which a defaulted `locale` parameter no longer allows |
+| RUN3 | | |
+| MUTATION | | |
+| PR | | |
+
+Hygiene evidence (run 36940410627 and every run since): `WIDGET | PASS | sources | 16 Swift files, 6
+modules, 0 problems`; `L10N | PASS | 169 Swift files, 185 literals in 18 files, baseline 185 in 18
+files`; `CATALOG | PASS | 6 catalogs, 378 keys, shipping ['en'] | 0 problems`; `PRIVACY | PASS |
+summary | 11 checks, 0 failed, 0 warnings`.
 
 ## 3. Platform facts this design rests on
 

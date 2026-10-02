@@ -8,6 +8,6 @@ extension RefreshTallyIntent {
     /// process could not refresh anyway (it holds no credential and reads the glance only), so it
     /// says to open Tally.
     func refreshInThisProcess() async -> LocalizedStringResource {
-        RefreshAnswer(state: nil).dialog(now: Date(), calendar: .autoupdatingCurrent)
+        RefreshAnswer.openTallyDialog()
     }
 }

@@ -94,6 +94,16 @@ extension RefreshAnswer {
         return resource
     }
 
+    /// "Open Tally to refresh.", for a process that cannot refresh (the widget extension's half of
+    /// "Refresh Tally"). Parameterless on purpose: a caller in the extension then references
+    /// TallyGlance's symbols only. In a test build Xcode turns the shared package products into
+    /// frameworks, and the extension links TallyGlance alone, so a call that named `FreshnessState`
+    /// (TallyDomain) or evaluated `TallyLocale.effective` (TallyStrings) as a default argument in the
+    /// extension's own code failed to link (run 36943166823).
+    public static func openTallyDialog() -> LocalizedStringResource {
+        RefreshAnswer.openTally.dialog(now: Date(), calendar: .autoupdatingCurrent)
+    }
+
     static func when(_ date: Date, now: Date, calendar: Calendar, locale: Locale) -> String {
         let summary = GlanceSummary(nextUp: nil, laterCount: 0, overdueCount: 0, grades: .notOptedIn, asOf: date, isStale: true,
                                     asOfIsBeforeToday: date < calendar.startOfDay(for: now))
