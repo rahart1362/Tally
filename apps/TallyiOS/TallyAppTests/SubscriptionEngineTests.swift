@@ -93,10 +93,15 @@ extension AccountLifecycleSuites {
 
         @Test("Ask to Buy: pending until the approval arrives through Transaction.updates")
         func askToBuy() async {
-            let rig = await SubscriptionRig().started()
+            let rig = SubscriptionRig()
             rig.source.setPurchase(.pending)
             let model = await MainActor.run { SubscriptionModel(engine: rig.engine) }
+            // As `TallyApp.init` does: the model observes, then starts the engine, and the purchase
+            // waits until the launch's status has reached it. Before, the rig started the engine
+            // first and the purchase could publish before the model's observer was set (PR #28 run
+            // 36961581422, ios-asan: `isPurchasePending` never reached the model).
             await MainActor.run { model.start() }
+            #expect(await F.eventually { await MainActor.run { model.isVerifiedThisLaunch } })
             #expect(await rig.engine.purchase(.student) == .pending)
             #expect(await F.eventually { await MainActor.run { model.isPurchasePending } })
             rig.source.setFacts([F.active()])
