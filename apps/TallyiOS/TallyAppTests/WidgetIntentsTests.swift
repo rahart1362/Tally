@@ -196,6 +196,7 @@ struct WidgetIntentsTests {
         #expect(!widgetMetadata.contains("TallyFocusFilter"), "the Focus filter belongs to the app alone")
 
         var counts: [String] = []
+        var keysWithoutEnglish = 0
         for (name, bundle, metadata) in [("app", app, appMetadata), ("widget", widget, widgetMetadata)] {
             let keys = try Self.intentKeys(in: metadata)
             #expect(!keys.isEmpty, "\(name): no intent.* key in the metadata: \(metadata.prefix(800))")
@@ -203,6 +204,7 @@ struct WidgetIntentsTests {
                 // Missing reads "<missing>"; a key added back by string extraction with no English reads as itself.
                 let english = bundle.localizedString(forKey: key, value: "<missing>", table: "AppIntents")
                 #expect(english != "<missing>" && english != key, "\(name): \(key) has no English in its AppIntents table")
+                if english == "<missing>" || english == key { keysWithoutEnglish += 1 }
             }
             counts.append("\(name) \(keys.count) keys")
         }
@@ -216,7 +218,10 @@ struct WidgetIntentsTests {
                     "\(phrase) is not in the app's AppShortcuts table (localizations \(app.localizations))")
         }
         #expect(appMetadata.contains("applicationName"), "the app's metadata holds no App Shortcuts phrase")
-        // Evidence for the CI log (the console keeps lines that say "passed").
-        print("M3D-APPINTENTS | app names \(appIntents.count), widget names \(widgetIntents.count) | \(counts.joined(separator: ", ")) | check passed")
+        // Evidence for the CI log (the console keeps lines that say "passed" or "failed"). It reports the key
+        // check it counts, never a blanket pass: mutation run 36946959574 printed "check passed" from a failing
+        // attempt. The test's own ✔ or ✘ line is the verdict.
+        let keyCheck = keysWithoutEnglish == 0 ? "key check passed" : "key check failed: \(keysWithoutEnglish) without English"
+        print("M3D-APPINTENTS | app names \(appIntents.count), widget names \(widgetIntents.count) | \(counts.joined(separator: ", ")) | \(keyCheck)")
     }
 }
