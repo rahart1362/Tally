@@ -78,17 +78,15 @@ struct SettingsView: View {
                     dismiss()
                     app?.signOut()
                 }
-                // MUTATION-CM-UI-03 (temporary, reverted after the CI mutation run)
                 // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap
                 // away. M3-B3: omitted for a school-assigned seat, which this Apple Account has
                 // nothing to cancel.
-                if true {
+                if !isSchoolSeat {
                     Button(String(localized: L10n.Subscription.manage())) { presentsManageSubscriptions = true }
                 }
                 Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
             } message: {
-                // MUTATION-CM-UI-04 (temporary, reverted after the CI mutation run)
-                Text(verbatim: SettingsCopy.signOutMessage(isSchoolSeat: false))
+                Text(verbatim: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat))
             }
             .manageSubscriptionsSheet(isPresented: $presentsManageSubscriptions)
             .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {

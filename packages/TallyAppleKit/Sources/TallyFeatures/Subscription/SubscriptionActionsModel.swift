@@ -104,9 +104,8 @@ nonisolated enum SubscriptionStatusText {
             return String(localized: L10n.Subscription.statusNotSubscribed())
         case .entitled(let until)?:
             let date = until.formatted(date: .abbreviated, time: .omitted)
-            // MUTATION-CM-UI-05 (temporary, reverted after the CI mutation run)
-            return holding == .purchase ? String(localized: L10n.Subscription.statusSchool(until: date))
-                                        : String(localized: L10n.Subscription.statusActive(until: date))
+            return holding == .schoolSeat ? String(localized: L10n.Subscription.statusSchool(until: date))
+                                          : String(localized: L10n.Subscription.statusActive(until: date))
         case .lapsed(let since)?:
             return String(localized: L10n.Subscription.statusEnded(since.formatted(date: .abbreviated, time: .omitted)))
         }
