@@ -15,7 +15,7 @@ import TallyStore
 /// timeline built before the access ends also gets an entry at that moment.
 public enum GlanceAccess {
     public static func isUnlocked(_ glance: GlanceProjection, at moment: Date) -> Bool {
-        true
+        glance.coversSubscription(at: moment)
     }
 }
 

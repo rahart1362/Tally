@@ -134,6 +134,7 @@ struct AppEnvironment {
                            environment: [String: String] = ProcessInfo.processInfo.environment)
         -> any SubscriptionStorefront {
         #if DEBUG
+        if environment["XCTestConfigurationFilePath"] != nil { return UnavailableStorefront() }
         #endif
         return StoreKitStorefront(products: products)
     }

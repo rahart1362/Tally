@@ -14,7 +14,7 @@ nonisolated enum SettingsCopy {
     static var signOutConfirmation: LocalizedStringResource { L10n.Settings.signOutConfirmation() }
     /// PAY-11 (M3-B2): the confirmation's message, then that erasing does not cancel the subscription.
     static var signOutMessage: String {
-        String(localized: signOutConfirmation)
+        String(localized: signOutConfirmation) + "\n\n" + String(localized: L10n.Subscription.eraseKeepsSubscription())
     }
     static var disclaimer: LocalizedStringResource { L10n.Account.disclaimer() }
     static var thresholdFooter: LocalizedStringResource { L10n.Settings.thresholdFooter() }

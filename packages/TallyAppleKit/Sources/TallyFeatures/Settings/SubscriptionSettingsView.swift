@@ -109,7 +109,7 @@ struct SubscriptionSettingsView: View {
     /// PAY-09: in sample mode the interstitial first; otherwise the paywall.
     private func seePlans() {
         let context = appModel.paywallContext()
-        if PaywallPlacement.needsInterstitial(.settings, in: context) && context.isLocked {
+        if PaywallPlacement.needsInterstitial(.settings, in: context) {
             showsInterstitial = true
         } else if PaywallPlacement.shows(.settings, in: context) {
             paywall = PaywallRequest(trigger: .settings)
