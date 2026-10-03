@@ -35,9 +35,13 @@ public struct HomeShellView: View {
     let banner: AnyView?
 
     @Environment(\.scenePhase) private var scenePhase
+    /// FAM-09: the switcher shows initials only from AX1 up; read here, where the size is not clamped.
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// `RootView` puts it here for the sample and signed-in routes; Settings' account actions use it.
     @Environment(AppModel.self) private var appModel: AppModel?
     @State private var isSettingsPresented = false
+    /// FAM-09 (M3-E2): the switcher's "Add a student…" opens Settings at its add-student sheet.
+    @State private var settingsAddsStudent = false
     @State private var selectedTab: HomeTab = .dashboard
     /// The tabs whose content exists: the Dashboard from the first frame, each other tab from its
     /// first selection on. Only ever grows, so a built tab's `NavigationStack` keeps its identity.
@@ -48,75 +52,108 @@ public struct HomeShellView: View {
         self.banner = banner
     }
 
+    /// FAM-09 (M3-E2): parent mode's family, when there is one (sample mode's parent view today).
+    private var family: FamilyModel? { appModel?.family }
+
+    /// The Home every tab shows: in parent mode the active student's (each student has their own
+    /// model and cache), otherwise the shell's own.
+    private var home: HomeModel { family?.activeHome ?? model }
+
     public var body: some View {
         VStack(spacing: 0) {
             if let banner {
                 banner
             }
 
-            // The lint (`scripts/ci/check_localizable_literals.py`) does not yet know the iOS 18
-            // `Tab(_:systemImage:value:)` initializer (its `UI_CALLEES` set predates it), so these
-            // five were not findings; moved anyway; they are genuinely user-facing tab bar labels,
-            // the same practice L10N-03a's report documents for other lint gaps (flagged for the PMO
-            // in the hand-off report, §3.8).
-            TabView(selection: tabSelection) {
-                Tab(String(localized: L10n.Home.tabDashboard()), systemImage: "house", value: HomeTab.dashboard) {
-                    BuiltTab(.dashboard, isBuilt: builtTabs.contains(.dashboard)) {
-                        NavigationStack {
-                            DashboardView()
-                                .toolbar { settingsToolbarItem }
+            // FAM-09: parent mode with no student left: §7.6's parent empty state replaces the tabs.
+            if let family, family.students.isEmpty {
+                NavigationStack {
+                    ContentUnavailableView {
+                        Label(String(localized: L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2")
+                    } description: {
+                        Text(L10n.FamilyUI.parentNoStudents())
+                    } actions: {
+                        Button(String(localized: L10n.FamilyUI.addStudent())) { openSettings(addingStudent: true) }
+                            .accessibilityIdentifier("family.emptyAdd")
+                    }
+                    .toolbar { settingsToolbarItem }
+                }
+            } else {
+                // The lint (`scripts/ci/check_localizable_literals.py`) does not yet know the iOS 18
+                // `Tab(_:systemImage:value:)` initializer (its `UI_CALLEES` set predates it), so these
+                // five were not findings; moved anyway; they are genuinely user-facing tab bar labels,
+                // the same practice L10N-03a's report documents for other lint gaps (flagged for the PMO
+                // in the hand-off report, §3.8).
+                TabView(selection: tabSelection) {
+                    Tab(String(localized: L10n.Home.tabDashboard()), systemImage: "house", value: HomeTab.dashboard) {
+                        BuiltTab(.dashboard, isBuilt: builtTabs.contains(.dashboard)) {
+                            NavigationStack {
+                                DashboardView()
+                                    .toolbar { settingsToolbarItem }
+                                    .modifier(ParentModeInlineTitle(isOn: family != nil))
+                            }
+                        }
+                    }
+                    // M3-A (E05a-e, UX-WP-14…20): each tab's root screen, over `model`'s projections.
+                    Tab(String(localized: L10n.Home.tabCourses()), systemImage: "books.vertical", value: HomeTab.courses) {
+                        BuiltTab(.courses, isBuilt: builtTabs.contains(.courses)) {
+                            NavigationStack {
+                                CoursesScreen()
+                                    .modifier(FreshnessSubtitle())
+                                    .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    .toolbar { settingsToolbarItem }
+                                    .modifier(ParentModeInlineTitle(isOn: family != nil))
+                            }
+                        }
+                    }
+                    Tab(String(localized: L10n.Home.tabCalendar()), systemImage: "calendar", value: HomeTab.calendar) {
+                        BuiltTab(.calendar, isBuilt: builtTabs.contains(.calendar)) {
+                            NavigationStack {
+                                CalendarScreen()
+                                    .modifier(FreshnessSubtitle())
+                                    .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    .toolbar { settingsToolbarItem }
+                                    .modifier(ParentModeInlineTitle(isOn: family != nil))
+                            }
+                        }
+                    }
+                    Tab(String(localized: L10n.Home.tabToDo()), systemImage: "checklist", value: HomeTab.toDo) {
+                        BuiltTab(.toDo, isBuilt: builtTabs.contains(.toDo)) {
+                            NavigationStack {
+                                ToDoScreen()
+                                    .modifier(FreshnessSubtitle())
+                                    .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    .toolbar { settingsToolbarItem }
+                                    .modifier(ParentModeInlineTitle(isOn: family != nil))
+                            }
+                        }
+                    }
+                    // ux-ui.md §3.4: the To-Do badge counts missing work only (HIG: critical information).
+                    .badge(home.toDoScreen.missingCount)
+                    Tab(String(localized: L10n.Home.tabInsights()), systemImage: "chart.xyaxis.line", value: HomeTab.insights) {
+                        BuiltTab(.insights, isBuilt: builtTabs.contains(.insights)) {
+                            NavigationStack {
+                                InsightsScreen()
+                                    .modifier(FreshnessSubtitle())
+                                    .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    .toolbar { settingsToolbarItem }
+                                    .modifier(ParentModeInlineTitle(isOn: family != nil))
+                            }
                         }
                     }
                 }
-                // M3-A (E05a-e, UX-WP-14…20): each tab's root screen, over `model`'s projections.
-                Tab(String(localized: L10n.Home.tabCourses()), systemImage: "books.vertical", value: HomeTab.courses) {
-                    BuiltTab(.courses, isBuilt: builtTabs.contains(.courses)) {
-                        NavigationStack {
-                            CoursesScreen()
-                                .modifier(FreshnessSubtitle())
-                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
-                                .toolbar { settingsToolbarItem }
-                        }
-                    }
-                }
-                Tab(String(localized: L10n.Home.tabCalendar()), systemImage: "calendar", value: HomeTab.calendar) {
-                    BuiltTab(.calendar, isBuilt: builtTabs.contains(.calendar)) {
-                        NavigationStack {
-                            CalendarScreen()
-                                .modifier(FreshnessSubtitle())
-                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
-                                .toolbar { settingsToolbarItem }
-                        }
-                    }
-                }
-                Tab(String(localized: L10n.Home.tabToDo()), systemImage: "checklist", value: HomeTab.toDo) {
-                    BuiltTab(.toDo, isBuilt: builtTabs.contains(.toDo)) {
-                        NavigationStack {
-                            ToDoScreen()
-                                .modifier(FreshnessSubtitle())
-                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
-                                .toolbar { settingsToolbarItem }
-                        }
-                    }
-                }
-                // ux-ui.md §3.4: the To-Do badge counts missing work only (HIG: critical information).
-                .badge(model.toDoScreen.missingCount)
-                Tab(String(localized: L10n.Home.tabInsights()), systemImage: "chart.xyaxis.line", value: HomeTab.insights) {
-                    BuiltTab(.insights, isBuilt: builtTabs.contains(.insights)) {
-                        NavigationStack {
-                            InsightsScreen()
-                                .modifier(FreshnessSubtitle())
-                                .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
-                                .toolbar { settingsToolbarItem }
-                        }
-                    }
-                }
+                // A dynamic colour (ux-ui.md §3.4: "never navy on dark"); minimised-on-scroll is the
+                // system default for a 2-tab bar but not requested here, so no `.tabViewStyle` override.
+                .tint(TallyColor.accent)
+                // FAM-09: each student's tabs are their own (a pushed course of one student never shows
+                // under another); the selected tab stays (it is this view's state). An opacity-only
+                // cross-fade, the same with Reduce Motion on.
+                .id(family?.activeSubject)
+                .transition(.opacity)
             }
-            // A dynamic colour (ux-ui.md §3.4: "never navy on dark"); minimised-on-scroll is the
-            // system default for a 2-tab bar but not requested here, so no `.tabViewStyle` override.
-            .tint(TallyColor.accent)
         }
-        .environment(model)
+        .animation(.easeInOut(duration: Self.studentSwitchFade), value: family?.activeSubject)
+        .environment(home)
         // The Home's one sheet: Settings, or M3-B2's paywall (`AppModel.paywall`). One presenter: with
         // two chained `.sheet` modifiers here, the subscription changing under Settings closed it (run
         // 36976774341).
@@ -124,26 +161,48 @@ public struct HomeShellView: View {
             switch sheet {
             case .settings:
                 // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
-                SettingsView()
-                    .environment(model)
+                SettingsView(opensAddStudent: settingsAddsStudent)
+                    .environment(home)
                     .environment(appModel)
             case .paywall(let request):
                 if let appModel {
-                    PaywallView(model: PaywallModel(trigger: request.trigger, school: model.dashboard.hero.school,
+                    PaywallView(model: PaywallModel(trigger: request.trigger, school: home.dashboard.hero.school,
                                                     subscription: appModel.subscription, storefront: appModel.storefront))
                 }
             }
         }
-        .task { await model.start() }
-        .task(id: model.validUntil) { await model.reprojectWhenStale() }
+        // FAM-09: a student shown for the first time starts their own Home (`start()` runs once).
+        .task(id: ObjectIdentifier(home)) { await home.start() }
+        .task(id: home.validUntil) { await home.reprojectWhenStale() }
         .task(id: scenePhase) {
-            if scenePhase == .active { await model.projectIfStale() }
+            if scenePhase == .active { await home.projectIfStale() }
         }
         // Delivered on the main run loop: these notifications may be posted from any thread, and
         // an `onReceive` action formed in `body` is main-actor isolated (SE-0423 would trap).
-        .onReceive(Self.clockChanges) { _ in model.clockDidChange() }
+        .onReceive(Self.clockChanges) { _ in home.clockDidChange() }
         // PAY-06 (M3-B2): the paywall, once, after the first sync rendered the Dashboard.
-        .modifier(FirstSyncPaywallTrigger(home: model))
+        .modifier(FirstSyncPaywallTrigger(home: home))
+        // FAM-10 (§7.6 "Link removed"): told once, after the student's data went.
+        .alert(String(localized: L10n.FamilyUI.linkRemovedTitle()), isPresented: removedNoticeShown, presenting: family?.removedNotice) { _ in
+            Button(String(localized: L10n.FamilyUI.ok())) { family?.removedNotice = nil }
+        } message: { student in
+            Text(L10n.FamilyUI.linkRemoved(student.firstName))
+        }
+    }
+
+    /// FAM-09: how long a student switch cross-fades.
+    private static let studentSwitchFade = 0.25
+
+    private var removedNoticeShown: Binding<Bool> {
+        Binding(get: { family?.removedNotice != nil }, set: { shown in
+            if !shown { family?.removedNotice = nil }
+        })
+    }
+
+    /// Settings, from its toolbar button or (FAM-09) the switcher's menu.
+    private func openSettings(addingStudent: Bool = false) {
+        settingsAddsStudent = addingStudent
+        isSettingsPresented = true
     }
 
     /// Settings while its button asked for it; otherwise the paywall `AppModel` asked for, if any.
@@ -181,11 +240,19 @@ public struct HomeShellView: View {
         .receive(on: RunLoop.main)
     }
 
+    /// Every tab root's toolbar: in parent mode the student-switcher (FAM-09, §7.1) at its centre, so
+    /// the student is named on every tab; then Settings.
     @ToolbarContentBuilder
     private var settingsToolbarItem: some ToolbarContent {
+        if let family, family.activeStudent != nil {
+            ToolbarItem(placement: .principal) {
+                StudentSwitcher(family: family, showsInitialsOnly: typeSize.isAccessibilitySize,
+                                onManage: { openSettings() }, onAdd: { openSettings(addingStudent: true) })
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                isSettingsPresented = true
+                openSettings()
             } label: {
                 Image(systemName: "person.crop.circle")
             }
@@ -224,6 +291,22 @@ private struct BuiltTab<Content: View>: View {
             content()
         } else {
             Color.clear
+        }
+    }
+}
+
+/// FAM-09: how a principal toolbar item renders beside a large navigation title on iOS 26/27 is
+/// UNVERIFIED (family-linking.md §7.1), so parent mode takes the spec's fallback: inline titles on
+/// the tab roots, where the switcher stands in for the title. Outside parent mode nothing changes.
+private struct ParentModeInlineTitle: ViewModifier {
+    let isOn: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isOn {
+            content.navigationBarTitleDisplayMode(.inline)
+        } else {
+            content
         }
     }
 }

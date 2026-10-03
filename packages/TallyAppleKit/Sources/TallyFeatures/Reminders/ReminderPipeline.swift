@@ -64,18 +64,21 @@ public nonisolated enum ReminderPipeline {
     /// `TallyLocale.effective` is the plan's single formatting locale (`l10n02-report.md` §8), so
     /// this is the safer default. Neither caller (`AccountSessionFactory.swift:59`,
     /// `AppModel.swift:129`) passes `locale:`.
+    /// M3-E2 (FAM-08 wiring): `observers` supplies the account's observer subjects, whose parent
+    /// reminders the pass plans beside the account's own; none until FAM-04/05 build them.
     @concurrent
     public static func attach(to coordinator: RefreshCoordinator, account: AccountKey, environment: AccountEnvironment,
-                              timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async {
+                              timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective,
+                              observers: any ObserverSubjectSource = NoObserverSubjects()) async {
         guard let platform = environment.notifications as? any ReminderPlatform else { return }
         let events = await coordinator.events()
         Task(priority: .utility) { [weak coordinator] in
             await pass(coordinator, account: account, platform: platform, environment: environment,
-                       timeZone: timeZone, locale: locale)
+                       timeZone: timeZone, locale: locale, observers: observers)
             for await event in events {
                 guard case .committed = event else { continue }
                 await pass(coordinator, account: account, platform: platform, environment: environment,
-                           timeZone: timeZone, locale: locale)
+                           timeZone: timeZone, locale: locale, observers: observers)
             }
         }
     }
@@ -86,10 +89,11 @@ public nonisolated enum ReminderPipeline {
     @concurrent
     @discardableResult
     public static func reconcile(coordinator: RefreshCoordinator, environment: AccountEnvironment,
-                                 timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective) async -> ReminderPassOutcome? {
+                                 timeZone: TimeZone = .current, locale: Locale = TallyLocale.effective,
+                                 observers: any ObserverSubjectSource = NoObserverSubjects()) async -> ReminderPassOutcome? {
         guard let platform = environment.notifications as? any ReminderPlatform else { return nil }
         return await pass(coordinator, account: nil, platform: platform, environment: environment,
-                          timeZone: timeZone, locale: locale)
+                          timeZone: timeZone, locale: locale, observers: observers)
     }
 
     /// Waits for every pass queued before this call. Sign-out calls it once the coordinator is retired.
@@ -102,15 +106,17 @@ public nonisolated enum ReminderPipeline {
     @concurrent
     @discardableResult
     static func pass(_ coordinator: RefreshCoordinator?, account: AccountKey?, platform: any ReminderPlatform,
-                     environment: AccountEnvironment, timeZone: TimeZone, locale: Locale) async -> ReminderPassOutcome {
+                     environment: AccountEnvironment, timeZone: TimeZone, locale: Locale,
+                     observers: any ObserverSubjectSource = NoObserverSubjects()) async -> ReminderPassOutcome {
         await passes.run {
             await run(coordinator, account: account, platform: platform, environment: environment,
-                      format: ReminderTimeFormat(timeZone: timeZone, locale: locale))
+                      format: ReminderTimeFormat(timeZone: timeZone, locale: locale), observers: observers)
         }
     }
 
     private static func run(_ coordinator: RefreshCoordinator?, account: AccountKey?, platform: any ReminderPlatform,
-                            environment: AccountEnvironment, format: ReminderTimeFormat) async -> ReminderPassOutcome {
+                            environment: AccountEnvironment, format: ReminderTimeFormat,
+                            observers: any ObserverSubjectSource) async -> ReminderPassOutcome {
         guard await platform.permission() == .authorized else { return .notAuthorized }
         guard let snapshot = await coordinator?.committedSnapshot else { return .noSnapshot }
         let accountKey = snapshot.accountKey
@@ -172,6 +178,18 @@ public nonisolated enum ReminderPipeline {
                                                  lastSuccess: refresh.lastSuccessAt, format: format) else { continue }
             desired.append(reminder)
             contents[reminder.id] = content
+        }
+        // M3-E2 (FAM-08 wiring): the parent reminders of the account's observer subjects, in the
+        // slots the account's own left, under the same entitlement gate. Words only through
+        // TallyStrings' renderer, from messages that carry no grade (R10a).
+        let observerSubjects = remindersAllowed ? await observers.observerSubjects(of: accountKey) : []
+        let familyPlan = FamilyReminderPlan.plan(accountKey: accountKey, subjects: observerSubjects, now: now, format: format,
+                                                 cap: TallyConfig.pendingNotificationCap - desired.count)
+        for planned in familyPlan where planned.reminder.fireDate > now && contents[planned.reminder.id] == nil {
+            desired.append(planned.reminder)
+            contents[planned.reminder.id] = FamilyNotificationText.render(
+                planned.message, seenAt: planned.reminder.fireDate, timeZone: format.timeZone,
+                weekdayNamingDays: RemindersConfig.weekdayNamingDays, locale: format.locale)
         }
 
         // Same identifier, different words: forget that it was scheduled, so it is scheduled again.

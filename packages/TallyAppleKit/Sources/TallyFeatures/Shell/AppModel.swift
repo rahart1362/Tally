@@ -91,10 +91,16 @@ public final class AppModel {
     /// PAY-10: the student closed the school-revoked notice; it stays closed until sign-out or the
     /// next launch.
     public private(set) var isSchoolNoticeDismissed = false
+    /// FAM-14 (M3-E2): parent mode over the sample family, while `route == .sample` and the parent
+    /// view is on. The Home shell shows its active student's Home on every tab (FAM-09).
+    public private(set) var family: FamilyModel?
 
     /// Ends the previous session after `exitSample()` or `signOut()`; owned here so it is never
     /// orphaned.
     private let teardown = TaskBox()
+    /// FAM-14: ends the sample family's Home models after leaving the parent view.
+    private let familyTeardown = TaskBox()
+    @ObservationIgnored private var isEnteringFamily = false
     /// The launch's projection (L5–L8) and the attach that follows it, or a sign-in's attach.
     private let launchWork = TaskBox()
     /// TallyCore's logging port (plan 06 A8): the composition root passes its `os.Logger`
@@ -237,9 +243,33 @@ public final class AppModel {
         paywall = nil
         playsBrandMoment = false
         route = .welcome
+        exitSampleFamily()
         guard let ending = home else { return }
         home = nil
         teardown.replace(with: Task { await ending.end() })
+    }
+
+    // MARK: - Sample family (FAM-14, M3-E2)
+
+    /// Sample mode's "Explore Parent Mode": the sample family's roster is read off the main actor,
+    /// then parent mode starts in one assignment, so the shell switches whole. Sample mode only.
+    public func enterSampleFamily() async {
+        guard route == .sample, family == nil, !isEnteringFamily else { return }
+        isEnteringFamily = true
+        defer { isEnteringFamily = false }
+        guard let roster = try? await SampleFamilyRoster.load(), route == .sample, family == nil else { return }
+        let family = FamilyModel.sample(roster)
+        self.family = family
+        #if DEBUG || TALLY_TEST_HOOKS
+        await family.applyScriptedOutcome()
+        #endif
+    }
+
+    /// "Explore Student Mode": back to the fictional student's own Home; the family's models end.
+    public func exitSampleFamily() {
+        guard let ending = family else { return }
+        family = nil
+        familyTeardown.replace(with: Task { await ending.end() })
     }
 
     // MARK: - Sign-in and first sync (plan 06 step 9; perf-app-runtime.md §2.4 S1–S9)
@@ -536,6 +566,7 @@ public final class AppModel {
     /// Tests: the pending teardown (sample exit, sign-out, abandoned sign-in), awaited.
     func awaitTeardown() async {
         await teardown.value()
+        await familyTeardown.value()
     }
 
     /// Tests: the launch's projection and attach (or a sign-in's attach), awaited.

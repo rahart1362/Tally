@@ -52,10 +52,27 @@ struct SettingsView: View {
     @State private var presentsManageSubscriptions = false
     @State private var showsSampleFeedNote = false
     @State private var backgroundRefresh = BackgroundRefreshState.unknown
+    /// FAM-10 (M3-E2): opened from the switcher's "Add a student…", Settings shows its add-student
+    /// sheet at once (parent mode only).
+    private let opensAddStudent: Bool
+    @State private var presentsAddStudent = false
+    @State private var presentsInvite = false
+    @State private var hasOpenedAddStudent = false
+    /// FAM-10: a student's Family & Sharing, while one has a link service (sample mode today).
+    @State private var familySharing: FamilySharingModel?
+
+    init(opensAddStudent: Bool = false) {
+        self.opensAddStudent = opensAddStudent
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                // FAM-10 (M3-E2): parent mode's Linked students, first (§7.3).
+                if let family = app?.family {
+                    LinkedStudentsSection(family: family, presentsAddStudent: $presentsAddStudent,
+                                          onExploreStudentMode: studentModeAction)
+                }
                 accountSection
                 // M3-C (UX-WP-12): the reminders permission and "Hide Course Names".
                 RemindersSettingsSection(reminders: app?.reminders, isSampleData: home.isSampleData,
@@ -64,6 +81,11 @@ struct SettingsView: View {
                 dataSection
                 calendarSection
                 privacySection
+                // FAM-10 (M3-E2): a student's Family & Sharing (§7.2), additive; FAM-14's way in.
+                if app?.family == nil, let familySharing {
+                    FamilySharingSection(model: familySharing, presentsInvite: $presentsInvite,
+                                         onExploreParentMode: parentModeAction)
+                }
                 aboutSection
             }
             .navigationTitle(Text(L10n.Settings.navigationTitle()))
@@ -94,6 +116,16 @@ struct SettingsView: View {
             } message: {
                 Text(L10n.Settings.calendarSampleNote())
             }
+            .sheet(isPresented: $presentsAddStudent) {
+                if let family = app?.family {
+                    AddStudentSheet(family: family)
+                }
+            }
+            .sheet(isPresented: $presentsInvite) {
+                if let familySharing {
+                    InviteSheet(model: familySharing)
+                }
+            }
         }
         .task {
             backgroundRefresh = BackgroundRefreshState(UIApplication.shared.backgroundRefreshStatus)
@@ -110,7 +142,43 @@ struct SettingsView: View {
                 lockSettings = lock
                 await lock.load()
             }
+            // FAM-10: the switcher's "Add a student…" (once per presentation).
+            if opensAddStudent, !hasOpenedAddStudent, app?.family != nil {
+                hasOpenedAddStudent = true
+                presentsAddStudent = true
+            }
+            // FAM-10: only sample mode has a link service today (M3-E2 report, open items).
+            if familySharing == nil, app?.family == nil, app?.route == .sample {
+                let sharing = FamilySharingModel(link: SampleFamilyLinkService(), school: nil, host: nil)
+                familySharing = sharing
+                await sharing.load()
+            }
         }
+    }
+
+    /// FAM-14: "Explore Parent Mode", in sample mode only.
+    private var parentModeAction: (() -> Void)? {
+        guard app?.route == .sample else { return nil }
+        return { exploreParentMode() }
+    }
+
+    /// FAM-14: "Explore Student Mode", in the sample parent view only.
+    private var studentModeAction: (() -> Void)? {
+        guard app?.family?.isSample == true else { return nil }
+        return { exploreStudentMode() }
+    }
+
+    /// FAM-14: sample mode's parent view, with the sample family (Settings closes first).
+    private func exploreParentMode() {
+        guard let app else { return }
+        dismiss()
+        Task { await app.enterSampleFamily() }
+    }
+
+    /// FAM-14: back from the sample parent view to the fictional student's own.
+    private func exploreStudentMode() {
+        dismiss()
+        app?.exitSampleFamily()
     }
 
     /// A signed-in account's Settings (not sample mode, not a preview without an `AppModel`).
