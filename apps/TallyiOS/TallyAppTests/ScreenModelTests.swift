@@ -415,7 +415,7 @@ struct GradeDerivedScreenTests {
         #expect((result.perCourse[span.id]?.count ?? 0) >= 2)
         for code in ["ENG-10", "ALG2", "BIO-H", "ART-1", "ADVISORY"] {
             let course = try #require(snapshot.courses.first { $0.courseCode == code })
-            #expect(result.perCourse[course.id] == nil, code)
+            #expect(result.perCourse[course.id] == nil, "\(code)")
         }
     }
 
