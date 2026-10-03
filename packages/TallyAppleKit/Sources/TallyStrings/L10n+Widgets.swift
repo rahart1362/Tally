@@ -95,8 +95,7 @@ extension L10n {
         /// so each button in the list is distinct.
         public static func markDoneButton(_ title: String) -> LocalizedStringResource {
             LocalizedStringResource("widget.markDone.button", defaultValue: "Mark \(title) done", bundle: #bundle,
-                                    comment: "Accessibility label for the Due Soon widget row's button that marks that one assignment done. "
-                                        + "The placeholder is the assignment's title.")
+                                    comment: "Accessibility label for the Due Soon widget row's button that marks that assignment done. The placeholder is the assignment's title.")
         }
 
         public static func dueToday(_ time: String) -> LocalizedStringResource {
