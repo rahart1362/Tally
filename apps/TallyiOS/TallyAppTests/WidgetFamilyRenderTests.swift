@@ -100,16 +100,16 @@ struct WidgetFamilyRenderTests {
     /// Canvas and not posted yet (`band` sets the first course's band and the overall band).
     private static func glance(band: GradeBand? = .aRange, overdue: Int = 1, busyDay: Bool = true,
                                title: String = "Lab Report 4") -> GlanceProjection {
-        var items = [GlanceDueItem(id: "lab", courseShortCode: "BIO 101", title: title, dueAt: at(days: 0, hour: 18),
+        var items = [GlanceDueItem(id: "assignment:9101", courseShortCode: "BIO 101", title: title, dueAt: at(days: 0, hour: 18),
                                    missing: false, late: false, excused: false, submitted: false)]
         let busy = busyDay ? 3 : 1
         for index in 0..<busy {
-            items.append(GlanceDueItem(id: "busy-\(index)", courseShortCode: "MATH 122", title: "Problem Set \(index + 6)",
+            items.append(GlanceDueItem(id: "quiz:920\(index)", courseShortCode: "MATH 122", title: "Problem Set \(index + 6)",
                                        dueAt: at(days: 2, hour: 9 + index), missing: false, late: false, excused: false,
                                        submitted: false))
         }
         for index in 0..<overdue {
-            items.append(GlanceDueItem(id: "late-\(index)", courseShortCode: "HIST 210", title: "Reading \(index + 1)",
+            items.append(GlanceDueItem(id: "planner_note:930\(index)", courseShortCode: "HIST 210", title: "Reading \(index + 1)",
                                        dueAt: at(days: -1, hour: 9 + index), missing: true, late: false, excused: false,
                                        submitted: false))
         }
@@ -206,6 +206,22 @@ struct WidgetFamilyRenderTests {
         let withButton = try #require(renderer.uiImage?.pngData())
         Attachment.record(withButton, named: "m3d2-due-soon-mark-done.png")
         #expect(withButton != plain, "the Mark Done button drew nothing extra on the Due soon row")
+    }
+
+    @Test("The Mark Done button is offered only on assignment rows, never on a quiz or a planner note")
+    func markDoneButtonOnlyOnAssignments() throws {
+        final class Offered { var itemIDs: [String] = [] }
+        let offered = Offered()
+        let view = DueSoonWidgetView(entry: Self.entry(Self.glance())) { itemID, accessibilityLabel in
+            offered.itemIDs.append(itemID)
+            return AnyView(MarkDoneButton(itemID: itemID, accessibilityLabel: accessibilityLabel))
+        }
+        .environment(\.widgetRenderingMode, Mode.fullColor.renderingMode)
+        .frame(width: Surface.dueSoonMedium.size.width, height: Surface.dueSoonMedium.size.height)
+        _ = try #require(ImageRenderer(content: view).uiImage)
+        #expect(offered.itemIDs.contains("assignment:9101"), "the assignment row got no Mark Done button")
+        #expect(offered.itemIDs.allSatisfy { GlancePlannerID.assignmentID($0) != nil },
+                "a non-assignment row got a Mark Done button: \(offered.itemIDs)")
     }
 
     @Test("Every state renders on every surface: placeholder, each message (the subscription lock too), a summary",

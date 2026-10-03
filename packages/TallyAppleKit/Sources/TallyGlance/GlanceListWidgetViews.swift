@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyStore
 import TallyStrings
 import WidgetKit
 
@@ -83,14 +84,21 @@ struct GlanceItemList: View {
                     .foregroundStyle(style.primary)
             } else {
                 ForEach(summary.upcoming.prefix(rows)) { item in
-                    let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames)
-                    let label = GlanceText.resolve(L10n.Widgets.markDoneButton(title), TallyLocale.effective)
-                    GlanceItemRow(item: item, hidesNames: summary.hidesCourseNames, trailing: trailingButton(item.id, label))
+                    GlanceItemRow(item: item, hidesNames: summary.hidesCourseNames, trailing: markDoneButton(for: item))
                 }
             }
             Spacer(minLength: 0)
             GlanceFooter(summary: summary, shown: min(rows, summary.upcoming.count))
         }
+    }
+
+    /// The "Mark Done" button only on an assignment row: only an assignment can be marked done
+    /// (`GlancePlannerID`), so a quiz, discussion or planner-note row shows no button rather than
+    /// an inert one (owner, 2026-10-03; M3-D2 report O2).
+    private func markDoneButton(for item: GlanceSummary.Item) -> AnyView {
+        guard GlancePlannerID.assignmentID(item.id) != nil else { return AnyView(EmptyView()) }
+        let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames)
+        return trailingButton(item.id, GlanceText.resolve(L10n.Widgets.markDoneButton(title), TallyLocale.effective))
     }
 }
 

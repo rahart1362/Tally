@@ -10,9 +10,9 @@ import TallyStore
 /// access ends shows the locked message. Access fails closed `SubscriptionConfig.offlineGracePeriod`
 /// after the expiry; a glance with no expiry (never subscribed, lapsed, or written before the field)
 /// is locked; the glance's `asOf` counts as a time the device reached (a clock set back cannot extend
-/// access). Not done here, because `GlanceTimeline.swift` is M3-D2's file: adding
-/// `EntitlementAccess.accessEnds(entitledUntil:)` to `GlanceTimelinePlanner.boundaries`, so a
-/// timeline built before the access ends also gets an entry at that moment.
+/// access). M3-D2 added `EntitlementAccess.accessEnds(entitledUntil:)` to
+/// `GlanceTimelinePlanner.boundaries` (`GlanceTimeline.swift`), so a timeline built before the access
+/// ends also gets an entry at that moment.
 public enum GlanceAccess {
     public static func isUnlocked(_ glance: GlanceProjection, at moment: Date) -> Bool {
         glance.coversSubscription(at: moment)

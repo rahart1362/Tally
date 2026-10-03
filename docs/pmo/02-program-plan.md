@@ -133,6 +133,16 @@ Canvas natively supports parent access through **observer** accounts and student
 - **M3-B3's 3 school-seat strings are approved as drafted** (`subscription.status.school`, `subscription.settings.footerSchool`, `subscription.schoolOff.bodySeat`; `reviews/m3b3-report.md` §3).
 - **Testing before O4: on a Mac, in the Simulator.** TestFlight can't run without the owner, who would enroll in the Apple Developer Program (O4, still deferred to the MVP). The `Simulator build` workflow (manual dispatch) uploads a smoke-launched Release simulator app, plus INSTALL.txt. The PMO dispatches it at milestones.
 
+### Owner decisions at the M3 exit (2026-10-03)
+- **Copy approved as drafted:** M3-E2's 73 `family.*` strings (`reviews/m3e2-report.md` §8, including its §6 changes) and M3-D2's 4 Done-button strings (`reviews/m3d2-report.md` §3). **The English strings are now frozen** (plan 08 §6).
+- **Family scope moves to M4** (on the PMO's recommendation):
+  - FAM-04 and FAM-05 (per-student snapshot storage);
+  - FAM-11 (widgets and App Intents with a student choice);
+  - the real-account invite, add and unlink flows.
+
+  They need real observer data, and the FAM-01 spike is M4. M3's family deliverable is the Sample Data parent mode (the App Review path), Family settings and parent reminders.
+- **The widget's Done button shows only on assignment rows.** Before, it appeared but did nothing on a quiz, discussion or planner-note row (`reviews/m3d2-report.md` O2).
+
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
 - Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
@@ -174,12 +184,22 @@ Then the M3 exit: the English string freeze → L10N-04. This keeps plan 08 §6'
 - M3-E's UI follows M3-D (FAM-11) and L10N-03b (FAM-09 touches every tab).
 - M3-D wires the entitlement field last.
 
-**Status, 2026-10-02 (evening).**
-- **Merged:** XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27), M3-B1 (#28), the zero-literal gate (#29) and **M3-B2 (#30, `8e6deac`): subscription gating is ON.**
-- **Also merged:** assigned seats (#31) and M3-B3 (#32).
-- **Running:** M3-E2.
+**Status, 2026-10-03: M3 is complete.**
+- **Merged:**
+  - XG-04/06 (#23), L10N-03a (#22), M3-E1 (#25), M3-D (#26), L10N-03b (#27), M3-B1 (#28) and the zero-literal gate (#29);
+  - M3-B2 (#30): subscription gating ON;
+  - assigned seats (#31) and M3-B3 (#32);
+  - the Simulator build workflow (#33);
+  - M3-E2 (#34): Sample Data parent mode, the switcher, Family settings, parent reminders;
+  - M3-D2 (#35): the Done button through an app-process intent, and the access-end timeline boundary;
+  - this M3-exit PR.
 - **Interactive Done is a separate package, M3-D2** (PMO decision, option A of `m3d-report.md` §6). It's an app-process `LiveActivityIntent`: the widget never writes and holds no key. Options B and C (a widget-written outbox; a widget holding the app key) are rejected.
-- **Next:** M3-D2, then the M3 exit (the English string freeze).
+- **The owner tests on a Mac:** the `Simulator build` workflow's artifact. TestFlight waits for O4.
+- **Open items carried forward:**
+  - `SampleSessionTests.slowRefreshTurnsDelayedThenFresh` failed `ios-asan` on `main` once (80c2497, run 37084329374: 0 ASan reports, a wall-clock miss). It is now in `IOS_SANITIZER_SKIP` with the other budget tests, and still runs in `ios-build`.
+  - The report-only `ios-asan-ui` job: 1 of 48 UI tests failed with 0 ASan reports (run 37093187408), the known ASan UI flake.
+  - The Xcode 27 forward-compat job (non-blocking) hit its 45-min limit again; raise it, or accept it, at the next CI pass.
+- **Next (after the weekly reset on 2026-10-07):** L10N-04 (Spanish, Sonnet), then the MVP-gate packages, in the owner's priority order.
 - **Pacing (Pro plan): one Opus agent at a time.** On 2026-10-01, four agents filled a 5-hour window in about 2.5 h, and three were cut off mid-task. On 2026-10-02, one Opus agent plus the PMO filled one in about 2 h. Add a Sonnet agent only with headroom.
 
 The PMO checks weekly and 5-hour usage before every launch. It holds a launch when the 5-hour window passes about 60%, or when the weekly remainder falls under the package's estimated cost plus about 10%.
@@ -193,7 +213,7 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | **M0 Stabilise** ✅ *complete 2026-09-26: `main` CI green on macos-26/Xcode 26.6 and the Linux swift:6.4 image* | Repo hygiene: delete `ci_fail.log`, `scratch_*.txt`, `tally-test.html`, stale `build/state`; add `.gitignore`. Fix `main` CI: interim opaque 1024 icon, `macos-26`/Xcode 26.6. CI hardening (SEC-13). Remove fabricated behaviour (R12 / ASC-05). Compliance check script (ASC-04). Logging facade + `print(` ban (SEC-09). | Permission to push a branch/PR so macOS CI runs | `main` green on macOS CI for the first time since Aug 27; grep gates clean |
 | **M1 Core engine (Linux)** ✅ *complete 2026-09-27: 437 tests, 0 failures* | ARC A01–A08, B01–B06, B08, C01–C03, D01–D02; ENC-01/02; SEC-01–03; UX-WP-01, UX-WP-06. Synthetic Canvas fixtures from the API docs. | — | `make core-test` green in container **and** on the CI ubuntu job; GradeEngine parity on fixtures ±0.01 |
 | **M2 iOS shell** ✅ *complete 2026-09-28: validation run 36494900022 (PR #3), launch gate per owner decision O10 (branch `pmo/m2-exit`); plan 07 §3* | ARC E01–E04; SEC-04, 07, 08; ENC-03; UX-WP-02, 03, 05; ASC-01, 03, 09, 10, 11 (mock Canvas server), 14 (sample-data mode) | O5 (else placeholders) | App boots from cache in the simulator (no Canvas request before the cached paint), <300 ms warm **on device** (calibration D-P3; on the CI simulator a required gate of 3.0 s median, owner decision O10, 2026-09-28); 12-s slow replay shows the breadcrumb, which self-heals |
-| **M3 Features** | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
+| **M3 Features** ✅ *complete 2026-10-03: PRs #21–#35 and the M3-exit PR merged; `main` run 37093187408 had every required job green; English string freeze (plan 08 §6); FAM-04/05, FAM-11 and the real-account family flows moved to M4* | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
 | ↳ *plan 08 (2026-09-30)* | Multilingual support (L10N-01…05: iOS system language by default, per-app language through iOS; English + Spanish) and grades kept outside Canvas (XG-01…05: "—" plus an info bubble plus Tell My School; strict detection; a per-course override). Sequencing: `docs/pmo/08-localization-and-external-grades.md` §6. M3 exit adds: the lint baseline is 0 and XG-01…03 are in. M5 adds L10N-05. | owner decisions L-1…3, G-1…6 (decided) | see plan 08 §5 |
 | **MVP gate** *(owner, 2026-10-01)* | **M3 feature-complete, plus the account-independent parts of M5:** the release checks green on the simulator, the accessibility audit, a full screenshot gallery (the PMO screenshot tour), the privacy manifest, and Sample Data mode as the App Review path. Everything is demonstrable in the simulator, with no Canvas or Apple account needed. | — | **The owner then pursues O1 (Canvas access), O4 (Apple Developer account) and O7 (legal, with a specialist compliance dossier) in parallel. M4 starts when O1 lands.** |
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |
@@ -202,7 +222,8 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 
 **Scope change (2026-09-27, owner F6): family linking is in v1.** The work packages FAM-01…FAM-15 (`reviews/family-linking.md` §10) are distributed as follows:
 - FAM-02…05 (roles, endpoints, per-student snapshots, sealed storage) → **M1–M2**
-- FAM-06…11, FAM-14 (link management, alerts, parent notifications, header switcher, settings, widgets, sample-data family mode) → **M3**
+- FAM-06…10, FAM-14 (link management, alerts, parent notifications, header switcher, settings, sample-data family mode) → **M3** (done: PR #25, PR #34)
+- FAM-04, FAM-05 (per-student storage), FAM-11 (student-scoped widgets and intents) and the real-account invite, add and unlink flows → **M4** (owner, 2026-10-03)
 - FAM-01 (real-Canvas observer spike) → **M4**, gating launch through GL-05
 - FAM-12, FAM-13 (amended: StoreKit "Tally Parent" at $4.99/yr, not a Family Sharing plan), FAM-15 (privacy policy, review notes, counsel items) → **M5**
 

@@ -135,7 +135,8 @@ ios-retried: ## Annotate every test that failed an attempt in IOS_LOG (whether o
 IOS_SANITIZER_SKIP ?= \
 	-skip-testing:TallyAppTests/SampleLoadPerformanceTests \
 	"-skip-testing:TallyAppTests/MainThreadGuardsTests/sampleEntryStaysUnderTheStallBudget()" \
-	"-skip-testing:TallyAppTests/URLSessionTransportTests/capOverheadOn300KB()"
+	"-skip-testing:TallyAppTests/URLSessionTransportTests/capOverheadOn300KB()" \
+	"-skip-testing:TallyAppTests/SampleSessionTests/slowRefreshTurnsDelayedThenFresh()"
 
 ios-tsan: ## TallyAppTests under ThreadSanitizer: fails on a test failure or any TSan report
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }
