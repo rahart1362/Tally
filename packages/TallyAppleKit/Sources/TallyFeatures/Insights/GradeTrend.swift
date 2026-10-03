@@ -55,6 +55,11 @@ public nonisolated struct TrendRangeView: Equatable, Sendable {
 
 public nonisolated struct GradeTrendResult: Equatable, Sendable {
     public let ranges: [TrendRange: TrendRangeView]
+    /// Each course's own series (UX-SPARK, PRD §2.B "trend sparkline"), from the same per-day
+    /// engine recomputation the overall average above is built from — never a second pass over
+    /// `GradeWork`. Only courses with at least `minimumPoints` graded days; the Courses cards and
+    /// Course Detail header show no sparkline for the rest (`CourseSparklineModel` caches this).
+    public let perCourse: [CanvasID<Course>: [TrendPoint]]
 }
 
 /// The overall-average trend (ux-ui.md §3.7.6 "Performance trend"), derived from graded history
@@ -63,7 +68,9 @@ public nonisolated struct GradeTrendResult: Equatable, Sendable {
 /// by the domain grade engine as if only the scores posted by the end of that day were posted; the
 /// day's point is the mean over the courses that had a score, the same "Average of N courses" rule
 /// as the Dashboard hero (owner O9). Every engine call goes through `GradeWork`: off the main
-/// actor, and cancellable between calls.
+/// actor, and cancellable between calls. `compute`'s result also carries each course's own series
+/// (`GradeTrendResult.perCourse`), for the Courses cards' and Course Detail's trend sparkline
+/// (UX-SPARK, PRD §2.B): the same computation, read two ways, never a second pass.
 public nonisolated enum GradeTrend {
     /// Fewer points than this read as "Trend appears after a couple of graded assignments"
     /// (ux-ui.md §3.2.3).
@@ -94,7 +101,13 @@ public nonisolated enum GradeTrend {
         for range in TrendRange.allCases {
             ranges[range] = view(of: overall, range: range, termStart: input.termStart, formatter: formatter)
         }
-        return GradeTrendResult(ranges: ranges)
+        // UX-SPARK: each course's own series, reusing the per-day recomputation above (never a
+        // second `GradeWork` pass). A course with fewer than `minimumPoints` graded days has none.
+        var perCourse: [CanvasID<Course>: [TrendPoint]] = [:]
+        for (course, series) in zip(input.courses, courseSeries) where series.count >= minimumPoints {
+            perCourse[course.id] = series.map { TrendPoint(date: $0.day, percent: $0.score) }
+        }
+        return GradeTrendResult(ranges: ranges, perCourse: perCourse)
     }
 
     /// `course.input` with every score posted at or after `end` treated as not yet posted.

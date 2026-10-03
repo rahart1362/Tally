@@ -365,4 +365,85 @@ struct GradeDerivedScreenTests {
         #expect(result.ranges.values.allSatisfy { !$0.hasEnoughData && $0.points.isEmpty })
         #expect(result.ranges[.term]?.summary == "Trend appears after a couple of graded assignments.")
     }
+
+    // MARK: - UX-SPARK: the Courses cards' and Course Detail's trend sparkline
+
+    @Test("UX-SPARK: each course's own sparkline series matches the engine's score as of each posted day")
+    func perCourseSeriesMatchesTheEngine() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let formatter = ScreenFixtures.formatter()
+        let result = try await GradeTrend.compute(screens.insights.trendInput, calendar: formatter.calendar,
+                                                  locale: formatter.locale)
+        #expect(!result.perCourse.isEmpty)
+        for course in screens.insights.trendInput.courses {
+            let days = Set(course.postedAt.values.map { formatter.calendar.startOfDay(for: $0) }).sorted()
+            var expected: [TrendPoint] = []
+            for day in days {
+                guard let end = formatter.calendar.date(byAdding: .day, value: 1, to: day) else { continue }
+                if let score = try await GradeWork.scores(for: GradeTrend.inputAsOf(course, postedBefore: end)).currentScore {
+                    expected.append(TrendPoint(date: day, percent: score))
+                }
+            }
+            if expected.count >= 2 {
+                #expect(result.perCourse[course.id] == expected, "\(course.id)")
+            } else {
+                #expect(result.perCourse[course.id] == nil, "\(course.id): fewer than 2 graded days")
+            }
+        }
+    }
+
+    @Test("UX-SPARK: a course with fewer than 2 graded days has no sparkline series")
+    func fewerThanTwoGradedDaysHasNoSparkline() async throws {
+        let group = GradeInput.Group(id: "g1", weight: 100)
+        let item = GradeInput.Item(id: "a1", groupID: "g1", pointsPossible: 10, submission: .init(score: 9))
+        let input = GradeInput(weighting: .percent, groups: [group], items: [item])
+        let posted = ScreenFixtures.anchor.addingTimeInterval(-86_400)
+        let course = TrendInput.CourseHistory(id: "course-one-point", input: input, postedAt: [item.id: posted])
+        let trendInput = TrendInput(courses: [course], termStart: nil, now: ScreenFixtures.anchor)
+        let formatter = ScreenFixtures.formatter()
+        let result = try await GradeTrend.compute(trendInput, calendar: formatter.calendar, locale: formatter.locale)
+        #expect(result.perCourse[course.id] == nil)
+    }
+
+    @Test("UX-SPARK: a course whose grade isn't in Canvas has no sparkline; SPAN-2 (graded in Canvas) does")
+    func noSparklineWhenGradeNotInCanvas() async throws {
+        let snapshot = try await ExternalGrades.snapshot()
+        let formatter = ExternalGrades.formatter()
+        let insights = InsightsBuilder.projection(from: snapshot, formatter: formatter)
+        let result = try await GradeTrend.compute(insights.trendInput, calendar: formatter.calendar, locale: formatter.locale)
+        let span = try #require(snapshot.courses.first { $0.courseCode == "SPAN-2" })
+        #expect((result.perCourse[span.id]?.count ?? 0) >= 2)
+        for code in ["ENG-10", "ALG2", "BIO-H", "ART-1", "ADVISORY"] {
+            let course = try #require(snapshot.courses.first { $0.courseCode == code })
+            #expect(result.perCourse[course.id] == nil, code)
+        }
+    }
+
+    @Test("UX-SPARK: CourseSparklineBuilder guards the same threshold, and never recomputes an unchanged input")
+    func sparklineBuilderAndModel() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let formatter = ScreenFixtures.formatter()
+        let result = try await GradeTrend.compute(screens.insights.trendInput, calendar: formatter.calendar,
+                                                  locale: formatter.locale)
+        let series = try #require(result.perCourse.values.first { $0.count >= 2 })
+        #expect(CourseSparklineBuilder.build(series, formatter: formatter) != nil)
+        #expect(CourseSparklineBuilder.build(Array(series.prefix(1)), formatter: formatter) == nil)
+        #expect(CourseSparklineBuilder.build([], formatter: formatter) == nil)
+
+        let model = CourseSparklineModel()
+        await model.load(screens.insights.trendInput, calendar: formatter.calendar, locale: formatter.locale)
+        #expect(!model.series.isEmpty)
+        #expect(model.series.keys.allSatisfy { result.perCourse[$0] != nil })
+    }
+
+    @Test("UX-SPARK: the sparkline's VoiceOver sentence names the direction and the bare percentages")
+    func sparklineSummaryWording() {
+        let locale = Locale(identifier: "en_US")
+        #expect(CourseSparklineBuilder.summary(first: 82.0, last: 87.2, locale: locale)
+                == "Trend: up from 82.0 to 87.2 percent")
+        #expect(CourseSparklineBuilder.summary(first: 87.2, last: 82.0, locale: locale)
+                == "Trend: down from 87.2 to 82.0 percent")
+        #expect(CourseSparklineBuilder.summary(first: 90.0, last: 90.02, locale: locale)
+                == "Trend: steady at 90.0 percent")
+    }
 }
