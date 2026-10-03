@@ -8,19 +8,17 @@ final class MarketingTourUITests: TallyUITestCase {
     func testMarketingTour() throws {
         continueAfterFailure = true
         XCUIDevice.shared.appearance = .light
-        let app = launchApp()
 
-        let explore = app.buttons["Explore with Sample Data"]
-        _ = explore.waitForExistence(timeout: 30)
-        settle(); snap(app, "M01 Welcome")
-        _ = go(explore, app)
-        _ = app.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30)
-        settle(); snap(app, "M02 Dashboard")
+        // 1. Signed in (the seeded flagship account on the bundled replay: fictional, offline, and no
+        //    "Sample data" banner), the screens a student sees every day.
+        let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts)
+        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        settle(); settle(); snap(app, "M02 Dashboard")
         app.swipeUp(); settle(); snap(app, "M03 Dashboard, scrolled")
         app.swipeDown(); app.swipeDown()
 
         if go(app.tabBars.buttons["Courses"], app) {
-            settle(); snap(app, "M04 Courses")
+            settle(); settle(); snap(app, "M04 Courses")
             let cards = app.descendants(matching: .any).matching(identifier: "course.card")
             if cards.count > 0, go(cards.element(boundBy: 0), app) {
                 settle(); snap(app, "M05 Course Detail")
@@ -43,32 +41,31 @@ final class MarketingTourUITests: TallyUITestCase {
             if go(app.tabBars.buttons[tab], app) { settle(); snap(app, name) }
         }
         app.swipeUp(); settle(); snap(app, "M11 Insights, scrolled")
+        if go(app.tabBars.buttons["Dashboard"], app), go(app.buttons["Settings"], app) {
+            settle(); snap(app, "M13 Settings")
+        }
+        app.terminate()
 
-        if go(app.tabBars.buttons["Dashboard"], app) {
-            XCUIDevice.shared.appearance = .dark
-            settle(); snap(app, "M12 Dashboard, dark")
-            XCUIDevice.shared.appearance = .light
-            settle()
-            if go(app.buttons["Settings"], app) {
-                settle(); snap(app, "M13 Settings")
-                let parent = app.buttons["family.sample.viewAsParent"]
-                for _ in 0..<30 where !(parent.exists && parent.isHittable) { app.swipeUp() }
-                if go(parent, app) {
-                    settle(); settle(); snap(app, "M14 Parent mode, Dashboard")
-                    let switchers = app.descendants(matching: .any).matching(identifier: "family.switcher")
-                    let visible = (0..<switchers.count).map { switchers.element(boundBy: $0) }.first { $0.exists && $0.isHittable }
-                    if let visible {
-                        visible.tap(); settle(); snap(app, "M15 Parent mode, switcher")
-                        if go(app.buttons["Skyler Sample"], app) {
-                            settle(); snap(app, "M16 Parent mode, second student")
-                            if go(app.tabBars.buttons["Calendar"], app) { settle(); snap(app, "M17 Parent mode, Calendar") }
-                            _ = go(app.tabBars.buttons["Dashboard"], app)
-                        }
-                    }
-                    if go(app.buttons["Settings"], app) {
-                        settle(); snap(app, "M18 Parent mode, Linked Students")
-                    }
+        // 2. Signed out: Welcome, then sample data's fictional family for parent mode (FAM-14; parent
+        //    mode on real accounts arrives with M4).
+        let fresh = launchApp(arguments: TestHooks.reset)
+        let explore = fresh.buttons["Explore with Sample Data"]
+        _ = explore.waitForExistence(timeout: 30)
+        settle(); snap(fresh, "M01 Welcome")
+        _ = go(explore, fresh)
+        _ = fresh.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30)
+        if go(fresh.buttons["Settings"], fresh) {
+            let parent = fresh.buttons["family.sample.viewAsParent"]
+            for _ in 0..<30 where !(parent.exists && parent.isHittable) { fresh.swipeUp() }
+            if go(parent, fresh) {
+                settle(); settle(); snap(fresh, "M14 Parent mode, Dashboard")
+                let switchers = fresh.descendants(matching: .any).matching(identifier: "family.switcher")
+                let visible = (0..<switchers.count).map { switchers.element(boundBy: $0) }.first { $0.exists && $0.isHittable }
+                if let visible {
+                    visible.tap(); settle(); snap(fresh, "M15 Parent mode, switcher")
+                    if go(fresh.buttons["Skyler Sample"], fresh) { settle(); snap(fresh, "M16 Parent mode, second student") }
                 }
+                if go(fresh.buttons["Settings"], fresh) { settle(); snap(fresh, "M18 Parent mode, Linked Students") }
             }
         }
     }
