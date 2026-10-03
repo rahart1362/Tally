@@ -73,6 +73,14 @@ counts and checker summaries are quoted where they exist.
   for those rows.
 - **D5. `SnapshotStore`'s self-heal path keeps `doneAssignments: []`** (no change there): it has no
   `UserState` in hand, the same documented limit `includeGrades`'s carry-forward already has. See O3.
+- **D6. One small edit to a test file outside my list, found only by CI:**
+  `WidgetGlanceTimelineTests.swift`'s `boundaries()` asserted an exact list of timeline dates over a
+  fixture whose `entitledUntil` is `Date.distantFuture`; item 4 made the entitlement-end boundary
+  unconditional, so it now appears in that list too. Updated the expectation to include it (iteration
+  2, §CI) rather than changing the fixture (every sibling test in that suite relies on this glance
+  being unlocked, so `entitledUntil: nil` was not an option) or softening item 4's own rule (the
+  boundary genuinely exists for this glance; the test's comment "so no test reaches it" was about the
+  locked *content*, never about the boundary's presence).
 
 ## 3. Copy: drafts for the owner
 
@@ -151,16 +159,15 @@ addition to the PR run's one allowed mutation batch.
 
 ## CI
 
-Budget: at most 2 iteration runs, 1 mutation run (not used, §5) and the PR's run. No iteration run
-was dispatched: every change in this package that is testable without Xcode was verified locally
-(`make core-build`, `make core-test` — 200 TallyCore tests — `make core-tsan`, `make lint` — 282
-Swift files, 0 violations — and the four `scripts/ci/check_*.py` gates, all PASS), and the remaining
-risk (the iOS build itself, the hosted tests, the one snapshot) is exactly what the PR run exists to
-answer, so a separate iteration run first would have spent budget on the same question twice.
+Budget: at most 2 iteration runs, 1 mutation run (not used, §5) and the PR's run. Both iteration
+runs were used, and both found a real bug of mine — neither would have been caught by this host's
+local checks, since neither TallyStrings nor the hosted Xcode tests build here.
 
 | Run | Commit | Scope | Result |
 |---|---|---|---|
-| (PR run, pending) | — | PR (`pull_request`) | Not yet dispatched as of this report; recorded in the hand-off reply per rule 10.4, not here. |
+| 37086985310 | `6707727` | unit (iteration 1) | **Failed, my bug.** `L10n+Widgets.swift:99:41: error: cannot convert value of type 'String' to expected argument type 'StaticString'` — a `comment:` argument built from two string literals joined with `+`, no longer a compile-time literal once joined. Every Linux job (hygiene, lint, TallyCore tests/sanitizers/perf) passed; only the iOS build failed, before any test ran. Fixed in `9c092c8`: collapsed to one literal. |
+| 37087697558 | `9c092c8` | unit (iteration 2) | **Compiled clean; one test failure, also mine.** `WidgetGlanceTimelineTests.boundaries()` (not in my file list, but testing the function item 4 changed): its fixture's `entitledUntil` is `Date.distantFuture` ("so no test reaches it" — true of the locked *content*, not of whether the boundary exists), and item 4's new `accessEnds` boundary is unconditional, so it now appears as the list's last entry and broke an exact-match assertion. Every Linux job passed again; the iOS build, every other hosted test (1107 of 1108), the metadata test (`appIntentsMetadata`, now naming `MarkDoneIntent` in both lists) and the new `MarkDoneIntentTests`/`WidgetPlannerTests.accessEndsIsATimelineBoundary`/`WidgetFamilyRenderTests.dueSoonRowWithMarkDoneButton` were not reported as failing. Fixed by adding the same `accessEnds` instant to the test's expected list (commit, see §7); grepped every other test file for a similar exact-list assertion on `GlanceTimelinePlanner.plan(...)`'s output first — this was the only one. |
+| (PR run, pending) | — | PR (`pull_request`) | Both iteration runs are now spent (budget: at most 2); this fix is verified only by local reasoning (re-read the file, re-ran `make lint`) and will be confirmed by the PR run itself, recorded in the hand-off reply per rule 10.4, not here. |
 
 ## 7. Files
 
@@ -179,7 +186,8 @@ answer, so a separate iteration run first would have spent budget on the same qu
   `packages/TallyAppleKit/Sources/TallyFeatures/Settings/UserStateAccess.swift`;
   `apps/TallyiOS/TallyAppTests/WidgetPlannerTests.swift`,
   `apps/TallyiOS/TallyAppTests/WidgetFamilyRenderTests.swift`,
-  `apps/TallyiOS/TallyAppTests/WidgetIntentsTests.swift`; this report;
+  `apps/TallyiOS/TallyAppTests/WidgetIntentsTests.swift`,
+  `apps/TallyiOS/TallyAppTests/WidgetGlanceTimelineTests.swift` (D6, one assertion); this report;
   `build/logs/journal/2026-10-02-m3d2.md`.
 
 **Small additive edits outside the brief's list (D2):** `apps/TallyiOS/Tally/AppEnvironment.swift`
