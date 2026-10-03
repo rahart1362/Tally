@@ -142,6 +142,9 @@ Canvas natively supports parent access through **observer** accounts and student
 
   They need real observer data, and the FAM-01 spike is M4. M3's family deliverable is the Sample Data parent mode (the App Review path), Family settings and parent reminders.
 - **The widget's Done button shows only on assignment rows.** Before, it appeared but did nothing on a quiz, discussion or planner-note row (`reviews/m3d2-report.md` O2).
+- **The brand mark is the owner's original emblem again** (2026-10-03). It's the emblem from commit `3022804`, unaltered, as the app icon on a white background (1024 × 1024, no transparency, so App Store compliant), and as `TMark` in the app: the emblem on a white rounded tile, wherever the mark appears.
+  - The September change to a vector T only unblocked CI. The emblem file was 1254 × 1254 with transparency, which the App Store doesn't accept.
+  - UX-06/07's legibility concern about the detailed emblem at small sizes stands: the widget header draws it at 20 pt. The white tile keeps it readable on every background.
 
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
