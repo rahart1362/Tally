@@ -120,7 +120,8 @@ other test failed.
 | [37061830822](https://github.com/rahart1362/Tally/actions/runs/37061830822) | unit, `4800ee7` | Every target compiled on Xcode 26.6 (app, widget, both test targets). 1098 hosted tests in 210 suites; 1 failure: `ScreenSourceHygieneTests.noRandomValues` on my sample code's `.randomElement(`. Fixed in `00f13ab` (a fixed code sequence). Linux jobs, lint, hygiene: success |
 | [37065562136](https://github.com/rahart1362/Tally/actions/runs/37065562136) | quick, `00f13ab` | Hosted: all pass (550 tests / 105 suites on the floor runtime, main's 2 known issues). UI: 7 of my 11 failed, both attempts, nothing else failed. Fixed in `b6100a4` (journal: a sheet on a Group of Form sections, 128-character queries, an unlabelled inner menu button, the toolbar's clamped type size) |
 | [37072344290](https://github.com/rahart1362/Tally/actions/runs/37072344290) | unit, `c7cdf61` (mutations) | §4. Also the first build of `b6100a4`'s fixes: everything compiled |
-| PR run | `pull_request` | see the hand-off reply |
+| [37074800313](https://github.com/rahart1362/Tally/actions/runs/37074800313) | PR #34, `8ef7bb1` | hygiene, core-linux, lint, core-sanitizers, ios-tsan, ios-perf green. `ios-build`: 5 of my UI tests failed (journal: the invite error below the medium detent's fold, a footer below the fold, iOS 26's Cancel-less popover dialog, the Menu's unlabelled wrapper); fixed in my files. `ios-asan`: `SampleSessionTests` (".delayed on time") lost its first `noCache` update under ASan; not my file |
+| PR run 2 | PR #34 | see the hand-off reply |
 
 Budget used: 2 iteration runs, 1 mutation run, then the PR run. No `scope=full` dispatch.
 `origin/main` moved to `9fbd222` (PR #33: a CI workflow and a plan doc), which touches none of my
@@ -157,6 +158,9 @@ files, so no merge (rule 3).
    taps, and notification `threadIdentifier = subjectKey` (the platform adapter, `TallyPlatform`,
    sets no thread; not my file).
 6. **Large-title snapshot** (FAM-09): not recorded; parent mode uses §7.1's inline fallback.
+   **VoiceOver on the switcher** is UNVERIFIED on a device: SwiftUI wraps the toolbar Menu's label
+   in a button of its own that XCUITest reports without a label, under the switcher element that
+   reads "Viewing Rowan" (the audit passes; my unlabelled-button check excludes that wrapper).
 7. **Deviations from the spec's words**, for the owner: "You can add **her** back" → "You can add
    **Maya** back" (no pronoun guessed); the parent's rejected code asks "your student" (the parent may
    not know whose code it was); the share text says "Get Tally from the App Store." (no App Store

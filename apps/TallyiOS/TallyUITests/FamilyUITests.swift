@@ -46,7 +46,12 @@ final class FamilyUITests: TallyUITestCase {
         switchStudent(to: "Rowan Sample", in: app)
         openTab("Dashboard", in: app)
         assertViewing("Rowan", in: app, on: "Dashboard")
-        assertEveryButtonHasALabel(app, screen: "Parent mode")
+        // Every button has a label, except the toolbar Menu's own wrapper inside the switcher, which
+        // SwiftUI builds and leaves unlabelled under the labelled switcher (CI runs 37065562136,
+        // 37074800313); the switcher itself reads "Viewing Rowan".
+        let unlabelled = app.buttons.matching(NSPredicate(format: "label == ''")).count
+        let inSwitcher = visibleSwitcher(in: app).buttons.matching(NSPredicate(format: "label == ''")).count
+        XCTAssertEqual(unlabelled - inSwitcher, 0, "Parent mode: unlabelled buttons. Hierarchy: \(app.debugDescription)")
 
         // FAM-14's way back: Explore Student Mode, then the flagship student's own Home.
         openSettings(app)
@@ -141,7 +146,14 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(staticText("Unlink Rowan?", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(staticText("You'll stop seeing Rowan's courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Rowan will need to send you a new code. Tally will delete Rowan's saved data from this iPhone.", in: app).exists,
                       "Hierarchy: \(app.debugDescription)")
-        tapConfirmation("Cancel", in: app)
+        // iOS 26 shows the dialog as a popover with no Cancel button; tapping outside cancels it.
+        let cancel = app.buttons.matching(NSPredicate(format: "label == 'Cancel' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
+        if cancel.waitForExistence(timeout: 3) {
+            cancel.tap()
+        } else {
+            tapWhenHittable(app.otherElements["PopoverDismissRegion"].firstMatch, in: app)
+        }
+        XCTAssertTrue(eventually { !self.staticText("Unlink Rowan?", in: app).exists }, "the dialog stayed. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(unlink.waitForExistence(timeout: 10))
     }
 
@@ -199,7 +211,9 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(code.waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(code.label.hasPrefix("Code: "), code.label)
         XCTAssertEqual(code.label.components(separatedBy: ", ").count, 6, code.label)
-        XCTAssertTrue(anyElement(containing: "Anyone who enters this code first will be linked to you.", in: app).exists)
+        // The warning is the section's footer, below the half-height sheet's fold.
+        XCTAssertTrue(scrollUntilHittable(anyElement(containing: "Anyone who enters this code first will be linked to you.", in: app), in: app),
+                      "Hierarchy: \(app.debugDescription)")
     }
 
     /// §7.6 "Invite refused": the school has no parent self-registration.

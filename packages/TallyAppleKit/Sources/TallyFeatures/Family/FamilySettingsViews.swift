@@ -410,6 +410,16 @@ struct InviteSheet: View {
                 if let created {
                     PairingCodeSection(sent: created, school: model.school)
                 } else {
+                    // A refused invite says why at the top, where the half-height sheet shows it
+                    // (below the button it would be off screen; CI run 37074800313).
+                    if let problem {
+                        Section {
+                            FamilyProblemText(problem: problem, school: model.school)
+                            if problem == .scopeMissing, let url = model.canvasSettingsURL {
+                                Button(String(localized: L10n.FamilyUI.getCodeInCanvas())) { openURL(url) }
+                            }
+                        }
+                    }
                     Section {
                         Text(L10n.FamilyUI.inviteWillSee())
                         Text(L10n.FamilyUI.inviteCannot())
@@ -424,14 +434,6 @@ struct InviteSheet: View {
                     } footer: {
                         if model.warnsOldestCode {
                             Text(L10n.FamilyUI.oldestCodeWarning())
-                        }
-                    }
-                    if let problem {
-                        Section {
-                            FamilyProblemText(problem: problem, school: model.school)
-                            if problem == .scopeMissing, let url = model.canvasSettingsURL {
-                                Button(String(localized: L10n.FamilyUI.getCodeInCanvas())) { openURL(url) }
-                            }
                         }
                     }
                 }
