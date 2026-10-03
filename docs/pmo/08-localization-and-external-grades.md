@@ -456,6 +456,15 @@ Size: **S** ≈ 1–2 agent-days, **M** ≈ 3–5, **L** ≈ more than 5 (relati
 | **P3** | XG-03 merged; M3-B merged or well along | **M3-D** ‖ **L10N-03b** | M3-D builds its 4 home and 3 lock widgets (UX-WP-29) on glance v2 and localized widget strings. Changing the schema after that would rework every widget. L10N-03b owns TallyFeatures grade screens, and M3-D owns `TallyGlance`, the widget target and `TallyIntents`: no overlap. |
 | **P4** | M3-D merged | **M3-E** | Family UI is written localized and aware of grade availability from its first commit. |
 | **M3 exit** | M3-E merged | **English string freeze** → **L10N-04** | Translating before the freeze would mean paying twice for the M3-B/D/E strings. The vendor's calendar time overlaps M4. |
+
+**The English string freeze happened on 2026-10-03, at the M3-exit PR.** The owner approved every draft first (plan 02, owner decisions at the M3 exit). The frozen catalogs, by key count:
+- `TallyStrings/Resources/Localizable.xcstrings`: 702;
+- the widget's `Localizable.xcstrings`: 14;
+- `AppIntents.xcstrings`: 24;
+- `AppShortcuts.xcstrings`: 6;
+- the two `InfoPlist.xcstrings`: 1 each.
+
+L10N-04 translates from that merge commit. Any English change after it needs the owner's approval and a note to the translator.
 | **M4** | as planned | **XG-05** alongside real sign-in | This is the first real-data check of G-2. |
 | **M5** | as planned | **L10N-05** with ASC-10/12/17 | Localized metadata and screenshots become release gates. If L-3 = "not a gate" and es isn't ready, the gate runs for en only. |
 
