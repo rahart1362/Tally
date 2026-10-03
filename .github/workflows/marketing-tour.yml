@@ -1,0 +1,86 @@
+name: Marketing tour
+# PMO, branch pmo/flyer-tour only (never merged): screenshots of the app's strongest screens in
+# sample-data mode, on the largest iPhone simulator with a clean status bar, plus the widget renders
+# at 3x, for the go-to-market flyer.
+on:
+  push:
+    branches: [pmo/flyer-tour]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketing-tour
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  tour:
+    name: Marketing screenshots (sample data, Pro Max, 9:41)
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick the largest iPhone on the newest iOS 26 runtime; clean status bar
+        id: sim
+        run: |
+          udid="$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          data = json.load(sys.stdin)["devices"]
+          best = None
+          for runtime, devices in data.items():
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m or int(m.group(1)) != 26:
+                  continue
+              for d in devices:
+                  if "Pro Max" in d["name"]:
+                      key = (int(m.group(2)), d["name"])
+                      if best is None or key > best[0]:
+                          best = (key, d["udid"], d["name"], runtime)
+          print(best[1]); print(best[2], best[3], file=sys.stderr)
+          ')"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+      - name: Build for testing
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run the tour and the widget renders
+        continue-on-error: true
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING="-only-testing:TallyUITests/MarketingTourUITests -only-testing:TallyAppTests/WidgetFamilyRenderTests" \
+            IOS_RESULT_NAME=Tally-marketing
+      - name: Export the screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally-marketing.xcresult" \
+            --output-path "$RUNNER_TEMP/shots"
+          ls -la "$RUNNER_TEMP/shots" | head -80
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: marketing-tour
+          path: ${{ runner.temp }}/shots
+          retention-days: 14
