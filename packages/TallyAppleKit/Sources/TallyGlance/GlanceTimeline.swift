@@ -272,13 +272,19 @@ public enum GlanceTimelinePlanner {
     }
 
     /// The times after `now` at which the display changes, sorted and unique: each open item's due
-    /// time (at most `glanceDueItemLimit`), the next midnight and the stale time.
+    /// time (at most `glanceDueItemLimit`), the next midnight, the stale time, and (M3-B2's O1,
+    /// M3-D2) the instant the glance's mirrored entitlement stops covering access
+    /// (`EntitlementAccess.accessEnds`), so a timeline built before that moment still gets an entry
+    /// right at it: before this, the locked message only appeared at whichever boundary came next.
     static func boundaries(of glance: GlanceProjection, after now: Date, calendar: Calendar) -> [Date] {
         let dues = Set(glance.dueSoon.filter(isOpen).compactMap(\.dueAt).filter { $0 > now })
         var dates = Set(dues.sorted().prefix(TallyConfig.glanceDueItemLimit))
         dates.insert(nextMidnight(after: now, calendar: calendar))
         let staleAt = glance.asOf.addingTimeInterval(staleAfter)
         if staleAt > now { dates.insert(staleAt) }
+        if let accessEnds = EntitlementAccess.accessEnds(entitledUntil: glance.entitledUntil), accessEnds > now {
+            dates.insert(accessEnds)
+        }
         return dates.sorted()
     }
 

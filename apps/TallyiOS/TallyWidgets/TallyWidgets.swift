@@ -61,11 +61,15 @@ struct TallyNextUpWidget: Widget {
     }
 }
 
-/// "Due soon": Home medium, the next three items. No grades.
+/// "Due soon": Home medium, the next three items. No grades. M3-D2: each row's trailing "Mark
+/// Done" button is `MarkDoneButton` (`Shared/`), built here so `TallyGlance` never names
+/// `MarkDoneIntent` itself (see `DueSoonWidgetView`'s doc).
 struct TallyDueSoonWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: GlanceWidgetKind.dueSoon, intent: GlanceWidgetIntent.self, provider: GlanceProvider()) { entry in
-            DueSoonWidgetView(entry: entry)
+            DueSoonWidgetView(entry: entry) { itemID, accessibilityLabel in
+                AnyView(MarkDoneButton(itemID: itemID, accessibilityLabel: accessibilityLabel))
+            }
         }
         .configurationDisplayName(WidgetGalleryText.dueSoonName)
         .description(WidgetGalleryText.dueSoonDescription)

@@ -38,6 +38,15 @@ struct TallyApp: App {
         #endif
         let live = AppEnvironment.live()
         live.appModel.subscription.start() // PAY-03: once, at app init
+        // M3-D2: "Mark Done"'s bridge, registered here (not by `AppModel.attach`/`detach`, which
+        // `RefreshIntentBridge` uses) so it resolves the account lazily on every call, the way
+        // `.backgroundTask` does through `AccountRuntime` — it works even when the system launches
+        // Tally only to perform the intent, before any UI attaches anything (m3d2-report.md item 2).
+        let accountRuntime = live.accountRuntime
+        let accountEnvironment = live.accountEnvironment
+        MarkDoneIntentBridge.handler = { assignmentID, done in
+            await AccountUserStateAccess.markDone(assignmentID, done: done, runtime: accountRuntime, environment: accountEnvironment)
+        }
         _environment = State(initialValue: live)
         LaunchSignpost.enterStep(LaunchSignpost.scene)
     }

@@ -1,6 +1,7 @@
 import Foundation
 import TallyDomain
 import TallyStore
+import TallySync
 
 /// Settings' access to the account's `UserState` (UX-WP-20): the "What changed" thresholds today.
 /// A write returns the state as saved; a read never fails (an unreadable file reads as defaults,
@@ -79,9 +80,47 @@ public actor AccountUserStateAccess: UserStateAccess {
             await coordinator.updateDigestThresholds(state.digestThresholds)
             let gradesRewrote = await coordinator.updateIncludeGrades(state.showGradesInGlance)
             let overridesRewrote = await coordinator.updateGradeAvailabilityOverrides(state.gradeAvailabilityOverrides)
-            if gradesRewrote || overridesRewrote { reloadWidgets() }
+            // M3-D2 (UX-WP-18, PMO R16): a done mark takes its item off the glance at once, the
+            // same as the grades opt-in does.
+            let doneAssignmentsRewrote = await coordinator.updateDoneAssignments(state.doneAssignments)
+            if gradesRewrote || overridesRewrote || doneAssignmentsRewrote { reloadWidgets() }
         }
         return state
+    }
+}
+
+extension AccountUserStateAccess {
+    /// M3-D2 (m3d-report.md §6 option A, item 1): the "Mark Done" widget button's write, reached
+    /// through `MarkDoneIntentBridge` when the system launched Tally only to perform the intent (no
+    /// `AppModel`/Home exists yet, so there is no already-built `UserStateAccess` to call
+    /// `update(_:)` on). Resolves the active account straight from disk — the same lookup
+    /// `AccountSessionFactory.activeCoordinator` makes for `AccountRuntime`'s own resolver — writes
+    /// the mark (which also rebuilds the glance and reloads the widget, through `update(_:)` above),
+    /// then runs one reminders pass (`ReminderPipeline.reconcile`) so a newly-done item stops
+    /// reminding at once (M3-C O2), exactly as `AccountLocalScreenStateStore`'s `onDoneMarksChanged`
+    /// does for the in-app "Mark Done" button on the To-Do screen.
+    ///
+    /// `false`, and nothing written, with no signed-in account (never signed in, signed out, or the
+    /// store root is unavailable), an unreadable `UserState` this build must not overwrite
+    /// (`AccessError.notWritable`), or any other failure: an unknown or stale item ID (`itemID`
+    /// already resolved to `assignmentID` by the caller) is never a crash.
+    @discardableResult
+    public static func markDone(_ assignmentID: CanvasID<Assignment>, done: Bool,
+                                runtime: AccountRuntime, environment: AccountEnvironment) async -> Bool {
+        guard let root = try? environment.storeRoot(),
+              let account = AccountDirectoryStore(root: root).activeAccount() else { return false }
+        let access = AccountUserStateAccess(account: account.accountKey, root: root, environment: environment, runtime: runtime)
+        do {
+            try await access.update { state in
+                if done { state.doneAssignments.insert(assignmentID) } else { state.doneAssignments.remove(assignmentID) }
+            }
+        } catch {
+            return false
+        }
+        if let coordinator = await runtime.coordinator() {
+            await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
+        }
+        return true
     }
 }
 

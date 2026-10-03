@@ -65,6 +65,40 @@ struct GlanceProjectionTests {
         #expect(glance.dueSoon.isEmpty)
     }
 
+    /// M3-D2 (UX-WP-18, PMO R16): the "Mark Done" button's write (`UserState.doneAssignments`)
+    /// takes an otherwise-open item off the widget, the same as a submitted one; a planner item of
+    /// another plannable type with a numerically matching ID is untouched, since `doneAssignments`
+    /// is scoped to `CanvasID<Assignment>` (`GlancePlannerID.assignmentID`).
+    @Test func doneAssignmentsAreExcludedFromDueSoon() {
+        var snapshot = CanvasSnapshotFixture.make(courseCount: 1, dueItemCount: 0)
+        let courseID = snapshot.courses.first?.id
+        let done = PlannerItem(id: "assignment:9001", courseID: courseID, title: "Marked done in Tally",
+                               plannableType: "assignment", dueAt: snapshot.fetchedAt, pointsPossible: 10,
+                               submitted: false, graded: false, missing: false, late: false, excused: false,
+                               markedComplete: false, htmlURL: nil)
+        let quiz = PlannerItem(id: "quiz:9001", courseID: courseID, title: "Same numeric ID, a quiz",
+                               plannableType: "quiz", dueAt: snapshot.fetchedAt, pointsPossible: 10,
+                               submitted: false, graded: false, missing: false, late: false, excused: false,
+                               markedComplete: false, htmlURL: nil)
+        snapshot = CanvasSnapshot(generation: snapshot.generation, accountKey: snapshot.accountKey, host: snapshot.host,
+                                  fetchedAt: snapshot.fetchedAt, profile: snapshot.profile, courses: snapshot.courses,
+                                  groups: snapshot.groups, gradingPeriods: snapshot.gradingPeriods, planner: [done, quiz],
+                                  events: snapshot.events, announcements: snapshot.announcements,
+                                  courseColors: snapshot.courseColors, sections: snapshot.sections)
+        let untouched = GlanceProjectionBuilder.build(from: snapshot, includeGrades: false)
+        #expect(untouched.dueSoon.map(\.id).sorted() == ["assignment:9001", "quiz:9001"])
+
+        let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: false, doneAssignments: [CanvasID("9001")])
+        #expect(glance.dueSoon.map(\.id) == ["quiz:9001"], "the done assignment is left out; the quiz of the same numeric ID is not")
+    }
+
+    @Test func glancePlannerIDOnlyMapsAssignmentItems() {
+        #expect(GlancePlannerID.assignmentID("assignment:123") == CanvasID("123"))
+        #expect(GlancePlannerID.assignmentID("quiz:123") == nil)
+        #expect(GlancePlannerID.assignmentID("assignment:") == nil, "an empty ID never maps")
+        #expect(GlancePlannerID.assignmentID("garbage") == nil)
+    }
+
     /// A regression guard: the allowlist (encryption.md §3.3) must never grow by accident. If a
     /// field is added to `GlanceProjection`/`GlanceCourse`/`GlanceDueItem`, this test's expected
     /// key sets must be updated deliberately, in the same review as the addition.

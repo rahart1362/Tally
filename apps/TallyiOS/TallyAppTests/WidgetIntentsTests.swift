@@ -192,13 +192,13 @@ struct WidgetIntentsTests {
         let widget = try #require(Bundle(url: plugins.appending(path: "TallyWidgets.appex")))
 
         let appMetadata = try Self.metadata(in: app)
-        let appIntents = ["RefreshTallyIntent", "OpenTallyIntent", "WhatsDueNextIntent", "WhatsDueTodayIntent",
-                          "TallyFocusFilter", "CourseEntity", "TallyDestination"]
+        let appIntents = ["RefreshTallyIntent", "OpenTallyIntent", "MarkDoneIntent", "WhatsDueNextIntent",
+                          "WhatsDueTodayIntent", "TallyFocusFilter", "CourseEntity", "TallyDestination"]
         for name in appIntents {
             #expect(appMetadata.contains(name), "the app's metadata does not name \(name): \(appMetadata.prefix(800))")
         }
         let widgetMetadata = try Self.metadata(in: widget)
-        let widgetIntents = ["GlanceWidgetIntent", "RefreshTallyIntent", "OpenTallyIntent"]
+        let widgetIntents = ["GlanceWidgetIntent", "RefreshTallyIntent", "OpenTallyIntent", "MarkDoneIntent"]
         for name in widgetIntents {
             #expect(widgetMetadata.contains(name), "the widget's metadata does not name \(name): \(widgetMetadata.prefix(800))")
         }

@@ -63,17 +63,21 @@ public actor SnapshotStore {
     /// (never defaulted to true by this type). `gradeAvailability` is the snapshot's index from
     /// the coordinator (plan 08 §4.3); `nil` classifies with no override
     /// (`GlanceProjectionBuilder.build`). `entitledUntil` is the expiry the glance mirrors (PAY-04,
-    /// the coordinator's entitlement gate).
+    /// the coordinator's entitlement gate). `doneAssignments` (M3-D2) is the student's local "done"
+    /// marks (`UserState.doneAssignments`): a done item is left out of the glance built here, the
+    /// same as a submitted one.
     @discardableResult
     public func commit(_ snapshot: CanvasSnapshot, includeGrades: Bool,
-                       gradeAvailability: GradeAvailabilityIndex? = nil, entitledUntil: Date? = nil) throws -> GlanceProjection {
+                       gradeAvailability: GradeAvailabilityIndex? = nil, entitledUntil: Date? = nil,
+                       doneAssignments: Set<CanvasID<Assignment>> = []) throws -> GlanceProjection {
         if let current = currentOnDiskGeneration(), current >= snapshot.generation {
             throw SnapshotStoreError.staleGeneration(attempted: snapshot.generation, current: current)
         }
         try prepare()
         try access.write(try JSONEncoder().encode(snapshot), .snapshot, to: layout.url(for: .snapshot), excludeFromBackup: true)
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
-                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil)
+                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil,
+                                                   doneAssignments: doneAssignments)
         try writeGlance(glance)
         return glance
     }
@@ -83,14 +87,18 @@ public actor SnapshotStore {
     /// refresh (PMO R10). Writes only when `snapshot` is the committed one (its generation is the
     /// one on disk) and returns the new glance; otherwise writes nothing and returns nil, so it can
     /// never put a glance for an older or newer snapshot on disk. Also for a change of entitlement
-    /// (PAY-04: `entitledUntil`).
+    /// (PAY-04: `entitledUntil`) and of the student's "done" marks (M3-D2: `doneAssignments`,
+    /// `RefreshCoordinator.updateDoneAssignments`), so marking an item done takes it off the widget
+    /// at once.
     @discardableResult
     public func rewriteGlance(from snapshot: CanvasSnapshot, includeGrades: Bool,
                               gradeAvailability: GradeAvailabilityIndex? = nil,
-                              entitledUntil: Date? = nil) throws -> GlanceProjection? {
+                              entitledUntil: Date? = nil,
+                              doneAssignments: Set<CanvasID<Assignment>> = []) throws -> GlanceProjection? {
         guard isOwner, currentOnDiskGeneration() == snapshot.generation else { return nil }
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: includeGrades,
-                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil)
+                                                   gradeAvailability: gradeAvailability, entitledUntil: entitledUntil,
+                                                   doneAssignments: doneAssignments)
         try writeGlance(glance)
         return glance
     }
