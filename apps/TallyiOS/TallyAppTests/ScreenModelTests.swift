@@ -417,6 +417,15 @@ struct GradeDerivedScreenTests {
             let course = try #require(snapshot.courses.first { $0.courseCode == code })
             #expect(result.perCourse[course.id] == nil, "\(code)")
         }
+
+        // The same course, overridden to "kept outside Canvas" (plan 08 G-3): it has real posted
+        // history (so only the availability guard, not an empty `postedAt`, explains the exclusion).
+        let (_, overridden) = try ExternalGrades.spanishOverridden(snapshot)
+        let overriddenInsights = InsightsBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: overridden)
+        #expect(overriddenInsights.trendInput.courses.isEmpty, "the override should take SPAN-2 out of the trend input")
+        let overriddenResult = try await GradeTrend.compute(overriddenInsights.trendInput, calendar: formatter.calendar,
+                                                             locale: formatter.locale)
+        #expect(overriddenResult.perCourse[span.id] == nil, "overridden to kept-outside-Canvas")
     }
 
     @Test("UX-SPARK: CourseSparklineBuilder guards the same threshold, and never recomputes an unchanged input")
