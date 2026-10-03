@@ -214,9 +214,15 @@ public enum GlanceProjectionBuilder {
     /// `entitledUntil` (PAY-04) is the expiry the entitlement gate mirrors (the coordinator's
     /// `EntitlementGating.glanceEntitledUntil()`); the store's self-heal carries the old glance's
     /// forward. Never derived from the snapshot.
+    ///
+    /// `doneAssignments` (M3-D2, UX-WP-18; PMO R16) is the student's local "done" marks
+    /// (`UserState.doneAssignments`): an assignment planner item marked done is left out of
+    /// `dueSoon`, the same as a submitted or excused one, so the "Mark Done" button's write
+    /// (`RefreshCoordinator.updateDoneAssignments`) takes the item off the widget at once.
     public static func build(from snapshot: CanvasSnapshot, includeGrades: Bool,
                              gradeAvailability: GradeAvailabilityIndex? = nil,
-                             entitledUntil: Date? = nil) -> GlanceProjection {
+                             entitledUntil: Date? = nil,
+                             doneAssignments: Set<CanvasID<Assignment>> = []) -> GlanceProjection {
         let availability = gradeAvailability
             ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: snapshot.fetchedAt)
         // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
@@ -235,7 +241,8 @@ public enum GlanceProjectionBuilder {
                                 gradeSummary: gradeSummary(of: snapshot.courses, availability: availability,
                                                            includeGrades: includeGrades),
                                 courses: courses,
-                                dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID),
+                                dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID,
+                                                 doneAssignments: doneAssignments),
                                 entitledUntil: entitledUntil)
     }
 
@@ -273,10 +280,10 @@ public enum GlanceProjectionBuilder {
     /// Upcoming items come first; up to `glanceOverdueItemReserve` slots stay for open overdue
     /// items (the most recent ones); slots one group leaves unused go to the other, then to undated
     /// items. The result is earliest first, undated last, as before.
-    private static func dueSoon(from planner: [PlannerItem], asOf: Date,
-                                courseByID: [CanvasID<Course>: Course]) -> [GlanceDueItem] {
+    private static func dueSoon(from planner: [PlannerItem], asOf: Date, courseByID: [CanvasID<Course>: Course],
+                                doneAssignments: Set<CanvasID<Assignment>> = []) -> [GlanceDueItem] {
         let limit = TallyConfig.glanceDueItemLimit
-        let candidates = planner.filter { !($0.markedComplete && $0.submitted) }
+        let candidates = planner.filter { !($0.markedComplete && $0.submitted) && !isDone($0, doneAssignments) }
         let upcoming = candidates.filter { item in item.dueAt.map { $0 >= asOf } ?? false }.sorted(by: dueBefore)
         let overdue = candidates.filter { item in
             guard let dueAt = item.dueAt, dueAt < asOf else { return false }
@@ -299,6 +306,14 @@ public enum GlanceProjectionBuilder {
             }
     }
 
+    /// M3-D2: `item` is the student's own "done" mark on an assignment planner item (other
+    /// plannable types, a quiz or a discussion topic say, have no `CanvasID<Assignment>` and are
+    /// never done this way).
+    private static func isDone(_ item: PlannerItem, _ doneAssignments: Set<CanvasID<Assignment>>) -> Bool {
+        guard let id = GlancePlannerID.assignmentID(item.id) else { return false }
+        return doneAssignments.contains(id)
+    }
+
     /// Items with a due date sort first (earliest first); undated items sort after all dated ones.
     private static func dueBefore(_ lhs: PlannerItem, _ rhs: PlannerItem) -> Bool {
         switch (lhs.dueAt, rhs.dueAt) {
@@ -307,5 +322,23 @@ public enum GlanceProjectionBuilder {
         case (nil, _?): return false
         case (_?, nil): return true
         }
+    }
+}
+
+/// M3-D2 (m3d-report.md §6 option A): the glance's opaque item ID (`GlanceDueItem.id`, a planner
+/// item's own `"<plannable_type>:<plannable_id>"`, `PlannerItemMapper.map`) maps back to the
+/// `CanvasID<Assignment>` the "Mark Done" button writes (`UserState.doneAssignments`) only for an
+/// assignment planner item. Any other plannable type (a quiz, a discussion topic, a planner note)
+/// has none: `doneAssignments` is scoped to `Assignment`, as the To-Do screen and the reminders
+/// pass already read it (`ToDoItem.assignmentID`, `ReminderSubjects`), so the intent treats such an
+/// ID the same as an unknown one and does nothing (never a crash).
+public enum GlancePlannerID {
+    static let assignmentPrefix = "assignment:"
+
+    public static func assignmentID(_ plannerItemID: String) -> CanvasID<Assignment>? {
+        guard plannerItemID.hasPrefix(assignmentPrefix) else { return nil }
+        let rawValue = String(plannerItemID.dropFirst(assignmentPrefix.count))
+        guard !rawValue.isEmpty else { return nil }
+        return CanvasID(rawValue)
     }
 }

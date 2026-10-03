@@ -8317,6 +8317,18 @@
         }
       }
     },
+    "widget.markDone.button" : {
+      "comment" : "Accessibility label for the Due Soon widget row's button that marks that one assignment done. The placeholder is the assignment's title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark %@ done"
+          }
+        }
+      }
+    },
     "widget.message.openTally" : {
       "comment" : "Widget text when Tally has no data to show yet (signed out, or the widget cannot read Tally's data).",
       "extractionState" : "manual",

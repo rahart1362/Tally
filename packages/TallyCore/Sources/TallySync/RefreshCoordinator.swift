@@ -79,6 +79,10 @@ public actor RefreshCoordinator {
     /// absent), stored in `UserState` v5 (XG-04). Set at init, then by
     /// `updateGradeAvailabilityOverrides(_:)`.
     private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride]
+    /// M3-D2 (UX-WP-18, PMO R16): the student's local "done" marks (`UserState.doneAssignments`).
+    /// Set at init, then by `updateDoneAssignments(_:)`; every glance this coordinator builds or
+    /// rewrites leaves these out (`GlanceProjectionBuilder`).
+    private(set) var doneAssignments: Set<CanvasID<Assignment>>
     private var epoch: UInt64 = 0
     /// The task running this run's `supervise`/`finish` sequence end to end (what single-flight
     /// callers join). Distinct from `currentFetchTask`, the raw network call `bumpEpochAndCancel`
@@ -129,7 +133,25 @@ public actor RefreshCoordinator {
         let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+        return rewritten != nil
+    }
+
+    /// M3-D2 (UX-WP-18, PMO R16): the student marked (or unmarked) an item done, or an intent did on
+    /// the app's behalf (`MarkDoneIntentBridge`). As `updateIncludeGrades` does, the glance on disk
+    /// is rebuilt now from the committed snapshot, so the item leaves the widget at once (then the
+    /// caller reloads it); a later commit already uses the new set. Returns true when this call
+    /// rewrote the glance, false when nothing changed, nothing is committed yet, or a newer commit
+    /// landed meanwhile.
+    @discardableResult
+    public func updateDoneAssignments(_ assignments: Set<CanvasID<Assignment>>) async -> Bool {
+        guard assignments != doneAssignments else { return false }
+        doneAssignments = assignments
+        guard let committedSnapshot else { return false }
+        let entitledUntil = await entitlement.glanceEntitledUntil()
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot),
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
         return rewritten != nil
     }
 
@@ -154,7 +176,7 @@ public actor RefreshCoordinator {
         let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
         return rewritten != nil
     }
 
@@ -174,7 +196,7 @@ public actor RefreshCoordinator {
         }
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
         return rewritten != nil
     }
 
@@ -186,6 +208,7 @@ public actor RefreshCoordinator {
         initialRecord: RefreshRecord = RefreshRecord(),
         includeGrades: Bool = false,
         gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:],
+        doneAssignments: Set<CanvasID<Assignment>> = [],
         liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
         foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
         backgroundBudget: Duration = TallyConfig.backgroundBudget,
@@ -205,6 +228,7 @@ public actor RefreshCoordinator {
         self.includeGrades = includeGrades
         // The stored answers the glance on disk was last written with: no rewrite at launch.
         self.gradeAvailabilityOverrides = gradeAvailabilityOverrides
+        self.doneAssignments = doneAssignments
         committedSnapshot = initialSnapshot
         committedGeneration = initialSnapshot?.generation ?? 0
         record = initialRecord.restoredAfterLaunch() // no in-flight mark survives a relaunch
@@ -499,7 +523,7 @@ public actor RefreshCoordinator {
                                            gradeAvailability: availability)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades, gradeAvailability: availability,
-                                       entitledUntil: entitledUntil)
+                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
                 committedGeneration = stamped.generation
                 committedSnapshot = stamped
                 record.succeeded(dataFetchedAt: stamped.fetchedAt)

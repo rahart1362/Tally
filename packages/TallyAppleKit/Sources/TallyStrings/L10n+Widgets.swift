@@ -90,6 +90,14 @@ extension L10n {
                                     comment: "Shown instead of an assignment's title on widgets when the student turned on 'Hide course names'.")
         }
 
+        /// M3-D2 (UX-WP-18): the "Due soon" row's trailing "Mark Done" button, as VoiceOver reads
+        /// it. The placeholder is the item's own title (or "Assignment" with "Hide course names" on),
+        /// so each button in the list is distinct.
+        public static func markDoneButton(_ title: String) -> LocalizedStringResource {
+            LocalizedStringResource("widget.markDone.button", defaultValue: "Mark \(title) done", bundle: #bundle,
+                                    comment: "Accessibility label for the Due Soon widget row's button that marks that assignment done. The placeholder is the assignment's title.")
+        }
+
         public static func dueToday(_ time: String) -> LocalizedStringResource {
             LocalizedStringResource("widget.due.today", defaultValue: "Due today, \(time)", bundle: #bundle,
                                     comment: "When an assignment is due. The placeholder is a time such as '6:00 PM'.")

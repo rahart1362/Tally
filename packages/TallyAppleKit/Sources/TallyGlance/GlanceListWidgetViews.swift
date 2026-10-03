@@ -6,14 +6,24 @@ import WidgetKit
 /// "Due soon" (insights-at-a-glance.md §1.5, Home medium): the next three open items, each with its
 /// course code and due time, and how many more are coming or overdue. No grades.
 ///
-/// The spec's per-row "Done" button is not here: marking done writes to the student's sealed user
-/// state, which only the app may do, and the app-side half is outside this work package (see the
-/// M3-D report). A row is laid out so the button can sit at its trailing edge.
+/// M3-D2 (m3d-report.md §6 option A): each row's trailing edge can carry a "Mark Done" button, but
+/// this view never names `MarkDoneIntent` itself — that type lives in the Xcode target
+/// (`TallyWidgets/Shared/`), compiled separately into the app and the widget extension so each can
+/// supply its own `perform()`, and this package cannot depend on either target. `trailingButton`
+/// is the injection point: the widget bundle (`TallyWidgets.swift`) passes a closure that builds the
+/// real button, given the item's opaque ID and its already-localized, already-"Hide course names"
+/// aware accessibility label (`GlanceText.title`, `L10n.Widgets.markDoneButton`), so the caller
+/// needs no `TallyStrings` dependency of its own and can never show a title the row itself is
+/// hiding. The default draws nothing, which is what every other caller (and every existing
+/// snapshot) still gets.
 public struct DueSoonWidgetView: View {
     private let entry: GlanceEntry
+    private let trailingButton: (_ itemID: String, _ accessibilityLabel: String) -> AnyView
 
-    public init(entry: GlanceEntry) {
+    public init(entry: GlanceEntry,
+               trailingButton: @escaping (_ itemID: String, _ accessibilityLabel: String) -> AnyView = { _, _ in AnyView(EmptyView()) }) {
         self.entry = entry
+        self.trailingButton = trailingButton
     }
 
     public var body: some View {
@@ -24,7 +34,7 @@ public struct DueSoonWidgetView: View {
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
-                GlanceItemList(summary: summary, rows: GlanceMetrics.dueSoonRows)
+                GlanceItemList(summary: summary, rows: GlanceMetrics.dueSoonRows, trailingButton: trailingButton)
             }
         }
     }
@@ -61,6 +71,7 @@ public struct WeekAheadWidgetView: View {
 struct GlanceItemList: View {
     let summary: GlanceSummary
     let rows: Int
+    var trailingButton: (_ itemID: String, _ accessibilityLabel: String) -> AnyView = { _, _ in AnyView(EmptyView()) }
     @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
@@ -72,7 +83,9 @@ struct GlanceItemList: View {
                     .foregroundStyle(style.primary)
             } else {
                 ForEach(summary.upcoming.prefix(rows)) { item in
-                    GlanceItemRow(item: item, hidesNames: summary.hidesCourseNames)
+                    let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames)
+                    let label = GlanceText.resolve(L10n.Widgets.markDoneButton(title), TallyLocale.effective)
+                    GlanceItemRow(item: item, hidesNames: summary.hidesCourseNames, trailing: trailingButton(item.id, label))
                 }
             }
             Spacer(minLength: 0)
@@ -84,28 +97,36 @@ struct GlanceItemList: View {
 struct GlanceItemRow: View {
     let item: GlanceSummary.Item
     let hidesNames: Bool
+    /// M3-D2: the "Mark Done" button, or nothing (`EmptyView`, the default). Laid out as a sibling
+    /// of the title/course/due-time group, never inside its `.accessibilityElement(children:
+    /// .combine)`, so VoiceOver can still reach the button as its own stop.
+    var trailing: AnyView = AnyView(EmptyView())
     @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
-        VStack(alignment: .leading, spacing: 0) {
-            Text(verbatim: GlanceText.title(item, hidesNames: hidesNames))
-                .font(TallyTypography.subheadline.weight(.semibold))
-                .foregroundStyle(style.primary)
-                .lineLimit(1)
-                .widgetAccentable()
-            HStack(spacing: TallySpacing.xs) {
-                if let code = GlanceText.courseCode(item, hidesNames: hidesNames) {
-                    Text(verbatim: code)
-                        .foregroundStyle(style.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: TallySpacing.xs) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: GlanceText.title(item, hidesNames: hidesNames))
+                    .font(TallyTypography.subheadline.weight(.semibold))
+                    .foregroundStyle(style.primary)
+                    .lineLimit(1)
+                    .widgetAccentable()
+                HStack(spacing: TallySpacing.xs) {
+                    if let code = GlanceText.courseCode(item, hidesNames: hidesNames) {
+                        Text(verbatim: code)
+                            .foregroundStyle(style.secondary)
+                    }
+                    Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent))
+                        .foregroundStyle(style.accent)
                 }
-                Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent))
-                    .foregroundStyle(style.accent)
+                .font(TallyTypography.caption)
+                .lineLimit(1)
             }
-            .font(TallyTypography.caption)
-            .lineLimit(1)
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 0)
+            trailing
         }
-        .accessibilityElement(children: .combine)
     }
 }
 

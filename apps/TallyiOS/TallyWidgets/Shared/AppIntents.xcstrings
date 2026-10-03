@@ -157,6 +157,42 @@
         }
       }
     },
+    "intent.markDone.description" : {
+      "comment" : "App Intents: the description of the action that marks one assignment done in Tally. Not discoverable in Shortcuts or Siri (it takes an opaque ID, not something a person types or says); this text exists only because AppIntent requires it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marks one assignment done in Tally, from the Due Soon widget."
+          }
+        }
+      }
+    },
+    "intent.markDone.itemID" : {
+      "comment" : "App Intents: the name of the Mark Done action's parameter, the widget's opaque ID for the item to mark done.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Item"
+          }
+        }
+      }
+    },
+    "intent.markDone.title" : {
+      "comment" : "App Intents: the name of the action behind the Due Soon widget's Mark Done button. Keep the brand name Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark Done in Tally"
+          }
+        }
+      }
+    },
     "intent.open.description" : {
       "comment" : "Shortcuts and controls: the description of the action that opens Tally.",
       "extractionState" : "manual",

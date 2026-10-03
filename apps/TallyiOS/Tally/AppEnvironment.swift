@@ -30,6 +30,10 @@ struct AppEnvironment {
     /// UX-WP-08/09: the sign-in pages' services (the real `ASWebAuthenticationSession` presenter and
     /// token exchange; the institution search and enablement list are still unavailable, GL-02).
     let signIn: SignInServices
+    /// M3-D2: exposed so `TallyApp.init` can register `MarkDoneIntentBridge.handler` directly over
+    /// this process's one `accountEnvironment` and `accountRuntime`, without needing `AppModel`'s
+    /// (private) copy or a UI session to have attached anything first.
+    let accountEnvironment: AccountEnvironment
 
     /// `@MainActor`: `WebAuthPresenter` is main-actor isolated (it drives
     /// `ASWebAuthenticationSession`, which must run on the main thread), and `AppModel` is
@@ -106,7 +110,8 @@ struct AppEnvironment {
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif
-        return AppEnvironment(logger: logger, accountRuntime: accountRuntime, appModel: appModel, signIn: signIn)
+        return AppEnvironment(logger: logger, accountRuntime: accountRuntime, appModel: appModel, signIn: signIn,
+                             accountEnvironment: accountEnvironment)
     }
 
     /// PAY-03: the engine's StoreKit source. StoreKit itself, except in a Debug process that hosts

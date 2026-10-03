@@ -191,6 +191,27 @@ struct WidgetPlannerTests {
         #expect(!GlanceAccess.isUnlocked(expired, at: Self.asOf + grace))
     }
 
+    @Test("M3-B2 O1: a timeline built before access ends gets a boundary right there, not just at the next one")
+    func accessEndsIsATimelineBoundary() throws {
+        // Due later than the entitlement's end, so the due-item boundary does not already cover it.
+        let items = [Self.item("later", Self.date(9, 17))]
+        let entitlementEndsSoon = Self.now.addingTimeInterval(3600)
+        let glance = Self.glance(items, entitledUntil: entitlementEndsSoon)
+        let accessEnds = try #require(EntitlementAccess.accessEnds(entitledUntil: entitlementEndsSoon))
+        #expect(accessEnds > Self.now, "the fixture's offline grace must still be ahead of now")
+
+        let plan = GlanceTimelinePlanner.plan(for: .loaded(glance), now: Self.now, calendar: Self.calendar)
+        let atAccessEnd = try #require(plan.upcoming.first { $0.date == accessEnds },
+                                       "no boundary at the instant access ends: \(plan.upcoming.map(\.date))")
+        #expect(atAccessEnd.content == .message(.subscriptionRequired))
+
+        // With no expiry at all, there is nothing to bound on.
+        let never = Self.glance(items, entitledUntil: nil)
+        let neverPlan = GlanceTimelinePlanner.plan(for: .loaded(never), now: Self.now, calendar: Self.calendar)
+        #expect(EntitlementAccess.accessEnds(entitledUntil: nil) == nil)
+        #expect(neverPlan.current.content == .message(.subscriptionRequired), "already locked: nothing to wait for")
+    }
+
     // MARK: The intents' answers
 
     @Test("What's due next: the next three open items, then how many more and how many are overdue")

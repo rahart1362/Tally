@@ -7,6 +7,7 @@ import TallyDomain
 import TallyStore
 import UIKit
 import WidgetKit
+@testable import Tally
 @testable import TallyGlance
 
 /// M3-D (UX-WP-29, UX-WP-38): every widget surface in every rendering mode, rendered in the test
@@ -187,6 +188,24 @@ struct WidgetFamilyRenderTests {
         Attachment.record(png, named: "m3d-\(surface.rawValue)-\(mode.rawValue).png")
         let opaque = Self.alpha(surface, entry, mode: mode).filter { $0 > 0 }.count
         #expect(opaque > 0, "\(surface.rawValue) in \(mode.rawValue) drew nothing")
+    }
+
+    // MARK: The "Mark Done" button (M3-D2)
+
+    @Test("Snapshot: a Due soon row with the Mark Done button draws something extra at its trailing edge")
+    func dueSoonRowWithMarkDoneButton() throws {
+        let entry = Self.entry(Self.glance())
+        let plain = try #require(Self.png(.dueSoonMedium, entry))
+        let view = DueSoonWidgetView(entry: entry) { itemID, accessibilityLabel in
+            AnyView(MarkDoneButton(itemID: itemID, accessibilityLabel: accessibilityLabel))
+        }
+        .environment(\.widgetRenderingMode, Mode.fullColor.renderingMode)
+        .frame(width: Surface.dueSoonMedium.size.width, height: Surface.dueSoonMedium.size.height)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let withButton = try #require(renderer.uiImage?.pngData())
+        Attachment.record(withButton, named: "m3d2-due-soon-mark-done.png")
+        #expect(withButton != plain, "the Mark Done button drew nothing extra on the Due soon row")
     }
 
     @Test("Every state renders on every surface: placeholder, each message (the subscription lock too), a summary",

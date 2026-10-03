@@ -55,6 +55,9 @@ public nonisolated enum AccountSessionFactory {
                                              initialSnapshot: initialSnapshot, initialRecord: record,
                                              includeGrades: settings.showGradesInGlance,
                                              gradeAvailabilityOverrides: settings.gradeAvailabilityOverrides,
+                                             // M3-D2: the stored "done" marks the glance on disk was last
+                                             // written with (UX-WP-18); no rewrite at launch.
+                                             doneAssignments: settings.doneAssignments,
                                              recordStore: recordStore, entitlement: environment.entitlement)
         await coordinator.updateDigestThresholds(settings.digestThresholds)
         // M3-C (E07): the account's reminders are planned from the cached snapshot now, and again

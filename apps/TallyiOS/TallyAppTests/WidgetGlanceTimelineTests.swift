@@ -58,12 +58,17 @@ struct WidgetGlanceTimelineTests {
     }
 
     @Test("entries: now, each open item's due time, the next midnight and the stale time; reload after the first")
-    func boundaries() {
+    func boundaries() throws {
         let plan = GlanceTimelinePlanner.plan(for: .loaded(Self.glance()), now: Self.now, calendar: Self.calendar)
 
         #expect(plan.current.date == Self.now)
+        // M3-D2 (M3-B2's O1): the fixture's entitlement never expires in practice
+        // (`GlanceStoreFixture.entitledUntil == .distantFuture`), but it is still a date, so it is
+        // still the last boundary — comfortably after every other one here, never reached by this
+        // suite's own assertions.
+        let accessEnds = try #require(EntitlementAccess.accessEnds(entitledUntil: GlanceStoreFixture.entitledUntil))
         #expect(plan.upcoming.map(\.date) == [Self.staleAt, Self.laterToday, Self.midnight, Self.tomorrowMorning,
-                                              Self.friday, Self.nextMonth])
+                                              Self.friday, Self.nextMonth, accessEnds])
         #expect(plan.reloadAfter == Self.staleAt)
         // Submitted and excused items change nothing on screen, so their due times are no boundary.
         #expect(!plan.upcoming.map(\.date).contains(Self.date(2026, 10, 6, 11, 0)))
