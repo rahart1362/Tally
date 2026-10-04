@@ -104,9 +104,7 @@ public nonisolated enum GradeTrend {
         // UX-SPARK: each course's own series, reusing the per-day recomputation above (never a
         // second `GradeWork` pass). A course with fewer than `minimumPoints` graded days has none.
         var perCourse: [CanvasID<Course>: [TrendPoint]] = [:]
-        // MUTATION-UXSPARK-1 (temporary, reverted byte-identical): drop the `>= minimumPoints`
-        // guard so a course with fewer than 2 graded days still gets a sparkline.
-        for (course, series) in zip(input.courses, courseSeries) where !series.isEmpty {
+        for (course, series) in zip(input.courses, courseSeries) where series.count >= minimumPoints {
             perCourse[course.id] = series.map { TrendPoint(date: $0.day, percent: $0.score) }
         }
         return GradeTrendResult(ranges: ranges, perCourse: perCourse)

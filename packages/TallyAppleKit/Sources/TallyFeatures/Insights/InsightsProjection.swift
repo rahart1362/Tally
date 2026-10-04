@@ -270,10 +270,8 @@ public nonisolated enum InsightsBuilder {
         var seen = Set<CanvasID<Course>>()
         var courses: [TrendInput.CourseHistory] = []
         var termStart: Date?
-        // MUTATION-UXSPARK-2 (temporary, reverted byte-identical): drop the `.available` guard so a
-        // course whose grade isn't in Canvas (e.g. kept outside Canvas) is still eligible.
         for course in snapshot.courses
-        where seen.insert(course.id).inserted {
+        where seen.insert(course.id).inserted && gradeAvailability[course.id] == .available {
             let groups = snapshot.groups[course.id] ?? []
             var posted: [CanvasID<Assignment>: Date] = [:]
             for assignment in groups.flatMap(\.assignments) {
