@@ -96,19 +96,30 @@ public nonisolated enum CourseSparklineBuilder {
     }
 }
 
-/// The compact line beside a course's letter grade (PRD §2.B): about 44×16pt on the Courses card,
+/// The compact line beside a course's letter grade (PRD §2.B): 52×18pt on the Courses card,
 /// larger in the Course Detail header. The app's accent tint, no axes, no labels, a subtle dot at
 /// the last point. One VoiceOver element whose label is the trend sentence; callers hide it
 /// entirely when there is nothing to draw (`CourseSparklinePoints?` is `nil`), never a placeholder.
 public struct CourseSparklineView: View {
-    let points: CourseSparklinePoints
-    var width: CGFloat = 44
-    var height: CGFloat = 16
+    /// The Courses card's size, in points: legible beside the letter grade (owner review, 2026-10-03).
+    public static let cardSize = CGSize(width: 52, height: 18)
+    /// The Course Detail hero's size, in points: the hero has the room.
+    public static let heroSize = CGSize(width: 80, height: 28)
+    /// The line's weight, in points.
+    static let lineWidth: CGFloat = 2
 
-    public init(points: CourseSparklinePoints, width: CGFloat = 44, height: CGFloat = 16) {
+    let points: CourseSparklinePoints
+    var width: CGFloat
+    var height: CGFloat
+    /// The line's colour: the accent on a light card, the brand gold on the navy hero (where the
+    /// accent blue all but disappears), matching the letter grade beside it.
+    var tint: Color
+
+    public init(points: CourseSparklinePoints, size: CGSize = CourseSparklineView.cardSize, tint: Color = TallyColor.accent) {
         self.points = points
-        self.width = width
-        self.height = height
+        self.width = size.width
+        self.height = size.height
+        self.tint = tint
     }
 
     /// The vertical range: the series' own lowest and highest values, padded like the Insights
@@ -124,13 +135,13 @@ public struct CourseSparklineView: View {
         let lastDate = points.points.last?.date
         Chart(points.points) { point in
             LineMark(x: .value("Day", point.date), y: .value("Percent", point.percent))
-                .foregroundStyle(TallyColor.accent)
-                .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                .foregroundStyle(tint)
+                .lineStyle(StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, lineJoin: .round))
                 .interpolationMethod(.monotone)
             if point.date == lastDate {
                 PointMark(x: .value("Day", point.date), y: .value("Percent", point.percent))
-                    .foregroundStyle(TallyColor.accent)
-                    .symbolSize(16)
+                    .foregroundStyle(tint)
+                    .symbolSize(20)
             }
         }
         .chartYScale(domain: Self.yDomain(points.points.map(\.percent)))
