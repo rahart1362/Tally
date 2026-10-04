@@ -111,6 +111,15 @@ public struct CourseSparklineView: View {
         self.height = height
     }
 
+    /// The vertical range: the series' own lowest and highest values, padded like the Insights
+    /// trend (`GradeTrend.axisPadding`, in percentage points), so a real move shows as a slope and a
+    /// steady course stays flat. Swift Charts' default domain starts at 0, which flattened every
+    /// line (owner review, 2026-10-03).
+    static func yDomain(_ percents: [Double]) -> ClosedRange<Double> {
+        guard let low = percents.min(), let high = percents.max() else { return 0...100 }
+        return (low - GradeTrend.axisPadding)...(high + GradeTrend.axisPadding)
+    }
+
     public var body: some View {
         let lastDate = points.points.last?.date
         Chart(points.points) { point in
@@ -124,6 +133,7 @@ public struct CourseSparklineView: View {
                     .symbolSize(16)
             }
         }
+        .chartYScale(domain: Self.yDomain(points.points.map(\.percent)))
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
