@@ -302,6 +302,25 @@ extension L10n.Courses {
         LocalizedStringResource("courses.formatter.letterPlus", defaultValue: "\(letter) plus", bundle: #bundle,
                                 comment: "VoiceOver's spoken form of a plus letter grade.")
     }
+
+    /// UX-SPARK (PRD §2.B): the trend sparkline's VoiceOver label when the grade moved up. 1 and 2
+    /// are already-formatted bare percentages (one decimal, no "%" and no unit word); the sentence
+    /// states "percent" once, for the whole from-to span, rather than after each number.
+    public static func sparklineTrendUp(_ first: String, _ last: String) -> LocalizedStringResource {
+        LocalizedStringResource("courses.sparkline.trend.up", defaultValue: "Trend: up from \(first) to \(last) percent",
+                                bundle: #bundle, comment: "Trend sparkline VoiceOver label: the grade moved up over the term.")
+    }
+
+    public static func sparklineTrendDown(_ first: String, _ last: String) -> LocalizedStringResource {
+        LocalizedStringResource("courses.sparkline.trend.down", defaultValue: "Trend: down from \(first) to \(last) percent",
+                                bundle: #bundle, comment: "Trend sparkline VoiceOver label: the grade moved down over the term.")
+    }
+
+    /// The placeholder is the bare current percentage (one decimal, no "%").
+    public static func sparklineTrendSteady(_ percent: String) -> LocalizedStringResource {
+        LocalizedStringResource("courses.sparkline.trend.steady", defaultValue: "Trend: steady at \(percent) percent",
+                                bundle: #bundle, comment: "Trend sparkline VoiceOver label: the grade did not move meaningfully over the term.")
+    }
 }
 
 // MARK: - CourseDetail

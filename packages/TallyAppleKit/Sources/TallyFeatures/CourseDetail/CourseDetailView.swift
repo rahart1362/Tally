@@ -25,6 +25,9 @@ nonisolated enum CourseDetailSegment: String, CaseIterable, Identifiable {
 /// has in this build.
 struct CourseDetailView: View {
     let courseID: CanvasID<Course>
+    /// UX-SPARK: the same `CourseSparklineModel` instance `CoursesScreen` owns and loads, passed
+    /// through `navigationDestination` so the hero's sparkline is never a separate computation.
+    let sparklines: CourseSparklineModel
     @Environment(HomeModel.self) private var model
     @Environment(\.locale) private var locale
     @State private var segment: CourseDetailSegment = .overview
@@ -48,7 +51,7 @@ struct CourseDetailView: View {
     private func content(_ detail: CourseDetailProjection) -> some View {
         List {
             Section {
-                CourseHeroCard(detail: detail)
+                CourseHeroCard(detail: detail, sparkline: sparklines.series[detail.id])
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -399,6 +402,10 @@ private struct SegmentPicker: View {
 /// course-colour stripe), one VoiceOver element.
 struct CourseHeroCard: View {
     let detail: CourseDetailProjection
+    /// UX-SPARK: `nil` when the course has no sparkline (fewer than two graded days, or its grade
+    /// is not in Canvas as a percentage) — the hero then shows nothing extra.
+    var sparkline: CourseSparklinePoints?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
@@ -440,15 +447,37 @@ struct CourseHeroCard: View {
                     .foregroundStyle(TallyColor.textOnHero2)
             }
         } else if let percent = detail.grade.percentText {
-            HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                Text(percent)
-                    .font(.system(.largeTitle, design: .serif).bold())
-                    .foregroundStyle(TallyColor.textOnHero)
-                    .monospacedDigit()
-                if let letter = detail.grade.letter {
-                    Text(letter)
-                        .font(TallyTypography.sectionHeader)
-                        .foregroundStyle(TallyColor.brandGold)
+            // UX-SPARK: only wrap in the AX-size-aware layout when there is a sparkline to make
+            // room for; otherwise this is the plain row it always was.
+            if let sparkline {
+                let gradeRowLayout = typeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.xs))
+                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: TallySpacing.sm))
+                gradeRowLayout {
+                    Text(percent)
+                        .font(.system(.largeTitle, design: .serif).bold())
+                        .foregroundStyle(TallyColor.textOnHero)
+                        .monospacedDigit()
+                    if let letter = detail.grade.letter {
+                        Text(letter)
+                            .font(TallyTypography.sectionHeader)
+                            .foregroundStyle(TallyColor.brandGold)
+                    }
+                    // Slightly larger than the Courses card's (PRD §2.B): the hero has the room.
+                    CourseSparklineView(points: sparkline, width: 64, height: 24)
+                        .accessibilityIdentifier("courseDetail.sparkline")
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                    Text(percent)
+                        .font(.system(.largeTitle, design: .serif).bold())
+                        .foregroundStyle(TallyColor.textOnHero)
+                        .monospacedDigit()
+                    if let letter = detail.grade.letter {
+                        Text(letter)
+                            .font(TallyTypography.sectionHeader)
+                            .foregroundStyle(TallyColor.brandGold)
+                    }
                 }
             }
         } else if let letter = detail.grade.letter {

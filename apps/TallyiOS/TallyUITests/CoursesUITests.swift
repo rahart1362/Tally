@@ -25,4 +25,17 @@ final class CoursesUITests: TallyUITestCase {
         XCTAssertEqual(app.navigationBars.buttons.matching(NSPredicate(format: "label IN {'Add', '+'}")).count, 0)
         assertEveryButtonHasALabel(app, screen: "Courses")
     }
+
+    /// UX-SPARK (PRD §2.B): at least one flagship course has enough graded history for the trend
+    /// sparkline beside its letter grade.
+    @MainActor
+    func testCoursesShowAtLeastOneTrendSparkline() throws {
+        let app = launchSample()
+        openTab("Courses", in: app)
+        let cards = elements("course.card", in: app)
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        let sparklines = elements("course.sparkline", in: app)
+        XCTAssertTrue(sparklines.firstMatch.waitForExistence(timeout: 15),
+                      "no course.sparkline on screen. Hierarchy: \(app.debugDescription)")
+    }
 }

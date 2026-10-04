@@ -15,6 +15,10 @@ struct CoursesScreen: View {
     @State private var editMode: EditMode = .inactive
     /// Plan 08 §4.5: the card whose ⓘ bubble is open (its button, or the card's VoiceOver action).
     @State private var infoCourse: CanvasID<Course>?
+    /// UX-SPARK: each course's trend sparkline, computed once per snapshot off the main actor and
+    /// shared with Course Detail (passed through `navigationDestination` below), so neither
+    /// screen recomputes it.
+    @State private var sparklines = CourseSparklineModel()
 
     var body: some View {
         Group {
@@ -25,7 +29,8 @@ struct CoursesScreen: View {
                     ForEach(model.courseCards) { card in
                         // One VoiceOver element per card (ux-ui.md §3.7.2): the link's own label.
                         NavigationLink(value: card.id) {
-                            CourseCardView(card: card, isInfoPresented: infoBinding(for: card.id))
+                            CourseCardView(card: card, sparkline: sparklines.series[card.id],
+                                          isInfoPresented: infoBinding(for: card.id))
                         }
                         .accessibilityLabel(card.accessibilityLabel)
                         .accessibilityIdentifier("course.card")
@@ -52,8 +57,9 @@ struct CoursesScreen: View {
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
         .navigationTitle(String(localized: L10n.Courses.navigationTitle()))
         .navigationDestination(for: CanvasID<Course>.self) { id in
-            CourseDetailView(courseID: id)
+            CourseDetailView(courseID: id, sparklines: sparklines)
         }
+        .task(id: model.insightsScreen.trendInput) { await sparklines.load(model.insightsScreen.trendInput) }
         .toolbar {
             if !model.courseCards.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
@@ -94,6 +100,9 @@ struct CoursesScreen: View {
 /// whose grades are not in Canvas shows "—" and its caption instead (plan 08 §4.4 row 3).
 struct CourseCardView: View {
     let card: CourseCard
+    /// UX-SPARK: `nil` when the course has no sparkline (fewer than two graded days, or its grade
+    /// is not in Canvas as a percentage) — the card then shows nothing extra, never a placeholder.
+    var sparkline: CourseSparklinePoints?
     var isInfoPresented: Binding<Bool> = .constant(false)
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -142,17 +151,45 @@ struct CourseCardView: View {
 
     @ViewBuilder
     private var gradeInCanvas: some View {
+        // UX-SPARK: the sparkline sits beside whichever grade line shows first (the letter, else
+        // the percentage); at AX sizes it wraps below instead of squeezing that text (never
+        // truncating the grade). Only the branch that actually draws a sparkline uses the extra
+        // layout, so a course with none keeps its plain row (no stray spacing for an empty slot).
+        let gradeRowLayout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.xs))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: TallySpacing.xs))
         VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: TallySpacing.xs) {
             if let letter = card.letter {
-                Text(letter)
-                    .font(.system(.title2).bold())
-                    .foregroundStyle(TallyColor.textPrimary)
+                if let sparkline {
+                    gradeRowLayout {
+                        Text(letter)
+                            .font(.system(.title2).bold())
+                            .foregroundStyle(TallyColor.textPrimary)
+                        CourseSparklineView(points: sparkline)
+                            .accessibilityIdentifier("course.sparkline")
+                    }
+                } else {
+                    Text(letter)
+                        .font(.system(.title2).bold())
+                        .foregroundStyle(TallyColor.textPrimary)
+                }
             }
             if let percent = card.percentText {
-                Text(percent)
-                    .font(TallyTypography.subheadline)
-                    .foregroundStyle(TallyColor.textSecondary)
-                    .monospacedDigit()
+                if card.letter == nil, let sparkline {
+                    gradeRowLayout {
+                        Text(percent)
+                            .font(TallyTypography.subheadline)
+                            .foregroundStyle(TallyColor.textSecondary)
+                            .monospacedDigit()
+                        CourseSparklineView(points: sparkline)
+                            .accessibilityIdentifier("course.sparkline")
+                    }
+                } else {
+                    Text(percent)
+                        .font(TallyTypography.subheadline)
+                        .foregroundStyle(TallyColor.textSecondary)
+                        .monospacedDigit()
+                }
             }
             if card.letter == nil && card.percentText == nil {
                 Text(card.gradeText)

@@ -1681,6 +1681,42 @@
         }
       }
     },
+    "courses.sparkline.trend.down" : {
+      "comment" : "Trend sparkline VoiceOver label: the grade moved down over the term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend: down from %1$@ to %2$@ percent"
+          }
+        }
+      }
+    },
+    "courses.sparkline.trend.steady" : {
+      "comment" : "Trend sparkline VoiceOver label: the grade did not move meaningfully over the term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend: steady at %1$@ percent"
+          }
+        }
+      }
+    },
+    "courses.sparkline.trend.up" : {
+      "comment" : "Trend sparkline VoiceOver label: the grade moved up over the term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend: up from %1$@ to %2$@ percent"
+          }
+        }
+      }
+    },
     "dashboard.attention.dueSoon.title" : {
       "comment" : "Needs Attention row: an assignment is due soon. 1: its title from Canvas. 2: the time it is due, such as '2:30 PM'.",
       "extractionState" : "manual",
