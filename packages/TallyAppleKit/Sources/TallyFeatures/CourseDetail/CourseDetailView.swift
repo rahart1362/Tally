@@ -463,8 +463,9 @@ struct CourseHeroCard: View {
                             .font(TallyTypography.sectionHeader)
                             .foregroundStyle(TallyColor.brandGold)
                     }
-                    // Slightly larger than the Courses card's (PRD §2.B): the hero has the room.
-                    CourseSparklineView(points: sparkline, width: 64, height: 24)
+                    // Larger than the Courses card's (PRD §2.B), in the gold of the letter grade: the
+                    // accent blue all but disappears on the navy hero (owner review, 2026-10-03).
+                    CourseSparklineView(points: sparkline, size: CourseSparklineView.heroSize, tint: TallyColor.brandGold)
                         .accessibilityIdentifier("courseDetail.sparkline")
                 }
             } else {
