@@ -96,7 +96,33 @@ every tab, not Dashboard-specific), and the four `Menu {` call sites in the feat
   (`gh run view --job <id> --log`) to confirm the identical failure signature before writing one
   fix for all of them, rather than patching the symptom in just the leg first inspected.
 
+## Push 2: run 37639511433 — all 8 legs green
+Downloaded all 8 artifacts to `.build-audit/<name>/` and wrote `.build-audit/aggregate.py` (a
+scratch script, git-ignored) to pull every leg's own `<letter>-manifest.json`/`<letter>-summary.json`
+fragments out of xcresulttool's own manifest (`suggestedHumanReadableName` -> `exportedFileName`)
+and total them: 601 captures across the 8 legs, 47 missing, 1 unsettled.
+
+Read the 47 "missing" entries rather than accept the count: most clustered into three traceable
+causes, not independent flakes —
+- **24 entries** (`testI`/`testJ`/`testK`, all 4 AX5 legs): `signInToDemoSchool`'s `go()` on
+  "Continue to canvas.northfield.example" never found the button at AX5 (likely below the fold on
+  the confirmation screen), which then cascaded into "missing" for whatever each method checked
+  next (first-sync progress / the Retry screen / the paywall) — one root cause presenting as what
+  looked like three.
+- **8 entries** (`testO`, all 4 AX5 legs): same shape, `family.removeFromTally` not scrolled to.
+- **2 entries** (`testC`, the two `smallest`+`ax5` legs): card 2 not found within the default
+  15-swipe cap, the single most extreme device+text-size combination.
+- The remaining 13 (1 `schoolSearch` field, single leg; 4 `lockedTab` card, all AX5 legs, already
+  scrolled and still missing) are left as recorded: the first looks like a one-off flake (1 of 8
+  legs), the second a candidate real AX5 finding worth the reviewer's attention, not a test bug —
+  changing `go` to `goScrolling` there would not help, since it already scrolls.
+- Fix (push 3): the three traceable clusters' `go` calls become `goScrolling`, and `testC`'s
+  `maxSwipes` goes from the default 15 to 25. Every change is a strict widening of an existing
+  fallback (same "missing" recording if still unreachable), so this can only reduce the missing
+  count, never regress a leg that was already green.
+
 ## Budget
-4 pushes that trigger the tour, total; push 1 (run 37627030732) is spent. The run ID, per-leg
-result and artifact paths for the final run go in the hand-off reply, not here (binding rules:
-evidence lives where it's observed, not duplicated).
+4 pushes that trigger the tour, total; pushes 1 and 2 spent (runs 37627030732, 37639511433).
+Push 2 already succeeded end-to-end (hand-off-ready on its own); push 3 is a quality
+improvement on top of it, not a required fix. The run ID, per-leg result and artifact paths for
+the run actually used in the hand-off go in the hand-off reply, not here.

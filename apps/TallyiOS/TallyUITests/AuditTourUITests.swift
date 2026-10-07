@@ -194,8 +194,11 @@ final class AuditTourUITests: TallyUITestCase {
         let app = launchSignedIn()
         openTab("Courses", in: app)
         let cards = elements("course.card", in: app)
+        // CI run 37639511433: missed on the smallest device at AX5 (two legs) with the default
+        // 15-swipe cap; a card 44 pt tall plus huge text can need more swipes to reach.
         guard cards.count > 1,
-              goScrolling(cards.element(boundBy: 1), app, screen: "course2", state: "card", reachedVia: "Courses list, card 2"),
+              goScrolling(cards.element(boundBy: 1), app, screen: "course2", state: "card", reachedVia: "Courses list, card 2",
+                         maxSwipes: 25),
               element("courseDetail.hero", in: app).waitForExistence(timeout: 10) else {
             snap(app, screen: "course2", state: "missing-detail", reachedVia: "Courses list, card 2")
             finish("C")
@@ -660,8 +663,10 @@ final class AuditTourUITests: TallyUITestCase {
             let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "\(name) Sample")).firstMatch
             guard goScrolling(row, app, screen: "family", state: "removeStudent-\(name)",
                               reachedVia: "Linked Students -> \(name) Sample") else { continue }
-            guard go(app.buttons["family.removeFromTally"], app, screen: "family", state: "removeConfirm-\(name)",
-                     reachedVia: "\(name) Sample -> Remove from Tally") else { continue }
+            // CI run 37639511433: `go` alone missed this at AX5 (below the fold on the student
+            // detail screen); `goScrolling` is a safe strict improvement, same fallback on failure.
+            guard goScrolling(app.buttons["family.removeFromTally"], app, screen: "family", state: "removeConfirm-\(name)",
+                              reachedVia: "\(name) Sample -> Remove from Tally") else { continue }
             if app.staticTexts["Remove \(name) from Tally?"].waitForExistence(timeout: 10) {
                 snap(app, screen: "family", state: "removeConfirm-\(name)", reachedVia: "\(name) Sample -> Remove from Tally")
             }
@@ -741,8 +746,11 @@ final class AuditTourUITests: TallyUITestCase {
         searchField.typeText(Self.demoHost)
         guard go(app.buttons["Use \(Self.demoHost)"], app, screen: "demoSignIn", state: "useSchool",
                  reachedVia: "typed \(Self.demoHost)") else { return }
-        _ = go(app.buttons["Continue to \(Self.demoHost)"], app, screen: "demoSignIn", state: "continue",
-               reachedVia: "Use \(Self.demoHost)")
+        // CI run 37639511433: `go` alone missed this at AX5 on every leg (the confirmation screen's
+        // button is below the fold at that text size) — `goScrolling` degrades to the same
+        // "missing" recording if it still can't be found, so this can only help, never regress.
+        _ = goScrolling(app.buttons["Continue to \(Self.demoHost)"], app, screen: "demoSignIn", state: "continue",
+                        reachedVia: "Use \(Self.demoHost)")
     }
 
     // MARK: - Capture primitives
