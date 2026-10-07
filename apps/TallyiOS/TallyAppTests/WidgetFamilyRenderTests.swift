@@ -135,7 +135,7 @@ struct WidgetFamilyRenderTests {
             .environment(\.widgetRenderingMode, mode.renderingMode)
             .frame(width: surface.size.width, height: surface.size.height)
         let renderer = ImageRenderer(content: Group { if redacted { view.redacted(reason: .privacy) } else { view } })
-        renderer.scale = 2
+        renderer.scale = 3
         return renderer
     }
 
@@ -202,7 +202,7 @@ struct WidgetFamilyRenderTests {
         .environment(\.widgetRenderingMode, Mode.fullColor.renderingMode)
         .frame(width: Surface.dueSoonMedium.size.width, height: Surface.dueSoonMedium.size.height)
         let renderer = ImageRenderer(content: view)
-        renderer.scale = 2
+        renderer.scale = 3
         let withButton = try #require(renderer.uiImage?.pngData())
         Attachment.record(withButton, named: "m3d2-due-soon-mark-done.png")
         #expect(withButton != plain, "the Mark Done button drew nothing extra on the Due soon row")
