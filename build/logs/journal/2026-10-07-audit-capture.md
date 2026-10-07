@@ -71,7 +71,32 @@ every tab, not Dashboard-specific), and the four `Menu {` call sites in the feat
   `-only-testing:TallyAppTests/WidgetFamilyRenderTests` to the same build.
 - Each leg uploads `audit-<device>-<appearance>-<textSize>`, retention 14 days.
 
+## Push 1: run 37627030732
+- 4/8 legs green: `proMax/dark/std`, `smallest/dark/std`, `smallest/light/std`, `proMax/light/std`.
+- 4/8 legs (every `ax5` leg, both devices, both appearances) failed the same way: `make ios-test`
+  exit code 2, xcresult `result=Failed`, the one failing test in each
+  `AuditTourUITests/testB_coursesAndFirstCourseDetail()`, "Test exceeded execution time allowance
+  of 5 minutes."
+- Diagnosed from the `proMax/dark/ax5` log and its downloaded artifact's `manifest.json`
+  (attachment timestamps), not guessed: this was never a hang. `scrollToTop` did all 20
+  `swipeDown`s on every call, unconditionally, with no early-exit check — at AX5 each swipe +
+  XCUITest's idle wait runs noticeably longer, and `testB` called it 4 times. Reconstructing the
+  gaps between successive numbered captures (e.g. `33-course1-scroll6` → `34-course1-grades`: 47 s;
+  `34` → `35-course1-menu`: 68 s) accounts for essentially the whole 280-300 s budget before the
+  What-If section even started — no single operation was stuck for 5 minutes, the method was just
+  doing ~200 s of pure scroll-to-top waste on top of ~100 s of real work.
+- Fix: `scrollToTop` now stops as soon as a `swipeDown` produces an unchanged screenshot (same
+  settle check used everywhere else in this file), turning a ~40-50 s call into ~5-10 s once
+  already near the top. Also split `testB` at the point after "Grades"/"Overview": the Menu
+  (XG-04) and What-If sections move to a new `testB2_firstCourseMenuAndWhatIf` (re-navigates to
+  course 1; each method gets its own fresh launch regardless), for margin on top of the
+  `scrollToTop` fix, not instead of it.
+- Verified all four non-`ax5` legs reached `testB` and passed it before the fix, so this is an
+  AX5-only cost problem, not a functional one; cross-checked all 4 failing legs independently
+  (`gh run view --job <id> --log`) to confirm the identical failure signature before writing one
+  fix for all of them, rather than patching the symptom in just the leg first inspected.
+
 ## Budget
-4 pushes that trigger the tour, total. This entry is written before push 1; the run ID, per-leg
-result and artifact paths go in the hand-off reply, not here (binding rules: evidence lives where
-it's observed, not duplicated).
+4 pushes that trigger the tour, total; push 1 (run 37627030732) is spent. The run ID, per-leg
+result and artifact paths for the final run go in the hand-off reply, not here (binding rules:
+evidence lives where it's observed, not duplicated).

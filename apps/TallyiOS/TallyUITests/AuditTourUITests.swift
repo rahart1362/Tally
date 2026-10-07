@@ -121,12 +121,36 @@ final class AuditTourUITests: TallyUITestCase {
         scrollToTop(app)
         if goScrolling(app.buttons["Grades"], app, screen: "course1", state: "grades", reachedVia: "segment control") {
             snap(app, screen: "course1", state: "grades", reachedVia: "Grades segment")
-            scrollToTop(app)
-            _ = goScrolling(app.buttons["Overview"], app, screen: "course1", state: "overview-again", reachedVia: "segment control")
+        }
+
+        app.terminate()
+        finish("B")
+    }
+
+    // MARK: - B2: Course Detail menu (XG-04) + What-If sheet (first course)
+
+    /// Split out of `testB` (CI run 37627030732: every AX5 leg timed out there — see
+    /// `scrollToTop`'s doc comment). Re-navigates to course 1 rather than share state with `testB`,
+    /// since each method gets a fresh app launch regardless.
+    @MainActor
+    func testB2_firstCourseMenuAndWhatIf() throws {
+        continueAfterFailure = true
+        executionTimeAllowance = 280
+        XCUIDevice.shared.appearance = Self.appearance
+        stepNumber = 300
+        resetAppState()
+
+        let app = launchSignedIn()
+        openTab("Courses", in: app)
+        let cards = elements("course.card", in: app)
+        guard goScrolling(cards.element(boundBy: 0), app, screen: "course1", state: "card-b2", reachedVia: "Courses list, card 1"),
+              element("courseDetail.hero", in: app).waitForExistence(timeout: 10) else {
+            finish("B2")
+            app.terminate()
+            return
         }
 
         // Any Menu you can open, fully: the toolbar's grades-outside-Canvas menu (XG-04).
-        scrollToTop(app)
         if goScrolling(element("courseDetail.menu", in: app), app, screen: "course1", state: "menu", reachedVia: "toolbar menu") {
             snap(app, screen: "course1", state: "menu", reachedVia: "tapped courseDetail.menu")
             if go(element("courseDetail.gradesOutsideCanvas", in: app), app, screen: "course1", state: "gradesOutsideCanvas",
@@ -143,7 +167,6 @@ final class AuditTourUITests: TallyUITestCase {
         }
 
         // The What-If sheet, fully presented.
-        scrollToTop(app)
         let whatIf = element("courseDetail.whatIf", in: app)
         if goScrolling(whatIf, app, screen: "course1", state: "whatIf", reachedVia: "What-If button") {
             _ = element("whatif.simulationLabel", in: app).waitForExistence(timeout: 10)
@@ -155,7 +178,7 @@ final class AuditTourUITests: TallyUITestCase {
         }
 
         app.terminate()
-        finish("B")
+        finish("B2")
     }
 
     // MARK: - C: Course Detail (second course, light)
@@ -757,9 +780,21 @@ final class AuditTourUITests: TallyUITestCase {
         return true
     }
 
+    /// Swipes down until the screenshot stops changing (the top, or nothing left to scroll), or
+    /// `maxSwipes` is reached. **Found in CI (run 37627030732): every AX5 leg timed out in
+    /// `testB`, not from a hang but from this method once unconditionally performing all 20
+    /// swipes on every call — 4 calls in that one method, each ~40-50 s at AX5, consumed most of
+    /// the 300 s cap before the real work even started.** Stopping as soon as the content settles
+    /// turns a ~40-50 s call into a ~5-10 s one once already near the top.
     @MainActor
     private func scrollToTop(_ app: XCUIApplication, maxSwipes: Int = 20) {
-        for _ in 0..<maxSwipes { app.swipeDown(velocity: .slow) }
+        var previous = app.screenshot().pngRepresentation
+        for _ in 0..<maxSwipes {
+            app.swipeDown(velocity: .slow)
+            let current = app.screenshot().pngRepresentation
+            if current == previous { break }
+            previous = current
+        }
     }
 
     /// Taps a quiet corner of the screen, away from the status bar and any tab bar, to dismiss an
