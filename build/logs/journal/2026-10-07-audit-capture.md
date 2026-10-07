@@ -121,8 +121,26 @@ causes, not independent flakes —
   fallback (same "missing" recording if still unreachable), so this can only reduce the missing
   count, never regress a leg that was already green.
 
+## Push 3: run 37649050231 — all 8 legs green, 15 missing (down from 47), 2 unsettled
+Re-ran `.build-audit/aggregate.py` against the re-downloaded artifacts. 598 captures total; the
+three targeted fixes resolved 32 of the 47 prior misses (the `continue`/`removeFromTally` cascades
+are gone entirely). What's left, read rather than just counted:
+- **8 legs: `121-demoSignIn-missing-firstSyncProgress`.** Every leg now, not just the AX5 ones —
+  the expected outcome of the race this capture always was (its own code comment: "best-effort...
+  a fast replay may already have switched"); not a regression, the fix moved the race earlier so
+  it's now hit on every leg instead of masked by the earlier `continue` failures on 4 of them.
+- **4 AX5 legs: `156-lockedTab-missing-card`.** Already uses `goScrolling`; still not found. Left
+  as a candidate real finding for the reviewer, not a test gap — scrolling further wouldn't be
+  the same fix as the other two clusters, since this one already scrolls.
+- **2 legs (`smallest`+`ax5`): `31-course2-missing-detail`.** Persists even at `maxSwipes: 25`;
+  diminishing returns past here, left as recorded.
+- **1 leg: `113-schoolSearch-missing-field-UNSETTLED`.** Single occurrence, looks like a flake.
+- Stopping here: this run is clean enough to hand off (binding rules: "a tour leg that ends with
+  screens missing is acceptable on the last run"), and the remaining misses are either expected,
+  already-explained, or genuinely low-value to keep chasing against a 4-push budget.
+
 ## Budget
-4 pushes that trigger the tour, total; pushes 1 and 2 spent (runs 37627030732, 37639511433).
-Push 2 already succeeded end-to-end (hand-off-ready on its own); push 3 is a quality
-improvement on top of it, not a required fix. The run ID, per-leg result and artifact paths for
-the run actually used in the hand-off go in the hand-off reply, not here.
+4 pushes used: 1 (initial, 4/8 legs failed on the same AX5 timeout), 2 (fix, all 8 green, 47
+missing), 3 (targeted missing-capture fixes, all 8 green, 15 missing). Push 4 not used — push 3's
+run is the one handed off. Run ID, per-leg result and artifact paths are in the hand-off reply,
+not duplicated here.
