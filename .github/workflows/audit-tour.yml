@@ -30,7 +30,9 @@ jobs:
       fail-fast: false
       matrix:
         device: [proMax, smallest]
-        appearance: [light, dark]
+        # Push 4 (PMO, 2026-10-07): dark only. Run 37649050231's light legs stand; its "dark" legs
+        # rendered light (0 of 296 captures dark), so the appearance is now set on the simulator itself.
+        appearance: [dark]
         textSize: [std, ax5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,6 +83,9 @@ jobs:
           xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
           xcrun simctl status_bar "${{ steps.sim.outputs.udid }}" override --time "9:41" --dataNetwork wifi --wifiMode active \
             --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+          # XCUIDevice.shared.appearance alone did not take in run 37649050231; set it on the device too.
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance "${{ matrix.appearance }}"
+          echo "appearance now: $(xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance)"
       - name: Build TallyAppTests + TallyUITests for testing
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
       - name: Run the audit tour (+ widget renders on the proMax / light / std leg)
