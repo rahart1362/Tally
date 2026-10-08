@@ -95,11 +95,8 @@ struct CoursesScreen: View {
             ProgressView(String(localized: L10n.Courses.loading()))
         case .loaded, .failed:
             // ux-ui.md §3.2.3 "No courses".
-            ContentUnavailableView {
-                Label(String(localized: L10n.Courses.emptyTitle()), systemImage: "books.vertical")
-            } description: {
-                Text(L10n.Courses.emptyDescription())
-            } actions: {
+            TallyUnavailableView(Text(L10n.Courses.emptyTitle()), systemImage: "books.vertical",
+                                 description: Text(L10n.Courses.emptyDescription())) {
                 Button(String(localized: L10n.Courses.emptyRefresh())) { model.requestRefresh() }
             }
             // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the

@@ -21,9 +21,12 @@ public enum TallyReflow {
     /// The spacing between a reflowed row's parts at the accessibility sizes.
     public static let stackedSpacing: CGFloat = TallySpacing.xs
 
-    /// How far a one-line value may shrink to stay on one line: 0.6 of an AX5 caption (43 pt) is
-    /// still 26 pt, twice the default size.
-    public static let valueMinimumScale: CGFloat = 0.6
+    /// How far a one-line value or status chip may shrink to stay on one line, at the accessibility
+    /// sizes only (below them nothing shrinks: Audit tour run 37827539573 showed To-Do's chips drawn
+    /// at about three quarters of their size on the smallest iPhone at the standard size, where they
+    /// fit). 0.5 of an AX5 caption (43 pt) is still 21.5 pt, close to twice the default; 0.6 left
+    /// "High priori…" in To-Do's select mode at AX5 on the smallest iPhone, which needs 0.54.
+    public static let valueMinimumScale: CGFloat = 0.5
 
     /// The largest Dynamic Type size pinned chrome is drawn at. At AX2 the lapsed-subscription banner
     /// takes about a quarter of the smallest iPhone's screen and Welcome's two actions under a third,
@@ -95,14 +98,34 @@ public struct TallyReflowValueColumn<Content: View>: View {
     }
 }
 
+/// D02: a one-line value's modifier (`tallyReflowValue()`).
+public struct TallyReflowValue: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    public init() {}
+
+    public func body(content: Content) -> some View {
+        content
+            .lineLimit(1)
+            .minimumScaleFactor(TallyReflow.minimumScale(at: typeSize))
+            .layoutPriority(1)
+    }
+}
+
+extension TallyReflow {
+    /// `valueMinimumScale` at the accessibility sizes, 1 (never shrink) below them.
+    public static func minimumScale(at size: DynamicTypeSize) -> CGFloat {
+        size.isAccessibilitySize ? valueMinimumScale : 1
+    }
+}
+
 extension View {
     /// D02: a value that must never break across lines (a score, a course code, a time): one line,
-    /// shrunk to fit only when even a whole line is too narrow, and laid out before the text beside
-    /// it, which wraps instead. Apply it to the value, or to the group (dot and code) that holds it.
+    /// laid out before the text beside it (which wraps instead) and, at the accessibility sizes
+    /// only, shrunk to fit when even a whole line is too narrow. Apply it to the value, or to the
+    /// group (dot and code) that holds it.
     public func tallyReflowValue() -> some View {
-        lineLimit(1)
-            .minimumScaleFactor(TallyReflow.valueMinimumScale)
-            .layoutPriority(1)
+        modifier(TallyReflowValue())
     }
 
     /// D04/D05: caps pinned chrome at `TallyReflow.pinnedChromeMaximumSize`. Apply it to the bar

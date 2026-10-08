@@ -52,6 +52,10 @@ struct LockedFeatureCard: View {
             .padding(TallySpacing.screenMargin)
         }
         .background(TallyColor.bgCanvas)
+        // ux-fp2 D04 follow-up: with the banner compact, the card scrolls at AX5 (it is reachable
+        // now), and scrolled it passed under the toolbar's Settings button (Audit tour run
+        // 37827539573); the screens' own D01 chrome hides it under an opaque bar instead.
+        .tallyScreenChrome()
     }
 }
 
@@ -101,10 +105,16 @@ private struct SubscriptionRefreshBannerContent: View {
                     .accessibilityIdentifier("subscription.refreshBanner")
             }
             TallyReflowSpacer(minLength: 0)
-            Button(String(localized: L10n.Subscription.seePlans()), action: onSeePlans)
-                .font(TallyTypography.footnote.weight(.semibold))
-                .frame(minHeight: 44) // the HIG's minimum target
-                .accessibilityIdentifier("subscription.refreshBanner.seePlans")
+            Button(action: onSeePlans) {
+                // The HIG's 44 pt minimum on the label, so the hit area grows with it: on the Button
+                // itself the frame grew the layout box only, and once the banner was capped at AX2
+                // the target measured 33 pt at AX5 (Audit tour run 37827539573, `lockedTab-card`).
+                Text(L10n.Subscription.seePlans())
+                    .font(TallyTypography.footnote.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("subscription.refreshBanner.seePlans")
         }
         .foregroundStyle(TallyColor.textPrimary)
         .padding(.horizontal, TallySpacing.screenMargin)

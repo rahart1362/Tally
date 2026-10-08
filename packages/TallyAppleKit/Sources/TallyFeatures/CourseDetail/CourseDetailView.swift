@@ -40,8 +40,8 @@ struct CourseDetailView: View {
             if let detail = model.courseDetails[courseID] {
                 content(detail)
             } else {
-                ContentUnavailableView(String(localized: L10n.CourseDetail.unavailableTitle()), systemImage: "books.vertical",
-                                       description: Text(L10n.CourseDetail.unavailableDescription()))
+                TallyUnavailableView(Text(L10n.CourseDetail.unavailableTitle()), systemImage: "books.vertical",
+                                     description: Text(L10n.CourseDetail.unavailableDescription()))
                     // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the
                     // screen's own D01 chrome, since it can now scroll under the bar.
                     .tallyCenteredScrolling()

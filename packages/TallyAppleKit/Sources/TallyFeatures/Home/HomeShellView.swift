@@ -68,16 +68,15 @@ public struct HomeShellView: View {
             // FAM-09: parent mode with no student left: §7.6's parent empty state replaces the tabs.
             if let family, family.students.isEmpty {
                 NavigationStack {
-                    ContentUnavailableView {
-                        Label(String(localized: L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2")
-                    } description: {
-                        Text(L10n.FamilyUI.parentNoStudents())
-                    } actions: {
+                    TallyUnavailableView(Text(L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2",
+                                         description: Text(L10n.FamilyUI.parentNoStudents())) {
                         Button(String(localized: L10n.FamilyUI.addStudent())) { openSettings(addingStudent: true) }
                             .accessibilityIdentifier("family.emptyAdd")
                     }
-                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the
+                    // D01 chrome, since it can now scroll under the bar.
                     .tallyCenteredScrolling()
+                    .tallyScreenChrome()
                     .toolbar { settingsToolbarItem }
                 }
             } else {

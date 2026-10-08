@@ -26,8 +26,10 @@ struct DashboardView: View {
                 case .loading:
                     DashboardLoadingView()
                 case .failed:
-                    ContentUnavailableView(String(localized: L10n.Dashboard.failedTitle()), systemImage: "house",
-                                           description: Text(L10n.Dashboard.failedDescription()))
+                    // ux-fp2 D20: inside this ScrollView the system view reports the visible height,
+                    // not its content's; `TallyUnavailableView` is as tall as its content at AX sizes.
+                    TallyUnavailableView(Text(L10n.Dashboard.failedTitle()), systemImage: "house",
+                                         description: Text(L10n.Dashboard.failedDescription()))
                         .padding(.top, TallySpacing.xxxl)
                 case .glance:
                     // perf-app-runtime.md §2.4 L4 (decision D-P1): the sealed glance's hero count and

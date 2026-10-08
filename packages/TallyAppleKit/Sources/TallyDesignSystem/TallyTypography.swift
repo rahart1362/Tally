@@ -38,4 +38,17 @@ public enum TallyTypography {
     public static var caption: Font {
         .system(.caption)
     }
+
+    /// An empty or error state's title at the accessibility sizes (`TallyUnavailableView`):
+    /// `.title2` bold, the system `ContentUnavailableView`'s own title style.
+    public static var stateTitle: Font {
+        .system(.title2).bold()
+    }
+
+    /// An empty or error state's symbol at the accessibility sizes (`TallyUnavailableView`):
+    /// `.largeTitle`, a little smaller than the system view's, which leaves more of an AX5 screen
+    /// for the words.
+    public static var stateSymbol: Font {
+        .system(.largeTitle)
+    }
 }

@@ -85,6 +85,7 @@ struct StatusChip: View {
     var tone: Tone = .neutral
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(symbol: String, text: LocalizedStringResource, tone: Tone = .neutral) {
         self.symbol = symbol
@@ -108,11 +109,11 @@ struct StatusChip: View {
             Image(systemName: symbol).foregroundStyle(tint)
         }
         // ux-fp2 D11: in a `List` row a plain `Label` took the list's icon column (an 18 pt gap
-        // before the words); the chip's words never wrap or truncate: on one line, shrunk only if
-        // even a line of their own is too narrow (D02's value rule, `TallyReflow`).
+        // before the words); the chip's words never wrap: one line, shrunk (at the accessibility
+        // sizes only) when even a line of their own is too narrow (D02's value rule, `TallyReflow`).
         .labelStyle(.tallyCompact)
         .lineLimit(1)
-        .minimumScaleFactor(TallyReflow.valueMinimumScale)
+        .minimumScaleFactor(TallyReflow.minimumScale(at: typeSize))
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
