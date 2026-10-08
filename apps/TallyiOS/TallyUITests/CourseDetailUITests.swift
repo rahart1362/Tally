@@ -147,10 +147,11 @@ final class CourseDetailUITests: TallyUITestCase {
                       "Course Detail never opened. Hierarchy: \(app.debugDescription)")
 
         // The row is one element whose label reads "<title>, <score> out of <points>, posted <day>"
-        // (`gradedItemAccessibility`); its texts are its children in the hierarchy.
+        // (`gradedItemAccessibility`); its texts are its children in the hierarchy. The list builds
+        // its rows as they scroll in (CI run 37826657241: none existed before scrolling), so scroll
+        // first, then look.
         let row = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", " out of ", ", posted ")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "no recent grade. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(scrollUntilHittable(row, in: app, maxSwipes: 15), "the first recent grade never came on screen. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(row, in: app, maxSwipes: 15), "no recent grade came on screen. Hierarchy: \(app.debugDescription)")
 
         // Every frame below comes from ONE snapshot, so they agree even if the list is still settling.
         let snapshot = try app.snapshot()
