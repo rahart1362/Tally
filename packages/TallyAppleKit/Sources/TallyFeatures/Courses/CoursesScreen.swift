@@ -45,12 +45,14 @@ struct CoursesScreen: View {
                             }
                         }
                     }
-                    // D31 round 2: `.listRowBackground` on the `List` itself never reached the
-                    // rows; `tallyRow()` on the `ForEach` reaches every row it generates.
-                    .tallyRow()
                     .onMove { source, destination in
                         model.moveCourses(fromOffsets: source, toOffset: destination)
                     }
+                    // D31 round 2: `.listRowBackground` on the `List` itself never reached the
+                    // rows; `tallyRow()` on the `ForEach` reaches every row it generates. Must come
+                    // AFTER `.onMove`: that modifier needs `ForEach`'s own `DynamicViewContent`
+                    // conformance, which a `View`-returning modifier like this one does not keep.
+                    .tallyRow()
                 }
                 .listStyle(.insetGrouped)
                 .environment(\.editMode, $editMode)

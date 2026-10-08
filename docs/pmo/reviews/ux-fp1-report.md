@@ -5,6 +5,11 @@ Branch `ux/fp1-chrome`, from `origin/main` @ `799bec9`, merged with `origin/main
 (one entry per verified step: design notes, local verification output, both real bugs found while
 reviewing the Audit tour's "after" captures, and the full CI/audit history).
 
+Round 1 (below, through "Evidence paths") is as PR #42 opened it. **Round 2** (its own section,
+after "Strings") is the response to Gate 2's verdict — read it for the current state: three
+PARTIAL defects fixed, three new regressions fixed, and a real build-breaking bug round 2 itself
+introduced and fixed, whose cost left Gate 1's round-2 evidence blocked.
+
 ## Defects
 
 | Defect | What changed | `file:line` | Evidence | Layout delta |
@@ -127,7 +132,7 @@ how many scroll states were captured.
    pixel-sampling (`(20,20)` was `(191,191,195)` light grey in the stale file, `(0,0,0)` true black
    in the corrected one) and fixed by trying `dark-run/` first for `-dark-` legs.
 
-## Strings PENDING owner approval
+## Strings — owner-approved
 
 - `courseDetail.override.menuRowTitle`, **"Grades kept outside Canvas"**
   (`packages/TallyAppleKit/Sources/TallyStrings/L10n+GradeControls.swift:19-30`, English catalog
@@ -135,10 +140,92 @@ how many scroll states were captured.
   question ("This course's grades are kept outside Canvas") to "…kept outside Ca…" on the smallest
   iPhone — a `Picker`/`Menu` row never wraps, so no layout-only fix exists.
   `courseDetail.override.title` (the full question) is unchanged and still used wherever there is
-  room to show it.
+  room to show it. **Approved by the owner, 2026-10-08** — no longer pending. Round 2 is frozen on
+  copy (no new or changed strings).
+
+## Round 2 — Gate 2 fix list
+
+Gate 2 (an Opus design review, `.build-ux/review/verdict.md`) found D01, D03 and D31 PARTIAL and
+three new regressions (R1, R2, R3). This section is the fix for each item on its fix list.
+
+| Item | Change | `file:line` | Evidence |
+|---|---|---|---|
+| D01 (S1) ghosting/grey slab at the bar | `TallyScreenChrome` adds `.toolbarBackground(TallyColor.bgCanvas, for: .navigationBar)` + `.toolbarBackgroundVisibility(.visible, for: .navigationBar)` on top of `.hard`, so the bar is opaque instead of a translucent material something can still show through. A new `TallyFormScreenChrome`/`tallyFormScreenChrome()` gives the grouped `Form` sheets (Settings, Subscription, Family) the same opaque fix in their own background, not Tally's navy canvas. | `TallyDesignSystem/ScreenChrome.swift:18-61`; call sites unchanged except the 9 `Form` screens switched from `tallyScreenChrome()` to `tallyFormScreenChrome()`: `Settings/SettingsView.swift:93,452,475`, `Settings/SubscriptionSettingsView.swift:78`, `Family/FamilySettingsViews.swift:128,226,371,406,463` | Blocked — see "Round 2 CI and audit runs" below |
+| D31 (S2) rows still system grey | Round 1's `.listRowBackground(TallyColor.bgCard)` was set on the `List` itself, which a list-row trait never reaches. New `TallyRow`/`tallyRow()` applied directly to every row/Section instead. | `ScreenChrome.swift:96-115`; applied at `Courses/CoursesScreen.swift:55`, `ToDo/ToDoScreen.swift:32`, `Calendar/CalendarScreen.swift:39,54`, `CourseDetail/CourseDetailView.swift:62,118,126,154,168,180,208,217,238,269,317` (hero kept `.clear`, untouched), `CourseDetail/WhatIfSheet.swift:31,46,239,402`, `Family/StudentSwitcher.swift:121,132` | Blocked |
+| D31 (S2) What-If score/weight fields pure black | `.textFieldStyle(.roundedBorder)` → `.plain` with an explicit `TallyColor.bgCanvas` fill (`RoundedRectangle(cornerRadius: TallyRadius.iconTile)`) and the existing `TallyColor.separator` stroke, on both the score field and the category-weight field (the fix list named only the score field; the weight field has the identical black-fill bug and the acceptance criterion caps the *whole sheet* at two dark tones, so it needed the same fix). The stepper capsule gets a matching separator stroke. | `CourseDetail/WhatIfSheet.swift:144-160` (score field), `:286-308` (weight field), `:359-365` (stepper) | Blocked |
+| D03 (S1) AX5 confirmation still clips at rest | New shared `tallyDestructiveConfirmation` (`Support/DestructiveConfirmation.swift`): `.alert` unchanged below the accessibility sizes; at AX1+ the SAME title/message/button strings present as a full-screen sheet with the buttons pinned in a `safeAreaInset(edge: .bottom)` bar, so Cancel is visible at rest on every device, and only the title/message above it ever needs a scroll (only on the smallest iPhone). Wired into all three confirmations. | `Support/DestructiveConfirmation.swift` (new, 124 lines); `Settings/SettingsView.swift:108-110,196-211`; `Family/FamilySettingsViews.swift:136-149`; test: `apps/TallyiOS/TallyUITests/SettingsUITests.swift:134-181` (`testSignOutConfirmationReadableAtAccessibilityXXXL`, rewritten) | Blocked |
+| R1 (S2) School search field clips/no glyph at AX5 | `.navigationBarDrawer` (still a system `UISearchBar`, which cannot wrap text, guarantee a glyph, or scale its placeholder) replaced at AX5 with a plain `TextField(axis: .vertical)` in its own `.safeAreaInset(edge: .top)`: `TallyTypography.body`, an explicit magnifying-glass glyph, `TallySpacing.screenMargin`. Below AX1, `.searchable` is unchanged. | `Onboarding/SchoolSearch/SchoolSearchView.swift:46-70` (branch), `:90-111` (`accessibleSearchField`) | Blocked |
+| R2 (S3) sample/family status strip wrong colour | `HomeShellView`'s root `VStack` (banner + tabs/parent-empty-state) now paints `TallyColor.bgCanvas` behind its own top safe area, so the strip the banner's own D29 fix leaves uncovered shows Tally's canvas colour instead of the system default. | `Home/HomeShellView.swift:155-161` | Blocked |
+| R3 (S3) AX5 switcher avatar overflow | `StudentAvatar`'s initials circle now scales with Dynamic Type via a capped `@ScaledMetric` (`relativeTo: .caption`, capped at a new `FamilyUIConfig.avatarDiameterMax` = 44 pt, matching the switcher's own minimum tap height) instead of staying a fixed 28 pt. | `Family/StudentSwitcher.swift:177-196`; `Family/FamilyRoster.swift:9-12` | Blocked |
+| S3 "Remove from Tally" not destructive | `role: .destructive` added to both places the label is a button (the row and its own confirm action), matching Unlink and Sign Out & Erase. | `Family/FamilySettingsViews.swift:114,140` | Blocked |
+| S3 (optional) smallest-iPhone AX5 menu-row hyphenation | **Not attempted.** SwiftUI exposes no modifier to control hyphenation on a `Menu`/`Picker` row's auto-truncated label; fixing it would need UIKit interop this host cannot verify without Xcode. Left as the fix list marked it: optional, skip if not trivial. | — | — |
+
+"Blocked" above means: code-reviewed and locally verified (see "Local verification" below), but **not confirmed by a passing build or a screenshot** — see the next section for why.
+
+### A real bug found on the first push, and its cost
+
+Push 1 (`2247a94`) carried a compile error: `tallyRow()` was chained **before** `.onMove` on
+`CoursesScreen.swift`'s `ForEach` (`CoursesScreen.swift:48-55` at push time). `.onMove(perform:)`
+is declared on `DynamicViewContent`, which only `ForEach` (not a `View`-returning modifier's result)
+conforms to; calling a plain `View` modifier like `tallyRow()` first erases that conformance, so
+`.onMove` right after it doesn't type-check:
+`CoursesScreen.swift:51:22: error: value of type 'some View' has no member 'onMove'`. SwiftLint
+(run locally before the push, 0 violations/285 files) parses syntax, not full types, so it never
+would have caught this — only a real Swift build does, and this host has none. **Fixed** by
+reordering: `.onMove` first, `tallyRow()` after (confirmed no other `.onMove`/`.onDelete`/
+`.onInsert` exists anywhere else in the package — grepped — so this was the one site at risk).
+
+The cost: this single error broke every iOS job in push 1's required CI run (`iOS build + test`,
+`iOS ThreadSanitizer`, `iOS AddressSanitizer`, `iOS perf budgets` — all four, same root cause, see
+below) **and** the one Audit tour dispatch this package is allowed, which was already running
+against the broken commit. All 8 of its legs failed at the build step, with **zero artifacts**
+uploaded (unlike round 1's partial-failure runs, where the app at least built and ran before a
+later step hung — here it never built at all, so there was nothing to screenshot). The budget is
+one dispatch, spent; per rule 8, this is recorded here rather than guessed around with a second,
+unauthorized one.
+
+### Round 2 CI and audit runs
+
+| Run | Scope | Commit | Result |
+|---|---|---|---|
+| 37765554603 | `CI` (PR #42's own required run, triggered by push 1) | `2247a94` | **4 of 8 real jobs failed**: `iOS build + test`, `iOS ThreadSanitizer (TallyAppTests)`, `iOS AddressSanitizer (app tests)`, `iOS perf budgets` — all four on the single `CoursesScreen.swift:51:22` compile error above. `TallyCore sanitizers`, `TallyCore tests (Linux)`, `Crash-safety lint`, `Hygiene gates` all passed (none of them build the iOS app). |
+| 37765602103 | `Audit tour` (the package's one allowed dispatch), all methods, `widgets=false` | `2247a94` | **8 of 8 legs failed**, same compile error, **0 artifacts** (the build never completed, so no screenshots exist for any leg). |
+
+Push 2 (this commit) carries the one-line reorder fix plus this report and the journal. **Not
+re-dispatching the Audit tour** — the budget is one dispatch per this package, already spent on
+the run above. The PR's own required run on this final commit is the next, and only remaining,
+build/test confirmation available to this package.
+
+### Local verification (round 2)
+
+- `make lint` (podman, SwiftLint 0.59.1, `--strict`): **0 violations, 0 serious, 285 files** — run
+  after the initial edits, and again after the `.onMove`/`tallyRow()` reorder fix.
+- `python3 scripts/ci/check_localizable_literals.py`: `PASS | 213 Swift files, 0 literals in 0
+  files`.
+- `python3 scripts/ci/check_string_catalogs.py`: `PASS | 6 catalogs, 752 keys, shipping ['en'] | 0
+  problems`.
+- `python3 scripts/ci/check_debug_only_test_symbols.py .`: `PASS | 105 test files, 0 problems`.
+- Brace/paren/bracket balance check on every edited file (no Xcode on this host): all balanced.
+- Grepped every edited file for `Dictionary(uniqueKeysWithValues:)` (trap 1): none.
+- Grepped the whole package for `.onMove`/`.onDelete`/`.onInsert` after the fix: only the one,
+  now-correctly-ordered site in `CoursesScreen.swift`.
+- None of this is a substitute for a real build — see "Blocked" above. This host has no Xcode; the
+  PR's own required run on the final (this) commit is the first real compile/test confirmation
+  either this fix or the rest of round 2's changes will get.
 
 ## Open items
 
+- **Round 2's Gate 1 evidence is blocked.** The before/after images for D01, D03, D31, R1, R2, R3
+  (suffixed `-r2`), the layout-delta table for the touched screens, the new `owner-sheet-ux-fp1.jpg`
+  and the pixel-level D01 bar-region check across all 8 legs could not be built: the one Audit tour
+  dispatch this package is allowed produced zero captures (see "Round 2 CI and audit runs"). Every
+  fix above is code-reviewed and locally verified (lint, the three Python checks, brace balance,
+  reasoning from the exact asset-catalog colour values and existing API precedent in this same
+  codebase) but **not yet confirmed by a passing iOS build, a passing test run, or a screenshot**.
+  Whoever picks this package up next needs either another Audit tour dispatch (outside this
+  package's remaining budget) or to treat the PR's required run on push 2 as the first real signal.
+- **D01 round 2's pixel-inspection method, specifically, is unwritten** for the same reason: there
+  is no screenshot to inspect yet.
 - **D26 device check.** The audit itself flagged SE AX5 as "unsettled" from the simulator for this
   screen (`.build-audit/review/evidence/D26.jpg` + the audit's own gaps list, G5). This host has no
   simulator either; the Audit tour's "after" captures are the verification available here, and the
@@ -161,9 +248,12 @@ how many scroll states were captured.
 
 ## Evidence paths
 
-- `.build-ux/evidence/` — one JPEG per defect/variant (11 files: `D01-1`, `D01-2`, `D03`, `D17-1`,
-  `D17-2`, `D22`, `D26`, `D27-1`, `D27-2`, `D29`, `D31`).
-- `.build-ux/owner-sheet-ux-fp1.jpg` — portrait overview, 1200×2236, 0.25 MB.
-- Both built by `.build-ux/compose_evidence.py` against Audit tour run `37749034721`'s downloaded
-  captures (`.build-ux/after-37749034721/`); the layout-delta table above by
-  `.build-ux/layout_delta.py` against the same run. All git-ignored (`.build-*/`), not committed.
+- Round 1: `.build-ux/evidence/` — one JPEG per defect/variant (11 files: `D01-1`, `D01-2`, `D03`,
+  `D17-1`, `D17-2`, `D22`, `D26`, `D27-1`, `D27-2`, `D29`, `D31`); `.build-ux/owner-sheet-ux-fp1.jpg`
+  (portrait, 1200×2236, 0.25 MB). Both built by `.build-ux/compose_evidence.py` against Audit tour
+  run `37749034721`'s downloaded captures (`.build-ux/after-37749034721/`); the layout-delta table
+  above by `.build-ux/layout_delta.py` against the same run.
+- Round 2: **no new evidence directory exists.** `.build-ux/after-37765602103/` was never created —
+  `gh run download` was not run, because the dispatch it would download produced no artifacts (see
+  "Round 2 CI and audit runs"). No `-r2` evidence JPEGs, no new owner sheet, no layout-delta rerun.
+- All git-ignored (`.build-*/`), not committed, round 1 or round 2.
