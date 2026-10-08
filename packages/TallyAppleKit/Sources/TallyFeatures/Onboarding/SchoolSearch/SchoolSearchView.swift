@@ -14,6 +14,9 @@ struct SchoolSearchView: View {
     @FocusState private var searchFieldFocused: Bool
     @State private var showSearchingRow = false
     @State private var showAddressHelp = false
+    /// D26: at AX5 the system's bottom search capsule is cut flat by the keyboard. Pinning it to
+    /// the navigation bar drawer at accessibility sizes keeps it reachable above the keyboard.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let onSelectEnabled: (InstitutionMatch, ClientRegistration) -> Void
     let onSelectNotEnabled: (String) -> Void
@@ -39,13 +42,19 @@ struct SchoolSearchView: View {
         Binding(get: { viewModel.query }, set: { viewModel.query = $0 })
     }
 
+    /// D26: the system default docks the search field at the bottom, where the keyboard cuts it
+    /// flat at AX5; pin it to the navigation bar drawer instead once accessibility sizes are on.
+    private var searchPlacement: SearchFieldPlacement {
+        typeSize.isAccessibilitySize ? .navigationBarDrawer(displayMode: .always) : .automatic
+    }
+
     var body: some View {
         content
             .listStyle(.plain)
             .background(TallyColor.bgCanvas)
             .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
+            .searchable(text: queryBinding, placement: searchPlacement, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
             .searchFocused($searchFieldFocused)
             .onAppear { searchFieldFocused = true }
             .toolbar {
