@@ -920,8 +920,10 @@ final class AuditTourUITests: TallyUITestCase {
         var flat: [Node] = []
         func walk(_ node: XCUIElementSnapshot, insideScrollView: Bool) {
             flat.append(Node(snapshot: node, insideScrollView: insideScrollView))
-            let childInsideScrollView = insideScrollView
-                || node.elementType == .scrollView || node.elementType == .table || node.elementType == .collectionView
+            // Read the kind first: `||`'s autoclosure capturing the non-Sendable snapshot fails the
+            // Release test build ("sending 'node' risks causing data races", ios-perf, run 37704108738).
+            let kind = node.elementType
+            let childInsideScrollView = insideScrollView || [.scrollView, .table, .collectionView].contains(kind)
             for child in node.children {
                 walk(child, insideScrollView: childInsideScrollView)
             }
@@ -965,7 +967,8 @@ final class AuditTourUITests: TallyUITestCase {
         for node in visible {
             let frame = node.snapshot.frame
             let crossesSides = frame.minX < windowFrame.minX || frame.maxX > windowFrame.maxX
-            let crossesBottom = frame.maxY > windowFrame.maxY && !node.insideScrollView
+            let insideScrollView = node.insideScrollView
+            let crossesBottom = frame.maxY > windowFrame.maxY && !insideScrollView
             if crossesSides || crossesBottom {
                 offscreen.append([
                     "element": describe(node.snapshot), "frame": frameDict(frame),
@@ -987,8 +990,8 @@ final class AuditTourUITests: TallyUITestCase {
         var leadingInsets: Set<Int> = []
         for node in flat {
             let identifier = node.snapshot.identifier
-            let isCardOrSection = identifier.hasSuffix(".card") || identifier.hasSuffix(".section")
-                || node.snapshot.elementType == .cell
+            let isCell = node.snapshot.elementType == .cell
+            let isCardOrSection = identifier.hasSuffix(".card") || identifier.hasSuffix(".section") || isCell
             guard isCardOrSection, node.snapshot.frame.width > 0 else { continue }
             leadingInsets.insert(Int(node.snapshot.frame.minX.rounded()))
         }
