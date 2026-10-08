@@ -247,6 +247,7 @@ public struct HomeShellView: View {
         if let family, family.activeStudent != nil {
             ToolbarItem(placement: .principal) {
                 StudentSwitcher(family: family, showsInitialsOnly: typeSize.isAccessibilitySize,
+                                isAccessibilitySize: typeSize.isAccessibilitySize,
                                 onManage: { openSettings() }, onAdd: { openSettings(addingStudent: true) })
             }
         }

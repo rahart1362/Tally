@@ -90,6 +90,31 @@ final class FamilyUITests: TallyUITestCase {
         }
     }
 
+    /// D17 (ux-fp1, AX5 regression): the switcher's `Menu` drew "Manage linked students…" over the
+    /// Dashboard hero at AX5, because a `Menu` never reflows for Dynamic Type. At AX5 the switcher
+    /// now opens a sheet instead: tapping it must show "Student" (the sheet's own nav title, never
+    /// true of the `Menu`), both students as separate reachable rows, and the two actions, with no
+    /// element drawn outside the sheet (CI run 37716470762 caught this failing to switch to the
+    /// sheet at all: `StudentSwitcher`'s own `@Environment(\.dynamicTypeSize)` read the toolbar's
+    /// clamped size, never true AX5 — fixed by passing the shell's own unclamped size in instead).
+    @MainActor
+    func testSwitcherAtAX5OpensASheetNotAMenu() throws {
+        let app = launchApp(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        tapWhenHittable(app.buttons["Explore with Sample Data"], in: app, timeout: 30)
+        XCTAssertTrue(app.staticTexts["SAMPLE DATA"].waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        enterParentMode(app)
+        let switcher = visibleSwitcher(in: app)
+        tapWhenHittable(switcher, in: app)
+        XCTAssertTrue(app.navigationBars["Student"].waitForExistence(timeout: 10),
+                      "tapping the AX5 switcher did not open the sheet (still a Menu?). Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Rowan Sample"].waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(app.buttons["Skyler Sample"], in: app), "Hierarchy: \(app.debugDescription)")
+        let manage = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Manage linked'")).firstMatch
+        XCTAssertTrue(scrollUntilHittable(manage, in: app), "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["Done"], in: app)
+        XCTAssertTrue(eventually { !app.navigationBars["Student"].exists })
+    }
+
     // MARK: FAM-10: §7.6 states
 
     /// §7.6 "Link removed", and FAM-09's one student: a label, not a menu.

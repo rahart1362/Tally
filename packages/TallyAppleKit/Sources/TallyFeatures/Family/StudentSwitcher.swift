@@ -16,18 +16,24 @@ struct StudentSwitcher: View {
     let family: FamilyModel
     /// From AX1 up (the shell's own size: toolbar content gets a clamped one, CI run 37065562136).
     let showsInitialsOnly: Bool
+    /// D17: at AX5 the `Menu`'s last item ("Manage linked students…") draws over the hero text at
+    /// the menu's edge. A `Menu` never reflows for Dynamic Type, so accessibility sizes get a sheet
+    /// instead, which scrolls like any other screen. Passed in from `HomeShellView`, not read via
+    /// `@Environment(\.dynamicTypeSize)` here: this view IS the toolbar's principal item content,
+    /// where the environment's Dynamic Type size is the toolbar's own clamped one, never AX5 — the
+    /// same reason `showsInitialsOnly` above is computed at the shell, not in this view (CI run
+    /// 37065562136's finding, restated by run 37716470762: with an internal `@Environment` read
+    /// here, this branch never took at AX5, and the AX5 "after" audit capture of the switcher open
+    /// was byte-identical to "before").
+    let isAccessibilitySize: Bool
     let onManage: () -> Void
     let onAdd: () -> Void
-    /// D17: at AX5 the `Menu`'s last item ("Manage linked students…") draws over the hero text at
-    /// the menu's edge. A `Menu` never reflows for Dynamic Type, so accessibility sizes get a
-    /// sheet instead, which scrolls like any other screen.
-    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showsAccessibleSwitcher = false
 
     var body: some View {
         if let student = family.activeStudent {
             if family.hasMenu {
-                if typeSize.isAccessibilitySize {
+                if isAccessibilitySize {
                     Button {
                         showsAccessibleSwitcher = true
                     } label: {
