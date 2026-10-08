@@ -1,0 +1,147 @@
+name: Audit tour
+# Design-quality audit capture (HANDOFF §4b gate 1): screenshots plus an automated layout check
+# (overlap, clipping, hit targets < 44 pt, leading insets, truncation) of every screen and state, per
+# leg = device x appearance x text size. Manual dispatch on any branch, e.g. a UI package's "after":
+#   gh workflow run "Audit tour" --ref <branch> -f tests=testA_dashboard,testE_toDo
+# AuditTourUITests skips unless this workflow sets AUDIT_APPEARANCE, so CI never runs it. First run:
+# 37649050231 (pmo/audit-tour). Each leg's artifact holds the xcresult attachments renamed to their
+# readable names (NN-<screen>-<state>.png / .layout.json) plus xcresulttool's manifest.json.
+on:
+  workflow_dispatch:
+    inputs:
+      devices:
+        description: 'JSON list: proMax (largest Pro Max, newest iOS 26), smallest'
+        default: '["proMax","smallest"]'
+      appearances:
+        description: 'JSON list: light, dark'
+        default: '["light","dark"]'
+      sizes:
+        description: 'JSON list: std, ax5 (AccessibilityXXXL)'
+        default: '["std","ax5"]'
+      tests:
+        description: 'Comma-separated AuditTourUITests methods (e.g. testA_dashboard,testE_toDo); empty = all'
+        default: ''
+      widgets:
+        description: 'Also capture the widget renders (proMax / light / std leg only)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-tour-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  tour:
+    name: Audit screenshots (${{ matrix.device }}, ${{ matrix.appearance }}, ${{ matrix.textSize }})
+    runs-on: macos-26
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ${{ fromJSON(inputs.devices) }}
+        appearance: ${{ fromJSON(inputs.appearances) }}
+        textSize: ${{ fromJSON(inputs.sizes) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick this leg's simulator
+        id: sim
+        # `proMax`: the largest "Pro Max" iPhone on the newest iOS 26 runtime (marketing-tour.yml's
+        # own picker, copied — scripts/ci/pick_ios_simulator.py has no "largest Pro Max" mode).
+        # `smallest`: scripts/ci/pick_ios_simulator.py --smallest (perf-app-runtime.md §7 step 3's
+        # own picker).
+        run: |
+          if [ "${{ matrix.device }}" = "smallest" ]; then
+            python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"
+          else
+            udid="$(xcrun simctl list devices available -j | python3 -c '
+            import json, re, sys
+            data = json.load(sys.stdin)["devices"]
+            best = None
+            for runtime, devices in data.items():
+                m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+                if not m or int(m.group(1)) != 26:
+                    continue
+                for d in devices:
+                    if "Pro Max" in d["name"]:
+                        key = (int(m.group(2)), d["name"])
+                        if best is None or key > best[0]:
+                            best = (key, d["udid"], d["name"], runtime)
+            print(best[1]); print(best[2], best[3], file=sys.stderr)
+            ')"
+            echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Boot the simulator, clean 9:41 status bar
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" 2>/dev/null || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
+          xcrun simctl status_bar "${{ steps.sim.outputs.udid }}" override --time "9:41" --dataNetwork wifi --wifiMode active \
+            --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+          # XCUIDevice.shared.appearance alone did not take (run 37649050231: every "dark" capture was
+          # light), so the appearance is set on the device before the tour runs.
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance "${{ matrix.appearance }}"
+          echo "appearance now: $(xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance)"
+      - name: Build TallyAppTests + TallyUITests for testing
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run the audit tour (+ widget renders on the proMax / light / std leg)
+        env:
+          # Read by AuditTourUITests via ProcessInfo; the TEST_RUNNER_ prefix is xcodebuild's own
+          # mechanism for reaching the UI test runner process (Makefile's ios-perf target already
+          # uses it for TALLY_PERF_RUN), so no app or package source changes are needed for this.
+          TEST_RUNNER_AUDIT_APPEARANCE: ${{ matrix.appearance }}
+          TEST_RUNNER_AUDIT_TEXT_SIZE: ${{ matrix.textSize }}
+        run: |
+          TESTS=""
+          for t in $(echo "${{ inputs.tests }}" | tr ',' ' '); do TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/$t"; done
+          [ -n "$TESTS" ] || TESTS="-only-testing:TallyUITests/AuditTourUITests"
+          if [ "${{ inputs.widgets }}" = "true" ] && [ "${{ matrix.device }}" = "proMax" ] && [ "${{ matrix.appearance }}" = "light" ] && [ "${{ matrix.textSize }}" = "std" ]; then
+            TESTS="$TESTS -only-testing:TallyAppTests/WidgetFamilyRenderTests"
+          fi
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING="$TESTS" IOS_RESULT_NAME=Tally-audit
+      - name: Export the screenshots and attachments
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally-audit.xcresult" \
+            --output-path "$RUNNER_TEMP/shots"
+          # Rename each exported attachment to its readable name (drop xcresulttool's _N_<UUID> suffix).
+          python3 - "$RUNNER_TEMP/shots" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          for test in json.load(open(os.path.join(root, "manifest.json"))):
+              for a in test.get("attachments", []):
+                  name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                  src, dst = os.path.join(root, a["exportedFileName"]), os.path.join(root, name)
+                  if os.path.exists(src) and not os.path.exists(dst):
+                      os.rename(src, dst)
+          PY
+          ls "$RUNNER_TEMP/shots" | wc -l
+      - name: Upload this leg's artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: audit-${{ matrix.device }}-${{ matrix.appearance }}-${{ matrix.textSize }}
+          path: ${{ runner.temp }}/shots
+          retention-days: 14
