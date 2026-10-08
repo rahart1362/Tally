@@ -53,9 +53,11 @@ final class WelcomeCTAUITests: TallyUITestCase {
 
         let disclaimer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", Self.disclaimerStart)).firstMatch
         XCTAssertTrue(disclaimer.waitForExistence(timeout: scaled(10)), "no R10 disclaimer. Hierarchy: \(app.debugDescription)")
+        // Full-speed swipes: the page only ends at the disclaimer, so overshooting is harmless, and
+        // slow ones took 115 s on the smallest iPhone (CI run 37841711587).
         var swipes = 0
         while disclaimer.frame.maxY > actionsTop, swipes < Self.maxSwipes {
-            app.swipeUp(velocity: .slow)
+            app.swipeUp()
             swipes += 1
         }
         let disclaimerBottom = disclaimer.frame.maxY
@@ -69,7 +71,7 @@ final class WelcomeCTAUITests: TallyUITestCase {
         assertCTAsAreHittable(in: app)
     }
 
-    /// How many slow swipes the AX XXXL page may need to reach its end on the smallest iPhone.
+    /// How many swipes the AX XXXL page may need to reach its end on the smallest iPhone.
     private static let maxSwipes = 8
 
     /// "Right after launch" means without scrolling or any other step: each CTA must be on screen

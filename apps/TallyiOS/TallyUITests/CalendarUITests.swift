@@ -27,4 +27,31 @@ final class CalendarUITests: TallyUITestCase {
         XCTAssertTrue(note.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
         note.buttons["OK"].tap()
     }
+
+    /// ux-fp2 D18 (S2): at AX XXXL the week strip scrolls sideways, and it used to open at Sunday,
+    /// with today (the selected day) cut at the right edge or off screen (audit run 37649050231).
+    /// It now opens on the selected day, wholly on screen. A screenshot is kept as the snapshot.
+    @MainActor
+    func testWeekStripOpensOnTheSelectedDayAtAccessibilityXXXL() throws {
+        let app = launchSample(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openTab("Calendar", in: app)
+        let days = app.buttons.matching(identifier: "calendar.day")
+        XCTAssertTrue(days.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(elements("calendar.item", in: app).firstMatch.waitForExistence(timeout: 10),
+                      "an empty agenda. Hierarchy: \(app.debugDescription)")
+        var selectedFrame: CGRect?
+        for index in 0..<days.count {
+            let day = days.element(boundBy: index)
+            let isSelected = day.isSelected
+            if isSelected { selectedFrame = day.frame }
+        }
+        let frame = try XCTUnwrap(selectedFrame, "no selected day in the strip. Hierarchy: \(app.debugDescription)")
+        let screen = app.frame
+        XCTAssertGreaterThanOrEqual(frame.minX, screen.minX, "the selected day starts off the left edge: \(frame)")
+        XCTAssertLessThanOrEqual(frame.maxX, screen.maxX, "the selected day runs off the right edge: \(frame)")
+        let snapshot = XCTAttachment(screenshot: app.screenshot())
+        snapshot.name = "Calendar week strip at AX5 (ux-fp2 D18)"
+        snapshot.lifetime = .keepAlways
+        add(snapshot)
+    }
 }

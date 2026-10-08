@@ -162,6 +162,11 @@ private struct WeekStrip: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .headline) private var columnWidth: CGFloat = 44
+    /// The day number's ring and selection disc: 32 pt at the default size, scaled with the number
+    /// itself. ux-fp2 D18 follow-up: a fixed 32 pt minimum left a digit-wide ring cutting through
+    /// the AX5 number (64 pt tall), seen once today was centred and on screen (Audit tour run
+    /// 37842950859, every AX5 leg).
+    @ScaledMetric(relativeTo: .headline) private var dayMarkDiameter: CGFloat = 32
 
     var body: some View {
         if typeSize.isAccessibilitySize {
@@ -201,7 +206,7 @@ private struct WeekStrip: View {
                         Text(day.dayNumber)
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(TallyColor.textPrimary)
-                            .frame(minWidth: 32, minHeight: 32)
+                            .frame(minWidth: dayMarkDiameter, minHeight: dayMarkDiameter)
                             .overlay {
                                 if day.isToday {
                                     Circle().strokeBorder(TallyColor.accent, lineWidth: 2)
