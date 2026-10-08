@@ -104,9 +104,11 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(app.staticTexts["SAMPLE DATA"].waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
         enterParentMode(app)
         let switcher = visibleSwitcher(in: app)
-        tapWhenHittable(switcher, in: app)
-        XCTAssertTrue(app.navigationBars["Student"].waitForExistence(timeout: 10),
-                      "tapping the AX5 switcher did not open the sheet (still a Menu?). Hierarchy: \(app.debugDescription)")
+        // A plain tap + wait flaked on a loaded CI simulator (run 37734195394: the tap did not
+        // take, "Student" never appeared within 10 s, retried-and-passed on CI's own retry). `tap(
+        // _:expecting:)` re-taps once while the switcher is still hittable, the established fix for
+        // exactly this (app-core report O9; `TallyUITestCase.swift`'s own doc comment).
+        tap(switcher, expecting: app.navigationBars["Student"], in: app, timeout: 15)
         XCTAssertTrue(app.buttons["Rowan Sample"].waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(scrollUntilHittable(app.buttons["Skyler Sample"], in: app), "Hierarchy: \(app.debugDescription)")
         let manage = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Manage linked'")).firstMatch
