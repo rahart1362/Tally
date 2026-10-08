@@ -98,7 +98,10 @@ struct SettingsView: View {
                     Button(String(localized: L10n.Account.done())) { dismiss() }
                 }
             }
-            .confirmationDialog(String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut, titleVisibility: .visible) {
+            // D03 (AX5): a `.confirmationDialog` is an anchored popover that cut the warning text
+            // and button labels mid-sentence at AX5. `.alert` scrolls and scales instead, and (D22)
+            // has no popover arrow to point at the wrong button.
+            .alert(String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut) {
                 Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
                     dismiss()
                     app?.signOut()

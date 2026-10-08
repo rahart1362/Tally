@@ -146,13 +146,11 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(staticText("Unlink Rowan?", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(staticText("You'll stop seeing Rowan's courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Rowan will need to send you a new code. Tally will delete Rowan's saved data from this iPhone.", in: app).exists,
                       "Hierarchy: \(app.debugDescription)")
-        // iOS 26 shows the dialog as a popover with no Cancel button; tapping outside cancels it.
+        // ux-fp1 D03/D22: this used to be a `.confirmationDialog`, shown as a popover with no Cancel
+        // button on some layouts (tapping outside cancelled it instead) and an arrow that pointed at
+        // the wrong button. It is now an `.alert`, always centred with its own Cancel button.
         let cancel = app.buttons.matching(NSPredicate(format: "label == 'Cancel' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-        if cancel.waitForExistence(timeout: 3) {
-            cancel.tap()
-        } else {
-            tapWhenHittable(app.otherElements["PopoverDismissRegion"].firstMatch, in: app)
-        }
+        tapWhenHittable(cancel, in: app)
         XCTAssertTrue(eventually { !self.staticText("Unlink Rowan?", in: app).exists }, "the dialog stayed. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(unlink.waitForExistence(timeout: 10))
     }

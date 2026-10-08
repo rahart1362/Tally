@@ -120,17 +120,21 @@ struct StudentDetailView: View {
                 }
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyScreenChrome()
         .navigationTitle(Text(verbatim: student.name))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(String(localized: L10n.FamilyUI.removeTitle(student.firstName)), isPresented: $confirmsRemove,
-                            titleVisibility: .visible) {
+        // D03 (AX5) + D22: `.confirmationDialog` is an anchored popover that cut the warning text
+        // mid-sentence at AX5, and (with two dialogs on one view) pointed its arrow at the wrong
+        // button. `.alert` scrolls and scales, and has no popover arrow to misdirect.
+        .alert(String(localized: L10n.FamilyUI.removeTitle(student.firstName)), isPresented: $confirmsRemove) {
             Button(String(localized: L10n.FamilyUI.removeFromTally())) { remove() }
             Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
         } message: {
             Text(L10n.FamilyUI.removeMessage(student.firstName))
         }
-        .confirmationDialog(String(localized: L10n.FamilyUI.unlinkTitle(student.firstName)), isPresented: $confirmsUnlink,
-                            titleVisibility: .visible) {
+        .alert(String(localized: L10n.FamilyUI.unlinkTitle(student.firstName)), isPresented: $confirmsUnlink) {
             Button(String(localized: L10n.FamilyUI.unlinkConfirm()), role: .destructive) { unlink() }
             Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
         } message: {
@@ -210,6 +214,9 @@ struct AddStudentSheet: View {
                     }
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
             .navigationTitle(Text(L10n.FamilyUI.addStudentTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -352,6 +359,9 @@ struct ObserverDetailView: View {
                     .accessibilityIdentifier("family.howToRemove")
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyScreenChrome()
         .navigationTitle(Text(verbatim: observer.name))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsHowToRemove) {
@@ -384,6 +394,9 @@ struct HowToRemoveSheet: View {
                         .accessibilityIdentifier("family.howToRemoveDone")
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
         }
         .presentationDetents([.medium, .large])
     }
@@ -438,6 +451,9 @@ struct InviteSheet: View {
                     }
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
             .navigationTitle(Text(L10n.FamilyUI.inviteTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

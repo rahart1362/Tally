@@ -84,6 +84,8 @@ final class SettingsUITests: TallyUITestCase {
 /// usable (their rules are hosted tests: `AppLockSettingsTests`, `WidgetGradesSettingTests`); and
 /// "Sign Out & Erase" asks first, with the spec's copy, then signs out to Welcome.
 final class SettingsSignedInUITests: TallyUITestCase {
+    private static let accessibilityXXXL = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+
     override func tearDownWithError() throws {
         // The account must not outlive this test: the other suites expect Welcome at launch.
         MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
@@ -123,6 +125,39 @@ final class SettingsSignedInUITests: TallyUITestCase {
         XCTAssertTrue(app.buttons["Find My School"].waitForExistence(timeout: 15),
                       "Sign Out & Erase did not return to Welcome. Hierarchy: \(app.debugDescription)")
         XCTAssertFalse(app.staticTexts[TestHooks.flagshipHero].exists)
+    }
+
+    /// D03 (ux-fp1 regression, AX5): the Sign Out & Erase confirmation used to be a
+    /// `.confirmationDialog` — an anchored popover that cut the warning message and the "Manage
+    /// Subscription" button label mid-sentence at AX5. It is now an `.alert`, which scrolls and
+    /// scales: the full message and every button exist and are hittable, scrolling if needed.
+    @MainActor
+    func testSignOutConfirmationReadableAtAccessibilityXXXL() throws {
+        let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + TestHooks.deviceAuth("success")
+            + Self.accessibilityXXXL)
+        XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
+                      "the seeded launch never painted the dashboard. Hierarchy: \(app.debugDescription)")
+        openSettings(app)
+        tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
+
+        let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'")).firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: scaled(10)), "no confirmation message at AX5. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(message, in: app),
+                      "the confirmation message is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+        // PAY-11: erasing does not cancel the subscription, and Manage Subscription is one tap away —
+        // the label the AX5 popover used to clip to "Manage Subscrip-".
+        let manage = app.buttons["Manage Subscription"]
+        XCTAssertTrue(scrollUntilHittable(manage, in: app),
+                      "Manage Subscription is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Sign Out & Erase' AND identifier != 'settings.signOut'")).firstMatch
+        XCTAssertTrue(scrollUntilHittable(confirm, in: app),
+                      "Sign Out & Erase is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+        let cancel = app.buttons["Cancel"]
+        XCTAssertTrue(scrollUntilHittable(cancel, in: app), "Cancel is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+
+        cancel.tap()
+        XCTAssertTrue(eventually(timeout: scaled(10)) { !message.exists },
+                      "Cancel did not dismiss the confirmation. Hierarchy: \(app.debugDescription)")
     }
 
     /// M3-B3: a school-assigned seat (`TestHooks.entitlement("schoolSeat")`, the test-only
