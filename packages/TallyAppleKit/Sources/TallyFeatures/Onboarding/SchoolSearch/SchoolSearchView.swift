@@ -65,7 +65,11 @@ struct SchoolSearchView: View {
             }
         }
         .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
-        .navigationBarTitleDisplayMode(.large)
+        // R4 (ux-fp1 round 3): at accessibility sizes the large title never rendered above the
+        // field's opaque top inset, leaving an empty ~75 pt band (Gate 2 round 2, all 4 AX5 legs).
+        // Inline there, the title sits in the bar between Back and "Can't find it?" and the field
+        // starts right under it; below the accessibility sizes, unchanged.
+        .navigationBarTitleDisplayMode(typeSize.isAccessibilitySize ? NavigationBarItem.TitleDisplayMode.inline : .large)
         .onAppear { searchFieldFocused = true }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

@@ -103,10 +103,14 @@ private struct StudentSwitcherSheet: View {
                             dismiss()
                         } label: {
                             HStack(spacing: TallySpacing.md) {
-                                StudentAvatar(initials: option.initials, colorIndex: family.colorIndex(of: option))
-                                Text(verbatim: option.name)
-                                    .font(TallyTypography.body)
-                                    .foregroundStyle(TallyColor.textPrimary)
+                                // R6 (round 3): the avatar above the name at AX sizes, so the name
+                                // keeps the row's width ("Rowan Sam-ple" on the smallest iPhone).
+                                StudentAvatarStack(avatar: StudentAvatar(initials: option.initials,
+                                                                         colorIndex: family.colorIndex(of: option))) {
+                                    Text(verbatim: option.name)
+                                        .font(TallyTypography.body)
+                                        .foregroundStyle(TallyColor.textPrimary)
+                                }
                                 Spacer(minLength: TallySpacing.sm)
                                 if option.id == family.activeSubject {
                                     Image(systemName: "checkmark")
@@ -185,18 +189,54 @@ struct StudentAvatar: View {
     /// inside it, so it grows instead of clipping — but capped at `avatarDiameterMax`, so it never
     /// outgrows the switcher's own 44 pt minimum tap height (`FamilyUIConfig.minimumHitTarget`).
     @ScaledMetric(relativeTo: .caption) private var scaledDiameter: CGFloat = CGFloat(FamilyUIConfig.avatarDiameter)
+    /// R3 (round 3): the initials stop growing at this size, independently of the circle: at AX5
+    /// they spanned ~92% of the 44 pt circle (Gate 2 round 2).
+    private static let initialsMaxTypeSize: DynamicTypeSize = .xxLarge
 
     private var diameter: CGFloat { min(scaledDiameter, CGFloat(FamilyUIConfig.avatarDiameterMax)) }
 
     var body: some View {
         Text(verbatim: initials)
             .font(TallyTypography.caption.weight(.semibold))
+            // R3 (round 3): round 2's circle grew with Dynamic Type, but the initials grew with it
+            // and still spanned ~92% of it at AX5. Capped on their own at `.xxLarge`, so past it
+            // the circle keeps growing (to its 44 pt cap) while the initials do not.
+            .dynamicTypeSize(...Self.initialsMaxTypeSize)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .foregroundStyle(Color.white)
             .frame(width: diameter, height: diameter)
             .background(Circle().fill(FamilyAvatarPalette.swiftUIColor(at: colorIndex)))
             .accessibilityHidden(true)
+    }
+}
+
+/// R6 (ux-fp1 round 3): an avatar beside its name, or above it from the first accessibility size
+/// up. Round 2's 44 pt avatar (R3) took enough of a row's width on the smallest iPhone at AX5 that
+/// the name beside it broke mid-word: "Rowan Sam-ple" in the switcher sheet, "Skyle r Sam-ple" on
+/// four lines in Linked Students. Stacked, the name gets the row's full width.
+struct StudentAvatarStack<Label: View>: View {
+    let avatar: StudentAvatar
+    let label: Label
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(avatar: StudentAvatar, @ViewBuilder label: () -> Label) {
+        self.avatar = avatar
+        self.label = label()
+    }
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                avatar
+                label
+            }
+        } else {
+            HStack(spacing: TallySpacing.md) {
+                avatar
+                label
+            }
+        }
     }
 }
 

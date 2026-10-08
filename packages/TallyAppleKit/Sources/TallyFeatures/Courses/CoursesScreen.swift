@@ -60,8 +60,9 @@ struct CoursesScreen: View {
                 // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
                 .tallyList()
                 // D01: content scrolled past the top stayed visible, blurred, under the inline
-                // title and the status bar, even at rest.
-                .tallyScreenChrome()
+                // title and the status bar, even at rest. R4 (round 3): the large-title variant,
+                // so the opaque fill never paints over "Courses" and its subtitle at rest.
+                .tallyLargeTitleScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }

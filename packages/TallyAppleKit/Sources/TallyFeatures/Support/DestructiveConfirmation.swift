@@ -80,11 +80,33 @@ private struct TallyDestructiveConfirmationModifier: ViewModifier {
 /// The AX1+ sheet itself: title and message in a `ScrollView` (so a very long message can scroll on
 /// the smallest iPhone without pushing the buttons off screen), the buttons pinned in a bottom
 /// safe-area inset so Cancel is reachable at rest on every device.
+///
+/// Round 3 (D03, Gate 2 round 2: the message was still cut at rest on every AX5 leg, the pinned bar
+/// slicing a line through its glyphs with no cue that more followed). At AX5 Sign Out & Erase's
+/// warning alone is taller than any iPhone's screen in `body` text, so it cannot all show at rest
+/// without a copy change; it now ends cleanly instead. A fade the height of about one line
+/// of the message's own text sits on top of the scroll content just above the bar, so the last
+/// visible line dissolves into the canvas rather than being cut, and the scroll indicator flashes
+/// on appear. The message gets the same height of bottom padding, so once scrolled to the end its
+/// last line clears the fade. PAY-11's point stays clear at rest through the bar: Manage
+/// Subscription is pinned there, never scrolled out of sight.
+///
+/// Considered and not used: `.safeAreaBar(edge: .bottom)` (iOS 26), which lets content scroll on
+/// under the bar behind its soft scroll-edge effect; with an opaque bar that effect is hidden, and
+/// without one the message would show (blurred) through the buttons' translucent tinted fills —
+/// the content-under-chrome D01 removes elsewhere, and not checkable here without a device. And
+/// `TallyTypography.body.weight(.semibold)` labels in place of `cardTitle`: `cardTitle` is
+/// `.headline`, the same point size as `.body` at every Dynamic Type size and already semibold, so
+/// the swap would not shorten the bar.
 private struct TallyConfirmationSheet: View {
     let title: String
     let message: String
     let actions: [TallyConfirmationAction]
     let dismiss: () -> Void
+    /// The fade's height, scaled with the message's own `body` text so it always covers about one
+    /// line of it (24 pt at the default size; about 75 pt at AX5).
+    @ScaledMetric(relativeTo: .body) private var fadeHeight: CGFloat = TallyConfirmationStyle.fadeHeight
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         ScrollView {
@@ -99,25 +121,73 @@ private struct TallyConfirmationSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(TallySpacing.screenMargin)
+            // Round 3: scrolled to the end, the message's last line sits above the fade, not in it.
+            .padding(.bottom, fadeHeight)
         }
+        // Round 3: a scroll cue on appear, alongside the fade.
+        .scrollIndicatorsFlash(onAppear: true)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: TallySpacing.sm) {
                 ForEach(actions) { action in
-                    Button {
-                        dismiss()
-                        action.action()
-                    } label: {
-                        Text(action.title)
-                            .font(TallyTypography.cardTitle.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(action.role == .destructive ? .red : (action.role == .cancel ? TallyColor.textSecondary : TallyColor.accent))
+                    actionButton(action)
                 }
             }
             .padding(TallySpacing.screenMargin)
             .background(TallyColor.bgCanvas)
+            // Round 3: drawn above the bar's top edge, over the scrolling message, so the last
+            // visible line fades out instead of being sliced by the bar. Decorative, and lets
+            // touches through to the scroll view under it.
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [TallyColor.bgCanvas.opacity(0), TallyColor.bgCanvas],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: fadeHeight)
+                    .offset(y: -fadeHeight)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
         .background(TallyColor.bgCanvas, ignoresSafeAreaEdges: .all)
     }
+
+    /// R5 (round 3): the destructive action is a filled button, white on `ScreenPalette.danger`'s
+    /// light value (ux-ui.md §3.5), in light and dark alike — white on it is 5.7:1 (7.9:1 with
+    /// Increase Contrast's value). Round 2's tinted `.bordered` style drew the red label on a pale
+    /// pink fill of the same red: #FF383C on #F4D2D6, 2.56:1 in light. The other actions keep the
+    /// tinted style (Manage Subscription 5.44:1, Cancel 5.32:1 in round 2's captures).
+    @ViewBuilder
+    private func actionButton(_ action: TallyConfirmationAction) -> some View {
+        if action.role == .destructive {
+            Button {
+                dismiss()
+                action.action()
+            } label: {
+                actionLabel(action.title)
+                    .foregroundStyle(Color.white)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(ScreenPalette.color(ScreenPalette.danger, scheme: .light, contrast: contrast))
+        } else {
+            Button {
+                dismiss()
+                action.action()
+            } label: {
+                actionLabel(action.title)
+            }
+            .buttonStyle(.bordered)
+            .tint(action.role == .cancel ? TallyColor.textSecondary : TallyColor.accent)
+        }
+    }
+
+    private func actionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(TallyTypography.cardTitle.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 44)
+    }
+}
+
+/// D03/R5 round 3: the AX confirmation sheet's named values.
+nonisolated enum TallyConfirmationStyle {
+    /// The fade above the pinned button bar, in points at the default text size (scaled with
+    /// `body` by `@ScaledMetric`).
+    static let fadeHeight: CGFloat = 24
 }

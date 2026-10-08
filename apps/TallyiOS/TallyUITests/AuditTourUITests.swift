@@ -382,7 +382,7 @@ final class AuditTourUITests: TallyUITestCase {
             _ = app.staticTexts["Type at least 2 letters of your school's name."].waitForExistence(timeout: 10)
             snap(app, screen: "schoolSearch", state: "idle", reachedVia: "Find My School")
 
-            let searchField = app.searchFields.firstMatch
+            let searchField = schoolSearchField(app)
             if go(searchField, app, screen: "schoolSearch", state: "field", reachedVia: "search field", timeout: 5) {
                 searchField.typeText("northfield")
                 // No live search transport is wired in yet (SchoolSearchUITests' doc comment): every
@@ -753,7 +753,7 @@ final class AuditTourUITests: TallyUITestCase {
     private func signInToDemoSchool(_ app: XCUIApplication) {
         guard go(app.buttons["Find My School"], app, screen: "demoSignIn", state: "schoolSearch", reachedVia: "Find My School")
         else { return }
-        let searchField = app.searchFields.firstMatch
+        let searchField = schoolSearchField(app)
         guard go(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field", timeout: 5)
         else { return }
         searchField.typeText(Self.demoHost)
@@ -764,6 +764,20 @@ final class AuditTourUITests: TallyUITestCase {
         // "missing" recording if it still can't be found, so this can only help, never regress.
         _ = goScrolling(app.buttons["Continue to \(Self.demoHost)"], app, screen: "demoSignIn", state: "continue",
                         reachedVia: "Use \(Self.demoHost)")
+    }
+
+    /// School search's field, at every text size (ux-fp1 round 3). Below the accessibility sizes it
+    /// is the system `.searchable` field: a search field, with no identifier of its own (what
+    /// `SchoolSearchUITests` and this tour have always queried). From AX1 up, `SchoolSearchView`
+    /// replaces it with its own `TextField(axis: .vertical)`, identifier `schoolSearch.field`, which
+    /// `app.searchFields` never matches (a vertical-axis field need not even report as a text field,
+    /// so any element type): Audit tour run 37768388853 recorded "missing-searchField" on every AX5
+    /// leg, and so never reached demo sign-in, first sync or the paywall after it at AX5.
+    @MainActor
+    private func schoolSearchField(_ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR elementType == %lu", "schoolSearch.field", XCUIElement.ElementType.searchField.rawValue
+        )).firstMatch
     }
 
     // MARK: - Capture primitives

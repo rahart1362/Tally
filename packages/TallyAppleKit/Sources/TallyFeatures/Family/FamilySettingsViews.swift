@@ -64,13 +64,15 @@ struct LinkedStudentRow: View {
 
     var body: some View {
         HStack(spacing: TallySpacing.md) {
-            StudentAvatar(initials: student.initials, colorIndex: colorIndex)
-            VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                Text(verbatim: student.name)
-                    .font(TallyTypography.body)
-                Text(verbatim: student.school)
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textSecondary)
+            // R6 (ux-fp1 round 3): the avatar above the name and school at AX sizes.
+            StudentAvatarStack(avatar: StudentAvatar(initials: student.initials, colorIndex: colorIndex)) {
+                VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                    Text(verbatim: student.name)
+                        .font(TallyTypography.body)
+                    Text(verbatim: student.school)
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textSecondary)
+                }
             }
             Spacer(minLength: 0)
             if isViewed {
@@ -296,8 +298,9 @@ struct FamilySharingSection: View {
                         NavigationLink {
                             ObserverDetailView(observer: observer)
                         } label: {
-                            HStack(spacing: TallySpacing.md) {
-                                StudentAvatar(initials: StudentNameText.initials(of: observer.name), colorIndex: index)
+                            // R6 (ux-fp1 round 3): the avatar above the name at AX sizes.
+                            StudentAvatarStack(avatar: StudentAvatar(initials: StudentNameText.initials(of: observer.name),
+                                                                     colorIndex: index)) {
                                 Text(verbatim: observer.name)
                             }
                         }

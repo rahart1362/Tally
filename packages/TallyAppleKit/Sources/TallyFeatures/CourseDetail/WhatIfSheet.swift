@@ -334,6 +334,11 @@ private struct ScoreStepper: View {
     /// by 0.960: CI measured the 44 pt buttons at 42.25 pt on iOS 26.5 and on iOS 27 (PR #6 run
     /// 36524838684; m3-screens-report O14).
     static let buttonSide: CGFloat = 46
+    /// R7 (ux-fp1 round 3): space kept around each glyph inside its segment. At AX5 the "−" and "+"
+    /// glyphs scale with Dynamic Type past the fixed 46 pt frame and touched round 2's capsule
+    /// stroke and the divider; the segment now grows with its glyph instead, at least `buttonSide`
+    /// square (so the default sizes are unchanged: a 17 pt glyph plus this inset fits inside 46 pt).
+    static let glyphInset: CGFloat = TallySpacing.md
 
     let item: WhatIfItem
     let model: WhatIfModel
@@ -343,7 +348,9 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: false)
             } label: {
-                Image(systemName: "minus").frame(width: Self.buttonSide, height: Self.buttonSide)
+                Image(systemName: "minus")
+                    .padding(Self.glyphInset)
+                    .frame(minWidth: Self.buttonSide, minHeight: Self.buttonSide)
             }
             .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfLowerByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.decrement")
@@ -351,7 +358,9 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: true)
             } label: {
-                Image(systemName: "plus").frame(width: Self.buttonSide, height: Self.buttonSide)
+                Image(systemName: "plus")
+                    .padding(Self.glyphInset)
+                    .frame(minWidth: Self.buttonSide, minHeight: Self.buttonSide)
             }
             .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfRaiseByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.increment")

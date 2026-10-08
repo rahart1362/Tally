@@ -46,8 +46,9 @@ struct InsightsScreen: View {
                 .background(TallyColor.bgCanvas)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
                 // D01: content scrolled past the top stayed visible, blurred, under the inline
-                // title and the status bar, even at rest.
-                .tallyScreenChrome()
+                // title and the status bar, even at rest. R4 (round 3): the large-title variant,
+                // so the opaque fill never paints over "Insights" at rest.
+                .tallyLargeTitleScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
