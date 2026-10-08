@@ -42,6 +42,8 @@ struct CourseDetailView: View {
             } else {
                 ContentUnavailableView(String(localized: L10n.CourseDetail.unavailableTitle()), systemImage: "books.vertical",
                                        description: Text(L10n.CourseDetail.unavailableDescription()))
+                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                    .tallyCenteredScrolling()
             }
         }
         .navigationTitle(model.courseDetails[courseID]?.name ?? String(localized: L10n.CourseDetail.navigationTitleFallback()))
@@ -133,7 +135,9 @@ struct CourseDetailView: View {
                         .foregroundStyle(TallyColor.textSecondary)
                 }
                 ForEach(detail.recentGraded) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
+                    // ux-fp2 D02: from AX1 up the score goes under the title instead of beside it,
+                    // on one line ("93.2/100" read "9 / 3.2/10 / 0" at AX5).
+                    TallyReflowStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
                             Text(item.title).font(TallyTypography.body)
                             if let posted = item.postedText {
@@ -142,8 +146,9 @@ struct CourseDetailView: View {
                                     .foregroundStyle(TallyColor.textSecondary)
                             }
                         }
-                        Spacer(minLength: TallySpacing.sm)
+                        TallyReflowSpacer(minLength: TallySpacing.sm)
                         StatusChip(symbol: "checkmark.seal", text: item.scoreText)
+                            .tallyReflowValue()
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(item.accessibilityLabel)
@@ -240,7 +245,9 @@ struct CourseDetailView: View {
         ForEach(detail.sections) { section in
             Section(section.title) {
                 ForEach(section.rows) { row in
-                    HStack(alignment: .top, spacing: TallySpacing.md) {
+                    // ux-fp2 D02: from AX1 up the status chip and the score go under the title,
+                    // each on one line.
+                    TallyReflowStack(alignment: .top, spacing: TallySpacing.md) {
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
                             Text(row.title).font(TallyTypography.body)
                             if let due = row.dueText {
@@ -249,8 +256,8 @@ struct CourseDetailView: View {
                                     .foregroundStyle(TallyColor.textSecondary)
                             }
                         }
-                        Spacer(minLength: TallySpacing.sm)
-                        VStack(alignment: .trailing, spacing: TallySpacing.xs) {
+                        TallyReflowSpacer(minLength: TallySpacing.sm)
+                        TallyReflowValueColumn(spacing: TallySpacing.xs) {
                             if let status = row.status {
                                 StatusChip(symbol: status.symbol, text: status.label, tone: status.tone)
                             }
@@ -259,8 +266,10 @@ struct CourseDetailView: View {
                                     .font(TallyTypography.subheadline)
                                     .foregroundStyle(TallyColor.textPrimary)
                                     .monospacedDigit()
+                                    .tallyReflowValue()
                             }
                         }
+                        .layoutPriority(1)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(row.accessibilityLabel)
@@ -276,7 +285,8 @@ struct CourseDetailView: View {
     private func gradeTable(_ detail: CourseDetailProjection) -> some View {
         Section {
             ForEach(detail.categories) { category in
-                HStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
+                // ux-fp2 D02: the same row rule ("Lab Re- / ports" beside "90.7%" at AX5).
+                TallyReflowStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
                     VStack(alignment: .leading, spacing: TallySpacing.xs) {
                         Text(category.name).font(TallyTypography.body)
                         if let weightText = category.weightText {
@@ -285,13 +295,14 @@ struct CourseDetailView: View {
                                 .foregroundStyle(TallyColor.textSecondary)
                         }
                     }
-                    Spacer(minLength: TallySpacing.sm)
+                    TallyReflowSpacer(minLength: TallySpacing.sm)
                     // Plan 08 §4.4 row 5: names only for a course whose grades are not in Canvas.
                     if detail.grade.notInCanvas == nil {
                         Text(categoryPercent(category, in: detail))
                             .font(TallyTypography.subheadline)
                             .foregroundStyle(TallyColor.textPrimary)
                             .monospacedDigit()
+                            .tallyReflowValue()
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -442,6 +453,8 @@ struct CourseHeroCard: View {
                 grade
                 if !detail.health.isSaidByTheGrade {
                     Label(detail.health.label, systemImage: detail.health.symbol)
+                        // ux-fp2 D11: the hero is a `List` row, whose icon column left a wide gap.
+                        .labelStyle(.tallyCompact)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textOnHero2)
                 }

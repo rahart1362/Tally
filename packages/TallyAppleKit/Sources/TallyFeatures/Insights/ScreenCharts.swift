@@ -38,12 +38,40 @@ struct CategoryWeightsChart: View {
 /// The grade trend (ux-ui.md §3.5 "Trend chart": `LineMark` + `PointMark`, y-axis in %), with its
 /// sentence as the VoiceOver value and an Audio Graph descriptor (A11Y-08: `chart.trend`). Lines
 /// thicken under Increase Contrast.
+///
+/// ux-fp2 D19 (S2): at the accessibility sizes the x-axis's date labels had no room and collapsed to
+/// "S… S… S… …". From AX1 up the axis keeps its grid lines without labels, and one caption under the
+/// chart names the range it covers ("Sep 7 – Oct 7", in the student's locale).
 struct TrendChart: View {
     let view: TrendRangeView
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 180
 
     var body: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                chart
+                    .chartXAxis {
+                        AxisMarks { _ in
+                            AxisGridLine()
+                        }
+                    }
+                    .frame(height: height)
+                    .modifier(TrendChartAccessibility(view: view))
+                Text(view.start..<max(view.end, view.start), format: .interval.month(.abbreviated).day())
+                    .font(TallyTypography.caption)
+                    .foregroundStyle(TallyColor.textSecondary)
+                    .accessibilityIdentifier("chart.trend.range")
+            }
+        } else {
+            chart
+                .frame(height: height)
+                .modifier(TrendChartAccessibility(view: view))
+        }
+    }
+
+    private var chart: some View {
         Chart(view.points) { point in
             LineMark(x: .value("Date", point.date), y: .value("Percent", point.percent))
                 .lineStyle(StrokeStyle(lineWidth: contrast == .increased ? 3 : 2.4))
@@ -53,12 +81,20 @@ struct TrendChart: View {
         }
         .chartXScale(domain: view.start...max(view.end, view.start))
         .chartYScale(domain: view.lowerPercent...max(view.upperPercent, view.lowerPercent + 1))
-        .frame(height: height)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(L10n.Insights.performanceTrendHeader()))
-        .accessibilityValue(view.summary)
-        .accessibilityChartDescriptor(TrendChartDescriptor(view: view))
-        .accessibilityIdentifier("chart.trend")
+    }
+}
+
+/// The trend chart's single VoiceOver element (A11Y-08), the same at every text size.
+private struct TrendChartAccessibility: ViewModifier {
+    let view: TrendRangeView
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(L10n.Insights.performanceTrendHeader()))
+            .accessibilityValue(view.summary)
+            .accessibilityChartDescriptor(TrendChartDescriptor(view: view))
+            .accessibilityIdentifier("chart.trend")
     }
 }
 

@@ -22,6 +22,8 @@ struct InsightsScreen: View {
             if model.courseCards.isEmpty {
                 ContentUnavailableView(String(localized: L10n.Insights.emptyTitle()), systemImage: "chart.xyaxis.line",
                                        description: Text(L10n.Insights.emptyDescription()))
+                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                    .tallyCenteredScrolling()
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: TallySpacing.xxl) {

@@ -48,7 +48,10 @@ struct FirstSyncSkeletonView: View {
             }
         }
         .padding(TallySpacing.screenMargin)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // ux-fp2 D20 (S2): the page did not scroll, so at AX5 the failure state lost "Choose a
+        // Different School" off the bottom of the smallest iPhone and its icon and title off the
+        // top. Centred when it fits, as before; scrolling when it does not.
+        .tallyCenteredScrolling()
         .background(TallyColor.bgCanvas)
         .animation(reduceMotion ? nil : .snappy, value: viewModel.showsSlowLoadNotice)
         .navigationBarBackButtonHidden(true)

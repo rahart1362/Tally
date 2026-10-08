@@ -255,21 +255,24 @@ nonisolated enum HeroCaption: Equatable, Sendable {
 /// Dashboard's own body.
 struct HeroExclusionList: View {
     @Environment(HomeModel.self) private var model: HomeModel?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let courses = model?.courses ?? []
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
             ForEach(courses.indices, id: \.self) { index in
                 if let reason = HeroExclusion.reason(HeroExclusion.status(of: courses[index])) {
-                    HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                    // ux-fp2 D02: the course code never breaks; from AX1 up the reason goes under it.
+                    TallyReflowStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
                         Text(verbatim: courses[index].code)
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(TallyColor.textPrimary)
-                        Spacer(minLength: TallySpacing.sm)
+                            .tallyReflowValue()
+                        TallyReflowSpacer(minLength: TallySpacing.sm)
                         Text(reason)
                             .font(TallyTypography.footnote)
                             .foregroundStyle(TallyColor.textSecondary)
-                            .multilineTextAlignment(.trailing)
+                            .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
                     }
                     .accessibilityElement(children: .combine)
                 }
@@ -315,10 +318,15 @@ private struct NextUpSection: View {
             } else {
                 ForEach(items) { item in
                     VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        HStack {
+                        // ux-fp2 D02: from AX1 up the band goes under the title, whose words no
+                        // longer hyphenate in a narrow column beside it ("Integra- / tion" at AX5).
+                        TallyReflowStack {
                             Text(item.title).font(TallyTypography.cardTitle)
-                            Spacer()
-                            Text(bandWord(item.band)).font(TallyTypography.caption).foregroundStyle(TallyColor.textSecondary)
+                            TallyReflowSpacer()
+                            Text(bandWord(item.band))
+                                .font(TallyTypography.caption)
+                                .foregroundStyle(TallyColor.textSecondary)
+                                .tallyReflowValue()
                         }
                         // Plan 08 L10N-02: the reason's factors, phrased in the student's language.
                         Text(verbatim: DashboardText.reason(item.reasonFactors, courseCode: item.courseCode))
@@ -430,18 +438,24 @@ private struct DueSoonSection: View {
                 Text(L10n.Dashboard.dueSoonEmpty()).font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
             } else {
                 ForEach(items) { item in
-                    HStack {
+                    // ux-fp2 D02: from AX1 up the time goes under the title and course code, each
+                    // on one line ("11:00 P / M" and "MATH / 122" at AX5).
+                    TallyReflowStack {
                         VStack(alignment: .leading, spacing: TallySpacing.xs) {
                             Text(item.title).font(TallyTypography.cardTitle)
                             if let code = item.courseCode {
-                                Text(code).font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
+                                Text(code)
+                                    .font(TallyTypography.footnote)
+                                    .foregroundStyle(TallyColor.textSecondary)
+                                    .tallyReflowValue()
                             }
                         }
-                        Spacer()
+                        TallyReflowSpacer()
                         if let due = item.dueAt {
                             Text(due.formatted(date: .omitted, time: .shortened))
                                 .font(TallyTypography.footnote)
                                 .foregroundStyle(TallyColor.textSecondary)
+                                .tallyReflowValue()
                         }
                     }
                     .padding(TallySpacing.md)

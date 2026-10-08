@@ -102,6 +102,8 @@ struct CoursesScreen: View {
             } actions: {
                 Button(String(localized: L10n.Courses.emptyRefresh())) { model.requestRefresh() }
             }
+            // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+            .tallyCenteredScrolling()
         }
     }
 }

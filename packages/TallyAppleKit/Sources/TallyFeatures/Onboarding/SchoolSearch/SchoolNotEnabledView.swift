@@ -40,6 +40,8 @@ struct SchoolNotEnabledView: View {
             .padding(.horizontal, TallySpacing.xxl)
             .padding(.top, TallySpacing.md)
         }
+        // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+        .tallyCenteredScrolling()
         .background(TallyColor.bgCanvas)
         .navigationTitle(Text(L10n.Onboarding.SchoolSearch.notAvailableYetNavTitle()))
         .navigationBarTitleDisplayMode(.inline)

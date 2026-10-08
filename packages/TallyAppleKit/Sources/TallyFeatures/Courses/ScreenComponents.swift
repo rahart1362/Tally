@@ -107,6 +107,12 @@ struct StatusChip: View {
         } icon: {
             Image(systemName: symbol).foregroundStyle(tint)
         }
+        // ux-fp2 D11: in a `List` row a plain `Label` took the list's icon column (an 18 pt gap
+        // before the words); the chip's words never wrap or truncate: on one line, shrunk only if
+        // even a line of their own is too narrow (D02's value rule, `TallyReflow`).
+        .labelStyle(.tallyCompact)
+        .lineLimit(1)
+        .minimumScaleFactor(TallyReflow.valueMinimumScale)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
@@ -119,6 +125,20 @@ struct StatusChip: View {
         case .warning: ScreenPalette.warning
         case .danger: ScreenPalette.danger
         case .neutral: ScreenPalette.neutral
+        }
+    }
+}
+
+/// ux-fp2 D11: a row of status chips that wraps instead of squeezing them. Side by side while they
+/// fit on one line at their full size; otherwise one under the other (the smallest iPhone in To-Do's
+/// select mode read "Not sub…" next to "High pri…", and AX5 split them mid-word).
+struct StatusChipRow<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: TallySpacing.xs) { content() }
+            VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
         }
     }
 }

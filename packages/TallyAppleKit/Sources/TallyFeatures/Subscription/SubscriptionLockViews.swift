@@ -58,38 +58,59 @@ struct LockedFeatureCard: View {
 /// PAY-07 (PRD §11.2 "On lapse"): above the signed-in Home's tabs while refresh is locked (no trial
 /// or subscription, a lapse included): "Subscribe to refresh — showing saved data from <time>", and
 /// See Plans. The Dashboard stays readable under it. Nothing shows while refresh is allowed.
+///
+/// ux-fp2 D04 (S1): the banner does not scroll, and at AX5 it filled the whole smallest iPhone (its
+/// words in a column beside See Plans, "4:33 P / M" under the tab bar), so the locked card under it
+/// could not be reached. It is pinned chrome, so it is drawn at most at
+/// `TallyReflow.pinnedChromeMaximumSize`, and from AX1 up See Plans goes under the words (the shared
+/// row rule, `TallyReflowStack`), which then take the banner's full width: about a quarter of the
+/// smallest iPhone's screen at AX5, with every word shown.
 struct SubscriptionRefreshBanner: View {
     let appModel: AppModel
     let home: HomeModel
 
     var body: some View {
         if appModel.locks(.refresh) {
-            HStack(spacing: TallySpacing.md) {
-                Image(systemName: "arrow.clockwise.circle")
-                    .accessibilityHidden(true)
-                Text(verbatim: savedDataText)
-                    .font(TallyTypography.footnote)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("subscription.refreshBanner")
-                Spacer(minLength: 0)
-                Button(String(localized: L10n.Subscription.seePlans())) {
-                    appModel.showPaywall(for: .lockedFeature)
-                }
-                .font(TallyTypography.footnote.weight(.semibold))
-                .frame(minHeight: 44) // the HIG's minimum target
-                .accessibilityIdentifier("subscription.refreshBanner.seePlans")
+            SubscriptionRefreshBannerContent(savedDataText: savedDataText) {
+                appModel.showPaywall(for: .lockedFeature)
             }
-            .foregroundStyle(TallyColor.textPrimary)
-            .padding(.horizontal, TallySpacing.screenMargin)
-            .padding(.vertical, TallySpacing.xs)
-            .frame(maxWidth: .infinity)
-            .background(TallyColor.bgCard)
+            .tallyPinnedChromeTextSize()
         }
     }
 
     private var savedDataText: String {
         guard let saved = home.freshness.showing else { return String(localized: L10n.Subscription.bannerNoDate()) }
         return String(localized: L10n.Subscription.bannerSavedFrom(saved.formatted(date: .abbreviated, time: .shortened)))
+    }
+}
+
+/// The banner's layout, under its Dynamic Type cap (so the size it reads is the capped one).
+private struct SubscriptionRefreshBannerContent: View {
+    let savedDataText: String
+    let onSeePlans: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        TallyReflowStack(spacing: TallySpacing.md) {
+            HStack(alignment: typeSize.isAccessibilitySize ? .firstTextBaseline : .center, spacing: TallySpacing.md) {
+                Image(systemName: "arrow.clockwise.circle")
+                    .accessibilityHidden(true)
+                Text(verbatim: savedDataText)
+                    .font(TallyTypography.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("subscription.refreshBanner")
+            }
+            TallyReflowSpacer(minLength: 0)
+            Button(String(localized: L10n.Subscription.seePlans()), action: onSeePlans)
+                .font(TallyTypography.footnote.weight(.semibold))
+                .frame(minHeight: 44) // the HIG's minimum target
+                .accessibilityIdentifier("subscription.refreshBanner.seePlans")
+        }
+        .foregroundStyle(TallyColor.textPrimary)
+        .padding(.horizontal, TallySpacing.screenMargin)
+        .padding(.vertical, TallySpacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(TallyColor.bgCard)
     }
 }
 

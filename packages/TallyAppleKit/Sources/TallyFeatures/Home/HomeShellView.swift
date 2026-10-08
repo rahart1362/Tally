@@ -76,6 +76,8 @@ public struct HomeShellView: View {
                         Button(String(localized: L10n.FamilyUI.addStudent())) { openSettings(addingStudent: true) }
                             .accessibilityIdentifier("family.emptyAdd")
                     }
+                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                    .tallyCenteredScrolling()
                     .toolbar { settingsToolbarItem }
                 }
             } else {
