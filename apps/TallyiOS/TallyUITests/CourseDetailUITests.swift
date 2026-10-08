@@ -157,11 +157,13 @@ final class CourseDetailUITests: TallyUITestCase {
         let snapshot = try app.snapshot()
         let screen = snapshot.frame
         let nodes = Self.staticTextNodes(in: snapshot)
+        // A row on screen (its centre was hittable); at AX5 it can be taller than what is left below
+        // its centre, so it need not be wholly on screen: a built cell reports every child's frame.
         let rows = nodes.filter { node in
             let isRow = node.label.contains(" out of ") && node.label.contains(", posted ")
-            return isRow && screen.contains(node.frame)
+            return isRow && screen.intersects(node.frame)
         }
-        let rowNode = try XCTUnwrap(rows.first, "no recent grade wholly on screen: \(nodes)")
+        let rowNode = try XCTUnwrap(rows.first, "no recent grade on screen: \(nodes)")
         let bounds = rowNode.frame.insetBy(dx: -Self.overlapTolerance, dy: -Self.overlapTolerance)
         let texts = nodes.filter { $0.frame != rowNode.frame && bounds.contains($0.frame) }
         let scores = texts.filter { $0.label.range(of: Self.scorePattern, options: .regularExpression) != nil }
