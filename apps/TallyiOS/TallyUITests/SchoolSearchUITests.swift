@@ -9,6 +9,9 @@ import XCTest
 /// worth covering, since it's the same state a genuine network failure
 /// produces.
 final class SchoolSearchUITests: TallyUITestCase {
+    private static let accessibilityXXXL = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    private static let demoHost = "canvas.northfield.example"
+
     @MainActor
     func testFindMySchoolNavigatesToSearchWithIdleHelperText() throws {
         let app = launchApp()
@@ -36,5 +39,26 @@ final class SchoolSearchUITests: TallyUITestCase {
         // so this reaches the same `searchFailed` state a real network error would.
         XCTAssertTrue(app.staticTexts["Couldn't search"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Retry"].exists)
+    }
+
+    /// ux-fp1 round 3: from AX1 up the screen's field is its own `TextField` (identifier
+    /// `schoolSearch.field`), not the system search bar. Round 2 hung it on the results as a top
+    /// safe-area inset, and the first Audit tour to reach it at AX5 (run 37798261057) showed it stop
+    /// taking input once the results left their idle state: "canvas.northfield.example" stayed
+    /// "canv". Typing the whole address must keep every character and reach the "Use …" row, through
+    /// every state change on the way (idle, searching, address typed).
+    @MainActor
+    func testTypingAnAddressAtAccessibilityXXXLKeepsEveryCharacter() throws {
+        let app = launchApp(arguments: Self.accessibilityXXXL)
+
+        tapWhenHittable(app.buttons["Find My School"], in: app, timeout: 30)
+        let field = app.descendants(matching: .any).matching(identifier: "schoolSearch.field").firstMatch
+        tapWhenHittable(field, in: app)
+        field.typeText(Self.demoHost)
+
+        XCTAssertTrue(app.buttons["Use \(Self.demoHost)"].waitForExistence(timeout: scaled(10)),
+                      "the typed address never reached the \"Use …\" row at AX5. Hierarchy: \(app.debugDescription)")
+        let typed = field.value as? String
+        XCTAssertEqual(typed, Self.demoHost, "the field lost characters at AX5. Hierarchy: \(app.debugDescription)")
     }
 }

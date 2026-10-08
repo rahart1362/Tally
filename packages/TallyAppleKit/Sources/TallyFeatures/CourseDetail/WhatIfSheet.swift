@@ -27,6 +27,8 @@ struct WhatIfSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("whatif.disclaimer")
                     }
+                    // D31 round 2: applied to the Section, which reaches every row inside it.
+                    .tallyRow()
                     WhatIfWeightsSection(estimate: estimate, model: model)
                 }
                 ForEach(model.setup.groups) { group in
@@ -41,10 +43,16 @@ struct WhatIfSheet: View {
                             Text(L10n.CourseDetail.whatIfGroupHeader(group.name, group.weightText))
                         }
                     }
+                    .tallyRow()
                 }
                 WhatIfGoalSection(model: model)
             }
             .listStyle(.insetGrouped)
+            // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+            .tallyList()
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title,
+            // the toolbar buttons and the status bar, even at rest.
+            .tallyScreenChrome()
             .safeAreaInset(edge: .top, spacing: 0) {
                 WhatIfSummary(model: model)
             }
@@ -106,7 +114,9 @@ private struct WhatIfSummary: View {
         .padding(.horizontal, TallySpacing.screenMargin)
         .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(TallyColor.bgCanvas)
+        // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the sticky band's old
+        // `bgCanvas` read as a black hole cut into it.
+        .background(TallyColor.bgCard)
     }
 }
 
@@ -136,8 +146,16 @@ private struct WhatIfItemRow: View {
                 HStack(spacing: TallySpacing.sm) {
                     TextField(String(localized: L10n.CourseDetail.whatIfScoreFieldPrompt()), text: $text)
                         .keyboardType(.decimalPad)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120)
+                        // D31 round 2: `.roundedBorder` still rendered as pure black against the
+                        // `bgCard` rows (round 1's separator overlay alone did not fix the fill
+                        // itself) — `.plain` with an explicit `bgCanvas` fill and the same
+                        // separator stroke keeps the sheet at two dark tones (bgCanvas, bgCard).
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, TallySpacing.sm)
+                        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120, minHeight: 44)
+                        .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+                            .stroke(TallyColor.separator))
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfScoreFieldAccessibility(item.title, item.outOfText)))
                         .accessibilityIdentifier("whatif.field")
                     Text(item.outOfText)
@@ -217,6 +235,8 @@ private struct WhatIfWeightsSection: View {
         } footer: {
             Text(L10n.WhatIfEstimate.weightsFooter())
         }
+        // D31 round 2: applied to the Section, which reaches every row inside it.
+        .tallyRow()
     }
 }
 
@@ -271,7 +291,15 @@ struct WhatIfWeightInput: View {
             Text(L10n.WhatIfEstimate.weightLabel(category.name))
         }
         .keyboardType(.decimalPad)
-        .textFieldStyle(.roundedBorder)
+        // D31 round 2: `.roundedBorder` still rendered as pure black against the `bgCard` rows
+        // (round 1's separator overlay alone did not fix the fill itself) — `.plain` with an
+        // explicit `bgCanvas` fill and the same separator stroke keeps the sheet at two dark
+        // tones (bgCanvas, bgCard), the same treatment as the score field above.
+        .textFieldStyle(.plain)
+        .padding(.horizontal, TallySpacing.sm)
+        .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+            .stroke(TallyColor.separator))
         .focused($isFocused)
         .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
         .contentShape(Rectangle())
@@ -306,6 +334,11 @@ private struct ScoreStepper: View {
     /// by 0.960: CI measured the 44 pt buttons at 42.25 pt on iOS 26.5 and on iOS 27 (PR #6 run
     /// 36524838684; m3-screens-report O14).
     static let buttonSide: CGFloat = 46
+    /// R7 (ux-fp1 round 3): space kept around each glyph inside its segment. At AX5 the "−" and "+"
+    /// glyphs scale with Dynamic Type past the fixed 46 pt frame and touched round 2's capsule
+    /// stroke and the divider; the segment now grows with its glyph instead, at least `buttonSide`
+    /// square (so the default sizes are unchanged: a 17 pt glyph plus this inset fits inside 46 pt).
+    static let glyphInset: CGFloat = TallySpacing.md
 
     let item: WhatIfItem
     let model: WhatIfModel
@@ -315,7 +348,9 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: false)
             } label: {
-                Image(systemName: "minus").frame(width: Self.buttonSide, height: Self.buttonSide)
+                Image(systemName: "minus")
+                    .padding(Self.glyphInset)
+                    .frame(minWidth: Self.buttonSide, minHeight: Self.buttonSide)
             }
             .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfLowerByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.decrement")
@@ -323,13 +358,20 @@ private struct ScoreStepper: View {
             Button {
                 model.step(item.id, up: true)
             } label: {
-                Image(systemName: "plus").frame(width: Self.buttonSide, height: Self.buttonSide)
+                Image(systemName: "plus")
+                    .padding(Self.glyphInset)
+                    .frame(minWidth: Self.buttonSide, minHeight: Self.buttonSide)
             }
             .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfRaiseByOnePoint(item.title)))
             .accessibilityIdentifier("whatif.increment")
         }
         .buttonStyle(.borderless)
-        .background(TallyColor.bgCanvas, in: Capsule())
+        // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the stepper's old
+        // `bgCanvas` read as a black hole cut into it.
+        .background(TallyColor.bgCard, in: Capsule())
+        // D31 round 2: the capsule's `bgCard` fill had no edge of its own against the `bgCard`
+        // rows around it; a separator stroke gives it a visible boundary, as the fix list asks.
+        .overlay(Capsule().stroke(TallyColor.separator))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("whatif.stepper")
     }
@@ -365,6 +407,8 @@ private struct WhatIfGoalSection: View {
         } footer: {
             Text(L10n.CourseDetail.whatIfGoalFooter())
         }
+        // D31 round 2: applied to the Section, which reaches every row inside it.
+        .tallyRow()
     }
 
     /// "90%" (§3.3 "Percent"): `model.goalPercent` is already a whole number (the stepper's step is 1).

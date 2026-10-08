@@ -6,6 +6,10 @@ import TallyDomain
 nonisolated enum FamilyUIConfig {
     /// The switcher's initials circle, in points.
     static let avatarDiameter: Double = 28
+    /// R3 (ux-fp1 round 2): the switcher's initials circle scales with Dynamic Type past this
+    /// size — matches `minimumHitTarget` below, so the capped circle still fits inside the
+    /// switcher's own 44 pt tap target instead of outgrowing it.
+    static let avatarDiameterMax: Double = 44
     /// The switcher's minimum tap height (HIG: 44 points).
     static let minimumHitTarget: Double = 44
     /// The HIG asks for titles "under 15 characters"; a longer first name ends in an ellipsis.

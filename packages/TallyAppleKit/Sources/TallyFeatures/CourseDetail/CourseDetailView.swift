@@ -58,6 +58,8 @@ struct CourseDetailView: View {
             Section {
                 SegmentPicker(selection: $segment)
             }
+            // D31 round 2: applied to the Section, which reaches every row inside it.
+            .tallyRow()
             switch segment {
             case .overview: overview(detail)
             case .assignments: assignments(detail)
@@ -66,6 +68,12 @@ struct CourseDetailView: View {
         }
         .listStyle(.insetGrouped)
         .refreshable { await model.refreshUntilSettledOrDelayed() }
+        // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs. The hero
+        // section's own `.listRowBackground(Color.clear)` above still overrides this default.
+        .tallyList()
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title, the
+        // toolbar buttons and the status bar, even at rest.
+        .tallyScreenChrome()
         .task(id: detail.gradeInput) { await grades.load(detail.gradeInput) }
         .sheet(isPresented: Binding(get: { whatIf != nil }, set: { if !$0 { whatIf = nil } })) {
             if let whatIf {
@@ -106,6 +114,8 @@ struct CourseDetailView: View {
                 GradeInfoBubble(scope: scope)
                     .padding(.vertical, TallySpacing.sm)
             }
+            // D31 round 2: applied to the Section, which reaches every row inside it.
+            .tallyRow()
         }
         if let next = detail.nextDueText {
             Section {
@@ -113,6 +123,7 @@ struct CourseDetailView: View {
             } header: {
                 Text(L10n.CourseDetail.nextDueHeader())
             }
+            .tallyRow()
         }
         if !detail.recentGraded.isEmpty || detail.recentGradesNote != nil {
             Section {
@@ -140,6 +151,7 @@ struct CourseDetailView: View {
             } header: {
                 Text(L10n.CourseDetail.recentGradesHeader())
             }
+            .tallyRow()
         }
         if !detail.weights.isEmpty {
             Section {
@@ -153,6 +165,7 @@ struct CourseDetailView: View {
                      ? L10n.CourseDetail.weightsSetByInstructor()
                      : L10n.CourseDetail.weightsPointsBased())
             }
+            .tallyRow()
         }
         // ux-ui.md §3.5: only when Canvas returns score statistics, never invented.
         if let distribution = detail.distribution {
@@ -164,6 +177,7 @@ struct CourseDetailView: View {
             } header: {
                 Text(L10n.CourseDetail.gradeDistributionHeader())
             }
+            .tallyRow()
         }
         Section {
             if let setup = detail.whatIf {
@@ -191,6 +205,7 @@ struct CourseDetailView: View {
                 Text(L10n.CourseDetail.whatIfFooter())
             }
         }
+        .tallyRow()
         if !detail.instructors.isEmpty {
             Section {
                 ForEach(detail.instructors.indices, id: \.self) { index in
@@ -199,6 +214,7 @@ struct CourseDetailView: View {
             } header: {
                 Text(detail.instructors.count == 1 ? L10n.CourseDetail.instructorsHeaderOne() : L10n.CourseDetail.instructorsHeaderOther())
             }
+            .tallyRow()
         }
     }
 
@@ -219,6 +235,7 @@ struct CourseDetailView: View {
                 Text(L10n.CourseDetail.noAssignmentsYet())
                     .foregroundStyle(TallyColor.textSecondary)
             }
+            .tallyRow()
         }
         ForEach(detail.sections) { section in
             Section(section.title) {
@@ -249,6 +266,7 @@ struct CourseDetailView: View {
                     .accessibilityLabel(row.accessibilityLabel)
                 }
             }
+            .tallyRow()
         }
     }
 
@@ -296,6 +314,7 @@ struct CourseDetailView: View {
                 }
             }
         }
+        .tallyRow()
     }
 
     private func categoryPercent(_ category: CategoryRow, in detail: CourseDetailProjection) -> String {
@@ -333,7 +352,11 @@ struct GradeOverrideMenu: View {
                     Text(choice.title).tag(choice)
                 }
             } label: {
-                Text(L10n.GradeOverride.title())
+                // D17 (pending owner approval): the full question truncates to "…kept outside
+                // Ca…" in this submenu row on the smallest iPhone — iOS menu rows never wrap. A
+                // shorter row title; `title()` is unchanged for wherever there is room to show
+                // the full question.
+                Text(L10n.GradeOverride.menuRowTitle())
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")

@@ -152,6 +152,13 @@ public struct HomeShellView: View {
                 .transition(.opacity)
             }
         }
+        // R2 (ux-fp1 round 2): the banner's own D29 fix keeps its fill off the status bar
+        // (`SampleDataBanner.swift`'s `ignoresSafeAreaEdges: []`), so whatever sits behind this
+        // VStack shows through there instead — with nothing painted here, that was the system's
+        // plain white/black, not the Tally canvas every other status bar on the app shows. This
+        // reaches behind both the banner and the tabs' own content (sample mode's parent-empty
+        // state included), painting only the strip neither of them already covers opaquely.
+        .background(TallyColor.bgCanvas, ignoresSafeAreaEdges: .top)
         .animation(.easeInOut(duration: Self.studentSwitchFade), value: family?.activeSubject)
         .environment(home)
         // The Home's one sheet: Settings, or M3-B2's paywall (`AppModel.paywall`). One presenter: with
@@ -247,6 +254,7 @@ public struct HomeShellView: View {
         if let family, family.activeStudent != nil {
             ToolbarItem(placement: .principal) {
                 StudentSwitcher(family: family, showsInitialsOnly: typeSize.isAccessibilitySize,
+                                isAccessibilitySize: typeSize.isAccessibilitySize,
                                 onManage: { openSettings() }, onAdd: { openSettings(addingStudent: true) })
             }
         }

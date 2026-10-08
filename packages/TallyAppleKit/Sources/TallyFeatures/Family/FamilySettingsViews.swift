@@ -64,13 +64,15 @@ struct LinkedStudentRow: View {
 
     var body: some View {
         HStack(spacing: TallySpacing.md) {
-            StudentAvatar(initials: student.initials, colorIndex: colorIndex)
-            VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                Text(verbatim: student.name)
-                    .font(TallyTypography.body)
-                Text(verbatim: student.school)
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textSecondary)
+            // R6 (ux-fp1 round 3): the avatar above the name and school at AX sizes.
+            StudentAvatarStack(avatar: StudentAvatar(initials: student.initials, colorIndex: colorIndex)) {
+                VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                    Text(verbatim: student.name)
+                        .font(TallyTypography.body)
+                    Text(verbatim: student.school)
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textSecondary)
+                }
             }
             Spacer(minLength: 0)
             if isViewed {
@@ -108,7 +110,10 @@ struct StudentDetailView: View {
                 Text(L10n.FamilyUI.linkedStudentsFooter())
             }
             Section {
-                Button(String(localized: L10n.FamilyUI.removeFromTally())) { confirmsRemove = true }
+                // S3 round 2: "Remove from Tally" had no destructive role (black text) while
+                // Unlink and Sign Out & Erase were both red — the same fix, both places this
+                // label appears as a button (here and its own confirm button below).
+                Button(String(localized: L10n.FamilyUI.removeFromTally()), role: .destructive) { confirmsRemove = true }
                     .accessibilityIdentifier("family.removeFromTally")
             }
             Section {
@@ -120,22 +125,30 @@ struct StudentDetailView: View {
                 }
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyFormScreenChrome()
         .navigationTitle(Text(verbatim: student.name))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(String(localized: L10n.FamilyUI.removeTitle(student.firstName)), isPresented: $confirmsRemove,
-                            titleVisibility: .visible) {
-            Button(String(localized: L10n.FamilyUI.removeFromTally())) { remove() }
-            Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
-        } message: {
-            Text(L10n.FamilyUI.removeMessage(student.firstName))
-        }
-        .confirmationDialog(String(localized: L10n.FamilyUI.unlinkTitle(student.firstName)), isPresented: $confirmsUnlink,
-                            titleVisibility: .visible) {
-            Button(String(localized: L10n.FamilyUI.unlinkConfirm()), role: .destructive) { unlink() }
-            Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
-        } message: {
-            Text(L10n.FamilyUI.unlinkMessage(student.firstName))
-        }
+        // D03 (AX5) + D22: `.confirmationDialog` was an anchored popover that cut the warning text
+        // mid-sentence at AX5, and (with two dialogs on one view) pointed its arrow at the wrong
+        // button. `.alert` fixed D22 but Gate 2 round 2 found it still cut the message and pushed
+        // Cancel off-screen at rest on the smallest iPhone at AX5 — see
+        // `Support/DestructiveConfirmation.swift`.
+        .tallyDestructiveConfirmation(
+            String(localized: L10n.FamilyUI.removeTitle(student.firstName)), isPresented: $confirmsRemove,
+            message: String(localized: L10n.FamilyUI.removeMessage(student.firstName)),
+            actions: [
+                TallyConfirmationAction(String(localized: L10n.FamilyUI.removeFromTally()), role: .destructive) { remove() },
+                TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel) {},
+            ])
+        .tallyDestructiveConfirmation(
+            String(localized: L10n.FamilyUI.unlinkTitle(student.firstName)), isPresented: $confirmsUnlink,
+            message: String(localized: L10n.FamilyUI.unlinkMessage(student.firstName)),
+            actions: [
+                TallyConfirmationAction(String(localized: L10n.FamilyUI.unlinkConfirm()), role: .destructive) { unlink() },
+                TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel) {},
+            ])
     }
 
     private func notificationToggle(_ title: () -> LocalizedStringResource,
@@ -210,6 +223,9 @@ struct AddStudentSheet: View {
                     }
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyFormScreenChrome()
             .navigationTitle(Text(L10n.FamilyUI.addStudentTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -282,8 +298,9 @@ struct FamilySharingSection: View {
                         NavigationLink {
                             ObserverDetailView(observer: observer)
                         } label: {
-                            HStack(spacing: TallySpacing.md) {
-                                StudentAvatar(initials: StudentNameText.initials(of: observer.name), colorIndex: index)
+                            // R6 (ux-fp1 round 3): the avatar above the name at AX sizes.
+                            StudentAvatarStack(avatar: StudentAvatar(initials: StudentNameText.initials(of: observer.name),
+                                                                     colorIndex: index)) {
                                 Text(verbatim: observer.name)
                             }
                         }
@@ -352,6 +369,9 @@ struct ObserverDetailView: View {
                     .accessibilityIdentifier("family.howToRemove")
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyFormScreenChrome()
         .navigationTitle(Text(verbatim: observer.name))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsHowToRemove) {
@@ -384,6 +404,9 @@ struct HowToRemoveSheet: View {
                         .accessibilityIdentifier("family.howToRemoveDone")
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyFormScreenChrome()
         }
         .presentationDetents([.medium, .large])
     }
@@ -438,6 +461,9 @@ struct InviteSheet: View {
                     }
                 }
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyFormScreenChrome()
             .navigationTitle(Text(L10n.FamilyUI.inviteTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

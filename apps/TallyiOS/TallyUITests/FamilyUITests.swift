@@ -90,6 +90,33 @@ final class FamilyUITests: TallyUITestCase {
         }
     }
 
+    /// D17 (ux-fp1, AX5 regression): the switcher's `Menu` drew "Manage linked students…" over the
+    /// Dashboard hero at AX5, because a `Menu` never reflows for Dynamic Type. At AX5 the switcher
+    /// now opens a sheet instead: tapping it must show "Student" (the sheet's own nav title, never
+    /// true of the `Menu`), both students as separate reachable rows, and the two actions, with no
+    /// element drawn outside the sheet (CI run 37716470762 caught this failing to switch to the
+    /// sheet at all: `StudentSwitcher`'s own `@Environment(\.dynamicTypeSize)` read the toolbar's
+    /// clamped size, never true AX5 — fixed by passing the shell's own unclamped size in instead).
+    @MainActor
+    func testSwitcherAtAX5OpensASheetNotAMenu() throws {
+        let app = launchApp(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        tapWhenHittable(app.buttons["Explore with Sample Data"], in: app, timeout: 30)
+        XCTAssertTrue(app.staticTexts["SAMPLE DATA"].waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        enterParentMode(app)
+        let switcher = visibleSwitcher(in: app)
+        // A plain tap + wait flaked on a loaded CI simulator (run 37734195394: the tap did not
+        // take, "Student" never appeared within 10 s, retried-and-passed on CI's own retry). `tap(
+        // _:expecting:)` re-taps once while the switcher is still hittable, the established fix for
+        // exactly this (app-core report O9; `TallyUITestCase.swift`'s own doc comment).
+        tap(switcher, expecting: app.navigationBars["Student"], in: app, timeout: 15)
+        XCTAssertTrue(app.buttons["Rowan Sample"].waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(app.buttons["Skyler Sample"], in: app), "Hierarchy: \(app.debugDescription)")
+        let manage = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Manage linked'")).firstMatch
+        XCTAssertTrue(scrollUntilHittable(manage, in: app), "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["Done"], in: app)
+        XCTAssertTrue(eventually { !app.navigationBars["Student"].exists })
+    }
+
     // MARK: FAM-10: §7.6 states
 
     /// §7.6 "Link removed", and FAM-09's one student: a label, not a menu.
@@ -146,13 +173,11 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertTrue(staticText("Unlink Rowan?", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(staticText("You'll stop seeing Rowan's courses and grades in Tally, the Canvas Parent app and Canvas on the web. To link again, Rowan will need to send you a new code. Tally will delete Rowan's saved data from this iPhone.", in: app).exists,
                       "Hierarchy: \(app.debugDescription)")
-        // iOS 26 shows the dialog as a popover with no Cancel button; tapping outside cancels it.
+        // ux-fp1 D03/D22: this used to be a `.confirmationDialog`, shown as a popover with no Cancel
+        // button on some layouts (tapping outside cancelled it instead) and an arrow that pointed at
+        // the wrong button. It is now an `.alert`, always centred with its own Cancel button.
         let cancel = app.buttons.matching(NSPredicate(format: "label == 'Cancel' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-        if cancel.waitForExistence(timeout: 3) {
-            cancel.tap()
-        } else {
-            tapWhenHittable(app.otherElements["PopoverDismissRegion"].firstMatch, in: app)
-        }
+        tapWhenHittable(cancel, in: app)
         XCTAssertTrue(eventually { !self.staticText("Unlink Rowan?", in: app).exists }, "the dialog stayed. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(unlink.waitForExistence(timeout: 10))
     }

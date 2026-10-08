@@ -43,6 +43,9 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(TallyColor.bgCanvas)
+            // D01: content scrolled past the top stayed visible, blurred, under the toolbar
+            // button and the status bar, even at rest.
+            .tallyScreenChrome()
             .accessibilityIdentifier("paywall.root")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

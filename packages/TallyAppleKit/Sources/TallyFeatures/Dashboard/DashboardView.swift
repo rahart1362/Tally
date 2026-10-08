@@ -58,6 +58,10 @@ struct DashboardView: View {
         // Awaits the model-owned refresh until it settles or the live budget passes; never ties
         // the run to this view's task (plan 06 row 7, SH-2).
         .refreshable { await model.refreshUntilSettledOrDelayed() }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest at the bottom of the scroll. R4 (round 3): the large-title
+        // variant, so the opaque fill never paints over "Dashboard" at rest.
+        .tallyLargeTitleScreenChrome()
         .navigationTitle(String(localized: L10n.Dashboard.navigationTitle()))
     }
 

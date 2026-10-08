@@ -35,6 +35,8 @@ struct CalendarScreen: View {
                     } header: {
                         Text(day.heading)
                     }
+                    // D31 round 2: applied to the Section, which reaches every row inside it.
+                    .tallyRow()
                 } else {
                     ForEach(calendar.days) { day in
                         Section {
@@ -49,12 +51,21 @@ struct CalendarScreen: View {
                         } header: {
                             Text(day.heading)
                         }
+                        .tallyRow()
                         .id(day.id)
                     }
                 }
             }
             .listStyle(.insetGrouped)
             .refreshable { await model.refreshUntilSettledOrDelayed() }
+            // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+            .tallyList()
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest. R4 (round 3): Calendar is a large-title tab root
+            // too (no inline display mode); it usually opens scrolled to today, its title already
+            // collapsed into the bar, but on a day whose row is first it opens at the scroll edge,
+            // where a `.visible` fill would paint over the large title as on the other four roots.
+            .tallyLargeTitleScreenChrome()
             // The week strip stays in place above the agenda (it is how the student moves through
             // the week), under the breadcrumb when one shows.
             .safeAreaInset(edge: .top, spacing: 0) {

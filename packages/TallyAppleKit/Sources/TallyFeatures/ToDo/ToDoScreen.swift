@@ -28,6 +28,8 @@ struct ToDoScreen: View {
                         } header: {
                             Text(section.title)
                         }
+                        // D31 round 2: applied to the Section, which reaches every row inside it.
+                        .tallyRow()
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -36,6 +38,12 @@ struct ToDoScreen: View {
                 // Select mode's bottom bar (Mark Done) takes the tab bar's place, as in Photos; with
                 // both shown, the tab bar covered Mark Done (run 36454544581).
                 .toolbarVisibility(editMode.isEditing ? .hidden : .automatic, for: .tabBar)
+                // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+                .tallyList()
+                // D01: content scrolled past the top stayed visible, blurred, under the inline
+                // title and the status bar, even at rest — select mode included. R4 (round 3): the
+                // large-title variant, so the opaque fill never paints over "To-Do" at rest.
+                .tallyLargeTitleScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }

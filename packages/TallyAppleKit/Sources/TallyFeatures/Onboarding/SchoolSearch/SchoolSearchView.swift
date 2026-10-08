@@ -14,6 +14,10 @@ struct SchoolSearchView: View {
     @FocusState private var searchFieldFocused: Bool
     @State private var showSearchingRow = false
     @State private var showAddressHelp = false
+    /// D26: at AX5 the system's bottom search capsule is cut flat by the keyboard. R1 (round 2):
+    /// a plain top field, below, replaces the system search bar entirely at these sizes, both to
+    /// stay above the keyboard and to support wrapping and a custom glyph `.searchable` cannot.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let onSelectEnabled: (InstitutionMatch, ClientRegistration) -> Void
     let onSelectNotEnabled: (String) -> Void
@@ -40,28 +44,86 @@ struct SchoolSearchView: View {
     }
 
     var body: some View {
-        content
-            .listStyle(.plain)
-            .background(TallyColor.bgCanvas)
-            .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
-            .searchFocused($searchFieldFocused)
-            .onAppear { searchFieldFocused = true }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(String(localized: L10n.Onboarding.SchoolSearch.cantFindIt())) { showAddressHelp = true }
-                        .font(TallyTypography.footnote)
+        Group {
+            // R1 (ux-fp1 round 2): the system search bar (`.searchable`) cannot wrap a long query
+            // or guarantee its own glyph at AX5 — `.navigationBarDrawer` clipped the typed text at
+            // its leading edge, dropped the glyph and kept the placeholder at the standard size,
+            // none of which a `UISearchBar` exposes a way to fix. At accessibility sizes, a plain
+            // field above the results replaces it; below them, `.searchable` is unchanged.
+            //
+            // Round 3: round 2 hung the field on the results as a top `safeAreaInset`. The first
+            // Audit tour to reach it at AX5 (run 37798261057, all 4 AX5 legs) showed the field
+            // stop taking input as soon as the results changed state: "northfield" stayed "no",
+            // "canvas.northfield.example" stayed "canv" — the first letters that move the screen
+            // out of its idle state, when `content` swaps one `List` for another. Hypothesis, not
+            // observed directly: the inset's host moves with the `List` it is attached to, and the
+            // field loses keyboard focus. A sibling above the results in a `VStack` never moves
+            // with them; `SchoolSearchUITests.testTypingAnAddressAtAccessibilityXXXLKeepsEveryCharacter`
+            // is the check.
+            if typeSize.isAccessibilitySize {
+                VStack(spacing: 0) {
+                    accessibleSearchField
+                    content
+                        .listStyle(.plain)
+                        .background(TallyColor.bgCanvas)
                 }
+            } else {
+                content
+                    .listStyle(.plain)
+                    .background(TallyColor.bgCanvas)
+                    .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
+                    .searchFocused($searchFieldFocused)
             }
-            .sheet(isPresented: $showAddressHelp) { AddressHelpSheet() }
-            // "after 400 ms only, to avoid a flash" (ux-ui.md §3.2.1).
-            .task(id: isSearching) {
-                showSearchingRow = false
-                guard isSearching else { return }
-                try? await Task.sleep(for: .milliseconds(400))
-                if !Task.isCancelled { showSearchingRow = isSearching }
+        }
+        .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
+        // R4 (ux-fp1 round 3): at accessibility sizes the large title never rendered above the
+        // field's opaque top inset, leaving an empty ~75 pt band (Gate 2 round 2, all 4 AX5 legs).
+        // Inline there, the title sits in the bar between Back and "Can't find it?" and the field
+        // starts right under it; below the accessibility sizes, unchanged.
+        .navigationBarTitleDisplayMode(typeSize.isAccessibilitySize ? NavigationBarItem.TitleDisplayMode.inline : .large)
+        .onAppear { searchFieldFocused = true }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(String(localized: L10n.Onboarding.SchoolSearch.cantFindIt())) { showAddressHelp = true }
+                    .font(TallyTypography.footnote)
             }
+        }
+        .sheet(isPresented: $showAddressHelp) { AddressHelpSheet() }
+        // "after 400 ms only, to avoid a flash" (ux-ui.md §3.2.1).
+        .task(id: isSearching) {
+            showSearchingRow = false
+            guard isSearching else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { showSearchingRow = isSearching }
+        }
+    }
+
+    /// R1: full width, `TallyTypography.body` (scales with Dynamic Type like the typed text, unlike
+    /// the system field's placeholder, which stayed at the standard size), `axis: .vertical` so a
+    /// long query wraps onto a second line instead of clipping at the leading edge, and an explicit
+    /// glyph (the system field dropped its own at this placement/size).
+    private var accessibleSearchField: some View {
+        HStack(spacing: TallySpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityHidden(true)
+            TextField(String(localized: L10n.Onboarding.SchoolSearch.searchPrompt()), text: queryBinding, axis: .vertical)
+                .font(TallyTypography.body)
+                .foregroundStyle(TallyColor.textPrimary)
+                .focused($searchFieldFocused)
+                .submitLabel(.search)
+                // Kept so a future test/tour update can find this field directly; the system
+                // search bar it replaces here has no identifier of its own either, so nothing
+                // that found the old field by identifier is being broken by this.
+                .accessibilityIdentifier("schoolSearch.field")
+        }
+        .padding(.horizontal, TallySpacing.md)
+        .padding(.vertical, TallySpacing.sm)
+        .frame(minHeight: 44)
+        .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
+        .padding(.horizontal, TallySpacing.screenMargin)
+        .padding(.vertical, TallySpacing.sm)
+        .background(TallyColor.bgCanvas)
     }
 
     @ViewBuilder

@@ -88,6 +88,9 @@ struct SettingsView: View {
                 }
                 aboutSection
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyFormScreenChrome()
             .navigationTitle(Text(L10n.Settings.navigationTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -95,21 +98,16 @@ struct SettingsView: View {
                     Button(String(localized: L10n.Account.done())) { dismiss() }
                 }
             }
-            .confirmationDialog(String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut, titleVisibility: .visible) {
-                Button(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
-                    dismiss()
-                    app?.signOut()
-                }
-                // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap
-                // away. M3-B3: omitted for a school-assigned seat, which this Apple Account has
-                // nothing to cancel.
-                if !isSchoolSeat {
-                    Button(String(localized: L10n.Subscription.manage())) { presentsManageSubscriptions = true }
-                }
-                Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
-            } message: {
-                Text(verbatim: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat))
-            }
+            // D03 (AX5) round 2: a `.confirmationDialog` was an anchored popover that cut the
+            // warning text and button labels mid-sentence at AX5; `.alert` fixed D22's wrong-button
+            // arrow but Gate 2 found it still cut the message and pushed Cancel off-screen at rest
+            // on the smallest iPhone at AX5 (its own internal scroll sizes to a fixed fraction of
+            // the screen, not to the content). `tallyDestructiveConfirmation` keeps `.alert` below
+            // the accessibility sizes and swaps to a full-screen sheet (Cancel pinned, always
+            // visible at rest) at AX1 and up, from the same title/message/actions.
+            .tallyDestructiveConfirmation(
+                String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut,
+                message: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat), actions: signOutActions)
             .manageSubscriptionsSheet(isPresented: $presentsManageSubscriptions)
             .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
                 Button(String(localized: L10n.Calendar.subscribeAlertOK()), role: .cancel) {}
@@ -191,6 +189,26 @@ struct SettingsView: View {
     /// this launch.
     private var isSchoolSeat: Bool {
         app?.subscription.isSchoolSeat == true
+    }
+
+    /// D03 round 2: the Sign Out & Erase confirmation's buttons, shared between `.alert` (below
+    /// the accessibility sizes) and the AX1+ sheet (`tallyDestructiveConfirmation`).
+    private var signOutActions: [TallyConfirmationAction] {
+        var actions = [
+            TallyConfirmationAction(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
+                dismiss()
+                app?.signOut()
+            },
+        ]
+        // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap away.
+        // M3-B3: omitted for a school-assigned seat, which this Apple Account has nothing to cancel.
+        if !isSchoolSeat {
+            actions.append(TallyConfirmationAction(String(localized: L10n.Subscription.manage())) {
+                presentsManageSubscriptions = true
+            })
+        }
+        actions.append(TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel) {})
+        return actions
     }
 
     // MARK: - Account
@@ -429,6 +447,9 @@ struct PerCourseThresholdsView: View {
                 Text(SettingsCopy.thresholdFooter)
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyFormScreenChrome()
         .navigationTitle(Text(L10n.Settings.perCourseNavTitle()))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -449,6 +470,9 @@ struct WhatTallyStoresView: View {
             }
             .font(TallyTypography.body)
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyFormScreenChrome()
         .navigationTitle(Text(L10n.Settings.whatTallyStoresLabel()))
         .navigationBarTitleDisplayMode(.inline)
     }
