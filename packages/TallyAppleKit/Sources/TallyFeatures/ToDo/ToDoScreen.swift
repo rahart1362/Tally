@@ -122,8 +122,10 @@ struct ToDoScreen: View {
             // ux-ui.md §3.2.3 "Nothing due".
             ContentUnavailableView(String(localized: L10n.ToDo.emptyTitle()), systemImage: "checkmark.circle",
                                    description: Text(L10n.ToDo.emptyDescription()))
-                // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the
+                // list's own D01 chrome, since it can now scroll under the bar.
                 .tallyCenteredScrolling()
+                .tallyLargeTitleScreenChrome()
         }
     }
 }

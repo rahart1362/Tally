@@ -22,8 +22,10 @@ struct InsightsScreen: View {
             if model.courseCards.isEmpty {
                 ContentUnavailableView(String(localized: L10n.Insights.emptyTitle()), systemImage: "chart.xyaxis.line",
                                        description: Text(L10n.Insights.emptyDescription()))
-                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+                    // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the
+                    // screen's own D01 chrome, since it can now scroll under the bar.
                     .tallyCenteredScrolling()
+                    .tallyLargeTitleScreenChrome()
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: TallySpacing.xxl) {

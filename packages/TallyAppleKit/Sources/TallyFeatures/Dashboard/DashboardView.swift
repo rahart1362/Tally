@@ -309,6 +309,7 @@ private struct GlanceSkeletonSection: View {
 
 private struct NextUpSection: View {
     let items: [DashboardProjection.NextUpItem]
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -318,19 +319,23 @@ private struct NextUpSection: View {
             } else {
                 ForEach(items) { item in
                     VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        // ux-fp2 D02: from AX1 up the band goes under the title, whose words no
-                        // longer hyphenate in a narrow column beside it ("Integra- / tion" at AX5).
+                        // ux-fp2 D02: below AX1 the band sits beside the title, as before; from AX1
+                        // up the title takes the full width (it hyphenated in a narrow column beside
+                        // the band, "Integra- / tion" at AX5) and the band ends the card: title,
+                        // then reason, then band.
                         TallyReflowStack {
                             Text(item.title).font(TallyTypography.cardTitle)
                             TallyReflowSpacer()
-                            Text(bandWord(item.band))
-                                .font(TallyTypography.caption)
-                                .foregroundStyle(TallyColor.textSecondary)
-                                .tallyReflowValue()
+                            if !typeSize.isAccessibilitySize {
+                                band(item)
+                            }
                         }
                         // Plan 08 L10N-02: the reason's factors, phrased in the student's language.
                         Text(verbatim: DashboardText.reason(item.reasonFactors, courseCode: item.courseCode))
                             .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
+                        if typeSize.isAccessibilitySize {
+                            band(item)
+                        }
                     }
                     .padding(TallySpacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -338,6 +343,13 @@ private struct NextUpSection: View {
                 }
             }
         }
+    }
+
+    private func band(_ item: DashboardProjection.NextUpItem) -> some View {
+        Text(bandWord(item.band))
+            .font(TallyTypography.caption)
+            .foregroundStyle(TallyColor.textSecondary)
+            .tallyReflowValue()
     }
 
     private func bandWord(_ band: PriorityScore.Band) -> String {
