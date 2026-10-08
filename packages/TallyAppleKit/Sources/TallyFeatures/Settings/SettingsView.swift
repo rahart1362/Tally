@@ -88,6 +88,9 @@ struct SettingsView: View {
                 }
                 aboutSection
             }
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
             .navigationTitle(Text(L10n.Settings.navigationTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -429,6 +432,9 @@ struct PerCourseThresholdsView: View {
                 Text(SettingsCopy.thresholdFooter)
             }
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyScreenChrome()
         .navigationTitle(Text(L10n.Settings.perCourseNavTitle()))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -449,6 +455,9 @@ struct WhatTallyStoresView: View {
             }
             .font(TallyTypography.body)
         }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest.
+        .tallyScreenChrome()
         .navigationTitle(Text(L10n.Settings.whatTallyStoresLabel()))
         .navigationBarTitleDisplayMode(.inline)
     }

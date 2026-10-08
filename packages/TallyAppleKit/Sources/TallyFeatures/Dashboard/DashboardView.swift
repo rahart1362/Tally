@@ -58,6 +58,9 @@ struct DashboardView: View {
         // Awaits the model-owned refresh until it settles or the live budget passes; never ties
         // the run to this view's task (plan 06 row 7, SH-2).
         .refreshable { await model.refreshUntilSettledOrDelayed() }
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title and
+        // the status bar, even at rest at the bottom of the scroll.
+        .tallyScreenChrome()
         .navigationTitle(String(localized: L10n.Dashboard.navigationTitle()))
     }
 

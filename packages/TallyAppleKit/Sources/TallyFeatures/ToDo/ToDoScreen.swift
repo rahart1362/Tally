@@ -36,6 +36,11 @@ struct ToDoScreen: View {
                 // Select mode's bottom bar (Mark Done) takes the tab bar's place, as in Photos; with
                 // both shown, the tab bar covered Mark Done (run 36454544581).
                 .toolbarVisibility(editMode.isEditing ? .hidden : .automatic, for: .tabBar)
+                // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+                .tallyList()
+                // D01: content scrolled past the top stayed visible, blurred, under the inline
+                // title and the status bar, even at rest — select mode included.
+                .tallyScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }

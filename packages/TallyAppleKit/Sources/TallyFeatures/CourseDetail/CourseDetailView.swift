@@ -66,6 +66,12 @@ struct CourseDetailView: View {
         }
         .listStyle(.insetGrouped)
         .refreshable { await model.refreshUntilSettledOrDelayed() }
+        // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs. The hero
+        // section's own `.listRowBackground(Color.clear)` above still overrides this default.
+        .tallyList()
+        // D01: content scrolled past the top stayed visible, blurred, under the inline title, the
+        // toolbar buttons and the status bar, even at rest.
+        .tallyScreenChrome()
         .task(id: detail.gradeInput) { await grades.load(detail.gradeInput) }
         .sheet(isPresented: Binding(get: { whatIf != nil }, set: { if !$0 { whatIf = nil } })) {
             if let whatIf {

@@ -45,6 +45,11 @@ struct WhatIfSheet: View {
                 WhatIfGoalSection(model: model)
             }
             .listStyle(.insetGrouped)
+            // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+            .tallyList()
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title,
+            // the toolbar buttons and the status bar, even at rest.
+            .tallyScreenChrome()
             .safeAreaInset(edge: .top, spacing: 0) {
                 WhatIfSummary(model: model)
             }
@@ -106,7 +111,9 @@ private struct WhatIfSummary: View {
         .padding(.horizontal, TallySpacing.screenMargin)
         .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(TallyColor.bgCanvas)
+        // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the sticky band's old
+        // `bgCanvas` read as a black hole cut into it.
+        .background(TallyColor.bgCard)
     }
 }
 
@@ -137,6 +144,10 @@ private struct WhatIfItemRow: View {
                     TextField(String(localized: L10n.CourseDetail.whatIfScoreFieldPrompt()), text: $text)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
+                        // D31 (dark): `.roundedBorder`'s own fill reads as a black hole against
+                        // the `bgCard` list rows (`tallyList()`) without an outline of its own.
+                        .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+                            .stroke(TallyColor.separator))
                         .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120)
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfScoreFieldAccessibility(item.title, item.outOfText)))
                         .accessibilityIdentifier("whatif.field")
@@ -272,6 +283,10 @@ struct WhatIfWeightInput: View {
         }
         .keyboardType(.decimalPad)
         .textFieldStyle(.roundedBorder)
+        // D31 (dark): `.roundedBorder`'s own fill reads as a black hole against the `bgCard`
+        // list rows (`tallyList()`) without an outline of its own.
+        .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
+            .stroke(TallyColor.separator))
         .focused($isFocused)
         .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
         .contentShape(Rectangle())
@@ -329,7 +344,9 @@ private struct ScoreStepper: View {
             .accessibilityIdentifier("whatif.increment")
         }
         .buttonStyle(.borderless)
-        .background(TallyColor.bgCanvas, in: Capsule())
+        // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the stepper's old
+        // `bgCanvas` read as a black hole cut into it.
+        .background(TallyColor.bgCard, in: Capsule())
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("whatif.stepper")
     }

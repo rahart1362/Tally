@@ -45,6 +45,9 @@ struct InsightsScreen: View {
                 }
                 .background(TallyColor.bgCanvas)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
+                // D01: content scrolled past the top stayed visible, blurred, under the inline
+                // title and the status bar, even at rest.
+                .tallyScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }

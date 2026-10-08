@@ -55,6 +55,11 @@ struct CalendarScreen: View {
             }
             .listStyle(.insetGrouped)
             .refreshable { await model.refreshUntilSettledOrDelayed() }
+            // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+            .tallyList()
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
             // The week strip stays in place above the agenda (it is how the student moves through
             // the week), under the breadcrumb when one shows.
             .safeAreaInset(edge: .top, spacing: 0) {

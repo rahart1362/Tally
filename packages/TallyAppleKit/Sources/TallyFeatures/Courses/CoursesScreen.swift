@@ -52,6 +52,11 @@ struct CoursesScreen: View {
                 .listStyle(.insetGrouped)
                 .environment(\.editMode, $editMode)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
+                // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+                .tallyList()
+                // D01: content scrolled past the top stayed visible, blurred, under the inline
+                // title and the status bar, even at rest.
+                .tallyScreenChrome()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
