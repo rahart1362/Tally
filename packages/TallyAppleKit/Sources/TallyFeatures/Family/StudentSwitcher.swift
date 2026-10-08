@@ -99,6 +99,7 @@ private struct StudentSwitcherSheet: View {
                             HStack(spacing: TallySpacing.md) {
                                 StudentAvatar(initials: option.initials, colorIndex: family.colorIndex(of: option))
                                 Text(verbatim: option.name)
+                                    .font(TallyTypography.body)
                                     .foregroundStyle(TallyColor.textPrimary)
                                 Spacer(minLength: TallySpacing.sm)
                                 if option.id == family.activeSubject {
