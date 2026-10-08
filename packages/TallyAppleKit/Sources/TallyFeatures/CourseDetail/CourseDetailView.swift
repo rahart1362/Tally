@@ -339,7 +339,11 @@ struct GradeOverrideMenu: View {
                     Text(choice.title).tag(choice)
                 }
             } label: {
-                Text(L10n.GradeOverride.title())
+                // D17 (pending owner approval): the full question truncates to "…kept outside
+                // Ca…" in this submenu row on the smallest iPhone — iOS menu rows never wrap. A
+                // shorter row title; `title()` is unchanged for wherever there is room to show
+                // the full question.
+                Text(L10n.GradeOverride.menuRowTitle())
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")

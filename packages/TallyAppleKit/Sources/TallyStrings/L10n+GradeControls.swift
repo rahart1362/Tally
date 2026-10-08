@@ -20,6 +20,15 @@ extension L10n {
                 comment: "Course Detail menu: a setting whose answers are Automatic, Yes and No. Yes means the student's school keeps this course's grades in another system (for example a district grade portal), not in Canvas.")
         }
 
+        /// ux-fp1 D17 (pending owner approval): the Course Options menu's submenu row, shortened
+        /// from `title()`'s full question because iOS menu rows truncate single-line labels
+        /// instead of wrapping them, and the full sentence clipped on the smallest iPhone.
+        public static func menuRowTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "courseDetail.override.menuRowTitle", defaultValue: "Grades kept outside Canvas", bundle: #bundle,
+                comment: "Course Options menu row label for the grades-outside-Canvas setting (Automatic/Yes/No) — the same question as courseDetail.override.title, shortened because this iOS menu row truncates rather than wraps.")
+        }
+
         public static func automatic() -> LocalizedStringResource {
             LocalizedStringResource(
                 "courseDetail.override.automatic", defaultValue: "Automatic", bundle: #bundle,

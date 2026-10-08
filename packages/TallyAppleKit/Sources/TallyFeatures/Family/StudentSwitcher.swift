@@ -18,39 +18,120 @@ struct StudentSwitcher: View {
     let showsInitialsOnly: Bool
     let onManage: () -> Void
     let onAdd: () -> Void
+    /// D17: at AX5 the `Menu`'s last item ("Manage linked students…") draws over the hero text at
+    /// the menu's edge. A `Menu` never reflows for Dynamic Type, so accessibility sizes get a
+    /// sheet instead, which scrolls like any other screen.
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var showsAccessibleSwitcher = false
 
     var body: some View {
         if let student = family.activeStudent {
             if family.hasMenu {
-                Menu {
-                    Picker(selection: Binding(get: { family.activeSubject ?? student.id }, set: { family.select($0) })) {
-                        ForEach(family.students) { option in
-                            Text(verbatim: option.name).tag(option.id)
-                        }
+                if typeSize.isAccessibilitySize {
+                    Button {
+                        showsAccessibleSwitcher = true
                     } label: {
-                        Text(L10n.FamilyUI.pickerLabel())
+                        StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: true,
+                                             showsInitialsOnly: showsInitialsOnly)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
                     }
-                    .pickerStyle(.inline)
-                    Divider()
-                    Button(String(localized: L10n.FamilyUI.manageLinkedStudents()), action: onManage)
-                    Button(String(localized: L10n.FamilyUI.addStudentEllipsis()), action: onAdd)
-                } label: {
-                    // The menu's label is a button of its own inside the bar item: it gets the same label.
-                    StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: true,
-                                         showsInitialsOnly: showsInitialsOnly)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
+                    .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
+                    .accessibilityHint(Text(L10n.FamilyUI.switchHint()))
+                    .accessibilityIdentifier("family.switcher")
+                    .sensoryFeedback(.selection, trigger: family.activeSubject)
+                    .sheet(isPresented: $showsAccessibleSwitcher) {
+                        StudentSwitcherSheet(family: family, onManage: onManage, onAdd: onAdd)
+                    }
+                } else {
+                    Menu {
+                        Picker(selection: Binding(get: { family.activeSubject ?? student.id }, set: { family.select($0) })) {
+                            ForEach(family.students) { option in
+                                Text(verbatim: option.name).tag(option.id)
+                            }
+                        } label: {
+                            Text(L10n.FamilyUI.pickerLabel())
+                        }
+                        .pickerStyle(.inline)
+                        Divider()
+                        Button(String(localized: L10n.FamilyUI.manageLinkedStudents()), action: onManage)
+                        Button(String(localized: L10n.FamilyUI.addStudentEllipsis()), action: onAdd)
+                    } label: {
+                        // The menu's label is a button of its own inside the bar item: it gets the same label.
+                        StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: true,
+                                             showsInitialsOnly: showsInitialsOnly)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
+                    }
+                    .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
+                    .accessibilityHint(Text(L10n.FamilyUI.switchHint()))
+                    .accessibilityIdentifier("family.switcher")
+                    .sensoryFeedback(.selection, trigger: family.activeSubject)
                 }
-                .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
-                .accessibilityHint(Text(L10n.FamilyUI.switchHint()))
-                .accessibilityIdentifier("family.switcher")
-                .sensoryFeedback(.selection, trigger: family.activeSubject)
             } else {
                 StudentSwitcherLabel(student: student, colorIndex: family.colorIndex(of: student), showsChevron: false,
                                      showsInitialsOnly: showsInitialsOnly)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(L10n.FamilyUI.viewing(student.firstName)))
                     .accessibilityIdentifier("family.switcher")
+            }
+        }
+    }
+}
+
+/// D17 (AX5): the student switcher as a sheet, so "Manage linked students…" never draws over the
+/// Dashboard hero the way the `Menu`'s last row did at accessibility sizes.
+private struct StudentSwitcherSheet: View {
+    let family: FamilyModel
+    let onManage: () -> Void
+    let onAdd: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(family.students) { option in
+                        Button {
+                            family.select(option.id)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: TallySpacing.md) {
+                                StudentAvatar(initials: option.initials, colorIndex: family.colorIndex(of: option))
+                                Text(verbatim: option.name)
+                                    .foregroundStyle(TallyColor.textPrimary)
+                                Spacer(minLength: TallySpacing.sm)
+                                if option.id == family.activeSubject {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(TallyColor.accent)
+                                }
+                            }
+                        }
+                        .accessibilityAddTraits(option.id == family.activeSubject ? .isSelected : [])
+                    }
+                }
+                Section {
+                    Button(String(localized: L10n.FamilyUI.manageLinkedStudents())) {
+                        dismiss()
+                        onManage()
+                    }
+                    Button(String(localized: L10n.FamilyUI.addStudentEllipsis())) {
+                        dismiss()
+                        onAdd()
+                    }
+                }
+            }
+            // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
+            .tallyList()
+            // D01: content scrolled past the top stayed visible, blurred, under the inline title
+            // and the status bar, even at rest.
+            .tallyScreenChrome()
+            .navigationTitle(Text(L10n.FamilyUI.pickerLabel()))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: L10n.Account.done())) { dismiss() }
+                }
             }
         }
     }

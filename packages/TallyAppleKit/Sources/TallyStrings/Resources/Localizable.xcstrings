@@ -601,6 +601,18 @@
         }
       }
     },
+    "courseDetail.override.menuRowTitle" : {
+      "comment" : "Course Options menu row label for the grades-outside-Canvas setting (Automatic/Yes/No) — the same question as courseDetail.override.title, shortened because this iOS menu row truncates rather than wraps.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grades kept outside Canvas"
+          }
+        }
+      }
+    },
     "courseDetail.override.no" : {
       "comment" : "Answer to 'This course's grades are kept outside Canvas': no, they are in Canvas.",
       "extractionState" : "manual",
