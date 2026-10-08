@@ -49,13 +49,24 @@ struct SchoolSearchView: View {
             // or guarantee its own glyph at AX5 — `.navigationBarDrawer` clipped the typed text at
             // its leading edge, dropped the glyph and kept the placeholder at the standard size,
             // none of which a `UISearchBar` exposes a way to fix. At accessibility sizes, a plain
-            // field in its own top safe-area inset replaces it; below them, `.searchable` is
-            // unchanged.
+            // field above the results replaces it; below them, `.searchable` is unchanged.
+            //
+            // Round 3: round 2 hung the field on the results as a top `safeAreaInset`. The first
+            // Audit tour to reach it at AX5 (run 37798261057, all 4 AX5 legs) showed the field
+            // stop taking input as soon as the results changed state: "northfield" stayed "no",
+            // "canvas.northfield.example" stayed "canv" — the first letters that move the screen
+            // out of its idle state, when `content` swaps one `List` for another. Hypothesis, not
+            // observed directly: the inset's host moves with the `List` it is attached to, and the
+            // field loses keyboard focus. A sibling above the results in a `VStack` never moves
+            // with them; `SchoolSearchUITests.testTypingAnAddressAtAccessibilityXXXLKeepsEveryCharacter`
+            // is the check.
             if typeSize.isAccessibilitySize {
-                content
-                    .listStyle(.plain)
-                    .background(TallyColor.bgCanvas)
-                    .safeAreaInset(edge: .top, spacing: 0) { accessibleSearchField }
+                VStack(spacing: 0) {
+                    accessibleSearchField
+                    content
+                        .listStyle(.plain)
+                        .background(TallyColor.bgCanvas)
+                }
             } else {
                 content
                     .listStyle(.plain)
