@@ -8,7 +8,9 @@ reviewing the Audit tour's "after" captures, and the full CI/audit history).
 Round 1 (below, through "Evidence paths") is as PR #42 opened it. **Round 2** (its own section,
 after "Strings") is the response to Gate 2's verdict — read it for the current state: three
 PARTIAL defects fixed, three new regressions fixed, and a real build-breaking bug round 2 itself
-introduced and fixed, whose cost left Gate 1's round-2 evidence blocked.
+introduced and fixed, whose cost left Gate 1's round-2 evidence blocked. **Round 3** (the last
+section, after "Evidence paths") answers Gate 2's second verdict (`.build-ux/review-r2/verdict.md`)
+and supersedes the earlier sections wherever they disagree.
 
 ## Defects
 
@@ -257,3 +259,137 @@ build/test confirmation available to this package.
   `gh run download` was not run, because the dispatch it would download produced no artifacts (see
   "Round 2 CI and audit runs"). No `-r2` evidence JPEGs, no new owner sheet, no layout-delta rerun.
 - All git-ignored (`.build-*/`), not committed, round 1 or round 2.
+
+## Round 3 — Gate 2 round 2's fix list
+
+Verdict: `.build-ux/review-r2/verdict.md` (FAIL: D01 Form sheets, D03, R4 S1; R5 S2; R3, R6, R7
+S3). Commits: `0380a98` (items 1–8), `40ae5f0` (a defect item 7's tour fix exposed, below), and
+the commit carrying this section. Runs:
+
+| Run | What | Commit | Result |
+|---|---|---|---|
+| 37786621313 | PR #42's required `CI` run (push 1) | `0380a98` | **Every required job green.** `iOS build + test`: xcresult 632 total, 601 passed, 0 failed, 29 skipped, 2 expected; **no `Failed attempt (retried once)` warning** and no `failed (` line in the job log (round 2's flaky `testSignOutConfirmationReadableAtAccessibilityXXXL` passed first time). |
+| 37798261057 | `Audit tour`, all methods, `widgets=false` (the one dispatch), after 37786621313 passed | `0380a98` | **8 of 8 legs success** (round 2's 4 AX5 `testG` failures are gone). Downloaded to `.build-ux/after-37798261057/`. |
+| — | PR #42's required run on the final commit (push 2) | this commit | Reported in the hand-off: it starts with this push, so it cannot be recorded here. |
+
+### Items
+
+| Item | Change | `file:line` | Evidence | Measurement |
+|---|---|---|---|---|
+| 1. R4 (S1) tab-root large titles gone at rest | **Choice: large titles kept.** `TallyScreenChrome(hasLargeTitle:)`: a large-title root asks for the opaque `bgCanvas` fill `.automatic` (SwiftUI shows a navigation bar's background only once content scrolls under it) instead of `.visible`, so the fill no longer paints over the large title at rest; inline-title screens keep `.visible`. New `tallyLargeTitleScreenChrome()` on Dashboard, Courses, To-Do, Insights **and Calendar**: the brief lists Calendar with the inline screens, but the code gives it no inline mode (`CalendarScreen.swift` has no `navigationBarTitleDisplayMode`), it only *looks* inline because it opens scrolled to today; on a day whose row is first it would open at the scroll edge with the same hidden title. School search: inline title at AX sizes only, so no empty band above the field. | `TallyDesignSystem/ScreenChrome.swift:28-41,55-57`; `Dashboard/DashboardView.swift:64`, `Courses/CoursesScreen.swift:65`, `Calendar/CalendarScreen.swift:68`, `ToDo/ToDoScreen.swift:46`, `Insights/InsightsScreen.swift:51`; `Onboarding/SchoolSearch/SchoolSearchView.swift:83` | `.build-ux/evidence/R4-titles-r3.jpg`; all 32 tops: `.build-ux/r3work/tops-r3.jpg` | **32 of 32** top captures (8 legs × 4 roots) show the large title at rest (R2: 0 of 32). `r3work/titles_r3.py`: of the title-band rows (inked in round 1, blank in round 2), 100% are inked again on every std capture and on Dashboard AX5; 60–84% on Courses/To-Do/Insights AX5, the remainder being the subtitle, which renders smaller than in round 1 (side effect below). Scrolled: the collapsed inline title sits on the opaque fill, D01 clean (item 2). School search AX5: "Find your school" inline in the bar on all 4 AX5 legs, field directly under it. |
+| 2. D01 (S1) Form sheets still ghost | `TallyFormScreenChrome` gives the bar an explicit opaque fill equal to the Form's own background, from the colour scheme: `#F2F2F7` light, `#1C1C1E` dark. Measured, not guessed: the margin beside the rows on every Form-sheet capture of round 2's audit (Settings, Subscription, Linked Students), all 8 legs, is exactly those two values (iOS's grouped background at the sheet's elevated level). Fixed values rather than `Color(uiColor: .systemGroupedBackground)`: whether that UIKit colour resolves at the elevated level once SwiftUI hands it to the bar could not be checked without a device. | `TallyDesignSystem/ScreenChrome.swift:75-96` | `.build-ux/evidence/D01-forms-r3.jpg`; flag sheets `.build-ux/r3work/flags-0..2.jpg` | The reviewer's `d01final.py` method, unchanged (`.build-ux/r3work/d01r3.py`; it reproduces round 2's 376 checked / 100 flagged / 82 Form exactly). Round 3: **366 scroll captures, 13 flagged, 0 real ghosts.** Form sheets: 117 captures (101 at AX5), **0 flagged at AX5 on all 4 legs** (R2: 75), 2 flagged at std (SE light `settings-scroll1/2`, n = 2, no median mask), both clean at 200%. The other 11: 10 captures with n < 3 (no mask), clean opaque bars at 200%, content clipped at the bar edge; 1 is SE light AX5 `insights-scroll10`, whose subtitle reads "Updated 3:40 PM" (the reviewer's own false-positive class). Bar fill measured `#F2F2F7` / `#1C1C1E` on the Form sheets. Family sheets: same modifier; the tour has no scrolled Family capture. |
+| 3. D03 (S1) AX5 sheet cuts the warning at rest | No copy change. A fade, scaled with `body` (24 pt default, ≈75 pt at AX5, about one line), drawn above the pinned bar over the scrolling message, so the last visible line dissolves into the canvas instead of being sliced; matching bottom padding so the last line clears it at the end of the scroll; `.scrollIndicatorsFlash(onAppear: true)`. Every action stays pinned: PAY-11's Manage Subscription is visible at rest. Not used: `.safeAreaBar` (its soft edge effect shows content through the bar, i.e. through translucent tinted buttons, unless the bar is opaque, where it does nothing) and `body.weight(.semibold)` labels (`cardTitle` is `.headline`, the same size as `.body` at every Dynamic Type step and already semibold: no height to win). | `Support/DestructiveConfirmation.swift:101-150,189-193` | `.build-ux/evidence/D03-r3.jpg` | All 12 AX5 confirmation captures (4 legs × Sign Out, Unlink, Remove): every action visible at rest; the last visible line fades out, no glyph sliced at the bar edge (checked at 100% on Pro Max light Sign Out and SE dark Unlink, the reviewer's slicing examples). The whole warning does not fit at rest: at AX5 Sign Out & Erase's message alone is taller than any iPhone screen, so "ends cleanly with a cue" is the branch taken. **Strings pending: none.** |
+| 4. R5 (S2) destructive label 2.56:1 | The destructive action is a filled button (`.borderedProminent`), white label, tinted with `ScreenPalette.danger`'s light value (ux-ui.md §3.5, already in the app) in both schemes; Increase Contrast picks its high-contrast light value. | `Support/DestructiveConfirmation.swift:152-180` | `.build-ux/evidence/R5-r3.jpg` | `.build-ux/r3work/r5.py` (fill = mode of the red blob, label = its 99.5th-percentile-luminance pixel, WCAG 2): **#FFFFFF on #C4271E = 5.74:1 on all 16 AX confirmation captures, light and dark** (R2 light 2.56:1). Increase Contrast's #A01B14: 7.89:1 (computed, not captured). |
+| 5. R3 + R6 (S3) avatar | Initials capped at `.xxLarge`, independently of the circle (`.dynamicTypeSize(...)` on the `Text`). New `StudentAvatarStack`: avatar beside the name, or above it from AX1 up, used in the switcher sheet, Linked Students and the observer rows (R6's cause, the 44 pt avatar, also broke "Skyler" in Linked Students: "Skyle / r / Sam- / ple"). | `Family/StudentSwitcher.swift:108,194,204,218-241`; `Family/FamilySettingsViews.swift:68,302` | `.build-ux/evidence/S3-r3.jpg`; `.build-ux/r3work/avatar.txt` | Initials width / circle diameter (44 pt on all): **42% on all 8 AX5 captures** (R2 86–91%). SE AX5, light and dark: "Rowan Sample" and "Skyler Sample" wrap at the space, no hyphen, in the switcher and Linked Students. |
+| 6. R7 (S3) stepper glyphs touch the stroke | Each segment is the glyph plus a 12 pt inset (`TallySpacing.md`), at least 46 pt square (default size unchanged: 17 pt + 24 pt < 46 pt). | `CourseDetail/WhatIfSheet.swift:337-341,348-363` | `.build-ux/evidence/S3-r3.jpg` (row 4) | Glyphs clear of the capsule stroke and the divider on Pro Max dark, SE light and SE dark AX5. Pro Max light AX5's What-If capture caught the sheet mid-presentation (stepper out of frame): not checkable on that leg. CI's `CourseDetailUITests` 44 pt checks pass. |
+| 7. Tour cannot see the AX field | `schoolSearchField(_:)`: identifier `schoolSearch.field` or element type `searchField`, any element type (a vertical-axis `TextField` need not report as a text field). Test-only. | `apps/TallyiOS/TallyUITests/AuditTourUITests.swift:385,756,777-781` | `.build-ux/after-37798261057/audit-*-ax5/` | AX5 legs now reach the field (tests I, J, K on 4/4 AX5 legs; H on 2/4: Pro Max light AX5 and Pro Max light std show the simulator keyboard's slide-to-type tip, audit gap G3). **And it exposed a real defect** (next table). The AX5 Paywall is still not captured: demo sign-in stops at `missing-useSchool` because of that defect. |
+| 8. Own flaky test | `waitUntilHittable(cancel, …)` (the suite's predicate wait, `isHittable == true`, sanitizer-scaled) instead of a bare `isHittable` right after `waitForExistence`; expectations follow item 3: Sign Out & Erase and Manage Subscription hittable at rest on every device; the message's PAY-11 paragraph asserted from its label. | `apps/TallyiOS/TallyUITests/SettingsUITests.swift:134-183` | PR run 37786621313 | Passed first attempt (30.0 s); no retry warning in the job. |
+| 9. Optional S3 | Not attempted (menu-row hyphenation, "School nam…" placeholder): neither is trivial to verify without a device. | — | — | — |
+
+### A defect item 7 exposed: the AX5 School search field stops taking input
+
+The first Audit tour to reach the AX field (round 2's R1 change) shows it keeping only the first
+2–4 characters on all 4 AX5 legs: "northfield" → "no", "canvas.northfield.example" → "canv" /
+"ca", then "Couldn't search" for the fragment (`113-schoolSearch-failure`,
+`121/131/141-demoSignIn-missing-useSchool`; `.build-ux/evidence/R1-typing-r3.jpg`). The cut falls
+where the query first moves the screen out of its idle state, when `content` swaps one `List` for
+another. A real AX5 user would have to tap the field again after every result change: round 2
+introduced it, so it is fixed here rather than recorded.
+
+- **Change** (`40ae5f0`): the field sits above the results in a `VStack` instead of hanging on them
+  as a top `safeAreaInset`, so it no longer moves with the `List` each state swaps in
+  (`Onboarding/SchoolSearch/SchoolSearchView.swift:51-70`, the AX branch at `:63-69`). The cause is a hypothesis (the inset's
+  host moving with the `List` and the field losing focus), not observed.
+- **Check**: new `SchoolSearchUITests.testTypingAnAddressAtAccessibilityXXXLKeepsEveryCharacter`
+  (`apps/TallyiOS/TallyUITests/SchoolSearchUITests.swift:44-63`) types the whole address at AX XXXL
+  and asserts every character and the "Use …" row. It runs in PR #42's required run on the final
+  commit (result in the hand-off). **UNVERIFIED by a capture**: the one Audit tour dispatch is
+  spent, so the AX5 typed-query state, AX5 demo sign-in, first sync and AX5 Paywall remain
+  uncaptured.
+
+### Side effect to judge: the large-title subtitle at AX sizes
+
+With the bar background configured (needed for D01), the large title's subtitle ("Updated just
+now" on Courses, To-Do, Insights) no longer scales with Dynamic Type at AX sizes: on SE dark AX5
+Courses its ink height is 34 px (≈11 pt) against 107 px in round 1, the title itself unchanged at
+131 px. Below AX the subtitle is the same as round 1. The inline fallback would not help: an
+inline subtitle is bar-sized too. Cause is a hypothesis (the custom bar appearance SwiftUI builds
+for `toolbarBackground` carries a fixed subtitle font). Not fixed: no SwiftUI-level control found,
+and no capture budget left to try one. Recorded for the PMO (S3 by this package's reading: the
+freshness line still shows, at the standard size).
+
+### Still holding (round-2 items the brief listed), checked in the round-3 captures
+
+- D17: "Grades kept outside Canvas" shows in full (SE light std, SE dark AX5 opened); the AX5
+  switcher is a "Student" sheet on 4/4 AX5 legs.
+- D22: the std Unlink confirmation is a centred alert (Pro Max light std); "Remove from Tally" is
+  red in the std alert (SE light std) and a filled red button in the AX sheet (item 4).
+- D26 / R1 idle: the AX5 field is at the top, full width, with its glyph, on 4/4 AX5 legs.
+- D27: the tour reports a single leading inset of 16 pt on Courses, To-Do, Calendar and Course
+  detail on all 8 legs (Dashboard and Insights report none, as before).
+- D29 safe-area part + R2: pixel (20, 20) of every `sampleData-dashboard` capture is `#F2F4F8`
+  light / `#05080F` dark, 8/8 legs.
+- D31 rows: the dominant colour of Courses' card region is `#111827` on all 4 dark legs.
+- D01 on Dashboard, Courses, Course detail, Insights and the std Paywall: 0 real ghosts (item 2).
+
+### Layout-check deltas (Gate 1), round 3
+
+`python3 .build-ux/layout_delta.py .build-ux/after-37798261057` (before = the PMO audit), output
+in `.build-ux/r3work/layout-delta-r3.txt`; round 2 → round 3 with state counts in
+`.build-ux/r3work/layout-r2r3.txt`.
+
+| Screen | Leg | overlap | offscreenOrClipped | hitTargetsUnder44pt | truncationHint | distinctLeadingInsets |
+|---|---|---|---|---|---|---|
+| dashboard | PM std | 21→21 | 1→1 | 2→2 | 0→0 | 0→0 |
+| dashboard | PM AX5 | 137→158 (†) | 20→10 | 14→19 (‡) | 0→0 | 0→0 |
+| courses | PM std | 35→36 | 2→1 | 4→4 | 1→0 | 2→2 |
+| courses | SE AX5 | 157→112 | 14→7 | 16→16 | 0→0 | 8→8 |
+| calendar | PM std | 62→53 | 2→1 | 4→4 | 0→0 | 2→2 |
+| todo | PM std | 95→88 | 8→8 | 13→13 | 3→0 | 5→5 |
+| course1 | SE std | 158→96 | 15→4 | 41→33 | 0→0 | 12→8 |
+| course1 | PM AX5 | 130→144 (‡) | 15→7 | 29→35 (‡) | 0→0 | 12→15 (‡) |
+| insights | PM std | 86→69 | 7→2 | 24→20 | 1→0 | 0→0 |
+| settings | PM std | 5→5 | 3→0 | 14→17 (‡) | 0→0 | 5→6 (‡) |
+| settings | SE AX5 | 46→8 | 19→0 | 28→29 | 0→0 | 21→25 |
+| family | PM std | 20→20 | 5→2 | 16→16 | 0→0 | 3→3 |
+| family | PM AX5 | 29→30 | 5→2 | 10→9 | 0→0 | 3→3 |
+| paywall | PM std | 0→0 | 0→0 | 10→20 (‡) | 0→0 | 0→0 |
+| schoolSearch | PM AX5 | 2→2 | 0→0 | 5→4 | 0→0 | 1→2 |
+| sampleData | PM dark std | 18→18 | 1→1 | 1→1 | 0→0 | 0→0 |
+
+(†) Read entry by entry against round 2 (same 15 states): the added overlaps are the "Dashboard"
+large-title element and the Settings button against rows scrolled under the opaque bar
+(accessibility frames, not visible overlaps: the bar hides them), plus floating-tab-bar overlaps
+whose rows differ because this run's content is time-dependent ("9:00 PM", "Due in 22h" against
+round 2's "1:00 PM", "Due in 25h"). (‡) More captured states than round 2 (course1 PM AX5 13→15,
+course1 SE std 7→8, settings PM std 6→7, paywall PM std 3→4), the capture-count caveat in
+round 1's section. No new visible overlap found.
+
+### Local verification (round 3)
+
+Before each push: `make lint` (SwiftLint 0.59.1, `--strict`): 0 violations, 285 files;
+`check_localizable_literals.py`: PASS, 0 literals; `check_string_catalogs.py`: PASS, 752 keys, 0
+problems; `check_debug_only_test_symbols.py .`: PASS, 0 problems; bracket balance on every edited
+Swift file. No `Dictionary(uniqueKeysWithValues:)`; no new or changed strings.
+
+### Open items (round 3)
+
+- **The AX field fix (`40ae5f0`) has no capture**; its UI test runs in the final commit's PR run.
+  The AX5 Paywall (a D01 screen), AX5 demo sign-in and first sync remain uncaptured.
+- **The AX large-title subtitle** no longer scales (side effect above): a PMO call.
+- **Calendar at the scroll edge** (a day whose row is first) is not in any capture; the tour opens
+  it scrolled.
+- **Form bar with Increase Contrast**: the fixed `#F2F2F7` / `#1C1C1E` match the Form at normal
+  contrast (measured); the system grouped background shifts slightly with Increase Contrast. Not
+  captured.
+- **Pro Max light AX5 What-If** was captured mid-presentation; R7 is judged on the other 3 legs.
+- Carried over: the D26 physical-device check; the optional S3 items (item 9). Round 2's open item
+  on `testG_settingsSignedIn` is closed: all 8 tour legs pass.
+
+### Evidence paths (round 3)
+
+`.build-ux/evidence/R4-titles-r3.jpg`, `D01-forms-r3.jpg`, `D03-r3.jpg`, `R5-r3.jpg`, `S3-r3.jpg`,
+`R1-typing-r3.jpg`; `.build-ux/owner-sheet-ux-fp1.jpg` (portrait, 1200 × 3688, 0.43 MB). Scripts
+and raw outputs in `.build-ux/r3work/` (`d01r3.py` → `d01-r3.json`, `titles_r3.py`, `r5.py`,
+`r3ev.py`, `tops-r3.jpg`, `flags-*.jpg`). Captures: `.build-ux/after-37798261057/`. All git-ignored,
+not committed.
