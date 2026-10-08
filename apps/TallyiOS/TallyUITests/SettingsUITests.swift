@@ -85,6 +85,10 @@ final class SettingsUITests: TallyUITestCase {
 /// "Sign Out & Erase" asks first, with the spec's copy, then signs out to Welcome.
 final class SettingsSignedInUITests: TallyUITestCase {
     private static let accessibilityXXXL = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    /// D03 round 2: distinguishes "the smallest iPhone" (375 pt wide: SE 2nd/3rd generation, the
+    /// narrowest `scripts/ci/pick_ios_simulator.py --smallest` can pick) from every wider device —
+    /// the next narrowest is 390 pt, so anything under this cutoff is unambiguously the smallest.
+    private static let smallestiPhoneWidthCutoff: CGFloat = 380
 
     override func tearDownWithError() throws {
         // The account must not outlive this test: the other suites expect Welcome at launch.
@@ -127,10 +131,14 @@ final class SettingsSignedInUITests: TallyUITestCase {
         XCTAssertFalse(app.staticTexts[TestHooks.flagshipHero].exists)
     }
 
-    /// D03 (ux-fp1 regression, AX5): the Sign Out & Erase confirmation used to be a
-    /// `.confirmationDialog` — an anchored popover that cut the warning message and the "Manage
-    /// Subscription" button label mid-sentence at AX5. It is now an `.alert`, which scrolls and
-    /// scales: the full message and every button exist and are hittable, scrolling if needed.
+    /// D03 (ux-fp1 regression, AX5), round 2: the confirmation was a `.confirmationDialog`, then an
+    /// `.alert` — round 1's own fix here, which proved the content was reachable *by scrolling*,
+    /// not that the dialog was visible at rest. Gate 2 (D03 PARTIAL) found it still cut the message
+    /// and pushed Cancel off-screen at rest on the smallest iPhone. It is now a full-screen sheet
+    /// at AX1 and up (`tallyDestructiveConfirmation`, `Support/DestructiveConfirmation.swift`),
+    /// with its buttons pinned in a bottom safe-area inset: Cancel must be visible at rest on every
+    /// device, and nothing should need scrolling at all except on the smallest iPhone, where the
+    /// pinned bar leaves the least room above it for the title and message.
     @MainActor
     func testSignOutConfirmationReadableAtAccessibilityXXXL() throws {
         let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + TestHooks.deviceAuth("success")
@@ -142,18 +150,37 @@ final class SettingsSignedInUITests: TallyUITestCase {
 
         let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'")).firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: scaled(10)), "no confirmation message at AX5. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(scrollUntilHittable(message, in: app),
-                      "the confirmation message is not reachable at AX5. Hierarchy: \(app.debugDescription)")
         // PAY-11: erasing does not cancel the subscription, and Manage Subscription is one tap away —
         // the label the AX5 popover used to clip to "Manage Subscrip-".
         let manage = app.buttons["Manage Subscription"]
-        XCTAssertTrue(scrollUntilHittable(manage, in: app),
-                      "Manage Subscription is not reachable at AX5. Hierarchy: \(app.debugDescription)")
         let confirm = app.buttons.matching(NSPredicate(format: "label == 'Sign Out & Erase' AND identifier != 'settings.signOut'")).firstMatch
-        XCTAssertTrue(scrollUntilHittable(confirm, in: app),
-                      "Sign Out & Erase is not reachable at AX5. Hierarchy: \(app.debugDescription)")
         let cancel = app.buttons["Cancel"]
-        XCTAssertTrue(scrollUntilHittable(cancel, in: app), "Cancel is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+
+        // Cancel is pinned below the scrollable title/message, so it must be visible at rest here,
+        // before anything is scrolled — on every device, the smallest iPhone included.
+        XCTAssertTrue(cancel.waitForExistence(timeout: scaled(10)), "no Cancel button at AX5. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(cancel.isHittable, "Cancel is not visible at rest at AX5. Hierarchy: \(app.debugDescription)")
+
+        let isSmallestiPhone = app.frame.width < Self.smallestiPhoneWidthCutoff
+        if isSmallestiPhone {
+            // Scrolling is allowed here only: the pinned button bar leaves the least room above it
+            // for the title/message on this device.
+            XCTAssertTrue(scrollUntilHittable(message, in: app),
+                          "the confirmation message is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(scrollUntilHittable(manage, in: app),
+                          "Manage Subscription is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(scrollUntilHittable(confirm, in: app),
+                          "Sign Out & Erase is not reachable at AX5. Hierarchy: \(app.debugDescription)")
+        } else {
+            // Everywhere else (Pro Max and up, and the default CI simulator): no scroll needed.
+            XCTAssertTrue(message.isHittable,
+                          "the message needed scrolling on a \(app.frame.width) pt wide device. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(manage.isHittable,
+                          "Manage Subscription needed scrolling on a \(app.frame.width) pt wide device. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(confirm.isHittable,
+                          "Sign Out & Erase needed scrolling on a \(app.frame.width) pt wide device. Hierarchy: \(app.debugDescription)")
+        }
+        XCTAssertTrue(cancel.isHittable, "Cancel is no longer visible at rest. Hierarchy: \(app.debugDescription)")
 
         cancel.tap()
         XCTAssertTrue(eventually(timeout: scaled(10)) { !message.exists },

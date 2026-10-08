@@ -35,6 +35,8 @@ struct CalendarScreen: View {
                     } header: {
                         Text(day.heading)
                     }
+                    // D31 round 2: applied to the Section, which reaches every row inside it.
+                    .tallyRow()
                 } else {
                     ForEach(calendar.days) { day in
                         Section {
@@ -49,6 +51,7 @@ struct CalendarScreen: View {
                         } header: {
                             Text(day.heading)
                         }
+                        .tallyRow()
                         .id(day.id)
                     }
                 }

@@ -117,6 +117,8 @@ private struct StudentSwitcherSheet: View {
                         .accessibilityAddTraits(option.id == family.activeSubject ? .isSelected : [])
                     }
                 }
+                // D31 round 2: applied to the Section, which reaches every row inside it.
+                .tallyRow()
                 Section {
                     Button(String(localized: L10n.FamilyUI.manageLinkedStudents())) {
                         dismiss()
@@ -127,6 +129,7 @@ private struct StudentSwitcherSheet: View {
                         onAdd()
                     }
                 }
+                .tallyRow()
             }
             // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
             .tallyList()
@@ -177,6 +180,13 @@ struct StudentSwitcherLabel: View {
 struct StudentAvatar: View {
     let initials: String
     let colorIndex: Int
+    /// R3 (ux-fp1 round 2): at AX5 the fixed 28 pt circle let the initials' Dynamic-Type-scaled
+    /// `.caption` text fill it edge to edge. Scales the circle with Dynamic Type like the text
+    /// inside it, so it grows instead of clipping — but capped at `avatarDiameterMax`, so it never
+    /// outgrows the switcher's own 44 pt minimum tap height (`FamilyUIConfig.minimumHitTarget`).
+    @ScaledMetric(relativeTo: .caption) private var scaledDiameter: CGFloat = CGFloat(FamilyUIConfig.avatarDiameter)
+
+    private var diameter: CGFloat { min(scaledDiameter, CGFloat(FamilyUIConfig.avatarDiameterMax)) }
 
     var body: some View {
         Text(verbatim: initials)
@@ -184,7 +194,7 @@ struct StudentAvatar: View {
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .foregroundStyle(Color.white)
-            .frame(width: CGFloat(FamilyUIConfig.avatarDiameter), height: CGFloat(FamilyUIConfig.avatarDiameter))
+            .frame(width: diameter, height: diameter)
             .background(Circle().fill(FamilyAvatarPalette.swiftUIColor(at: colorIndex)))
             .accessibilityHidden(true)
     }

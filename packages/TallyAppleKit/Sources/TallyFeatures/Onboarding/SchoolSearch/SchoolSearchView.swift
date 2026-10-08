@@ -14,8 +14,9 @@ struct SchoolSearchView: View {
     @FocusState private var searchFieldFocused: Bool
     @State private var showSearchingRow = false
     @State private var showAddressHelp = false
-    /// D26: at AX5 the system's bottom search capsule is cut flat by the keyboard. Pinning it to
-    /// the navigation bar drawer at accessibility sizes keeps it reachable above the keyboard.
+    /// D26: at AX5 the system's bottom search capsule is cut flat by the keyboard. R1 (round 2):
+    /// a plain top field, below, replaces the system search bar entirely at these sizes, both to
+    /// stay above the keyboard and to support wrapping and a custom glyph `.searchable` cannot.
     @Environment(\.dynamicTypeSize) private var typeSize
 
     let onSelectEnabled: (InstitutionMatch, ClientRegistration) -> Void
@@ -42,35 +43,72 @@ struct SchoolSearchView: View {
         Binding(get: { viewModel.query }, set: { viewModel.query = $0 })
     }
 
-    /// D26: the system default docks the search field at the bottom, where the keyboard cuts it
-    /// flat at AX5; pin it to the navigation bar drawer instead once accessibility sizes are on.
-    private var searchPlacement: SearchFieldPlacement {
-        typeSize.isAccessibilitySize ? .navigationBarDrawer(displayMode: .always) : .automatic
+    var body: some View {
+        Group {
+            // R1 (ux-fp1 round 2): the system search bar (`.searchable`) cannot wrap a long query
+            // or guarantee its own glyph at AX5 — `.navigationBarDrawer` clipped the typed text at
+            // its leading edge, dropped the glyph and kept the placeholder at the standard size,
+            // none of which a `UISearchBar` exposes a way to fix. At accessibility sizes, a plain
+            // field in its own top safe-area inset replaces it; below them, `.searchable` is
+            // unchanged.
+            if typeSize.isAccessibilitySize {
+                content
+                    .listStyle(.plain)
+                    .background(TallyColor.bgCanvas)
+                    .safeAreaInset(edge: .top, spacing: 0) { accessibleSearchField }
+            } else {
+                content
+                    .listStyle(.plain)
+                    .background(TallyColor.bgCanvas)
+                    .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
+                    .searchFocused($searchFieldFocused)
+            }
+        }
+        .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
+        .navigationBarTitleDisplayMode(.large)
+        .onAppear { searchFieldFocused = true }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(String(localized: L10n.Onboarding.SchoolSearch.cantFindIt())) { showAddressHelp = true }
+                    .font(TallyTypography.footnote)
+            }
+        }
+        .sheet(isPresented: $showAddressHelp) { AddressHelpSheet() }
+        // "after 400 ms only, to avoid a flash" (ux-ui.md §3.2.1).
+        .task(id: isSearching) {
+            showSearchingRow = false
+            guard isSearching else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { showSearchingRow = isSearching }
+        }
     }
 
-    var body: some View {
-        content
-            .listStyle(.plain)
-            .background(TallyColor.bgCanvas)
-            .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: queryBinding, placement: searchPlacement, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
-            .searchFocused($searchFieldFocused)
-            .onAppear { searchFieldFocused = true }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(String(localized: L10n.Onboarding.SchoolSearch.cantFindIt())) { showAddressHelp = true }
-                        .font(TallyTypography.footnote)
-                }
-            }
-            .sheet(isPresented: $showAddressHelp) { AddressHelpSheet() }
-            // "after 400 ms only, to avoid a flash" (ux-ui.md §3.2.1).
-            .task(id: isSearching) {
-                showSearchingRow = false
-                guard isSearching else { return }
-                try? await Task.sleep(for: .milliseconds(400))
-                if !Task.isCancelled { showSearchingRow = isSearching }
-            }
+    /// R1: full width, `TallyTypography.body` (scales with Dynamic Type like the typed text, unlike
+    /// the system field's placeholder, which stayed at the standard size), `axis: .vertical` so a
+    /// long query wraps onto a second line instead of clipping at the leading edge, and an explicit
+    /// glyph (the system field dropped its own at this placement/size).
+    private var accessibleSearchField: some View {
+        HStack(spacing: TallySpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityHidden(true)
+            TextField(String(localized: L10n.Onboarding.SchoolSearch.searchPrompt()), text: queryBinding, axis: .vertical)
+                .font(TallyTypography.body)
+                .foregroundStyle(TallyColor.textPrimary)
+                .focused($searchFieldFocused)
+                .submitLabel(.search)
+                // Kept so a future test/tour update can find this field directly; the system
+                // search bar it replaces here has no identifier of its own either, so nothing
+                // that found the old field by identifier is being broken by this.
+                .accessibilityIdentifier("schoolSearch.field")
+        }
+        .padding(.horizontal, TallySpacing.md)
+        .padding(.vertical, TallySpacing.sm)
+        .frame(minHeight: 44)
+        .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
+        .padding(.horizontal, TallySpacing.screenMargin)
+        .padding(.vertical, TallySpacing.sm)
+        .background(TallyColor.bgCanvas)
     }
 
     @ViewBuilder

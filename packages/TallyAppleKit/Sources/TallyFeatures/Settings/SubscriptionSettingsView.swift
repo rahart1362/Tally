@@ -75,7 +75,7 @@ struct SubscriptionSettingsView: View {
         }
         // D01: content scrolled past the top stayed visible, blurred, under the inline title and
         // the status bar, even at rest.
-        .tallyScreenChrome()
+        .tallyFormScreenChrome()
         .navigationTitle(Text(L10n.Subscription.settingsTitle()))
         .navigationBarTitleDisplayMode(.inline)
         .modifier(SubscriptionSheets(actions: actions))

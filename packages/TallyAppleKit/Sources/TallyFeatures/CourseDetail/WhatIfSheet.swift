@@ -27,6 +27,8 @@ struct WhatIfSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("whatif.disclaimer")
                     }
+                    // D31 round 2: applied to the Section, which reaches every row inside it.
+                    .tallyRow()
                     WhatIfWeightsSection(estimate: estimate, model: model)
                 }
                 ForEach(model.setup.groups) { group in
@@ -41,6 +43,7 @@ struct WhatIfSheet: View {
                             Text(L10n.CourseDetail.whatIfGroupHeader(group.name, group.weightText))
                         }
                     }
+                    .tallyRow()
                 }
                 WhatIfGoalSection(model: model)
             }
@@ -143,12 +146,16 @@ private struct WhatIfItemRow: View {
                 HStack(spacing: TallySpacing.sm) {
                     TextField(String(localized: L10n.CourseDetail.whatIfScoreFieldPrompt()), text: $text)
                         .keyboardType(.decimalPad)
-                        .textFieldStyle(.roundedBorder)
-                        // D31 (dark): `.roundedBorder`'s own fill reads as a black hole against
-                        // the `bgCard` list rows (`tallyList()`) without an outline of its own.
+                        // D31 round 2: `.roundedBorder` still rendered as pure black against the
+                        // `bgCard` rows (round 1's separator overlay alone did not fix the fill
+                        // itself) — `.plain` with an explicit `bgCanvas` fill and the same
+                        // separator stroke keeps the sheet at two dark tones (bgCanvas, bgCard).
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, TallySpacing.sm)
+                        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120, minHeight: 44)
+                        .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
                             .stroke(TallyColor.separator))
-                        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120)
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfScoreFieldAccessibility(item.title, item.outOfText)))
                         .accessibilityIdentifier("whatif.field")
                     Text(item.outOfText)
@@ -228,6 +235,8 @@ private struct WhatIfWeightsSection: View {
         } footer: {
             Text(L10n.WhatIfEstimate.weightsFooter())
         }
+        // D31 round 2: applied to the Section, which reaches every row inside it.
+        .tallyRow()
     }
 }
 
@@ -282,9 +291,13 @@ struct WhatIfWeightInput: View {
             Text(L10n.WhatIfEstimate.weightLabel(category.name))
         }
         .keyboardType(.decimalPad)
-        .textFieldStyle(.roundedBorder)
-        // D31 (dark): `.roundedBorder`'s own fill reads as a black hole against the `bgCard`
-        // list rows (`tallyList()`) without an outline of its own.
+        // D31 round 2: `.roundedBorder` still rendered as pure black against the `bgCard` rows
+        // (round 1's separator overlay alone did not fix the fill itself) — `.plain` with an
+        // explicit `bgCanvas` fill and the same separator stroke keeps the sheet at two dark
+        // tones (bgCanvas, bgCard), the same treatment as the score field above.
+        .textFieldStyle(.plain)
+        .padding(.horizontal, TallySpacing.sm)
+        .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
             .stroke(TallyColor.separator))
         .focused($isFocused)
@@ -347,6 +360,9 @@ private struct ScoreStepper: View {
         // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the stepper's old
         // `bgCanvas` read as a black hole cut into it.
         .background(TallyColor.bgCard, in: Capsule())
+        // D31 round 2: the capsule's `bgCard` fill had no edge of its own against the `bgCard`
+        // rows around it; a separator stroke gives it a visible boundary, as the fix list asks.
+        .overlay(Capsule().stroke(TallyColor.separator))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("whatif.stepper")
     }
@@ -382,6 +398,8 @@ private struct WhatIfGoalSection: View {
         } footer: {
             Text(L10n.CourseDetail.whatIfGoalFooter())
         }
+        // D31 round 2: applied to the Section, which reaches every row inside it.
+        .tallyRow()
     }
 
     /// "90%" (§3.3 "Percent"): `model.goalPercent` is already a whole number (the stepper's step is 1).

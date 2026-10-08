@@ -28,6 +28,8 @@ struct ToDoScreen: View {
                         } header: {
                             Text(section.title)
                         }
+                        // D31 round 2: applied to the Section, which reaches every row inside it.
+                        .tallyRow()
                     }
                 }
                 .listStyle(.insetGrouped)
