@@ -202,3 +202,65 @@ asset-catalog hex values (script in `.build-ux/`, not committed).
 - `.build-ux/sparkline-sheet-ux-fp3.jpg` — 1200×3504, 426 KB: Dashboard hero and Courses card, both
   appearances, both sizes, at 200%.
 - None of the above are committed (`.build-ux/` is git-ignored; the repo is public).
+
+## Round 2 — Gate 2 (Opus design review) fix list
+
+Gate 2 failed round 1 on three points and flagged two optional S3 items. Full verdict:
+`pmo-audit/.build-audit/fp3/review/verdict.md`. All three required fixes are confirmed; the two
+optional items are addressed (one best-effort, one left unchanged with reasoning). Branch
+`ux/fp3-dashboard-courses`, commit **`e4c50ca`**, PR #45 (unmerged).
+
+| # | Gate 2 finding | Fix | `file:line` | Status |
+|---|---|---|---|---|
+| 1 | **R1 (S1) + D09 at AX5**: every Dashboard variant 415 pt wide on a 390 pt (SE) screen; content cut at both edges; Pro Max margins 12.3 pt not 16 pt. Cause: D09's hidden busy glyph reserved its WIDTH. | The glyph now reserves the row's HEIGHT only (a zero-width `Color.clear` base, `@ScaledMetric`), draws only on busy days as an `.overlay`, capped at `.accessibility1`; columns can shrink (`minWidth: 0`). | `Dashboard/DashboardView.swift:461-504` (`WeekAheadSection`) | **Fixed, confirmed** |
+| 2 | **The sparkline end ring (S2)**: `.overlay(alignment: .trailing)` centred the ring 4 pt (8 pt AX5) left of the real last point; the end dot poked out on every leg. | The last point draws as its own `PointMark` with `.symbol { endRing }` (no separate dot for it); `.chartXScale(range: .plotDimension(padding: ringRadius))` pads the plot so the chart's own geometry centres the ring, never clipped. | `Courses/CourseSparkline.swift:259-320` | **Fixed, confirmed** |
+| 3 | **D25 at std**: title set but not drawn; card ~53 pt lower, empty band above it. | Root cause found: `LockedFeatureCard` used `tallyScreenChrome()` (`.visible` bar background, for inline titles) under a `.large`-display-mode title — the exact R4 regression `ScreenChrome.swift` already documents for every *unlocked* tab root, which all use `tallyLargeTitleScreenChrome()` (`.automatic` background) instead. Switched to match. | `Subscription/SubscriptionLockViews.swift:58-70` | **Fixed, confirmed** |
+| 4 | *(S3, owner's call)* Courses trend column not centred between title and grade (R2: extra wrapping). | Left as is. The centred (double-`Spacer`) design is the exact layout that caused run 37918268052's verified card-overflow regression in this same `HStack`; Gate 2's own R2 already shows the column's mere presence growing wrap on tight legs even un-centred. No local renderer to measure a retry, and only one Audit tour dispatch available this round. | `Courses/CoursesScreen.swift:156-158` (unchanged) | **Not changed — recorded** |
+| 5 | *(S3, optional)* D21 light wash reads grey, not amber. | `warning`'s Any value blends to ≈`#ECE4D6` at 16% on white (computed, matches the taste note); raised to 30% in light only (dark's brighter token already reads warm). | `Home/FreshnessViews.swift:53-80` | **Best-effort tweak — UNVERIFIED on device (no Xcode on this host)** |
+
+### Gate 1 (self-check) results
+
+- **R1 — layout JSON, all 8 legs**: every Dashboard capture's `offscreenOrClipped` entries with
+  `crossesSides: true` (47 total) are `#AdditionalDimmingOverlay`, the system false positive
+  `review/defects.md`'s own triage already names. **Zero real side-crossing entries.**
+- **R1 — margins, measured from pixels** (hero's own fill colour, 3 px/pt device scale): **16.0 pt
+  (light) / 16.3 pt (dark, antialiasing rounding) on every one of the 8 legs**, smallest and Pro Max,
+  std and AX5. Before (round 1, SE AX5): hero ran edge-to-edge, 0 pt margin (clipped, not merely
+  narrowed) — matches the verdict's −12.3 pt.
+- **End ring — read at zoom on 6 of 8 legs' surfaces** (Dashboard hero: Pro Max light/dark std, SE
+  light AX5, Pro Max dark AX5; Courses card: Pro Max light std; Course Detail hero: Pro Max light
+  std): ring centred on the last point every time, no dot inside or outside it. The AX5 Courses-card
+  variant shares the identical ring-drawing code (only `width` differs) but was not separately
+  captured clean — its "top" capture scrolls the first card's sparkline under the tab bar — so this
+  is reasoned, not independently observed; flagged as an open item below.
+- **D25 — visual, on every previously-broken std leg** (Pro Max light/dark std, SE light std): the
+  "Courses" large title now renders where the empty band was; the locked card sits directly under
+  it, no leftover gap. **Fixed.**
+- Evidence: `pmo-audit/.build-audit/fp3/evidence-r2/{R1-r2,SPARK2-ring-r2,D25-r2,D21-r2}.jpg` and
+  `owner-sheet-ux-fp3.jpg` (1200×2803, 278 KB) — all outside the worktree, per the brief (the merge
+  deletes it); none committed.
+
+### Round 2 CI and Audit tour
+
+- **PR run**: `37953832870` (on `e4c50ca`) — **success, every required job green**: `Hygiene gates`,
+  `Crash-safety lint`, `TallyCore tests`, `TallyCore sanitizers`, `iOS build + test`, `iOS
+  AddressSanitizer (app tests)`, `iOS ThreadSanitizer`, `iOS perf budgets`. The three report-only
+  jobs `skipped` (main-push-only). No `Failed attempt (retried once)` warnings on any job (checked
+  the check-run annotations API directly).
+- **Audit tour**: `37964535417` (1 of 1 this round's budget), confirmed on `e4c50ca` — **success, all
+  8 legs**.
+- Push budget used: **2 of 2** (push 1: the four code fixes, `e4c50ca`; push 2: this report section
+  and the journal's Round 2 entry, docs only, no run in progress at commit time).
+
+### Round 2 open items
+
+- **D21** is a best-effort, computed tweak (hex-blend math, not a live render) — this host has no
+  Xcode. UNVERIFIED on device.
+- **The Courses trend column** is intentionally not centred (item 4 above) — the owner's call per
+  the verdict; reasoning recorded, no further attempt made this round.
+- **The AX5 Courses-card end ring** was not independently captured clean (scrolls under the tab bar
+  in the legs this round reviewed); reasoned from the shared code path, not separately observed.
+- Every item fixed in round 1 (D08, D13, D14, D15, both FP-2 S3s, and 8/11 sparkline spec points)
+  was not re-touched and is assumed still fixed; not re-verified this round beyond what the above
+  captures incidentally show.
+- Strings pending owner approval: still **none**.
