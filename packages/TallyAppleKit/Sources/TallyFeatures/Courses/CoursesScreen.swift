@@ -143,21 +143,27 @@ struct CourseCardView: View {
                         StatusChip(symbol: card.health.symbol, text: card.health.label, tone: card.health.tone)
                     }
                 }
+                // D14/UX-FP3 regression (testCoursesListsEveryCourseWithCodeAndHealth, run
+                // 37918268052): this used to be `.frame` on nothing + a trailing `Spacer`, pushing
+                // `grade` to the edge. Stacking a flexible `Spacer` *and* the outer HStack's own
+                // `spacing` around a fixed-width sparkline compounded (spacing applies between
+                // every child, Spacer included), squeezing the title into extra wrapping that grew
+                // every card enough to push a 5th off the materialized list. `.frame(maxWidth:
+                // .infinity)` here does the same trailing-push with none of that overhead: fixed-
+                // width siblings (the sparkline, the grade) are sized first, and the title fills
+                // whatever is left, exactly as it did with no sparkline column at all.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 sparklineColumn
-                if !typeSize.isAccessibilitySize, sparkline == nil {
-                    Spacer(minLength: TallySpacing.sm)
-                }
                 grade
             }
         }
         .padding(.vertical, TallySpacing.xs)
     }
 
-    /// UX-SPARK-2: a dedicated, centred trend column between the title and grade blocks, about
-    /// 96×32 pt; at accessibility sizes it moves below the title block, full width, so the grade
-    /// (laid out after it) is never squeezed (D14). `nil` when the course has no sparkline (fewer
-    /// than two graded days, or its grade not in Canvas as a percentage): no placeholder, and the
-    /// layout adds no extra spacing for it.
+    /// UX-SPARK-2: a dedicated trend column between the title and grade blocks, about 96×32 pt;
+    /// at accessibility sizes it moves below the title block, full width, so the grade (laid out
+    /// after it) is never squeezed (D14). `nil` when the course has no sparkline (fewer than two
+    /// graded days, or its grade not in Canvas as a percentage): nothing drawn, no reserved space.
     @ViewBuilder
     private var sparklineColumn: some View {
         if let sparkline {
@@ -167,12 +173,10 @@ struct CourseCardView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("course.sparkline")
             } else {
-                Spacer(minLength: TallySpacing.sm)
                 CourseSparklineView(points: sparkline, width: CourseSparklineView.courseCardSize.width,
                                     height: CourseSparklineView.courseCardSize.height, tint: TallyColor.accent,
                                     background: .card)
                     .accessibilityIdentifier("course.sparkline")
-                Spacer(minLength: TallySpacing.sm)
             }
         }
     }
