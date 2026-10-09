@@ -143,11 +143,38 @@ struct CourseCardView: View {
                         StatusChip(symbol: card.health.symbol, text: card.health.label, tone: card.health.tone)
                     }
                 }
-                if !typeSize.isAccessibilitySize { Spacer(minLength: TallySpacing.sm) }
+                sparklineColumn
+                if !typeSize.isAccessibilitySize, sparkline == nil {
+                    Spacer(minLength: TallySpacing.sm)
+                }
                 grade
             }
         }
         .padding(.vertical, TallySpacing.xs)
+    }
+
+    /// UX-SPARK-2: a dedicated, centred trend column between the title and grade blocks, about
+    /// 96×32 pt; at accessibility sizes it moves below the title block, full width, so the grade
+    /// (laid out after it) is never squeezed (D14). `nil` when the course has no sparkline (fewer
+    /// than two graded days, or its grade not in Canvas as a percentage): no placeholder, and the
+    /// layout adds no extra spacing for it.
+    @ViewBuilder
+    private var sparklineColumn: some View {
+        if let sparkline {
+            if typeSize.isAccessibilitySize {
+                CourseSparklineView(points: sparkline, width: nil, height: CourseSparklineView.courseCardSize.height,
+                                    tint: TallyColor.accent, background: .card)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("course.sparkline")
+            } else {
+                Spacer(minLength: TallySpacing.sm)
+                CourseSparklineView(points: sparkline, width: CourseSparklineView.courseCardSize.width,
+                                    height: CourseSparklineView.courseCardSize.height, tint: TallyColor.accent,
+                                    background: .card)
+                    .accessibilityIdentifier("course.sparkline")
+                Spacer(minLength: TallySpacing.sm)
+            }
+        }
     }
 
     @ViewBuilder
@@ -161,47 +188,22 @@ struct CourseCardView: View {
         }
     }
 
+    /// UX-SPARK-2: the sparkline is its own dedicated column (`sparklineColumn`), never tucked
+    /// beside the letter or percentage, so this is the plain grade row every course had before
+    /// UX-SPARK.
     @ViewBuilder
     private var gradeInCanvas: some View {
-        // UX-SPARK: the sparkline sits beside whichever grade line shows first (the letter, else
-        // the percentage); at AX sizes it wraps below instead of squeezing that text (never
-        // truncating the grade). Only the branch that actually draws a sparkline uses the extra
-        // layout, so a course with none keeps its plain row (no stray spacing for an empty slot).
-        let gradeRowLayout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.xs))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: TallySpacing.xs))
         VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: TallySpacing.xs) {
             if let letter = card.letter {
-                if let sparkline {
-                    gradeRowLayout {
-                        Text(letter)
-                            .font(.system(.title2).bold())
-                            .foregroundStyle(TallyColor.textPrimary)
-                        CourseSparklineView(points: sparkline)
-                            .accessibilityIdentifier("course.sparkline")
-                    }
-                } else {
-                    Text(letter)
-                        .font(.system(.title2).bold())
-                        .foregroundStyle(TallyColor.textPrimary)
-                }
+                Text(letter)
+                    .font(.system(.title2).bold())
+                    .foregroundStyle(TallyColor.textPrimary)
             }
             if let percent = card.percentText {
-                if card.letter == nil, let sparkline {
-                    gradeRowLayout {
-                        Text(percent)
-                            .font(TallyTypography.subheadline)
-                            .foregroundStyle(TallyColor.textSecondary)
-                            .monospacedDigit()
-                        CourseSparklineView(points: sparkline)
-                            .accessibilityIdentifier("course.sparkline")
-                    }
-                } else {
-                    Text(percent)
-                        .font(TallyTypography.subheadline)
-                        .foregroundStyle(TallyColor.textSecondary)
-                        .monospacedDigit()
-                }
+                Text(percent)
+                    .font(TallyTypography.subheadline)
+                    .foregroundStyle(TallyColor.textSecondary)
+                    .monospacedDigit()
             }
             if card.letter == nil && card.percentText == nil {
                 Text(card.gradeText)

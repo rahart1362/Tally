@@ -155,6 +155,10 @@ struct CourseDetailView: View {
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(item.accessibilityLabel)
+                    // D13: the separator started under the score chip's text, leaving a short,
+                    // ragged hairline at the right edge; the whole row is the separator's leading
+                    // edge instead.
+                    .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                 }
             } header: {
                 Text(L10n.CourseDetail.recentGradesHeader())
@@ -447,19 +451,32 @@ struct CourseHeroCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
             CourseColorMark(paletteIndex: detail.paletteIndex, style: .bar)
-            // The text column takes all the width there is (a Spacer beside it took half, and at
-            // AX XXXL "Needs attention" was cut short: run 36454544581's audit).
-            VStack(alignment: .leading, spacing: TallySpacing.sm) {
-                Text(detail.code)
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textOnHero2)
-                grade
-                if !detail.health.isSaidByTheGrade {
-                    Label(detail.health.label, systemImage: detail.health.symbol)
-                        // ux-fp2 D11: the hero is a `List` row, whose icon column left a wide gap.
-                        .labelStyle(.tallyCompact)
+            // UX-SPARK-2: two zones — the grade block (unchanged width rules: a Spacer beside it
+            // took half, and at AX XXXL "Needs attention" was cut short, run 36454544581's audit)
+            // and, when there is one, the trend filling the rest, vertically centred. At
+            // accessibility sizes the trend moves below instead (the same reflow rule every other
+            // two-part row on this screen uses), so it never competes with the grade block's width.
+            TallyReflowStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: TallySpacing.sm) {
+                    Text(detail.code)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textOnHero2)
+                    grade
+                    if !detail.health.isSaidByTheGrade {
+                        Label(detail.health.label, systemImage: detail.health.symbol)
+                            // ux-fp2 D11: the hero is a `List` row, whose icon column left a wide gap.
+                            .labelStyle(.tallyCompact)
+                            .font(TallyTypography.footnote)
+                            .foregroundStyle(TallyColor.textOnHero2)
+                    }
+                }
+                if let sparkline {
+                    TallyReflowSpacer(minLength: 0)
+                    CourseSparklineView(points: sparkline, width: nil, height: CourseSparklineView.heroHeight,
+                                        tint: TallyColor.brandGold, background: .hero)
+                        .padding(.leading, typeSize.isAccessibilitySize ? 0 : TallySpacing.md)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("courseDetail.sparkline")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -473,6 +490,8 @@ struct CourseHeroCard: View {
         .accessibilityIdentifier("courseDetail.hero")
     }
 
+    /// UX-SPARK-2: the sparkline moved out to its own zone (`body`), so this is the plain grade
+    /// row it was before UX-SPARK ever tucked a sparkline beside it.
     @ViewBuilder
     private var grade: some View {
         if let notInCanvas = detail.grade.notInCanvas {
@@ -487,38 +506,15 @@ struct CourseHeroCard: View {
                     .foregroundStyle(TallyColor.textOnHero2)
             }
         } else if let percent = detail.grade.percentText {
-            // UX-SPARK: only wrap in the AX-size-aware layout when there is a sparkline to make
-            // room for; otherwise this is the plain row it always was.
-            if let sparkline {
-                let gradeRowLayout = typeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.xs))
-                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: TallySpacing.sm))
-                gradeRowLayout {
-                    Text(percent)
-                        .font(.system(.largeTitle, design: .serif).bold())
-                        .foregroundStyle(TallyColor.textOnHero)
-                        .monospacedDigit()
-                    if let letter = detail.grade.letter {
-                        Text(letter)
-                            .font(TallyTypography.sectionHeader)
-                            .foregroundStyle(TallyColor.brandGold)
-                    }
-                    // Larger than the Courses card's (PRD §2.B), in the gold of the letter grade: the
-                    // accent blue all but disappears on the navy hero (owner review, 2026-10-03).
-                    CourseSparklineView(points: sparkline, size: CourseSparklineView.heroSize, tint: TallyColor.brandGold)
-                        .accessibilityIdentifier("courseDetail.sparkline")
-                }
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                    Text(percent)
-                        .font(.system(.largeTitle, design: .serif).bold())
-                        .foregroundStyle(TallyColor.textOnHero)
-                        .monospacedDigit()
-                    if let letter = detail.grade.letter {
-                        Text(letter)
-                            .font(TallyTypography.sectionHeader)
-                            .foregroundStyle(TallyColor.brandGold)
-                    }
+            HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                Text(percent)
+                    .font(.system(.largeTitle, design: .serif).bold())
+                    .foregroundStyle(TallyColor.textOnHero)
+                    .monospacedDigit()
+                if let letter = detail.grade.letter {
+                    Text(letter)
+                        .font(TallyTypography.sectionHeader)
+                        .foregroundStyle(TallyColor.brandGold)
                 }
             }
         } else if let letter = detail.grade.letter {
