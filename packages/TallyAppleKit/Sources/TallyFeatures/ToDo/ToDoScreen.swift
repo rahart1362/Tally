@@ -138,20 +138,26 @@ struct ToDoRowView: View {
     let isDone: Bool
     let onToggle: () -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.editMode) private var editMode
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.sm) {
-            Button(action: onToggle) {
-                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(.title2))
-                    .foregroundStyle(isDone ? TallyColor.accent : TallyColor.textSecondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+            // Audit D16: in select mode the system selection circle and this done circle looked
+            // alike, and together they squeezed the text column until "Missing" broke mid-word at
+            // AX5 (ux-fp2 gate 2). Select mode shows only the selection circle.
+            if editMode?.wrappedValue.isEditing != true {
+                Button(action: onToggle) {
+                    Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                        .font(.system(.title2))
+                        .foregroundStyle(isDone ? TallyColor.accent : TallyColor.textSecondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
+                                    : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
+                .accessibilityIdentifier("todo.complete")
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
-                                : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
-            .accessibilityIdentifier("todo.complete")
 
             VStack(alignment: .leading, spacing: TallySpacing.xs) {
                 Text(item.title)

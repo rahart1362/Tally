@@ -150,3 +150,5 @@ Opus design review of Audit tour run 37842950859: all 7 claimed defects FIXED (D
 **Fix (PMO):** `StatusChip` keeps words full size and allows 2 lines at the accessibility sizes. Only the score chip opts into the one-line, shrink-at-AX value rule (`valueStyle()`, `CourseDetailView.swift`). Below AX the behaviour is unchanged.
 
 Owed: a device check of a release build for D20, and the D18 today ring is shown only in a CI screenshot. The review's S3 notes, e.g. a grey haze over the navy Welcome hero at AX5, are in `pmo-audit/.build-audit/fp2/review/verdict.md`.
+
+**PMO follow-up (same day):** the AX5-only re-capture of the chip screens (Audit tour 37877916557, `242a369`) showed the chips at full size, wrapping between words on Courses ("Needs / attention"). In To-Do select mode on the smallest iPhone, though, "Missing" still broke mid-word ("Miss-ing"): the system selection circle plus the row's own done circle squeezed the text column. Audit **D16** (FP-4's list) is pulled in here: select mode now shows only the selection circle (`ToDo/ToDoScreen.swift`, `ToDoRowView`), which ends the look-alike double circle and gives the chips their width back.
