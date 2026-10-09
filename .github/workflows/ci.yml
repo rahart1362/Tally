@@ -235,7 +235,7 @@ jobs:
     runs-on: macos-26
     # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
-    timeout-minutes: 90 # 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
+    timeout-minutes: 110 # ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
