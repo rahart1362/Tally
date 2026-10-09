@@ -116,7 +116,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("Courses", in: app)
+        openTabInTour("Courses", in: app)
         captureScreenfuls(app, screen: "courses", reachedVia: "Courses tab", maxScreens: 10)
 
         // `captureScreenfuls` may have scrolled to the bottom (AX5 legs, 5 cards that no longer fit);
@@ -154,7 +154,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("Courses", in: app)
+        openTabInTour("Courses", in: app)
         let cards = elements("course.card", in: app)
         guard goScrolling(cards.element(boundBy: 0), app, screen: "course1", state: "card-b2", reachedVia: "Courses list, card 1"),
               element("courseDetail.hero", in: app).waitForExistence(timeout: 10) else {
@@ -205,7 +205,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("Courses", in: app)
+        openTabInTour("Courses", in: app)
         let cards = elements("course.card", in: app)
         // CI run 37639511433: missed on the smallest device at AX5 (two legs) with the default
         // 15-swipe cap; a card 44 pt tall plus huge text can need more swipes to reach.
@@ -238,7 +238,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("Calendar", in: app)
+        openTabInTour("Calendar", in: app)
         _ = elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "calendar", state: "weekStripAndAgenda", reachedVia: "Calendar tab")
 
@@ -269,7 +269,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("To-Do", in: app)
+        openTabInTour("To-Do", in: app)
         _ = text("Missing & overdue", in: app).waitForExistence(timeout: 15)
         snap(app, screen: "todo", state: "default", reachedVia: "To-Do tab")
 
@@ -280,9 +280,30 @@ final class AuditTourUITests: TallyUITestCase {
 
         let rows = elements("todo.row", in: app)
         if rows.count > 1 {
-            rows.element(boundBy: 1).swipeLeft()
-            snap(app, screen: "todo", state: "swipeAction", reachedVia: "swiped a row left, fully revealed")
-            if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+            // ux-fp6: row 2 (`boundBy: 1`) sits under the floating tab bar at Pro Max AX5 (a single
+            // AX5 row is tall enough to push it there), so the swipe landed on the tab bar instead
+            // and the capture was missing. The first row whose frame clears the tab bar entirely is
+            // used instead; one scroll-up-and-retry covers the case where every row now on screen is
+            // still under it.
+            func firstRowClearOfTabBar() -> XCUIElement? {
+                let tabBarMinY = app.tabBars.firstMatch.frame.minY
+                for index in 0..<rows.count {
+                    let row = rows.element(boundBy: index)
+                    if row.exists, row.frame.maxY < tabBarMinY { return row }
+                }
+                return nil
+            }
+            var target = firstRowClearOfTabBar()
+            if target == nil {
+                app.swipeUp(velocity: .slow)
+                _ = waitUntilAtRest(app)
+                target = firstRowClearOfTabBar()
+            }
+            if let target {
+                target.swipeLeft()
+                snap(app, screen: "todo", state: "swipeAction", reachedVia: "swiped a row left, fully revealed")
+                if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+            }
         }
 
         if go(app.buttons["todo.select"], app, screen: "todo", state: "selectMode", reachedVia: "Select toolbar button") {
@@ -310,7 +331,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTab("Insights", in: app)
+        openTabInTour("Insights", in: app)
         _ = element("chart.trend", in: app).waitForExistence(timeout: 30)
         captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 10)
 
@@ -493,7 +514,7 @@ final class AuditTourUITests: TallyUITestCase {
         seedFlagshipAccount()
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts + Self.textSizeArguments)
         _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
-        openTab("Courses", in: app)
+        openTabInTour("Courses", in: app)
 
         let seePlans = app.buttons["subscription.locked.seePlans"]
         if scrollUntilHittable(seePlans, in: app) {
@@ -844,6 +865,25 @@ final class AuditTourUITests: TallyUITestCase {
         let backButton = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
         if backButton.waitForExistence(timeout: 5), backButton.isHittable {
             backButton.tap()
+        }
+    }
+
+    /// `openTab`, settled first. A tab tap made right after a transition (the previous screen's own
+    /// capture, a sheet dismissal) can hit XCUITest's own "Failed to determine hittability of …:
+    /// Activation point invalid" (run 37880767365, `testB` at Pro Max light AX5,
+    /// `TallyUITestCase.swift:127`): the hit-test reads a stale frame while the app is still
+    /// animating. `waitUntilAtRest` (already used before every capture in this file) settles that
+    /// first, which is enough on its own in practice; a second attempt, settled again, covers
+    /// whatever the first still misses.
+    @MainActor
+    private func openTabInTour(_ name: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let button = app.tabBars.buttons[name]
+        for attempt in 0..<2 {
+            _ = waitUntilAtRest(app)
+            if attempt == 1 || !button.isSelected {
+                openTab(name, in: app, file: file, line: line)
+            }
+            if button.waitForExistence(timeout: 2), button.isSelected { return }
         }
     }
 
