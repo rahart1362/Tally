@@ -248,7 +248,10 @@ public struct CourseSparklineView: View {
     public var body: some View {
         let percents = points.points.map(\.percent)
         let domain = Self.yDomain(percents)
-        let firstDate = points.points.first?.date ?? Date()
+        // `points.points` always has >= 2 entries (`CourseSparklineBuilder.build`'s guard), so
+        // this fallback is never reached; a fixed sentinel, never `Date()` (perf-app-runtime.md
+        // §3 item 4: a view body has no clock), keeps that true without a force-unwrap.
+        let firstDate = points.points.first?.date ?? .distantPast
         let lastDate = points.points.last?.date ?? firstDate
         let range = domain.upperBound - domain.lowerBound
         let endFraction = range > 0 ? ((percents.last ?? domain.lowerBound) - domain.lowerBound) / range : 1
