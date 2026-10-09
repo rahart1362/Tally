@@ -50,8 +50,10 @@ struct LinkedStudentsSection: View {
             }
         } header: {
             Text(L10n.FamilyUI.linkedStudentsHeader())
+                .tallySectionText()
         } footer: {
             Text(L10n.FamilyUI.linkedStudentsFooter())
+                .tallySectionText()
         }
     }
 }
@@ -106,8 +108,10 @@ struct StudentDetailView: View {
                 notificationToggle(L10n.FamilyUI.notifyDueReminders, \.dueRemindersEnabled, id: "family.notify.due")
             } header: {
                 Text(L10n.FamilyUI.notificationsFor(student.firstName))
+                    .tallySectionText()
             } footer: {
                 Text(L10n.FamilyUI.linkedStudentsFooter())
+                    .tallySectionText()
             }
             Section {
                 // S3 round 2: "Remove from Tally" had no destructive role (black text) while
@@ -211,6 +215,7 @@ struct AddStudentSheet: View {
                         .accessibilityIdentifier("family.codeField")
                 } footer: {
                     Text(L10n.FamilyUI.codeFieldFooter())
+                        .tallySectionText()
                 }
                 if let problem {
                     Section {
@@ -282,6 +287,7 @@ struct FamilySharingSection: View {
                     .accessibilityIdentifier("family.invite")
             } header: {
                 Text(L10n.FamilyUI.sharingHeader())
+                    .tallySectionText()
             }
             Section {
                 switch model.phase {
@@ -309,8 +315,10 @@ struct FamilySharingSection: View {
                 }
             } header: {
                 Text(L10n.FamilyUI.linkedInCanvasHeader())
+                    .tallySectionText()
             } footer: {
                 Text(L10n.FamilyUI.linkedInCanvasFooter())
+                    .tallySectionText()
             }
             if !model.invites.isEmpty {
                 Section {
@@ -319,8 +327,10 @@ struct FamilySharingSection: View {
                     }
                 } header: {
                     Text(L10n.FamilyUI.invitesHeader())
+                        .tallySectionText()
                 } footer: {
                     Text(L10n.FamilyUI.invitesFooter())
+                        .tallySectionText()
                 }
             }
             if let onExploreParentMode {
@@ -329,6 +339,7 @@ struct FamilySharingSection: View {
                         .accessibilityIdentifier("family.sample.viewAsParent")
                 } footer: {
                     Text(L10n.FamilyUI.sampleViewAsParentFooter())
+                        .tallySectionText()
                 }
             }
         }
@@ -457,6 +468,7 @@ struct InviteSheet: View {
                     } footer: {
                         if model.warnsOldestCode {
                             Text(L10n.FamilyUI.oldestCodeWarning())
+                                .tallySectionText()
                         }
                     }
                 }
@@ -526,6 +538,7 @@ struct PairingCodeSection: View {
                 .accessibilityIdentifier("family.copyCode")
         } footer: {
             Text(L10n.FamilyUI.codeWarning())
+                .tallySectionText()
         }
         .task(id: sent.invite.code) {
             // Drawn off the main actor (Core Image's first context is slow); shown here.

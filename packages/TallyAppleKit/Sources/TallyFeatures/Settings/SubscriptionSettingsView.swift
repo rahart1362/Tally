@@ -42,6 +42,7 @@ struct SubscriptionSettingsView: View {
                 }
             } footer: {
                 Text(isSchoolSeat ? L10n.Subscription.settingsFooterSchool() : L10n.Subscription.settingsFooter())
+                    .tallySectionText()
             }
             Section {
                 Button(String(localized: L10n.Subscription.restorePurchases())) {
@@ -76,6 +77,9 @@ struct SubscriptionSettingsView: View {
         // D01: content scrolled past the top stayed visible, blurred, under the inline title and
         // the status bar, even at rest.
         .tallyFormScreenChrome()
+        // D07: `TallyColor.textSecondary` for every `LabeledContent` value on this screen (Plan,
+        // Status), in place of the system secondary grey.
+        .labeledContentStyle(.tallySecondaryValue)
         .navigationTitle(Text(L10n.Subscription.settingsTitle()))
         .navigationBarTitleDisplayMode(.inline)
         .modifier(SubscriptionSheets(actions: actions))
@@ -92,8 +96,12 @@ struct SubscriptionSettingsView: View {
         .background {
             Color.clear
                 .sheet(item: $paywall) { request in
+                    // D30: a `.sheet` starts a fresh environment (HomeShellView's own sheet needs
+                    // the same explicit `.tint` for the same reason), so the TabView's tint does
+                    // not reach this Paywall sheet either.
                     PaywallView(model: PaywallModel(trigger: request.trigger, school: school, subscription: appModel.subscription,
                                                     storefront: appModel.storefront))
+                        .tint(TallyColor.accent)
                 }
         }
     }

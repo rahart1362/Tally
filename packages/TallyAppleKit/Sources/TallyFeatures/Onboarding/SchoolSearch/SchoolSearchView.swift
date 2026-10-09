@@ -163,7 +163,12 @@ struct SchoolSearchView: View {
         case .searchFailed:
             TallyUnavailableView(Text(L10n.Onboarding.SchoolSearch.searchFailedTitle()), systemImage: "exclamationmark.triangle",
                                  description: Text(L10n.Onboarding.SchoolSearch.searchFailedDescription())) {
-                Button(String(localized: L10n.Onboarding.retry()), action: viewModel.retry)
+                // D10: the 44 pt minimum inside the label, not on the button itself.
+                Button(action: viewModel.retry) {
+                    Text(L10n.Onboarding.retry())
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
             }
             .tallyCenteredScrolling()
         }

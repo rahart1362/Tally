@@ -197,15 +197,23 @@ private struct WhatIfItemRow: View {
             chips {
                 ForEach(WhatIfModel.quickFillPercents, id: \.self) { percent in
                     // §3.3 "Percent": the sign's position and spacing follow the locale.
-                    Button(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))) {
+                    // D10: `.frame(minHeight: 44)` after `.buttonStyle(.bordered)` sized the
+                    // button's own layout box but left the `.bordered` style's own hit area
+                    // text-sized (34 pt, measured) — the same failure mode as the refresh banner's
+                    // "See Plans" before its fix. Moving it inside the label, before the style,
+                    // fixes the hit area itself.
+                    Button {
                         model.fill(item.id, percent: percent)
+                    } label: {
+                        Text(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale)))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                         .buttonStyle(.bordered)
                         // ux-fp6 D32: the `.bordered` chip's default accent-on-accent-tint label
                         // measured 4.02:1 in dark (5.94:1 in light), under 4.5:1 for 15 pt text.
                         // `textPrimary` is ≥ 4.5:1 on `bgCard` in both appearances.
                         .foregroundStyle(TallyColor.textPrimary)
-                        .frame(minHeight: 44)
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
                 }
             }

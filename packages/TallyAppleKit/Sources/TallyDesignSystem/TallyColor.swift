@@ -58,6 +58,12 @@ public enum TallyColor {
     /// label/glyph on it stays ≥ 4.5:1 in both appearances. Added for ux-fp6 D28/D29: `accent`
     /// itself flips to a light blue in dark, which left the system's white button labels at
     /// 2.08–2.15:1. Pair with `accentOnFill` for the label colour.
+    ///
+    /// ux-fp4 S3 (Increase Contrast): a High Contrast appearance darkens both — Any #123C80
+    /// (reusing `accent`'s own High Contrast Any), Dark #1F4690 — which computes white-on-fill to
+    /// ≈10.6:1 light and ≈9.0:1 dark (was 7.97:1 / 5.99:1). UNVERIFIED on a device: no Increase
+    /// Contrast capture exists in the audit tour to measure from; computed from the asset's own
+    /// sRGB components with the WCAG relative-luminance formula.
     public static let accentFill = Color("accent.fill", bundle: .module)
 
     /// `accent.onFill` — label/glyph colour on an `accentFill`-filled control. White in both

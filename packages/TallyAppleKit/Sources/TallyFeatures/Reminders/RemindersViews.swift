@@ -140,12 +140,14 @@ struct RemindersSettingsSection: View {
                 }
             } header: {
                 Text(RemindersViewCopy.sectionTitle)
+                    .tallySectionText()
             } footer: {
                 if !isSampleData {
                     // Built outside the Text(...) call (not literal-concatenated inside it): the
                     // separator is two plain newlines, not user-facing words.
                     let combined = String(localized: RemindersViewCopy.footer) + "\n\n" + String(localized: RemindersViewCopy.hideCourseNamesFooter)
                     Text(combined)
+                        .tallySectionText()
                 }
             }
             .task(id: scenePhase) {

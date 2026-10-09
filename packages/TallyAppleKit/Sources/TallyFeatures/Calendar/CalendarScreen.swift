@@ -34,6 +34,7 @@ struct CalendarScreen: View {
                         DayTimeline(day: day)
                     } header: {
                         Text(day.heading)
+                            .tallySectionText()
                     }
                     // D31 round 2: applied to the Section, which reaches every row inside it.
                     .tallyRow()
@@ -50,6 +51,7 @@ struct CalendarScreen: View {
                             }
                         } header: {
                             Text(day.heading)
+                                .tallySectionText()
                         }
                         .tallyRow()
                         .id(day.id)

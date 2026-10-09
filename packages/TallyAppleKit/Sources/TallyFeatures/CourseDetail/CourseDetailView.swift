@@ -126,6 +126,7 @@ struct CourseDetailView: View {
                 Text(next).font(TallyTypography.body)
             } header: {
                 Text(L10n.CourseDetail.nextDueHeader())
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -162,6 +163,7 @@ struct CourseDetailView: View {
                 }
             } header: {
                 Text(L10n.CourseDetail.recentGradesHeader())
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -172,10 +174,12 @@ struct CourseDetailView: View {
                     .padding(.vertical, TallySpacing.sm)
             } header: {
                 Text(L10n.CourseDetail.categoryWeightsHeader())
+                    .tallySectionText()
             } footer: {
                 Text(detail.weightsAreInstructorSet
                      ? L10n.CourseDetail.weightsSetByInstructor()
                      : L10n.CourseDetail.weightsPointsBased())
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -188,6 +192,7 @@ struct CourseDetailView: View {
                     .accessibilityIdentifier("chart.distribution")
             } header: {
                 Text(L10n.CourseDetail.gradeDistributionHeader())
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -212,9 +217,11 @@ struct CourseDetailView: View {
             }
         } header: {
             Text(L10n.CourseDetail.whatIfHeader())
+                .tallySectionText()
         } footer: {
             if detail.whatIf != nil {
                 Text(L10n.CourseDetail.whatIfFooter())
+                    .tallySectionText()
             }
         }
         .tallyRow()
@@ -225,6 +232,7 @@ struct CourseDetailView: View {
                 }
             } header: {
                 Text(detail.instructors.count == 1 ? L10n.CourseDetail.instructorsHeaderOne() : L10n.CourseDetail.instructorsHeaderOther())
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -250,7 +258,7 @@ struct CourseDetailView: View {
             .tallyRow()
         }
         ForEach(detail.sections) { section in
-            Section(section.title) {
+            Section {
                 ForEach(section.rows) { row in
                     // ux-fp2 D02: from AX1 up the status chip and the score go under the title,
                     // each on one line.
@@ -281,6 +289,11 @@ struct CourseDetailView: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(row.accessibilityLabel)
                 }
+            } header: {
+                // D07: was `Section(section.title)`'s own default header text (the same
+                // under-contrast grey); an explicit header lets it take `tallySectionText()`.
+                Text(section.title)
+                    .tallySectionText()
             }
             .tallyRow()
         }
@@ -316,21 +329,25 @@ struct CourseDetailView: View {
             }
         } header: {
             Text(L10n.CourseDetail.categoriesHeader())
+                .tallySectionText()
         } footer: {
-            switch detail.grade.notInCanvas {
-            case .keptOutside?:
-                Text(L10n.CourseDetail.notInCanvasLine())
-            case .notGraded?:
-                Text(L10n.Grades.notGradedDetail())
-            case nil:
-                if detail.showsCategoryPercentages {
-                    Text(L10n.CourseDetail.currentGradeCountsGradedOnly())
-                } else if let hiddenReason = detail.grade.hiddenReason {
-                    Text(verbatim: hiddenReason)
-                } else {
-                    Text(L10n.CourseDetail.lettersOnlyFooter())
+            Group {
+                switch detail.grade.notInCanvas {
+                case .keptOutside?:
+                    Text(L10n.CourseDetail.notInCanvasLine())
+                case .notGraded?:
+                    Text(L10n.Grades.notGradedDetail())
+                case nil:
+                    if detail.showsCategoryPercentages {
+                        Text(L10n.CourseDetail.currentGradeCountsGradedOnly())
+                    } else if let hiddenReason = detail.grade.hiddenReason {
+                        Text(verbatim: hiddenReason)
+                    } else {
+                        Text(L10n.CourseDetail.lettersOnlyFooter())
+                    }
                 }
             }
+            .tallySectionText()
         }
         .tallyRow()
     }

@@ -186,3 +186,47 @@ extension View {
         modifier(TallyHeroBackground())
     }
 }
+
+/// ux-fp4 D07 (S2, systemic): a `List`/`Form` section's header or footer `Text`, and a
+/// `LabeledContent`'s value, render by default in the system `secondaryLabel` grey — measured at
+/// 3.29:1 on the Tally canvas and 3.44:1 on white, below the 4.5:1 floor for 11–15 pt text. App
+/// text that already uses `TallyColor.textSecondary` measures 7.7:1. One modifier, applied at each
+/// header/footer/value call site, in place of restyling the system default by hand everywhere.
+public struct TallySectionText: ViewModifier {
+    public init() {}
+
+    public func body(content: Content) -> some View {
+        content.foregroundStyle(TallyColor.textSecondary)
+    }
+}
+
+extension View {
+    /// D07: `TallyColor.textSecondary` (≥ 4.5:1 light and dark) in place of the system secondary
+    /// grey, for a section header, a section footer, or a `LabeledContent` value. See
+    /// `TallySectionText`.
+    public func tallySectionText() -> some View {
+        modifier(TallySectionText())
+    }
+}
+
+/// ux-fp4 D07: `LabeledContent`'s own default style renders its value in the system secondary
+/// grey — the same under-contrast colour as a section header/footer (`TallySectionText`, above).
+/// A custom `LabeledContentStyle` reaches every `LabeledContent` under one `.labeledContentStyle`
+/// call (Settings, Subscription), rather than converting each `LabeledContent(_:value:)`
+/// convenience call to its closure form by hand.
+public struct TallyLabeledContentStyle: LabeledContentStyle {
+    public func makeBody(configuration: Configuration) -> some View {
+        LabeledContent {
+            configuration.content
+                .foregroundStyle(TallyColor.textSecondary)
+        } label: {
+            configuration.label
+        }
+    }
+}
+
+extension LabeledContentStyle where Self == TallyLabeledContentStyle {
+    /// D07: `TallyColor.textSecondary` (≥ 4.5:1) for the value, in place of the system secondary
+    /// grey. See `TallyLabeledContentStyle`.
+    public static var tallySecondaryValue: TallyLabeledContentStyle { TallyLabeledContentStyle() }
+}
