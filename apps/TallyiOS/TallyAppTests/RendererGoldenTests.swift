@@ -132,6 +132,29 @@ struct RendererGoldenTests {
         }
     }
 
+    /// D15: Next up's far due dates read "Due in 396h" ballooning with no cap. With `dueAt` given,
+    /// 48 h+ out reuses the frozen Courses/To-Do due sentence (a day, or day-and-time inside the
+    /// coming week) instead; under 48 h, or with no `dueAt` (every call above), the English is
+    /// unchanged.
+    @Test("D15: a due date 48h+ out reads as a day via the frozen Courses/To-Do due sentence")
+    func dashboardFarDueDate() {
+        let chicago = Self.calendar(Self.chicago)
+        // Self.seen: Monday 2026-09-21 09:13:20 Chicago.
+        let in3Days = Self.seen.addingTimeInterval(3 * 86_400 + 3600) // Thu, within the coming week.
+        let in20Days = Self.seen.addingTimeInterval(20 * 86_400) // Oct 11: past the week, day alone.
+        let under48h = Self.seen.addingTimeInterval(47 * 3600) // under the threshold: unchanged.
+        let rows: [(Date, Double, String)] = [
+            (in3Days, 3 * 24 + 1, "Due Thu at 10:13 AM"),
+            (in20Days, 20 * 24, "Due Oct 11"),
+            (under48h, 47, "Due in 47h"),
+        ]
+        for (dueAt, hours, expected) in rows {
+            let text = DashboardText.reason([.dueIn(hours: hours)], courseCode: "BIO 101", dueAt: dueAt,
+                                            calendar: chicago, locale: Self.enUS)
+            #expect(Self.plain(text) == expected, "\(hours)h")
+        }
+    }
+
     // MARK: - Differential sweeps against 628ee09 (exact bytes)
     // The expectations compare a count, not the array: Swift Testing prints an operand's whole
     // value, and the full mismatch lists made 10-16 kB log lines that cost the rest of the
