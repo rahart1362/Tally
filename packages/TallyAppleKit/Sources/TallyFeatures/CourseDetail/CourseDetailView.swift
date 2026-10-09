@@ -150,6 +150,7 @@ struct CourseDetailView: View {
                         }
                         TallyReflowSpacer(minLength: TallySpacing.sm)
                         StatusChip(symbol: "checkmark.seal", text: item.scoreText)
+                            .valueStyle()
                             .tallyReflowValue()
                     }
                     .accessibilityElement(children: .combine)

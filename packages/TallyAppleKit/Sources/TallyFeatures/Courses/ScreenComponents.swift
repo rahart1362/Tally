@@ -86,6 +86,8 @@ struct StatusChip: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// A value chip (a score) keeps D02's value rule: one line, shrunk at the accessibility sizes.
+    private var isValue = false
 
     init(symbol: String, text: LocalizedStringResource, tone: Tone = .neutral) {
         self.symbol = symbol
@@ -109,15 +111,24 @@ struct StatusChip: View {
             Image(systemName: symbol).foregroundStyle(tint)
         }
         // ux-fp2 D11: in a `List` row a plain `Label` took the list's icon column (an 18 pt gap
-        // before the words); the chip's words never wrap: one line, shrunk (at the accessibility
-        // sizes only) when even a line of their own is too narrow (D02's value rule, `TallyReflow`).
+        // before the words). Words stay full size and, at the accessibility sizes, wrap between
+        // words onto a second line: shrinking them (gate 2, R1) drew the same chip at different
+        // sizes side by side. Only a value chip (`valueStyle()`) keeps one line, shrunk at AX
+        // sizes, so a score never breaks (D02's value rule, `TallyReflow`).
         .labelStyle(.tallyCompact)
-        .lineLimit(1)
-        .minimumScaleFactor(TallyReflow.minimumScale(at: typeSize))
+        .lineLimit(isValue || !typeSize.isAccessibilitySize ? 1 : 2)
+        .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
         .background(tint.opacity(0.12), in: Capsule())
+    }
+
+    /// D02: this chip shows a value (a score): one line, shrunk at the accessibility sizes.
+    func valueStyle() -> StatusChip {
+        var chip = self
+        chip.isValue = true
+        return chip
     }
 
     private var swatch: ScreenPalette.Swatch {

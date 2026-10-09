@@ -143,3 +143,10 @@ None. No string was added or changed (`check_string_catalogs.py`: 752 keys, as b
 - `.build-ux/owner-sheet-ux-fp2.jpg` (portrait, 1200 × 5043, 0.60 MB; `.build-ux/owner_sheet.py`).
 - Captures: `.build-ux/after-37842950859/` (final), `.build-ux/after-37827539573/` (first pass).
 - All git-ignored, not committed.
+
+## Gate 2 (PMO, 2026-10-09)
+Opus design review of Audit tour run 37842950859: all 7 claimed defects FIXED (D02 checked on every AX5 capture of its screens). There was one S2 regression, **R1**: at AX5 the shared `StatusChip` shrank its words to stay on one line, down to half size, so one chip could show at about 0.6× beside another at full size (Courses, Insights, To-Do select mode).
+
+**Fix (PMO):** `StatusChip` keeps words full size and allows 2 lines at the accessibility sizes. Only the score chip opts into the one-line, shrink-at-AX value rule (`valueStyle()`, `CourseDetailView.swift`). Below AX the behaviour is unchanged.
+
+Owed: a device check of a release build for D20, and the D18 today ring is shown only in a CI screenshot. The review's S3 notes, e.g. a grey haze over the navy Welcome hero at AX5, are in `pmo-audit/.build-audit/fp2/review/verdict.md`.
