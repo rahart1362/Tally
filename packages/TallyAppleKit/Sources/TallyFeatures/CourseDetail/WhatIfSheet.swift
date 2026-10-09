@@ -201,6 +201,10 @@ private struct WhatIfItemRow: View {
                         model.fill(item.id, percent: percent)
                     }
                         .buttonStyle(.bordered)
+                        // ux-fp6 D32: the `.bordered` chip's default accent-on-accent-tint label
+                        // measured 4.02:1 in dark (5.94:1 in light), under 4.5:1 for 15 pt text.
+                        // `textPrimary` is ≥ 4.5:1 on `bgCard` in both appearances.
+                        .foregroundStyle(TallyColor.textPrimary)
                         .frame(minHeight: 44)
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
                 }

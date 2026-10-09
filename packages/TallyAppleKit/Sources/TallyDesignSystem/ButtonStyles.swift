@@ -3,6 +3,12 @@ import SwiftUI
 /// The welcome screen's primary CTA (ux-ui.md §3.2 stage 2): Liquid Glass
 /// where available, falling back to a solid tinted style otherwise so the
 /// button still reads correctly on older SDKs.
+///
+/// ux-fp6 D28: `.glassProminent`/`.borderedProminent` draw a white label by default, and `accent`
+/// flips to a light blue (#8DB4FF) in dark — white-on-light-blue measured 2.08–2.15:1 across every
+/// screen that uses this style (Welcome, Paywall, App Lock, first-sync Retry, the sign-in
+/// hand-off, SchoolNotEnabled, SchoolRevoked, GradeNotInCanvas). `accentFill` stays dark enough in
+/// both appearances for the system's white label to clear 4.5:1 without touching the label itself.
 public struct TallyPrimaryButtonStyle: PrimitiveButtonStyle {
     public init() {}
 
@@ -11,11 +17,11 @@ public struct TallyPrimaryButtonStyle: PrimitiveButtonStyle {
             if #available(iOS 26.0, *) {
                 Button(configuration)
                     .buttonStyle(.glassProminent)
-                    .tint(TallyColor.accent)
+                    .tint(TallyColor.accentFill)
             } else {
                 Button(configuration)
                     .buttonStyle(.borderedProminent)
-                    .tint(TallyColor.accent)
+                    .tint(TallyColor.accentFill)
             }
         }
         .font(TallyTypography.cardTitle.weight(.semibold))

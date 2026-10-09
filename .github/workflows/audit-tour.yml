@@ -126,13 +126,20 @@ jobs:
           mkdir -p "$RUNNER_TEMP/shots"
           xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally-audit.xcresult" \
             --output-path "$RUNNER_TEMP/shots"
-          # Rename each exported attachment to its readable name (drop xcresulttool's _N_<UUID> suffix).
+          # Rename each exported attachment to its readable name (drop xcresulttool's _N_<UUID>
+          # suffix), sanitising anything `upload-artifact` rejects. A failed attempt's own
+          # diagnostic attachment can be named `Debug description for `"…" SearchField`.txt`
+          # (backticks, quotes, an ellipsis, spaces) and `upload-artifact` rejected the whole leg
+          # over it (runs 37827539573, 37880767365) — every character outside [A-Za-z0-9._-] is
+          # replaced with `_`, which leaves the NN-<screen>-<state>.png/.layout.json names (already
+          # in that set) unchanged.
           python3 - "$RUNNER_TEMP/shots" <<'PY'
           import json, os, re, sys
           root = sys.argv[1]
           for test in json.load(open(os.path.join(root, "manifest.json"))):
               for a in test.get("attachments", []):
                   name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                  name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
                   src, dst = os.path.join(root, a["exportedFileName"]), os.path.join(root, name)
                   if os.path.exists(src) and not os.path.exists(dst):
                       os.rename(src, dst)

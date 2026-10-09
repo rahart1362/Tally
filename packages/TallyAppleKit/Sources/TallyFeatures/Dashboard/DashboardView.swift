@@ -100,7 +100,8 @@ private struct DashboardLoadingView: View {
         }
         .padding(TallySpacing.lg)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-        .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
+        // ux-fp6 D33: the shared hero background + dark-only hairline. See `tallyHeroBackground()`.
+        .tallyHeroBackground()
         .accessibilityElement(children: .combine)
     }
 }
@@ -180,7 +181,8 @@ struct HeroSection: View {
         }
         .padding(TallySpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
+        // ux-fp6 D33: the shared hero background + dark-only hairline. See `tallyHeroBackground()`.
+        .tallyHeroBackground()
     }
 
     @ViewBuilder

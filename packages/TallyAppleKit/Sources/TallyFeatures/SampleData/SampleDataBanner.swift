@@ -26,11 +26,14 @@ struct SampleDataBanner: View {
         .foregroundStyle(TallyColor.accentOnFill)
         .padding(.horizontal, TallySpacing.screenMargin)
         .frame(maxWidth: .infinity)
-        // D29 (safe-area part only): plain `.background(Color)` ignores safe area edges by
-        // default, so the banner's fill painted under the status bar — with dark glyphs/text
-        // there failing contrast (FP-6's D29 colour fix, not this). An empty edge set keeps the
-        // fill to the banner's own frame, so the status bar sits on the canvas behind it.
-        .background(TallyColor.accent, ignoresSafeAreaEdges: [])
+        // D29 (safe-area part): plain `.background(Color)` ignores safe area edges by default, so
+        // the banner's fill painted under the status bar — with dark glyphs/text there failing
+        // contrast. An empty edge set keeps the fill to the banner's own frame, so the status bar
+        // sits on the canvas behind it.
+        // D29 (colour part, ux-fp6): `accent` flips to a light blue (#8DB4FF) in dark, which made
+        // this the brightest block on screen. `accentFill` is the same deep blue in both
+        // appearances, and `accentOnFill` (white in both) keeps the band's own text/icon ≥ 4.5:1.
+        .background(TallyColor.accentFill, ignoresSafeAreaEdges: [])
         // Deliberately NOT `.accessibilityElement(children: .combine)`: that would fold the
         // "Exit" button into one non-interactive combined element, making it untappable for
         // VoiceOver (and unfindable by UI tests) — an interactive control must stay its own

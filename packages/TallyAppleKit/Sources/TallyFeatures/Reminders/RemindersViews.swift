@@ -72,7 +72,8 @@ private struct RemindersTipCard: View {
                 reminders.requestPermission()
             }
             .buttonStyle(.borderedProminent)
-            .tint(TallyColor.accent)
+            // ux-fp6 D28: the system's white label on `accent` measured 2.08–2.15:1 in dark.
+            .tint(TallyColor.accentFill)
             .disabled(reminders.isRequesting)
             .accessibilityIdentifier("tip.enableReminders")
         }
