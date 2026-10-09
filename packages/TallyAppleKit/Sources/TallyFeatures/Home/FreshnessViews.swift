@@ -52,6 +52,7 @@ struct FreshnessFooter: View {
 /// produces a `longText` (delayed/offline/failed/authExpired with saved data on screen).
 struct FreshnessBreadcrumb: View {
     @Environment(HomeModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -64,7 +65,15 @@ struct FreshnessBreadcrumb: View {
                     .padding(.vertical, TallySpacing.sm)
                     // D21: a rounded warning-token card instead of a square-cornered, hard-coded
                     // `.orange` wash — every other surface on these screens is a rounded card.
-                    .background(TallyColor.warning.opacity(0.16), in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
+                    // Round 2 (Gate 2 taste note, optional): `warning`'s Any value (#8A5300) is
+                    // dark/muted by design (so solid text/icon use clears 4.5:1 on white); at 16%
+                    // over white that blends to about #ECE4D6 — pale enough to read as grey-beige
+                    // rather than amber. Dark's #FFB454 is bright enough that 16% already reads
+                    // warm on the navy canvas, so only light gets more of the tint (still a faint
+                    // wash, not a solid fill). Computed, not rendered — this host has no Xcode —
+                    // so flagged UNVERIFIED-on-device in the report rather than claimed fixed.
+                    .background(TallyColor.warning.opacity(colorScheme == .dark ? 0.16 : 0.30),
+                               in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }

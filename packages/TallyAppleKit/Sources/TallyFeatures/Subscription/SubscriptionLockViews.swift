@@ -55,7 +55,19 @@ struct LockedFeatureCard: View {
         // ux-fp2 D04 follow-up: with the banner compact, the card scrolls at AX5 (it is reachable
         // now), and scrolled it passed under the toolbar's Settings button (Audit tour run
         // 37827539573); the screens' own D01 chrome hides it under an opaque bar instead.
-        .tallyScreenChrome()
+        //
+        // D25 (round 2): every lockable tab (`HomeShellView.swift`) sets its `.navigationTitle`
+        // outside this card with the system's default `.large` display mode, same as its own
+        // screen when unlocked — but this card used the plain, inline-title chrome, whose bar
+        // background is `.visible` at rest. `ScreenChrome.swift`'s own R4 note documents exactly
+        // this failure mode for a large title ("iOS 26 drew it over the tab roots' native large
+        // titles … left an empty band"): `.visible` paints an opaque bar over the still-expanded
+        // large title text, which is why the std captures showed a title-sized empty band with no
+        // text, while the parent-mode AX5 legs (inline titles there) were unaffected. The
+        // large-title variant's `.automatic` background — the same fix R4 already applied to
+        // every unlocked tab root — stays clear until content scrolls under it, so the title
+        // shows.
+        .tallyLargeTitleScreenChrome()
     }
 }
 

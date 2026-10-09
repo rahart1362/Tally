@@ -256,6 +256,12 @@ public struct CourseSparklineView: View {
         return (low - GradeTrend.axisPadding)...(high + GradeTrend.axisPadding)
     }
 
+    /// The hollow ring's diameter/radius at the current type scale. Round 2 (Gate 2 fail): the
+    /// ring's own radius pads the x range below, so the chart's geometry — not a guessed
+    /// `.offset` — puts the ring's centre exactly on the last point.
+    private var ringDiameter: CGFloat { CourseSparklineStyle.endRingDiameter * scale }
+    private var ringRadius: CGFloat { ringDiameter / 2 }
+
     public var body: some View {
         let percents = points.points.map(\.percent)
         let domain = Self.yDomain(percents)
@@ -264,8 +270,6 @@ public struct CourseSparklineView: View {
         // §3 item 4: a view body has no clock), keeps that true without a force-unwrap.
         let firstDate = points.points.first?.date ?? .distantPast
         let lastDate = points.points.last?.date ?? firstDate
-        let range = domain.upperBound - domain.lowerBound
-        let endFraction = range > 0 ? ((percents.last ?? domain.lowerBound) - domain.lowerBound) / range : 1
 
         Chart {
             ForEach(CourseSparklineStyle.horizontalGridValues(domain), id: \.self) { value in
@@ -286,24 +290,30 @@ public struct CourseSparklineView: View {
                     .foregroundStyle(tint)
                     .lineStyle(StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.linear)
+            }
+            // Round 2 (Gate 2 fail, "the end ring"): every posted day except the last gets its
+            // small dot; the last day's `PointMark` below draws the hollow ring instead, so there
+            // is never a dot showing through or poking out of it (round 1's `.overlay(alignment:
+            // .trailing)` put the ring's centre 4 pt left of the real last point — `SPARK2-ring.jpg`).
+            ForEach(points.points.dropLast()) { point in
                 PointMark(x: .value("Day", point.date), y: .value("Percent", point.percent))
                     .foregroundStyle(tint)
                     .symbolSize(pointSymbolArea)
             }
+            if let last = points.points.last {
+                // Letting the chart itself place the ring (its own `x`/`y` values, the same
+                // geometry every other mark uses) rather than reading the plot's coordinate space
+                // back or guessing an offset.
+                PointMark(x: .value("Day", last.date), y: .value("Percent", last.percent))
+                    .symbol { endRing }
+            }
         }
-        // A tight domain on both axes (no Swift Charts auto-padding), so the last point always
-        // lands exactly at the trailing edge: the hollow ring below is positioned from that, with
-        // no need to read the chart's own coordinate space back.
-        .chartXScale(domain: firstDate...lastDate)
+        .chartXScale(domain: firstDate...lastDate, range: .plotDimension(padding: ringRadius))
         .chartYScale(domain: domain)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
         .frame(width: width, height: height)
-        .overlay(alignment: .trailing) {
-            endRing
-                .offset(y: height * (1 - endFraction) - height / 2)
-        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(points.accessibilityLabel)
     }
@@ -311,10 +321,9 @@ public struct CourseSparklineView: View {
     /// The hollow end ring: a stroke in the line's colour, filled with the surface's own
     /// background so the line never shows through its centre (no glow, no halo).
     private var endRing: some View {
-        let diameter = CourseSparklineStyle.endRingDiameter * scale
-        return Circle()
+        Circle()
             .fill(background.ringFill)
             .overlay(Circle().strokeBorder(tint, lineWidth: CourseSparklineStyle.endRingStrokeWidth * scale))
-            .frame(width: diameter, height: diameter)
+            .frame(width: ringDiameter, height: ringDiameter)
     }
 }

@@ -458,14 +458,18 @@ private struct NeedsAttentionSection: View {
 
 private struct WeekAheadSection: View {
     let days: [DashboardProjection.WeekDay]
+    /// R1/D09 (round 2): every column reserves this HEIGHT for the glyph row, busy or not — never
+    /// the glyph's own WIDTH, which is what forced every Week-ahead column to be at least as wide
+    /// as the AX5 icon (7 × 49 pt columns = 415 pt on a 390 pt screen; Gate 2's `R1-overflow.jpg`).
+    @ScaledMetric(relativeTo: .caption2) private var glyphRowHeight: CGFloat = 14
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
             SectionHeader(title: L10n.Dashboard.weekAheadHeader())
             // D09: `.center` (the default) pulled a busy column about 8 pt higher than its
-            // neighbours, since its extra glyph row made it taller; `.top` plus always reserving
-            // that row (never conditionally adding it) keeps every column's three rows aligned,
-            // at std and AX5 alike (the same root cause UX-FP2 reported at AX5).
+            // neighbours, since its extra glyph row made it taller; `.top` plus a row every
+            // column reserves the same HEIGHT for (round 2: never the WIDTH — R1) keeps every
+            // column's three rows aligned, at std and AX5 alike.
             HStack(alignment: .top, spacing: TallySpacing.sm) {
                 ForEach(days) { day in
                     VStack(spacing: TallySpacing.xs) {
@@ -475,13 +479,26 @@ private struct WeekAheadSection: View {
                         Text("\(day.dueCount)")
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(day.isBusy ? TallyColor.warning : TallyColor.textPrimary)
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.caption2)
-                            .foregroundStyle(TallyColor.warning)
-                            .opacity(day.isBusy ? 1 : 0)
-                            .accessibilityHidden(!day.isBusy)
+                        // R1 (round 2): a zero-WIDTH spacer reserves the row's height for every
+                        // column, busy or not — the glyph itself draws only on busy days, as an
+                        // overlay that cannot widen the column (SwiftUI reports `.overlay`'s size
+                        // as the base view's, not the overlaid content's). Capped at
+                        // `.accessibility1` so the overlaid icon never balloons past a size that
+                        // would crowd the rows above and below it at AX5.
+                        Color.clear
+                            .frame(width: 0, height: glyphRowHeight)
+                            .overlay {
+                                if day.isBusy {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.caption2)
+                                        .foregroundStyle(TallyColor.warning)
+                                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                }
+                            }
                     }
-                    .frame(maxWidth: .infinity)
+                    // R1: lets every column shrink together instead of the row's width being the
+                    // sum of each column's own natural (glyph-driven) width.
+                    .frame(minWidth: 0, maxWidth: .infinity)
                 }
             }
             .padding(TallySpacing.md)
