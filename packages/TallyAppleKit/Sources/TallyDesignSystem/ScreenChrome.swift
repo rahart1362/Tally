@@ -155,3 +155,34 @@ extension View {
         modifier(TallyRow())
     }
 }
+
+/// ux-fp6 D33 (S3, dark): the navy hero shape (Dashboard, Course Detail), one place so every call
+/// site gets the same fix. `bg.brand`'s new Dark appearance (a step lighter than Any) keeps the
+/// hero off `bg.card`'s exact luminance (was 1.02:1), but the audit's own numbers for that lighter
+/// navy (computed 1.25:1 off `bg.card`) still read as a close call, so dark also gets a 1 pt
+/// `separator` hairline around the shape — light needs none (`bg.brand` there already reads far
+/// darker than every light surface). No glow, as the fix list asks.
+public struct TallyHeroBackground: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    public init() {}
+
+    public func body(content: Content) -> some View {
+        content
+            .background(TallyColor.bgBrand, in: RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous))
+            .overlay {
+                if colorScheme == .dark {
+                    RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous)
+                        .stroke(TallyColor.separator)
+                }
+            }
+    }
+}
+
+extension View {
+    /// D33: `bg.brand` behind a continuous `TallyRadius.hero` shape, plus the dark-only hairline.
+    /// See `TallyHeroBackground`.
+    public func tallyHeroBackground() -> some View {
+        modifier(TallyHeroBackground())
+    }
+}
