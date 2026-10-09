@@ -14,11 +14,27 @@ final class CoursesUITests: TallyUITestCase {
         openTab("Courses", in: app)
         let cards = elements("course.card", in: app)
         XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
-        XCTAssertEqual(cards.count, 5, "Hierarchy: \(app.debugDescription)")
-        for index in 0..<cards.count {
-            let label = cards.element(boundBy: index).label
-            XCTAssertTrue(Self.codes.contains { label.contains($0) }, "no course code in '\(label)'")
-            XCTAssertTrue(Self.healthWords.contains { label.contains($0) }, "no health words in '\(label)'")
+
+        // UX-SPARK-2's dedicated trend column (D14) makes each card taller, so the flagship's 5
+        // may no longer all be simultaneously materialized in a List's lazy viewport the way they
+        // were before — this moved the element this test checks (run 37925235523 found 4, not 5,
+        // with the list scrolled no further than its rest position). Collecting codes while
+        // scrolling checks the same thing (every course shows with its code and health words)
+        // without assuming they all fit on screen at once.
+        var seenLabels: [String: String] = [:]
+        for _ in 0..<8 {
+            for index in 0..<cards.count {
+                let label = cards.element(boundBy: index).label
+                if let code = Self.codes.first(where: { label.contains($0) }) {
+                    seenLabels[code] = label
+                }
+            }
+            if seenLabels.count == Self.codes.count { break }
+            app.swipeUp()
+        }
+        XCTAssertEqual(Set(seenLabels.keys), Set(Self.codes), "Hierarchy: \(app.debugDescription)")
+        for (code, label) in seenLabels {
+            XCTAssertTrue(Self.healthWords.contains { label.contains($0) }, "\(code): no health words in '\(label)'")
         }
         // Courses come from Canvas: Edit reorders them, and there is no "+".
         XCTAssertTrue(app.buttons["courses.edit"].exists, "Hierarchy: \(app.debugDescription)")

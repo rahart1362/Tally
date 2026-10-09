@@ -202,8 +202,13 @@ public nonisolated enum SparklineBackground: Sendable {
 /// course's letter grade (Courses card) and filling the remaining width beside the grade block on
 /// the Dashboard and Course Detail heroes.
 public struct CourseSparklineView: View {
-    /// The Courses card's dedicated trend column, in points, at the default type size.
-    public static let courseCardSize = CGSize(width: 96, height: 32)
+    /// The Courses card's dedicated trend column, in points, at the default type size. UX-SPARK-2
+    /// asks for "about 96×32 pt"; narrowed from a first pass at 96 pt wide after CI's
+    /// `testCoursesListsEveryCourseWithCodeAndHealth` measured the flagship's longer course names
+    /// ("Introduction to Psychology") still wrapping to a 2nd title line at that width even with
+    /// the title column given all the row's leftover space (run 37925235523's accessibility-tree
+    /// dump: 4 cards already at 640 pt against a 768 pt list, 8 pt over before a 5th could start).
+    public static let courseCardSize = CGSize(width: 72, height: 32)
     /// The Dashboard and Course Detail heroes' trend height, in points, at the default type size;
     /// its width is whatever the hero's two-zone layout leaves beside the grade block (`width:
     /// nil`).
