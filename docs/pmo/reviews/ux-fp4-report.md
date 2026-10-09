@@ -161,3 +161,19 @@ the brief.
   as the Settings/Paywall rows already measured in both appearances; visually confirmed instead).
 - Anything needing a real device: Increase Contrast rendering, and whether iOS extends "Retry"'s
   real tap region beyond its accessibility frame (both above).
+
+## Gate 2 (PMO, 2026-10-09)
+The Opus review (`pmo-audit/.build-audit/fp4/review/verdict.md`) found:
+- **FIXED:** D07 (6.89–7.69:1 light, 10.01:1 dark, 20 sites) and D30 (no system blue in any sheet on 8/8 legs).
+- **PARTIAL:** D10 and D12.
+- **One S2 regression:** at AX5 the Paywall feature glyphs (43–65 pt) spilled out of the fixed 28 pt column onto their text and into the margin.
+
+PMO fixes:
+- the Paywall icon column now scales with the text (`@ScaledMetric(relativeTo: .body)`, 28 pt at the default size);
+- "Retry" gets a 44 pt minimum width as well as height;
+- the What-If sheet's section headers and footers (still the system grey, 3.30:1, though missing from D07's list) use `tallySectionText()`.
+
+Noted, not changed (S3):
+- the What-If chips' new 44 pt height makes them near-circles;
+- the Paywall legal links sit further apart;
+- onboarding still uses system blue (out of scope; next pass).

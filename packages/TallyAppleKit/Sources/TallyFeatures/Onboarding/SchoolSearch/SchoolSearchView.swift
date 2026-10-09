@@ -166,7 +166,7 @@ struct SchoolSearchView: View {
                 // D10: the 44 pt minimum inside the label, not on the button itself.
                 Button(action: viewModel.retry) {
                     Text(L10n.Onboarding.retry())
-                        .frame(minHeight: 44)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
             }

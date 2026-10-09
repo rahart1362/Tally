@@ -37,11 +37,15 @@ struct WhatIfSheet: View {
                             WhatIfItemRow(item: item, model: model)
                         }
                     } header: {
-                        if model.setup.estimate != nil {
-                            Text(verbatim: group.name)
-                        } else {
-                            Text(L10n.CourseDetail.whatIfGroupHeader(group.name, group.weightText))
+                        // ux-fp4 gate 2: the What-If headers were still the system grey (3.30:1).
+                        Group {
+                            if model.setup.estimate != nil {
+                                Text(verbatim: group.name)
+                            } else {
+                                Text(L10n.CourseDetail.whatIfGroupHeader(group.name, group.weightText))
+                            }
                         }
+                        .tallySectionText()
                     }
                     .tallyRow()
                 }
@@ -260,9 +264,9 @@ private struct WhatIfWeightsSection: View {
                 WhatIfWeightNote(text: L10n.WhatIfEstimate.overHundred(), identifier: "whatif.weights.overHundred")
             }
         } header: {
-            Text(L10n.WhatIfEstimate.weightsHeader())
+            Text(L10n.WhatIfEstimate.weightsHeader()).tallySectionText()
         } footer: {
-            Text(L10n.WhatIfEstimate.weightsFooter())
+            Text(L10n.WhatIfEstimate.weightsFooter()).tallySectionText()
         }
         // D31 round 2: applied to the Section, which reaches every row inside it.
         .tallyRow()
@@ -435,9 +439,9 @@ private struct WhatIfGoalSection: View {
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityIdentifier("whatif.goal")
         } header: {
-            Text(L10n.CourseDetail.whatIfGoalHeader())
+            Text(L10n.CourseDetail.whatIfGoalHeader()).tallySectionText()
         } footer: {
-            Text(L10n.CourseDetail.whatIfGoalFooter())
+            Text(L10n.CourseDetail.whatIfGoalFooter()).tallySectionText()
         }
         // D31 round 2: applied to the Section, which reaches every row inside it.
         .tallyRow()

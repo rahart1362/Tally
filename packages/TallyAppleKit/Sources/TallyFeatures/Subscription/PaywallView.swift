@@ -98,6 +98,10 @@ private struct PaywallHeader: View {
 private struct PaywallFeatures: View {
     let features: [PaywallContent.Feature]
 
+    /// D12 at AX sizes (ux-fp4 gate 2): the icon column scales with the text, as the glyph does,
+    /// so a fixed 28 pt frame no longer lets an AX5 glyph spill onto its text and the margin.
+    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
+
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             Text(L10n.Subscription.includedHeader())
@@ -110,7 +114,7 @@ private struct PaywallFeatures: View {
                     // text starts at one edge instead of a ragged 56 / 50 / 48.7 pt.
                     Image(systemName: Self.symbol(feature))
                         .foregroundStyle(TallyColor.accent)
-                        .frame(width: 28)
+                        .frame(width: iconWidth)
                         .accessibilityHidden(true)
                     Text(Self.text(feature))
                         .font(TallyTypography.body)
