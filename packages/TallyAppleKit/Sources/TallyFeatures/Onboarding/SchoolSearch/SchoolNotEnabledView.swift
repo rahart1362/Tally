@@ -21,11 +21,8 @@ struct SchoolNotEnabledView: View {
     }
 
     var body: some View {
-        ContentUnavailableView {
-            Label(String(localized: L10n.Onboarding.SchoolSearch.notEnabledTitle(school: school)), systemImage: "building.columns")
-        } description: {
-            Text(L10n.Onboarding.SchoolSearch.notEnabledDescription())
-        } actions: {
+        TallyUnavailableView(Text(L10n.Onboarding.SchoolSearch.notEnabledTitle(school: school)), systemImage: "building.columns",
+                             description: Text(L10n.Onboarding.SchoolSearch.notEnabledDescription())) {
             VStack(spacing: TallySpacing.md) {
                 ShareLink(item: adminRequestText) {
                     Label(String(localized: L10n.Onboarding.SchoolSearch.askMySchool()), systemImage: "square.and.arrow.up")
@@ -40,6 +37,10 @@ struct SchoolNotEnabledView: View {
             .padding(.horizontal, TallySpacing.xxl)
             .padding(.top, TallySpacing.md)
         }
+        // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the D01
+        // chrome, since it can now scroll under the bar.
+        .tallyCenteredScrolling()
+        .tallyScreenChrome()
         .background(TallyColor.bgCanvas)
         .navigationTitle(Text(L10n.Onboarding.SchoolSearch.notAvailableYetNavTitle()))
         .navigationBarTitleDisplayMode(.inline)

@@ -48,7 +48,12 @@ struct FirstSyncSkeletonView: View {
             }
         }
         .padding(TallySpacing.screenMargin)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // ux-fp2 D20 (S2): the page did not scroll, so at AX5 the failure state lost "Choose a
+        // Different School" off the bottom of the smallest iPhone and its icon and title off the
+        // top. Centred when it fits, as before; scrolling when it does not.
+        .tallyCenteredScrolling()
+        // With the D01 chrome, since the page can now scroll under the (empty) bar.
+        .tallyScreenChrome()
         .background(TallyColor.bgCanvas)
         .animation(reduceMotion ? nil : .snappy, value: viewModel.showsSlowLoadNotice)
         .navigationBarBackButtonHidden(true)
@@ -99,12 +104,10 @@ struct FirstSyncSkeletonView: View {
         }
     }
 
+    /// ux-fp2 D20: `TallyUnavailableView`, so that at AX5 the page can scroll to every part of it.
     private func failureState(_ failure: RefreshFailure) -> some View {
-        ContentUnavailableView {
-            Label(String(localized: L10n.Onboarding.FirstSync.failedTitle()), systemImage: "exclamationmark.triangle")
-        } description: {
-            Text(Self.message(for: failure))
-        } actions: {
+        TallyUnavailableView(Text(L10n.Onboarding.FirstSync.failedTitle()), systemImage: "exclamationmark.triangle",
+                             description: Text(Self.message(for: failure))) {
             Button(String(localized: L10n.Onboarding.retry()), action: onRetry)
                 .buttonStyle(.tallyPrimary)
             Button(String(localized: L10n.Onboarding.chooseDifferentSchool()), action: onChooseDifferentSchool)

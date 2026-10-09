@@ -26,6 +26,9 @@ struct WelcomeView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed: Bool
+    /// ux-fp2 D05: the fade above the pinned actions, scaled with the `body` text it fades (about
+    /// one line of it).
+    @ScaledMetric(relativeTo: .body) private var fadeHeight: CGFloat = TallyReflow.bottomBarFadeHeight
 
     init(playsBrandMoment: Bool = true, onFindSchool: @escaping () -> Void, onExploreSampleData: @escaping () -> Void) {
         self.onFindSchool = onFindSchool
@@ -49,19 +52,31 @@ struct WelcomeView: View {
                     .padding(.top, TallySpacing.md)
                     .padding(.horizontal, TallySpacing.screenMargin)
                     .padding(.bottom, TallySpacing.xxl)
+                    // ux-fp2 D05: at the end of the scroll the disclaimer's last line clears the fade.
+                    .padding(.bottom, fadeHeight)
             }
         }
+        // ux-fp2 D05: a scroll cue on appear (only when the page is taller than the screen).
+        .scrollIndicatorsFlash(onAppear: true)
         .background(TallyColor.bgCanvas)
         // perf-app-runtime.md §7 step 3: both entry actions are pinned above the bottom safe
         // area, so they are on screen and tappable from the first frame on every iPhone and at
         // every Dynamic Type size, whatever the scroll position. The R10 footer stays in the
         // scrolling content.
+        //
+        // ux-fp2 D05 (S1): at AX5 the pinned actions took half the smallest iPhone's screen and
+        // cut the tagline through its glyphs, with the benefits and the R10 disclaimer hidden and
+        // nothing to say the page scrolls. They stay pinned (the requirement above), drawn at most
+        // at `TallyReflow.pinnedChromeMaximumSize` (under a third of the screen at AX5), and the
+        // content scrolling under them fades out above them instead of being sliced.
         .safeAreaInset(edge: .bottom) {
             actions
+                .tallyPinnedChromeTextSize()
                 .padding(.horizontal, TallySpacing.screenMargin)
                 .padding(.top, TallySpacing.md)
                 .padding(.bottom, TallySpacing.sm)
                 .background(TallyColor.bgCanvas)
+                .overlay(alignment: .top) { TallyBottomBarFade(height: fadeHeight) }
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {

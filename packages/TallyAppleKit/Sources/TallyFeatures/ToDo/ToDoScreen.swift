@@ -120,8 +120,12 @@ struct ToDoScreen: View {
             ProgressView(String(localized: L10n.ToDo.loading()))
         case .loaded, .failed:
             // ux-ui.md §3.2.3 "Nothing due".
-            ContentUnavailableView(String(localized: L10n.ToDo.emptyTitle()), systemImage: "checkmark.circle",
-                                   description: Text(L10n.ToDo.emptyDescription()))
+            TallyUnavailableView(Text(L10n.ToDo.emptyTitle()), systemImage: "checkmark.circle",
+                                 description: Text(L10n.ToDo.emptyDescription()))
+                // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5), with the
+                // list's own D01 chrome, since it can now scroll under the bar.
+                .tallyCenteredScrolling()
+                .tallyLargeTitleScreenChrome()
         }
     }
 }
@@ -133,36 +137,53 @@ struct ToDoRowView: View {
     let item: ToDoItem
     let isDone: Bool
     let onToggle: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.editMode) private var editMode
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.sm) {
-            Button(action: onToggle) {
-                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(.title2))
-                    .foregroundStyle(isDone ? TallyColor.accent : TallyColor.textSecondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+            // Audit D16: in select mode the system selection circle and this done circle looked
+            // alike, and together they squeezed the text column until "Missing" broke mid-word at
+            // AX5 (ux-fp2 gate 2). Select mode shows only the selection circle.
+            if editMode?.wrappedValue.isEditing != true {
+                Button(action: onToggle) {
+                    Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                        .font(.system(.title2))
+                        .foregroundStyle(isDone ? TallyColor.accent : TallyColor.textSecondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
+                                    : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
+                .accessibilityIdentifier("todo.complete")
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
-                                : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
-            .accessibilityIdentifier("todo.complete")
 
             VStack(alignment: .leading, spacing: TallySpacing.xs) {
                 Text(item.title)
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textPrimary)
-                HStack(spacing: TallySpacing.xs) {
-                    CourseColorMark(paletteIndex: item.paletteIndex)
-                    Text(item.courseCode)
+                // ux-fp2 D02: the course code never breaks ("MAT / H 122" at AX5); from AX1 up the
+                // due date goes under it, where it needs no "·" separator.
+                TallyReflowStack(spacing: TallySpacing.xs) {
+                    HStack(spacing: TallySpacing.xs) {
+                        CourseColorMark(paletteIndex: item.paletteIndex)
+                        Text(item.courseCode)
+                    }
+                    .tallyReflowValue()
                     if let due = item.dueText {
-                        Text("· \(due)")
+                        if typeSize.isAccessibilitySize {
+                            Text(verbatim: due)
+                        } else {
+                            Text("· \(due)")
+                        }
                     }
                 }
                 .font(TallyTypography.subheadline)
                 .foregroundStyle(TallyColor.textSecondary)
                 if item.status != nil || item.priorityWord != nil {
-                    HStack(spacing: TallySpacing.xs) {
+                    // ux-fp2 D11: side by side while both fit, otherwise one under the other.
+                    StatusChipRow {
                         if let status = item.status {
                             StatusChip(symbol: status.symbol, text: status.label, tone: status.tone)
                         }
@@ -177,11 +198,14 @@ struct ToDoRowView: View {
                         .foregroundStyle(TallyColor.textSecondary)
                 }
                 if isDone {
+                    // ux-fp2 D11: icon and words together, not across the list's icon column.
                     Label(ToDoItem.markedDoneText, systemImage: "checkmark")
+                        .labelStyle(.tallyCompact)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textPrimary)
                     if item.needsCanvasSubmission {
                         Label(ToDoItem.notSubmittedText, systemImage: "exclamationmark.circle")
+                            .labelStyle(.tallyCompact)
                             .font(TallyTypography.footnote)
                             .foregroundStyle(TallyColor.textPrimary)
                     }

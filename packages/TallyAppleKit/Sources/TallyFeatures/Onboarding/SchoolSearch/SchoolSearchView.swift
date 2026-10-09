@@ -153,19 +153,19 @@ struct SchoolSearchView: View {
                 .padding(.top, TallySpacing.xxl)
             }
         case .offline:
-            ContentUnavailableView(
-                String(localized: L10n.Onboarding.SchoolSearch.offlineTitle()),
+            TallyUnavailableView(
+                Text(L10n.Onboarding.SchoolSearch.offlineTitle()),
                 systemImage: "wifi.slash",
                 description: Text(L10n.Onboarding.SchoolSearch.offlineDescription())
             )
+            // ux-fp2 D20: centred when it fits, scrolling when it does not (AX5).
+            .tallyCenteredScrolling()
         case .searchFailed:
-            ContentUnavailableView {
-                Label(String(localized: L10n.Onboarding.SchoolSearch.searchFailedTitle()), systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(L10n.Onboarding.SchoolSearch.searchFailedDescription())
-            } actions: {
+            TallyUnavailableView(Text(L10n.Onboarding.SchoolSearch.searchFailedTitle()), systemImage: "exclamationmark.triangle",
+                                 description: Text(L10n.Onboarding.SchoolSearch.searchFailedDescription())) {
                 Button(String(localized: L10n.Onboarding.retry()), action: viewModel.retry)
             }
+            .tallyCenteredScrolling()
         }
     }
 

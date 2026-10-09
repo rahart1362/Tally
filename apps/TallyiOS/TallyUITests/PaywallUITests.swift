@@ -150,6 +150,39 @@ final class PaywallUITests: TallyUITestCase {
         }
     }
 
+    /// ux-fp2 D04 (S1): at AX XXXL the "Subscribe to refresh" banner filled the smallest iPhone's
+    /// whole screen above the tabs, so the locked card under it could not be reached (audit run
+    /// 37649050231). The banner now takes at most about a third of the screen, every word of it
+    /// still shown, and the card's title and See Plans come into reach, by scrolling if needed.
+    @MainActor
+    func testLockedCardIsReachableUnderTheRefreshBannerAtAccessibilityXXXL() throws {
+        seedFlagshipAccount()
+        let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts + Self.accessibilityXXXL)
+        XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
+                      "the launch did not reach the Home. Hierarchy: \(app.debugDescription)")
+        let words = element("subscription.refreshBanner", in: app)
+        let bannerSeePlans = app.buttons["subscription.refreshBanner.seePlans"]
+        XCTAssertTrue(words.waitForExistence(timeout: scaled(10)), "no 'Subscribe to refresh'. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(bannerSeePlans.waitForExistence(timeout: scaled(5)), "no banner See Plans. Hierarchy: \(app.debugDescription)")
+        let banner = words.frame.union(bannerSeePlans.frame)
+        let screenHeight = app.frame.height
+        XCTAssertLessThanOrEqual(banner.height, screenHeight * Self.bannerShareLimit,
+                                 "the banner is \(banner.height) pt of a \(screenHeight) pt screen")
+
+        openTab("Courses", in: app)
+        let title = element("subscription.locked.title", in: app)
+        XCTAssertTrue(title.waitForExistence(timeout: scaled(10)), "Courses is not locked. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(title, in: app, maxSwipes: 6), "the locked card's title is out of reach at AX5")
+        let cardSeePlans = app.buttons["subscription.locked.seePlans"]
+        XCTAssertTrue(scrollUntilHittable(cardSeePlans, in: app, maxSwipes: 6), "the locked card's See Plans is out of reach at AX5")
+        tapWhenHittable(cardSeePlans, in: app)
+        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "the locked card did not open the paywall at AX5. Hierarchy: \(app.debugDescription)")
+    }
+
+    /// D04's acceptance: the banner takes at most about a third of the screen at AX5.
+    private static let bannerShareLimit: CGFloat = 1.0 / 3.0
+
     // MARK: - Steps
 
     /// Welcome → Find My School → the demo school → Continue: the first sync starts.

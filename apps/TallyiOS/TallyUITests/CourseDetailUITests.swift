@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// UX-WP-15 (S-2) and UX-WP-16 (S-3): Course Detail on MATH 122 of the flagship persona, then the
@@ -110,9 +111,14 @@ final class CourseDetailUITests: TallyUITestCase {
                       "the stepper did not raise the score by 1: \(String(describing: field.value))")
 
         // Typing: put the cursor at the end of the field, clear it, then a zero on this item lowers
-        // the projection.
+        // the projection. ux-fp2 (carried over from ux-fp1): type only once the field has the
+        // keyboard (PR run 37810483577 typed into a field that did not have it yet, once).
         waitUntilHittable(field, in: app)
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        if !waitForKeyboardFocus(field, in: app) {
+            XCTContext.runActivity(named: "Re-tap once: the score field did not take the keyboard") { _ in field.tap() }
+        }
+        XCTAssertTrue(waitForKeyboardFocus(field, in: app), "the score field never took the keyboard. Hierarchy: \(app.debugDescription)")
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6) + "0")
         XCTAssertTrue(eventually { field.value as? String == "0" }, "typing did not set 0: \(String(describing: field.value))")
         XCTAssertTrue(eventually(timeout: 15) { projected.label.contains("down") },
@@ -123,5 +129,94 @@ final class CourseDetailUITests: TallyUITestCase {
         XCTAssertTrue(eventually(timeout: 15) { projected.label.contains("the same as your current grade") },
                       "reset did not restore the baseline: '\(projected.label)'")
         assertEveryButtonHasALabel(app, screen: "What-If")
+    }
+
+    /// ux-fp2 D02 (S1): at AX XXXL a recent grade's score sits under its title on ONE line, and no
+    /// text in its row overlaps another. The audit (run 37649050231) read "93.2/100" as
+    /// "9 / 3.2/10 / 0": three lines in a column squeezed beside the title.
+    @MainActor
+    func testRecentGradeScoreStaysOnOneLineAtAccessibilityXXXL() throws {
+        let app = launchSample(arguments: Self.accessibilityXXXL)
+        openTab("Courses", in: app)
+        let cards = elements("course.card", in: app)
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        let firstCard = cards.element(boundBy: 0)
+        XCTAssertTrue(scrollUntilHittable(firstCard, in: app, maxSwipes: 5), "the first course never came on screen. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(firstCard, in: app, timeout: 15)
+        XCTAssertTrue(element("courseDetail.hero", in: app).waitForExistence(timeout: 10),
+                      "Course Detail never opened. Hierarchy: \(app.debugDescription)")
+
+        // The row is one element whose label reads "<title>, <score> out of <points>, posted <day>"
+        // (`gradedItemAccessibility`); its texts are its children in the hierarchy. The list builds
+        // its rows as they scroll in (CI run 37826657241: none existed before scrolling), so scroll
+        // first, then look.
+        let row = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", " out of ", ", posted ")).firstMatch
+        XCTAssertTrue(scrollUntilHittable(row, in: app, maxSwipes: 15), "no recent grade came on screen. Hierarchy: \(app.debugDescription)")
+
+        // Every frame below comes from ONE snapshot, so they agree even if the list is still settling.
+        let snapshot = try app.snapshot()
+        let screen = snapshot.frame
+        let nodes = Self.staticTextNodes(in: snapshot)
+        // A row on screen (its centre was hittable); at AX5 it can be taller than what is left below
+        // its centre, so it need not be wholly on screen: a built cell reports every child's frame.
+        let rows = nodes.filter { node in
+            let isRow = node.label.contains(" out of ") && node.label.contains(", posted ")
+            return isRow && screen.intersects(node.frame)
+        }
+        let rowNode = try XCTUnwrap(rows.first, "no recent grade on screen: \(nodes)")
+        let bounds = rowNode.frame.insetBy(dx: -Self.overlapTolerance, dy: -Self.overlapTolerance)
+        let texts = nodes.filter { $0.frame != rowNode.frame && bounds.contains($0.frame) }
+        let scores = texts.filter { $0.label.range(of: Self.scorePattern, options: .regularExpression) != nil }
+        let score = try XCTUnwrap(scores.first, "no score text in '\(rowNode.label)': \(texts)")
+        // The chip's words are `caption` (semibold): one line of it at AX XXXL, from UIKit's own metrics.
+        let captionLine = UIFont.preferredFont(
+            forTextStyle: .caption1,
+            compatibleWith: UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)).lineHeight
+        let scoreHeight = score.frame.height
+        XCTAssertLessThan(scoreHeight, 2 * captionLine,
+                          "'\(score.label)' is \(scoreHeight) pt tall, more than one \(captionLine) pt line: it wrapped")
+        for (index, first) in texts.enumerated() {
+            for second in texts.dropFirst(index + 1) {
+                let firstFrame = first.frame.insetBy(dx: Self.overlapTolerance, dy: Self.overlapTolerance)
+                let secondFrame = second.frame.insetBy(dx: Self.overlapTolerance, dy: Self.overlapTolerance)
+                let overlaps = firstFrame.intersects(secondFrame)
+                XCTAssertFalse(overlaps, "'\(first.label)' \(first.frame) overlaps '\(second.label)' \(second.frame)")
+            }
+        }
+    }
+
+    private static let accessibilityXXXL = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    /// A recent grade's score text: "93.2/100", "20/20".
+    private static let scorePattern = #"^[0-9][0-9.,]*/[0-9][0-9.,]*$"#
+    /// Frames that only touch (rounding) are not an overlap.
+    private static let overlapTolerance: CGFloat = 0.5
+
+    /// Waits until a keyboard is up for `field` (or the field reports keyboard focus).
+    @MainActor
+    private func waitForKeyboardFocus(_ field: XCUIElement, in app: XCUIApplication) -> Bool {
+        eventually(timeout: scaled(5)) {
+            let keyboardUp = app.keyboards.count > 0
+            if keyboardUp { return true }
+            let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+            return focused
+        }
+    }
+
+    /// Every non-empty static text in `root`'s hierarchy, its label and frame read into plain values
+    /// (never captured in an autoclosure: the Release test build rejects sending a snapshot, run
+    /// 37704108738).
+    @MainActor
+    private static func staticTextNodes(in root: XCUIElementSnapshot) -> [(label: String, frame: CGRect)] {
+        var found: [(label: String, frame: CGRect)] = []
+        var pending: [XCUIElementSnapshot] = [root]
+        while let node = pending.popLast() {
+            pending.append(contentsOf: node.children)
+            let type = node.elementType
+            let frame = node.frame
+            let label = node.label
+            guard type == .staticText, !frame.isEmpty else { continue }
+            found.append((label: label, frame: frame))
+        }
+        return found
     }
 }

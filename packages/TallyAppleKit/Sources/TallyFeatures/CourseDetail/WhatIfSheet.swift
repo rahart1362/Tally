@@ -55,6 +55,10 @@ struct WhatIfSheet: View {
             .tallyScreenChrome()
             .safeAreaInset(edge: .top, spacing: 0) {
                 WhatIfSummary(model: model)
+                    // ux-fp2: the summary stays pinned while the rows scroll; capped like the
+                    // other pinned chrome so that D02's stacked layout below does not make it
+                    // taller at AX5 (`TallyReflow.pinnedChromeMaximumSize`).
+                    .tallyPinnedChromeTextSize()
             }
             .navigationTitle(String(localized: L10n.CourseDetail.whatIfHeader()))
             .navigationBarTitleDisplayMode(.inline)
@@ -90,7 +94,9 @@ private struct WhatIfSummary: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(WhatIfCopy.simulationLabel)
                 .accessibilityIdentifier("whatif.simulationLabel")
-            HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+            // ux-fp2 D02: from AX1 up the projection and its change go under the label, each on
+            // one line ("Project- / ed" beside "93.4%" at AX5).
+            TallyReflowStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
                 Text(L10n.CourseDetail.whatIfSummaryLabel())
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
@@ -99,11 +105,13 @@ private struct WhatIfSummary: View {
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
                     .contentTransition(reduceMotion ? .identity : .numericText())
+                    .tallyReflowValue()
                 if let change = WhatIfCopy.change(model.delta) {
                     Text(change)
                         .font(TallyTypography.subheadline)
                         .foregroundStyle(TallyColor.textSecondary)
                         .monospacedDigit()
+                        .tallyReflowValue()
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -125,6 +133,7 @@ private struct WhatIfItemRow: View {
     let item: WhatIfItem
     let model: WhatIfModel
     @State private var text = ""
+    @FocusState private var isFieldFocused: Bool
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -151,16 +160,24 @@ private struct WhatIfItemRow: View {
                         // itself) — `.plain` with an explicit `bgCanvas` fill and the same
                         // separator stroke keeps the sheet at two dark tones (bgCanvas, bgCard).
                         .textFieldStyle(.plain)
+                        .focused($isFieldFocused)
                         .padding(.horizontal, TallySpacing.sm)
                         .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : 120, minHeight: 44)
                         .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
                             .stroke(TallyColor.separator))
+                        // ux-fp2 (carried over from ux-fp1): the `.plain` field fills only its text
+                        // line, so a tap on the box's padding did nothing (PR run 37810483577's one
+                        // "no keyboard focus"). The whole visible box now puts the cursor in it.
+                        .contentShape(Rectangle())
+                        .onTapGesture { isFieldFocused = true }
                         .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfScoreFieldAccessibility(item.title, item.outOfText)))
                         .accessibilityIdentifier("whatif.field")
                     Text(item.outOfText)
                         .font(TallyTypography.body)
                         .foregroundStyle(TallyColor.textSecondary)
+                        // ux-fp2 D02: "/ 50" is a value: never split from its field's line.
+                        .tallyReflowValue()
                         .accessibilityHidden(true)
                 }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: TallySpacing.sm) }
@@ -296,12 +313,15 @@ struct WhatIfWeightInput: View {
         // explicit `bgCanvas` fill and the same separator stroke keeps the sheet at two dark
         // tones (bgCanvas, bgCard), the same treatment as the score field above.
         .textFieldStyle(.plain)
+        .focused($isFocused)
         .padding(.horizontal, TallySpacing.sm)
+        // ux-fp2 (carried over from ux-fp1): the box is drawn at the full tap target, as the score
+        // field's is, instead of around the text line alone inside an invisible 46 pt target; a
+        // tap anywhere on it puts the cursor in the field.
+        .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
         .background(TallyColor.bgCanvas, in: RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: TallyRadius.iconTile, style: .continuous)
             .stroke(TallyColor.separator))
-        .focused($isFocused)
-        .frame(maxWidth: .infinity, minHeight: Self.minimumHeight)
         .contentShape(Rectangle())
         .onTapGesture { isFocused = true }
         .accessibilityLabel(Text(L10n.WhatIfEstimate.weightLabel(category.name)))

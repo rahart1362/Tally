@@ -150,20 +150,46 @@ struct CalendarScreen: View {
 
 /// The week strip: a day letter, the date and up to three dots; today is ringed in the accent. From
 /// the accessibility sizes up, seven columns no longer fit, so the strip scrolls sideways.
+///
+/// ux-fp2 D18 (S2): at AX5 the scrolling strip opened at Sunday, with today (the selected day) cut
+/// at the right edge of the largest iPhone and off the smallest one, and nothing to say it scrolls.
+/// It now opens with the selected day centred, keeps a newly selected day centred, and flashes its
+/// scroll indicator on appear; the days cut at both edges show there is more either way.
 private struct WeekStrip: View {
     let days: [AgendaDay]
     let selected: Date?
     let onSelect: (Date) -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .headline) private var columnWidth: CGFloat = 44
+    /// The day number's ring and selection disc: 32 pt at the default size, scaled with the number
+    /// itself. ux-fp2 D18 follow-up: a fixed 32 pt minimum left a digit-wide ring cutting through
+    /// the AX5 number (64 pt tall), seen once today was centred and on screen (Audit tour run
+    /// 37842950859, every AX5 leg).
+    @ScaledMetric(relativeTo: .headline) private var dayMarkDiameter: CGFloat = 32
 
     var body: some View {
         if typeSize.isAccessibilitySize {
-            ScrollView(.horizontal) {
-                strip.frame(width: columnWidth * CGFloat(days.count))
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    strip.frame(width: columnWidth * CGFloat(days.count))
+                }
+                .scrollIndicatorsFlash(onAppear: true)
+                .onAppear { centre(selected, with: proxy, animated: false) }
+                .onChange(of: selected) { _, day in centre(day, with: proxy, animated: true) }
             }
         } else {
             strip
+        }
+    }
+
+    /// Scrolls the strip so `day`'s column sits in the middle of it.
+    private func centre(_ day: Date?, with proxy: ScrollViewProxy, animated: Bool) {
+        guard let day else { return }
+        if animated, !reduceMotion {
+            withAnimation(.snappy) { proxy.scrollTo(WeekStripColumn(day: day), anchor: .center) }
+        } else {
+            proxy.scrollTo(WeekStripColumn(day: day), anchor: .center)
         }
     }
 
@@ -180,7 +206,7 @@ private struct WeekStrip: View {
                         Text(day.dayNumber)
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(TallyColor.textPrimary)
-                            .frame(minWidth: 32, minHeight: 32)
+                            .frame(minWidth: dayMarkDiameter, minHeight: dayMarkDiameter)
                             .overlay {
                                 if day.isToday {
                                     Circle().strokeBorder(TallyColor.accent, lineWidth: 2)
@@ -206,15 +232,24 @@ private struct WeekStrip: View {
                 .accessibilityLabel(day.stripLabel)
                 .accessibilityAddTraits(day.id == selected ? .isSelected : [])
                 .accessibilityIdentifier("calendar.day")
+                // D18: the strip's own scroll target, a type of its own so it can never be
+                // mistaken for the agenda's day sections (which use the bare date).
+                .id(WeekStripColumn(day: day.id))
             }
         }
     }
+}
+
+/// D18: a week strip column's scroll identity.
+private struct WeekStripColumn: Hashable {
+    let day: Date
 }
 
 /// One agenda row: time, title, course, place, a conflict line, and "Add to Calendar".
 private struct AgendaRow: View {
     let item: AgendaItem
     let onAdd: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.sm) {
@@ -232,13 +267,22 @@ private struct AgendaRow: View {
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textPrimary)
                 if let code = item.courseCode {
-                    HStack(spacing: TallySpacing.xs) {
-                        if let palette = item.paletteIndex {
-                            CourseColorMark(paletteIndex: palette)
+                    // ux-fp2 D02: the course code never breaks; from AX1 up the place goes under
+                    // it, where it needs no "·" separator (the To-Do row's rule).
+                    TallyReflowStack(spacing: TallySpacing.xs) {
+                        HStack(spacing: TallySpacing.xs) {
+                            if let palette = item.paletteIndex {
+                                CourseColorMark(paletteIndex: palette)
+                            }
+                            Text(code)
                         }
-                        Text(code)
+                        .tallyReflowValue()
                         if let location = item.location {
-                            Text("· \(location)")
+                            if typeSize.isAccessibilitySize {
+                                Text(verbatim: location)
+                            } else {
+                                Text("· \(location)")
+                            }
                         }
                     }
                     .font(TallyTypography.footnote)
@@ -253,6 +297,8 @@ private struct AgendaRow: View {
                 }
                 if let conflict = item.conflictText {
                     Label(conflict, systemImage: "exclamationmark.triangle")
+                        // ux-fp2 D11: icon and words together, not across the list's icon column.
+                        .labelStyle(.tallyCompact)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(TallyColor.textPrimary)
                 }
