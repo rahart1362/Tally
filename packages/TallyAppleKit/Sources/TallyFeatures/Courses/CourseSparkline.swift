@@ -113,7 +113,11 @@ public nonisolated enum CourseSparklineBuilder {
 /// posted day, a hollow end ring, faint gridlines, no glow, no axes, no labels. One VoiceOver
 /// element whose label is the trend sentence; callers hide it entirely when there is nothing to
 /// draw (`CourseSparklinePoints?` is `nil`), never a placeholder.
-public enum CourseSparklineStyle {
+///
+/// `nonisolated`: `TallyFeatures` defaults to `MainActor`, matching `CourseSparklineBuilder`
+/// above — a pure value used from hosted tests outside the main actor (run 37914007322: "main
+/// actor-isolated static property … can not be referenced from a nonisolated context").
+public nonisolated enum CourseSparklineStyle {
     /// The line's weight at the default type size, in points; scales with `maximumTypeScale`.
     public static let lineWidth: CGFloat = 2
     /// Each posted day's point diameter at the default type size, in points.
@@ -164,7 +168,9 @@ public enum CourseSparklineStyle {
 /// Which surface a sparkline is drawn on: the navy hero (Dashboard, Course Detail) or a light
 /// card (Courses). Selects the gridline tint/opacity and the end ring's fill, so the line never
 /// shows through its hollow centre.
-public enum SparklineBackground: Sendable {
+///
+/// `nonisolated`: a pure value, same reasoning as `CourseSparklineStyle` above.
+public nonisolated enum SparklineBackground: Sendable {
     case hero
     case card
 
