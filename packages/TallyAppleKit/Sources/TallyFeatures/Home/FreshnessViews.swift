@@ -34,7 +34,11 @@ struct FreshnessFooter: View {
                 Button {
                     model.requestRefresh()
                 } label: {
+                    // D08: the glyph had no explicit colour and inherited the system accent, 2.18:1
+                    // on the navy hero — the same "dark glyph on navy" family as D06. The "Updated
+                    // just now" text beside it already uses this token at 11.7:1.
                     Image(systemName: "arrow.clockwise")
+                        .foregroundStyle(TallyColor.textOnHero2)
                         .frame(width: 44, height: 44)
                 }
                 .disabled(presentation.action == .none)
@@ -48,6 +52,7 @@ struct FreshnessFooter: View {
 /// produces a `longText` (delayed/offline/failed/authExpired with saved data on screen).
 struct FreshnessBreadcrumb: View {
     @Environment(HomeModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -58,7 +63,17 @@ struct FreshnessBreadcrumb: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, TallySpacing.screenMargin)
                     .padding(.vertical, TallySpacing.sm)
-                    .background(.orange.opacity(0.16))
+                    // D21: a rounded warning-token card instead of a square-cornered, hard-coded
+                    // `.orange` wash — every other surface on these screens is a rounded card.
+                    // Round 2 (Gate 2 taste note, optional): `warning`'s Any value (#8A5300) is
+                    // dark/muted by design (so solid text/icon use clears 4.5:1 on white); at 16%
+                    // over white that blends to about #ECE4D6 — pale enough to read as grey-beige
+                    // rather than amber. Dark's #FFB454 is bright enough that 16% already reads
+                    // warm on the navy canvas, so only light gets more of the tint (still a faint
+                    // wash, not a solid fill). Computed, not rendered — this host has no Xcode —
+                    // so flagged UNVERIFIED-on-device in the report rather than claimed fixed.
+                    .background(TallyColor.warning.opacity(colorScheme == .dark ? 0.16 : 0.30),
+                               in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }

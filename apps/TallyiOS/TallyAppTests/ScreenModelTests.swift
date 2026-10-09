@@ -455,4 +455,38 @@ struct GradeDerivedScreenTests {
         #expect(CourseSparklineBuilder.summary(first: 90.0, last: 90.02, locale: locale)
                 == "Trend: steady at 90.0 percent")
     }
+
+    // MARK: - UX-SPARK-2: the Dashboard hero's overall trend
+
+    @Test("UX-SPARK-2: the Dashboard hero's overall trend is Insights' own term-range series")
+    func overallSeriesMatchesInsightsTermRange() async throws {
+        let (_, screens) = try await ScreenFixtures.projections("flagship")
+        let formatter = ScreenFixtures.formatter()
+        let result = try await GradeTrend.compute(screens.insights.trendInput, calendar: formatter.calendar,
+                                                  locale: formatter.locale)
+        let termPoints = try #require(result.ranges[.term]?.points)
+        #expect(termPoints.count >= GradeTrend.minimumPoints)
+
+        let model = CourseSparklineModel()
+        await model.load(screens.insights.trendInput, calendar: formatter.calendar, locale: formatter.locale)
+        #expect(model.overall?.points == termPoints)
+    }
+
+    /// The mutation this guards against (SPARK-2's budget): dropping or widening
+    /// `CourseSparklineBuilder.build`'s `count >= GradeTrend.minimumPoints` guard would make this
+    /// fail by showing a one- (or zero-) point line instead of nothing.
+    @Test("UX-SPARK-2: the Dashboard hero hides the trend with fewer than two points, never a placeholder")
+    func overallSeriesHiddenWithFewerThanTwoPoints() async throws {
+        let group = GradeInput.Group(id: "g1", weight: 100)
+        let item = GradeInput.Item(id: "a1", groupID: "g1", pointsPossible: 10, submission: .init(score: 9))
+        let input = GradeInput(weighting: .percent, groups: [group], items: [item])
+        let posted = ScreenFixtures.anchor.addingTimeInterval(-86_400)
+        let course = TrendInput.CourseHistory(id: "course-one-point", input: input, postedAt: [item.id: posted])
+        let trendInput = TrendInput(courses: [course], termStart: nil, now: ScreenFixtures.anchor)
+        let formatter = ScreenFixtures.formatter()
+
+        let model = CourseSparklineModel()
+        await model.load(trendInput, calendar: formatter.calendar, locale: formatter.locale)
+        #expect(model.overall == nil)
+    }
 }

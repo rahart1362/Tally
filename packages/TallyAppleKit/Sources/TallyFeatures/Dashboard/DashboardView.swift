@@ -13,6 +13,10 @@ struct DashboardView: View {
     #if DEBUG
     @Environment(\.bodyEvaluationCounter) private var bodyCounter
     #endif
+    /// UX-SPARK-2: the hero's overall trend (PRD §2.A), computed off the main actor and cached by
+    /// snapshot (`CourseSparklineModel`, shared with the Courses tab's own cache pattern). Loaded
+    /// by `.task(id:)` below, after the first paint — it never delays `Launch.GlancePaint`.
+    @State private var trend = CourseSparklineModel()
 
     var body: some View {
         #if DEBUG
@@ -40,7 +44,7 @@ struct DashboardView: View {
                     GlanceSkeletonSection(title: L10n.Dashboard.needsAttentionHeader())
                     DueSoonSection(items: model.dashboard.dueSoon)
                 case .loaded:
-                    HeroSection(hero: model.dashboard.hero)
+                    HeroSection(hero: model.dashboard.hero, overall: trend.overall)
                         .onAppear { LaunchSignpost.glancePainted() }
                     if let summary = model.dashboard.changeDigestSummary {
                         ChangeDigestChip(summary: summary)
@@ -57,6 +61,9 @@ struct DashboardView: View {
             .padding(.bottom, TallySpacing.xxxl)
         }
         .background(TallyColor.bgCanvas)
+        // UX-SPARK-2: the same trend input the Courses tab's sparklines use; this task runs after
+        // the first paint and is cancelled/retried exactly like `CoursesScreen`'s.
+        .task(id: model.insightsScreen.trendInput) { await trend.load(model.insightsScreen.trendInput) }
         // Awaits the model-owned refresh until it settles or the live budget passes; never ties
         // the run to this view's task (plan 06 row 7, SH-2).
         .refreshable { await model.refreshUntilSettledOrDelayed() }
@@ -121,54 +128,77 @@ struct HeroSection: View {
     let hero: DashboardProjection.Hero
     /// The launch's glance paint: the percentage is a skeleton until the full projection.
     var isGlance = false
+    /// UX-SPARK-2: the overall trend (PRD §2.A), `nil` under `GradeTrend.minimumPoints` or while
+    /// still loading (never a placeholder) — the grade block then keeps the row's full width.
+    var overall: CourseSparklinePoints?
     @State private var showsInfo = false
     @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let caption = HeroCaption(hero)
         VStack(alignment: .leading, spacing: TallySpacing.md) {
-            VStack(alignment: .leading, spacing: TallySpacing.md) {
-                // Plan 08 L10N-01 exemplar: a plural key in the TallyStrings catalog, same English text.
-                // Plan 08 G-5 (XG-02): N counts only the courses averaged; with none, there is no
-                // average to caption.
-                if hero.averagedCount > 0 {
-                    Text(L10n.Dashboard.averageOfCourses(hero.averagedCount))
-                        .font(TallyTypography.footnote)
-                        .foregroundStyle(TallyColor.textOnHero2)
-                }
+            // UX-SPARK-2: two zones — the figures on the left (unchanged) and, once there is a
+            // trend to show, it fills the rest, vertically centred; at accessibility sizes it
+            // moves below instead (the same reflow rule every other two-part row on this screen
+            // uses).
+            TallyReflowStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: TallySpacing.md) {
+                    // Plan 08 L10N-01 exemplar: a plural key in the TallyStrings catalog, same English text.
+                    // Plan 08 G-5 (XG-02): N counts only the courses averaged; with none, there is no
+                    // average to caption.
+                    if hero.averagedCount > 0 {
+                        Text(L10n.Dashboard.averageOfCourses(hero.averagedCount))
+                            .font(TallyTypography.footnote)
+                            .foregroundStyle(TallyColor.textOnHero2)
+                    }
 
-                if hero.overallPercent == nil, hero.averagedCount > 0, isGlance {
-                    // The glance carries no percentage (encryption.md §3.3): a skeleton, never "0%".
-                    Text("00.0%")
-                        .font(.system(.largeTitle, design: .serif).bold())
-                        .foregroundStyle(TallyColor.textOnHero)
-                        .redacted(reason: .placeholder)
-                        .accessibilityHidden(true)
-                } else if let percent = hero.overallPercent {
-                    HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
-                        // §3.3 "Percent": `.percent` FormatStyle, not a hand-appended "%".
-                        Text(percent.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale)))
+                    if hero.overallPercent == nil, hero.averagedCount > 0, isGlance {
+                        // The glance carries no percentage (encryption.md §3.3): a skeleton, never "0%".
+                        Text("00.0%")
                             .font(.system(.largeTitle, design: .serif).bold())
                             .foregroundStyle(TallyColor.textOnHero)
-                            .monospacedDigit()
-                        if let band = hero.overallBand {
-                            Text(bandLabel(band))
-                                .font(TallyTypography.sectionHeader)
-                                .foregroundStyle(TallyColor.brandGold)
+                            .redacted(reason: .placeholder)
+                            .accessibilityHidden(true)
+                    } else if let percent = hero.overallPercent {
+                        HStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+                            // §3.3 "Percent": `.percent` FormatStyle, not a hand-appended "%".
+                            Text(percent.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale)))
+                                .font(.system(.largeTitle, design: .serif).bold())
+                                .foregroundStyle(TallyColor.textOnHero)
+                                .monospacedDigit()
+                            if let band = hero.overallBand {
+                                Text(bandLabel(band))
+                                    .font(TallyTypography.sectionHeader)
+                                    .foregroundStyle(TallyColor.brandGold)
+                            }
                         }
+                    } else if caption == .notInCanvas {
+                        Text(verbatim: GradeNotInCanvas.dash)
+                            .font(.system(.largeTitle, design: .serif).bold())
+                            .foregroundStyle(TallyColor.textOnHero)
+                    } else {
+                        Text(L10n.Dashboard.noGradesYet())
+                            .font(TallyTypography.body)
+                            .foregroundStyle(TallyColor.textOnHero2)
                     }
-                } else if caption == .notInCanvas {
-                    Text(verbatim: GradeNotInCanvas.dash)
-                        .font(.system(.largeTitle, design: .serif).bold())
-                        .foregroundStyle(TallyColor.textOnHero)
-                } else {
-                    Text(L10n.Dashboard.noGradesYet())
-                        .font(TallyTypography.body)
-                        .foregroundStyle(TallyColor.textOnHero2)
+                }
+
+                // The trend only ever shows over a real percentage, never the glance's skeleton.
+                if !isGlance, hero.overallPercent != nil, let overall {
+                    TallyReflowSpacer(minLength: 0)
+                    CourseSparklineView(points: overall, width: nil, height: CourseSparklineView.heroHeight,
+                                        tint: TallyColor.brandGold, background: .hero)
+                        .padding(.leading, typeSize.isAccessibilitySize ? 0 : TallySpacing.md)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("dashboard.sparkline")
                 }
             }
-            // The figures read as one element; the footer's refresh button stays its own element
-            // (perf-app-runtime.md §3 item 7: never combine children that include a control).
+            // The figures (and, with one, the trend) read as one element — A11Y-07: the trend
+            // sentence (the sparkline's own accessibility label) is appended automatically, in
+            // document order, rather than a separate element. The footer's refresh button stays
+            // its own element (perf-app-runtime.md §3 item 7: never combine children that include
+            // a control).
             .accessibilityElement(children: .combine)
             // The dash says nothing VoiceOver should read: the caption below does.
             .accessibilityHidden(caption == .notInCanvas)
@@ -314,6 +344,7 @@ private struct GlanceSkeletonSection: View {
 private struct NextUpSection: View {
     let items: [DashboardProjection.NextUpItem]
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -335,7 +366,11 @@ private struct NextUpSection: View {
                             }
                         }
                         // Plan 08 L10N-02: the reason's factors, phrased in the student's language.
-                        Text(verbatim: DashboardText.reason(item.reasonFactors, courseCode: item.courseCode))
+                        // D15: 48 h+ out, the due-date clause reads as a day (or, within the week,
+                        // day-and-time) instead of ballooning into "Due in 396h" — `item.dueAt`
+                        // lets it reuse the same frozen sentence Courses/To-Do show.
+                        Text(verbatim: DashboardText.reason(item.reasonFactors, courseCode: item.courseCode,
+                                                            dueAt: item.dueAt, locale: locale))
                             .font(TallyTypography.footnote).foregroundStyle(TallyColor.textSecondary)
                         if typeSize.isAccessibilitySize {
                             band(item)
@@ -369,6 +404,7 @@ private struct NextUpSection: View {
 
 private struct NeedsAttentionSection: View {
     let items: [DashboardProjection.AttentionItem]
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -377,7 +413,13 @@ private struct NeedsAttentionSection: View {
                 Text(L10n.Dashboard.needsAttentionEmpty()).font(TallyTypography.body).foregroundStyle(TallyColor.textSecondary)
             } else {
                 ForEach(items) { item in
-                    HStack(alignment: .top, spacing: TallySpacing.md) {
+                    // ux-fp2 follow-up (FP-3): the icon column squeezed the title at AX5, which
+                    // hyphenated long words ("Respira- / tion"). From AX1 up the icon sits above
+                    // the text instead, which then takes the row's full width.
+                    let layout = typeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.xs))
+                        : AnyLayout(HStackLayout(alignment: .top, spacing: TallySpacing.md))
+                    layout {
                         Image(systemName: severityIcon(item.severity))
                             .foregroundStyle(severityColor(item.severity))
                         // Plan 08 L10N-02: the row's content, phrased in the student's language.
@@ -416,11 +458,19 @@ private struct NeedsAttentionSection: View {
 
 private struct WeekAheadSection: View {
     let days: [DashboardProjection.WeekDay]
+    /// R1/D09 (round 2): every column reserves this HEIGHT for the glyph row, busy or not — never
+    /// the glyph's own WIDTH, which is what forced every Week-ahead column to be at least as wide
+    /// as the AX5 icon (7 × 49 pt columns = 415 pt on a 390 pt screen; Gate 2's `R1-overflow.jpg`).
+    @ScaledMetric(relativeTo: .caption2) private var glyphRowHeight: CGFloat = 14
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
             SectionHeader(title: L10n.Dashboard.weekAheadHeader())
-            HStack(spacing: TallySpacing.sm) {
+            // D09: `.center` (the default) pulled a busy column about 8 pt higher than its
+            // neighbours, since its extra glyph row made it taller; `.top` plus a row every
+            // column reserves the same HEIGHT for (round 2: never the WIDTH — R1) keeps every
+            // column's three rows aligned, at std and AX5 alike.
+            HStack(alignment: .top, spacing: TallySpacing.sm) {
                 ForEach(days) { day in
                     VStack(spacing: TallySpacing.xs) {
                         Text(day.date.formatted(.dateTime.weekday(.narrow)))
@@ -428,12 +478,27 @@ private struct WeekAheadSection: View {
                             .foregroundStyle(TallyColor.textSecondary)
                         Text("\(day.dueCount)")
                             .font(TallyTypography.cardTitle)
-                            .foregroundStyle(day.isBusy ? .orange : TallyColor.textPrimary)
-                        if day.isBusy {
-                            Image(systemName: "exclamationmark.triangle").font(.caption2).foregroundStyle(.orange)
-                        }
+                            .foregroundStyle(day.isBusy ? TallyColor.warning : TallyColor.textPrimary)
+                        // R1 (round 2): a zero-WIDTH spacer reserves the row's height for every
+                        // column, busy or not — the glyph itself draws only on busy days, as an
+                        // overlay that cannot widen the column (SwiftUI reports `.overlay`'s size
+                        // as the base view's, not the overlaid content's). Capped at
+                        // `.accessibility1` so the overlaid icon never balloons past a size that
+                        // would crowd the rows above and below it at AX5.
+                        Color.clear
+                            .frame(width: 0, height: glyphRowHeight)
+                            .overlay {
+                                if day.isBusy {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.caption2)
+                                        .foregroundStyle(TallyColor.warning)
+                                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                }
+                            }
                     }
-                    .frame(maxWidth: .infinity)
+                    // R1: lets every column shrink together instead of the row's width being the
+                    // sum of each column's own natural (glyph-driven) width.
+                    .frame(minWidth: 0, maxWidth: .infinity)
                 }
             }
             .padding(TallySpacing.md)

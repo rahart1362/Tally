@@ -36,4 +36,15 @@ final class HomeShellTabsUITests: TallyUITestCase {
         XCTAssertTrue(detail.waitForExistence(timeout: 10),
                       "the Courses tab lost its pushed Course Detail (rebuilt on selection). Hierarchy: \(app.debugDescription)")
     }
+
+    /// UX-SPARK-2 (PRD §2.A "overall grade and trend line"): once the full projection lands
+    /// (`launchSample()` already waits for it), the hero gains the flagship's overall trend.
+    /// Keep `CoursesUITests.testCoursesShowAtLeastOneTrendSparkline` alongside this one.
+    @MainActor
+    func testDashboardShowsTheOverallTrendSparkline() throws {
+        let app = launchSample()
+        let sparkline = element("dashboard.sparkline", in: app)
+        XCTAssertTrue(sparkline.waitForExistence(timeout: 15),
+                      "no dashboard.sparkline on screen. Hierarchy: \(app.debugDescription)")
+    }
 }
