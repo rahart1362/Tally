@@ -14,15 +14,56 @@ public enum DashboardText {
     /// "Due in 6h · near a grade boundary · ~11% of BIO 101": each factor phrased
     /// (`PriorityScore.reasonPart` does the rounding), in order, joined by the catalog's separator
     /// (" · " in English) rather than a list format, which would change the English.
+    ///
+    /// D15: the due-date clause (always first) reads as "Due in 396h" once `hoursUntilDue` grows
+    /// past a day or two, which never happened to the Insights trend or Courses/To-Do's own due
+    /// text. From 48 h out, with `dueAt` given, it instead reuses that frozen sentence (an
+    /// absolute day, with a time inside the coming week): `farDueText`. Existing callers that
+    /// pass no `dueAt` (and the `calendar` default) see the exact English they always have.
     public static func reason(
-        _ factors: [PriorityScore.Factor], courseCode: String, locale: Locale = TallyLocale.effective
+        _ factors: [PriorityScore.Factor], courseCode: String, dueAt: Date? = nil,
+        calendar: Calendar = .autoupdatingCurrent, locale: Locale = TallyLocale.effective
     ) -> String {
-        let parts = factors.map { phrase(PriorityScore.reasonPart($0), courseCode: courseCode, locale: locale) }
-        guard var joined = parts.first else { return "" }
-        for part in parts.dropFirst() {
+        guard let lead = factors.first else { return "" }
+        var joined = leadPhrase(lead, courseCode: courseCode, dueAt: dueAt, calendar: calendar, locale: locale)
+        for factor in factors.dropFirst() {
+            let part = phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale)
             joined = resolve(Key.reasonJoin(joined, part), locale)
         }
         return joined
+    }
+
+    /// The reason's due-date clause (always the first factor — `PriorityScore.reasonFactors`).
+    private static func leadPhrase(
+        _ factor: PriorityScore.Factor, courseCode: String, dueAt: Date?, calendar: Calendar, locale: Locale
+    ) -> String {
+        if case .dueIn(let hours) = factor, hours >= farDueThresholdHours, let dueAt {
+            return farDueText(dueAt, hoursUntilDue: hours, calendar: calendar, locale: locale)
+        }
+        return phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale)
+    }
+
+    /// D15: from this many hours out, the due-date clause switches from "Due in Nh" to a day (or,
+    /// within `farDueWithinWeekHours`, day-and-time).
+    private static let farDueThresholdHours: Double = 48
+    /// D15: the same cutoff `ScreenFormatter.dueText` uses for Courses/To-Do — within this many
+    /// hours, the time of day still matters ("Due Thu at 9:00 AM"); beyond it, the day alone
+    /// ("Due Oct 12").
+    private static let farDueWithinWeekHours: Double = 24 * 7
+
+    /// "Due Thu at 9:00 AM" / "Due Oct 12": `L10n.Courses.dueAtTime`/`dueDay`, the exact sentence
+    /// Courses and To-Do already show for the same kind of date (`ScreenFormatter.dueText`) —
+    /// reused rather than a new key, per the brief. Unlike `ScreenFormatter.dueText`, this never
+    /// names "today"/"tomorrow": `hoursUntilDue` is already known to be 48+ (two days or more), so
+    /// the named-day cases cannot apply.
+    private static func farDueText(_ dueAt: Date, hoursUntilDue: Double, calendar: Calendar, locale: Locale) -> String {
+        let base = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        guard hoursUntilDue < farDueWithinWeekHours else {
+            return L10n.string(L10n.Courses.dueDay, dueAt.formatted(base.month(.abbreviated).day()))
+        }
+        let day = dueAt.formatted(base.weekday(.abbreviated))
+        let time = TallyFormat.time(dueAt, calendar: calendar, locale: locale)
+        return L10n.string(L10n.Courses.dueAtTime, day, time)
     }
 
     /// A "Needs attention" row's title: "Lab Report 4 is missing", "BIO 101: missing work is

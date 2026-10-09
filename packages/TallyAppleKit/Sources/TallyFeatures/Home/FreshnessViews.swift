@@ -34,7 +34,11 @@ struct FreshnessFooter: View {
                 Button {
                     model.requestRefresh()
                 } label: {
+                    // D08: the glyph had no explicit colour and inherited the system accent, 2.18:1
+                    // on the navy hero — the same "dark glyph on navy" family as D06. The "Updated
+                    // just now" text beside it already uses this token at 11.7:1.
                     Image(systemName: "arrow.clockwise")
+                        .foregroundStyle(TallyColor.textOnHero2)
                         .frame(width: 44, height: 44)
                 }
                 .disabled(presentation.action == .none)
@@ -58,7 +62,9 @@ struct FreshnessBreadcrumb: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, TallySpacing.screenMargin)
                     .padding(.vertical, TallySpacing.sm)
-                    .background(.orange.opacity(0.16))
+                    // D21: a rounded warning-token card instead of a square-cornered, hard-coded
+                    // `.orange` wash — every other surface on these screens is a rounded card.
+                    .background(TallyColor.warning.opacity(0.16), in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
