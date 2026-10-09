@@ -23,7 +23,11 @@ public enum TallyColor {
     /// `bg.card` — cards and list rows.
     public static let bgCard = Color("bg.card", bundle: .module)
 
-    /// `bg.brand` — the welcome panel behind the T-mark.
+    /// `bg.brand` — the welcome panel behind the T-mark, and every navy hero (Dashboard, Course
+    /// Detail). ux-fp6 D33: Dark now has its own appearance, a step lighter (#0D2A55) than Any
+    /// (#071A36), so the hero keeps a distinct luminance from `bg.card` in dark instead of
+    /// matching it (1.02:1, Any has one appearance that is reused for Dark). Pair a hero shape
+    /// with `tallyHeroBackground()`, which also adds the dark-only hairline D33 asks for.
     public static let bgBrand = Color("bg.brand", bundle: .module)
 
     /// `brand.gold` — ring, spark and the T-mark's arc. On navy only.
@@ -44,10 +48,22 @@ public enum TallyColor {
     /// `text.secondary` — subtitles.
     public static let textSecondary = Color("text.secondary", bundle: .module)
 
-    /// `accent` — tint, links, CTA fill.
+    /// `accent` — tint, links. Dark flips to a light blue (#8DB4FF) for legibility on `bg.canvas`,
+    /// which is why it is never the fill behind a white label or glyph (ux-fp6 D28): use
+    /// `accentFill` for that.
     public static let accent = Color("accent", bundle: .module)
 
-    /// `accent.onFill` — label colour on an accent-filled control.
+    /// `accent.fill` — the fill for a prominent, accent-coloured control (a filled button, the
+    /// sample-data banner band, a swipe action): Any #1D4E9E, Dark a deeper #2E5FBF, so a white
+    /// label/glyph on it stays ≥ 4.5:1 in both appearances. Added for ux-fp6 D28/D29: `accent`
+    /// itself flips to a light blue in dark, which left the system's white button labels at
+    /// 2.08–2.15:1. Pair with `accentOnFill` for the label colour.
+    public static let accentFill = Color("accent.fill", bundle: .module)
+
+    /// `accent.onFill` — label/glyph colour on an `accentFill`-filled control. White in both
+    /// appearances: ux-fp6 D28 retired the old Dark override (a near-black #06142B, correct only
+    /// for labelling the lighter `accent` itself in dark) now that this pairs with `accentFill`,
+    /// which stays dark enough in both appearances for white to read.
     public static let accentOnFill = Color("accent.onFill", bundle: .module)
 
     /// `separator` — hairlines.

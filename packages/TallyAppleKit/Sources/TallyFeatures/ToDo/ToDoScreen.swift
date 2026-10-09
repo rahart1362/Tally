@@ -96,7 +96,10 @@ struct ToDoScreen: View {
                 Label(isDone ? String(localized: L10n.ToDo.swipeNotDone()) : String(localized: L10n.ToDo.swipeDone()),
                       systemImage: isDone ? "arrow.uturn.backward" : "checkmark")
             }
-            .tint(TallyColor.accent)
+            // ux-fp6 D28: a swipe action always draws a white glyph/label, which a label colour
+            // change can't reach; `accent` flips to a light blue in dark (2.08–2.15:1). `accentFill`
+            // stays dark enough in both appearances.
+            .tint(TallyColor.accentFill)
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = item.canvasURL {
                 Button {
@@ -108,6 +111,10 @@ struct ToDoScreen: View {
                     // compile risk with no local Xcode to check it.
                     Label { Text(L10n.CourseDetail.openInCanvas()) } icon: { Image(systemName: "safari") }
                 }
+                // ux-fp6 D28: this swipe button had no explicit tint, so it inherited the shell's
+                // `accent` tint (`HomeShellView`'s TabView) — the same 2.08–2.15:1 white-on-light-
+                // blue failure in dark.
+                .tint(TallyColor.accentFill)
             }
         }
     }
