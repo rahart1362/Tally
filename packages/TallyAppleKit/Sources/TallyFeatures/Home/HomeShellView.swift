@@ -102,6 +102,11 @@ public struct HomeShellView: View {
                                 CoursesScreen()
                                     .modifier(FreshnessSubtitle())
                                     .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    // D25: the locked card replaces the whole screen, including its
+                                    // own `.navigationTitle` call, so the tab showed none. Set
+                                    // outside the lock: unlocked, the screen's own title (same
+                                    // text) still wins; locked, this is the only one left.
+                                    .navigationTitle(String(localized: L10n.Courses.navigationTitle()))
                                     .toolbar { settingsToolbarItem }
                                     .modifier(ParentModeInlineTitle(isOn: family != nil))
                             }
@@ -113,6 +118,10 @@ public struct HomeShellView: View {
                                 CalendarScreen()
                                     .modifier(FreshnessSubtitle())
                                     .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    // D25: see the Courses tab above. Calendar's own title is the
+                                    // current month, which needs its model's data; the generic tab
+                                    // title is what showed before that data existed anyway.
+                                    .navigationTitle(Text(L10n.Calendar.tabTitle()))
                                     .toolbar { settingsToolbarItem }
                                     .modifier(ParentModeInlineTitle(isOn: family != nil))
                             }
@@ -124,6 +133,8 @@ public struct HomeShellView: View {
                                 ToDoScreen()
                                     .modifier(FreshnessSubtitle())
                                     .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    // D25: see the Courses tab above.
+                                    .navigationTitle(String(localized: L10n.ToDo.navigationTitle()))
                                     .toolbar { settingsToolbarItem }
                                     .modifier(ParentModeInlineTitle(isOn: family != nil))
                             }
@@ -137,6 +148,8 @@ public struct HomeShellView: View {
                                 InsightsScreen()
                                     .modifier(FreshnessSubtitle())
                                     .modifier(SubscriptionLock()) // PAY-06 (d): the locked card in its place
+                                    // D25: see the Courses tab above.
+                                    .navigationTitle(String(localized: L10n.Insights.navigationTitle()))
                                     .toolbar { settingsToolbarItem }
                                     .modifier(ParentModeInlineTitle(isOn: family != nil))
                             }

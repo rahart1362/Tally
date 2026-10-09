@@ -38,5 +38,9 @@ struct SampleDataBanner: View {
         // "Exit" button into one non-interactive combined element, making it untappable for
         // VoiceOver (and unfindable by UI tests) — an interactive control must stay its own
         // element (HIG: never combine children that include a control).
+        // ux-fp2 follow-up (FP-3): pinned chrome (it sits above the tabs on every screen), capped
+        // like the lapsed-subscription banner (D04) so it stays one or two lines at AX5 instead
+        // of ~160 pt.
+        .tallyPinnedChromeTextSize()
     }
 }
