@@ -68,4 +68,10 @@ public enum TallyColor {
 
     /// `separator` — hairlines.
     public static let separator = Color("separator", bundle: .module)
+
+    /// `warning` — a cautionary accent for text/icons, replacing the system `.orange` the audit
+    /// flagged at 2.31:1 on white (D09) and in a hard-coded `.orange.opacity(0.16)` wash (D21).
+    /// Any #8A5300 (~6.3:1 on white); Dark #FFB454 (~11.4:1 on `bg.canvas`'s dark value). Apply
+    /// `.opacity(_:)` at the call site for a wash background (D21); for text/icons use it solid.
+    public static let warning = Color("warning", bundle: .module)
 }
