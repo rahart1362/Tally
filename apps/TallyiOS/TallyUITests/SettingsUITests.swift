@@ -147,7 +147,11 @@ final class SettingsSignedInUITests: TallyUITestCase {
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: scaled(30)),
                       "the seeded launch never painted the dashboard. Hierarchy: \(app.debugDescription)")
         openSettings(app)
-        tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
+        // At AX5 the Settings list builds Sign Out & Erase lazily below the tall Subscription row
+        // (284 pt in run 38019483219), so it may not exist until it is scrolled to.
+        let signOut = app.buttons["settings.signOut"]
+        XCTAssertTrue(scrollUntilHittable(signOut, in: app), "no Sign Out & Erase at AX5. Hierarchy: \(app.debugDescription)")
+        signOut.tap()
 
         let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'")).firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: scaled(10)), "no confirmation message at AX5. Hierarchy: \(app.debugDescription)")

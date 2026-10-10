@@ -148,3 +148,6 @@ the brief.
   CourseDetail, Courses) — all already use `.buttonStyle(.tallyPrimary/.tallySecondary)`, which was
   never affected by the `ContentUnavailableView`-tint gap, so they are not expected to need the same
   fix; not audited further (out of this package's scope).
+
+## PMO note (2026-10-10): the reproducible Settings failure
+`SettingsSignedInUITests.testSignOutConfirmationReadableAtAccessibilityXXXL` (added in UX-FP1, PR #42) failed in runs 38010346618 (and its rerun) and 38019483219 with "settings.signOut Button never appeared". The failure hierarchy shows the Settings sheet **open**, with the Subscription row 284 pt tall at AX5 and Sign Out & Erase not yet built by the lazy List. The test tapped without scrolling. The row's "Active until …" date text changes by day, so this is a date-sensitive test gap, not this package's code; it passed on `main` on 10-09. **Fix (PMO):** the test scrolls to the button first (`scrollUntilHittable`), as the suite's other AX tests do.
