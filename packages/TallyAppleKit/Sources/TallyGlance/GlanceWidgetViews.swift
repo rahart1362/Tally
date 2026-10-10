@@ -142,6 +142,9 @@ enum GlanceMetrics {
     static let dayColumnSpacing: CGFloat = 2
     /// How far a Lock Screen accessory's text may shrink to fit before it truncates.
     static let accessoryMinimumScale: CGFloat = 0.6
+    /// How far a Standing widget caption ("Average of N courses", "N courses not included") may
+    /// shrink to fit one line before it truncates (N1).
+    static let standingCaptionMinimumScale: CGFloat = 0.8
 }
 
 /// The widgets' foreground styles per rendering mode (integrations.md §2.2, UX-WP-38). In full
@@ -238,11 +241,26 @@ private struct StandingSummaryView: View {
             if let band = summary.standing {
                 Spacer(minLength: 0)
                 GradeBandBadge(band: band)
+                // N1: at the small widget's real 16 pt margins, a single line truncates
+                // "N courses not included" ("3 courses not includ…"). Copy is frozen. Two
+                // vertical-space fixes were tried and measured against the real smallest-phone
+                // (158 pt) render and rejected: wrapping to a 2nd line (`lineLimit(2)`) alone left
+                // the VStack short of room and the text truncated anyway (measured: the rendered
+                // line height never grew past one line's), and adding `layoutPriority(1)` over the
+                // two `Spacer(minLength: 0)`s in this VStack didn't change that either (measured:
+                // pixel-identical line height before and after). Both approaches depend on exactly
+                // how much *vertical* room the VStack negotiation leaves this text, which measured
+                // out the same either way. `minimumScaleFactor` sidesteps that: it only asks for
+                // *horizontal* room, independent of the vertical squeeze, and the shortfall here is
+                // small — the truncated "Average of 2 cours…" already renders 122 of a 126 pt-wide
+                // line (measured), so the full string needs only a few points less to fit at 1
+                // line, well inside `standingCaptionMinimumScale`'s 20% floor.
                 ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
                     Text(verbatim: caption)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(style.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(GlanceMetrics.standingCaptionMinimumScale)
                 }
             } else if let message = GlanceText.standingMessage(summary.grades) {
                 if summary.grades == .notInCanvas {

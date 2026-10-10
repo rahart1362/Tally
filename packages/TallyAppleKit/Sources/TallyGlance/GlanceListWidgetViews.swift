@@ -35,7 +35,16 @@ public struct DueSoonWidgetView: View {
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
-                GlanceItemList(summary: summary, rows: GlanceMetrics.dueSoonRows, trailingButton: trailingButton)
+                // N2: at the real 16 pt margins, `dueSoonRows` (3) rows overflow the medium
+                // widget's box on Pro Max, and more so on a narrower phone — the content pushes
+                // past the top and bottom system margins rather than being clipped, which is what
+                // reads as uneven (9 pt top, 11.5 pt bottom) instead of a clean 16 pt. `ViewThatFits`
+                // tries 3 rows first and only drops to 2 when 3 doesn't fit in the space the system
+                // actually proposed, so the margins land even on whichever device fits which count.
+                ViewThatFits(in: .vertical) {
+                    GlanceItemList(summary: summary, rows: GlanceMetrics.dueSoonRows, trailingButton: trailingButton)
+                    GlanceItemList(summary: summary, rows: GlanceMetrics.dueSoonRows - 1, trailingButton: trailingButton)
+                }
             }
         }
     }
@@ -60,18 +69,21 @@ public struct WeekAheadWidgetView: View {
             case .summary(let summary):
                 // D23: on a typical glance (a handful of upcoming items, nowhere near
                 // `GlanceMetrics.weekAheadRows`), the large widget's content is naturally much
-                // shorter than its 382 pt canvas. `GlanceItemList`'s own trailing `Spacer` already
-                // reaches the widget's real bottom edge (so the footer was never adrift — it
-                // landed on the last pixel, which is what the audit's own composited evidence
-                // shows), but that put the *entire* ~100 pt+ of slack into one gap between the
-                // last row and "N overdue", reading as a half-built widget. A second `Spacer`
-                // between the strip and the list splits that one dead block into two smaller,
-                // deliberate-looking gaps instead — "distribute the spacing" (`defects.md`), not
-                // dependent on how many items a given glance happens to have.
+                // shorter than its 382 pt canvas. A single trailing `Spacer` put the *entire*
+                // ~100 pt+ of slack into one gap, reading as a half-built widget; splitting it
+                // into two unequal gaps (36 pt / 88 pt — gate 2, D23) read just as broken, because
+                // the two `Spacer`s weren't siblings: one lived in this VStack, the other inside
+                // `GlanceItemList`'s own VStack one level down, so each level's share of the extra
+                // space wasn't split between the same two spacers. Both spacers are now direct
+                // children of this one VStack — alongside the rows and the footer, which
+                // `GlanceItemList` would otherwise have supplied together — so SwiftUI distributes
+                // the slack between them evenly instead.
                 VStack(alignment: .leading, spacing: TallySpacing.sm) {
                     GlanceWeekStrip(days: summary.week)
-                    Spacer(minLength: TallySpacing.lg)
-                    GlanceItemList(summary: summary, rows: GlanceMetrics.weekAheadRows)
+                    Spacer(minLength: TallySpacing.sm)
+                    GlanceItemRows(summary: summary, rows: GlanceMetrics.weekAheadRows)
+                    Spacer(minLength: TallySpacing.sm)
+                    GlanceFooter(summary: summary, shown: min(GlanceMetrics.weekAheadRows, summary.upcoming.count))
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             }
@@ -79,9 +91,12 @@ public struct WeekAheadWidgetView: View {
     }
 }
 
-/// Up to `rows` upcoming items, one line for the title and one for the course and due time, then
-/// the footer.
-struct GlanceItemList: View {
+/// Up to `rows` upcoming items, one line for the title and one for the course and due time, with
+/// no footer and no trailing `Spacer` of its own (D23: a caller that needs its own spacer and
+/// footer as siblings at one VStack level, so the surrounding gaps split evenly, uses this
+/// directly; `GlanceItemList` below adds its own trailing spacer and footer for a caller that
+/// doesn't need that).
+struct GlanceItemRows: View {
     let summary: GlanceSummary
     let rows: Int
     var trailingButton: (_ itemID: String, _ accessibilityLabel: String) -> AnyView = { _, _ in AnyView(EmptyView()) }
@@ -89,18 +104,16 @@ struct GlanceItemList: View {
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
-        VStack(alignment: .leading, spacing: TallySpacing.xs) {
-            if summary.upcoming.isEmpty {
-                Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingSoon(), TallyLocale.effective))
-                    .font(TallyTypography.cardTitle)
-                    .foregroundStyle(style.primary)
-            } else {
+        if summary.upcoming.isEmpty {
+            Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingSoon(), TallyLocale.effective))
+                .font(TallyTypography.cardTitle)
+                .foregroundStyle(style.primary)
+        } else {
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
                 ForEach(summary.upcoming.prefix(rows)) { item in
                     GlanceItemRow(item: item, hidesNames: summary.hidesCourseNames, trailing: markDoneButton(for: item))
                 }
             }
-            Spacer(minLength: 0)
-            GlanceFooter(summary: summary, shown: min(rows, summary.upcoming.count))
         }
     }
 
@@ -111,6 +124,23 @@ struct GlanceItemList: View {
         guard GlancePlannerID.assignmentID(item.id) != nil else { return AnyView(EmptyView()) }
         let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames)
         return trailingButton(item.id, GlanceText.resolve(L10n.Widgets.markDoneButton(title), TallyLocale.effective))
+    }
+}
+
+/// `GlanceItemRows` plus the trailing `Spacer` and footer that the Due soon widget wants as one
+/// self-contained block (Week ahead, which needs its spacer and footer as siblings of the week
+/// strip instead, uses `GlanceItemRows` directly — see `WeekAheadWidgetView`, D23).
+struct GlanceItemList: View {
+    let summary: GlanceSummary
+    let rows: Int
+    var trailingButton: (_ itemID: String, _ accessibilityLabel: String) -> AnyView = { _, _ in AnyView(EmptyView()) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.xs) {
+            GlanceItemRows(summary: summary, rows: rows, trailingButton: trailingButton)
+            Spacer(minLength: 0)
+            GlanceFooter(summary: summary, shown: min(rows, summary.upcoming.count))
+        }
     }
 }
 
