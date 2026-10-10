@@ -465,6 +465,12 @@ Size: **S** ≈ 1–2 agent-days, **M** ≈ 3–5, **L** ≈ more than 5 (relati
 - the two `InfoPlist.xcstrings`: 1 each.
 
 L10N-04 translates from that merge commit. Any English change after it needs the owner's approval and a note to the translator.
+
+**Strings added after the freeze (all owner-approved; L10N-04 must translate them too).** `Localizable.xcstrings` has 706 keys on `main` @ `2a47545`: the 702 frozen keys, plus:
+- `courses.sparkline.trend.up`, `.down`, `.steady`: UX-SPARK's VoiceOver trend sentences (PR #38), approved as drafted on 2026-10-04;
+- `courseDetail.override.menuRowTitle` = "Grades kept outside Canvas": the short Course Options row label (UX-FP1, PR #42, audit D17), approved on 2026-10-08. The full question `courseDetail.override.title` is unchanged and still used where it fits.
+
+No frozen English value has changed.
 | **M4** | as planned | **XG-05** alongside real sign-in | This is the first real-data check of G-2. |
 | **M5** | as planned | **L10N-05** with ASC-10/12/17 | Localized metadata and screenshots become release gates. If L-3 = "not a gate" and es isn't ready, the gate runs for en only. |
 

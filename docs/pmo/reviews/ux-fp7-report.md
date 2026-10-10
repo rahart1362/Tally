@@ -80,7 +80,7 @@ All three were measured against real renders, not assumed:
    `bandMinimumScale`/`accessoryMinimumScale` are 0.6, `dayCountMinimumScale` 0.7) sidesteps the
    vertical-space question entirely, since it only asks for horizontal room.
 
-**Status at hand-off:** [FILL AFTER PR RUN — see "Open items" if still pending]
+**Status at hand-off (PMO, 2026-10-10):** N1 fixed. PR run 38054545781's widget renders (`ui-test-screenshots`) show "3 courses not included" in full on the Standing small widget at both the Pro Max and smallest-phone sizes, light and dark, checked at 200%. The PR run was green on all 8 required jobs (649 tests, 0 failed). Merged as PR #48 after the PMO's gate 2 (Opus) on those renders. The accented-mode render on the neutral stand-in backdrop shows low grey-on-grey contrast: that is a property of the synthetic backdrop, so it needs a device check, not a defect fix.
 
 ## CI and Audit tour runs
 
