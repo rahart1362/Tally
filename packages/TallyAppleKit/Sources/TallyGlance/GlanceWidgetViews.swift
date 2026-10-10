@@ -240,20 +240,25 @@ private struct StandingSummaryView: View {
                 GradeBandBadge(band: band)
                 // N1: at the small widget's real 16 pt margins, a single line truncates
                 // "N courses not included" ("3 courses not includ…"). Copy is frozen, so this
-                // wraps that one to a second line instead of shortening or cutting it off; the
-                // `Spacer`s above and below already yield (`minLength: 0`) when it needs the
-                // extra line. Only the second caption (`standingCaptions` returns "Average of N
-                // courses" first, then "N courses not included" when there is one) gets the
-                // 2-line budget — giving both captions a 2-line budget left the *first* one
-                // ("Average of N courses", normally short enough for 1 line, and never the one
-                // the defect was about) truncating instead, on the smallest phone's shorter
-                // small widget, where the two captions were competing for the same few points of
-                // slack (confirmed on the smallest-phone Audit tour render, then fixed here).
-                ForEach(Array(GlanceText.standingCaptions(summary).enumerated()), id: \.offset) { index, caption in
+                // wraps instead of shortening or cutting it off: `lineLimit(2)` on both captions
+                // (either one can be the long one, depending on the student's course count), plus
+                // `layoutPriority(1)` so the two `Spacer(minLength: 0)`s in this VStack (above the
+                // badge, below the captions) give up their space to a caption that needs a second
+                // line before the caption itself is squeezed down to one and forced to truncate.
+                // `layoutPriority` alone (without it, confirmed on the smallest phone's 158 pt
+                // widget — narrower than Pro Max's 170 pt, so "Average of N courses" needs 2 lines
+                // there too): the two default-priority `Spacer`s and the captions were negotiated
+                // together, and a `Spacer(minLength: 0)` doesn't reliably reach its floor of 0
+                // first just because its minimum is lower — it only does when nothing else outranks
+                // it. Confirmed by measuring the smallest-phone render's own row bands before this
+                // fix: the gap above the badge held onto ~16 pt it didn't need, while "Average of 2
+                // courses" below was squeezed to one line and truncated.
+                ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
                     Text(verbatim: caption)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(style.secondary)
-                        .lineLimit(index == 0 ? 1 : 2)
+                        .lineLimit(2)
+                        .layoutPriority(1)
                 }
             } else if let message = GlanceText.standingMessage(summary.grades) {
                 if summary.grades == .notInCanvas {
