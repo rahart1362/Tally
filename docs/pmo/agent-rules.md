@@ -43,4 +43,8 @@ The binding rules every engineering agent's brief carries, versioned here so bri
       - Remove duplicates from caller-provided lists before counting or dividing by their size.
     - **Tests that use DEBUG-only test support** (`AccountHarness` and others) **go inside `#if DEBUG`.** Only `ios-perf` builds the tests in Release, so a miss shows up only in the PR run (PR #23). Check with `python3 scripts/ci/check_debug_only_test_symbols.py .`.
 13. **Localized text in loops (2026-10-02, PR #27).** `String(localized: LocalizedStringResource)` re-reads the catalog on every call: 75-320 µs, growing with the catalog. In projection, row and other per-item code, use `L10n.string(...)` (`TallyStrings/L10n+Lookup.swift`), which caches by key, locale and plural count. Measure before optimising: two guessed caches didn't help, and one measured diagnostic found it.
-
+14. **UI work packages (2026-10-07 → 10-10, the design-quality fix wave).**
+    - **Evidence comes from the `Audit tour` workflow** (`gh workflow run "Audit tour" --ref <branch> …`). Dispatch it only on a commit CI has already compiled: this host has no Xcode, and a compile error burns the dispatch.
+    - **Wait with ONE blocking background command** (a single loop that exits when the run completes). Repeated "still waiting" wake-ups re-read a large context each time.
+    - **Never write a verification claim into code comments or a report unless you observed it** (a measurement, "confirmed on device"). Gate 2 caught a false one in PR #47.
+    - **Keep evidence outside the worktree.** `gh pr merge --delete-branch` removes the worktree, git-ignored folders included.

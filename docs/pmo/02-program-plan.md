@@ -146,6 +146,44 @@ Canvas natively supports parent access through **observer** accounts and student
   - The September change to a vector T only unblocked CI. The emblem file was 1254 × 1254 with transparency, which the App Store doesn't accept.
   - UX-06/07's legibility concern about the detailed emblem at small sizes stands: the widget header draws it at 20 pt. The white tile keeps it readable on every background.
 
+### Owner decisions and PMO rulings after M3 (2026-10-03 → 10-10)
+- **The course trend sparkline (2026-10-03 → 10-09).** It was built for real rather than mocked for the marketing material (PR #38), scaled to each course's own range (#39) and made legible on the navy hero (#40).
+  - **Owner, 2026-10-04:** approved the redesign UX-SPARK-2: variant F (straight segments, a point per posted day, faint gridlines and week columns, no glow) with a hollow end ring, plus the Dashboard hero's overall trend. Owner, 2026-10-04: approved its 3 VoiceOver strings (plan 08 §6).
+  - Delivered in PR #45.
+  - **PMO ruling (owner may veto):** on Courses cards the trend column sits beside the grade, not centred between the title and the grade. Centring re-created a verified card-text overflow (run 37918268052). The rings line up within 0.43 pt as a rigid column.
+- **Visual quality bar (owner, 2026-10-07; binding, it overrides speed):**
+  - No text, menu or overlay overlaps or clips on Pro Max, the smallest iPhone and AX5, in light and dark. Edges align to `TallySpacing`. Tap targets are ≥ 44 pt. Controls and labels are consistent. Screens are captured at rest and checked at 200%.
+  - **Every UI merge passes two gates:**
+    1. **Automated:** the `Audit tour` workflow (PR #41): at-rest captures plus a per-capture layout check (overlap, clipping, < 44 pt targets, insets, truncation) on 8 legs (Pro Max and the smallest iPhone × light and dark × std and AX5).
+    2. **Expert:** an Opus design review of the before/after captures.
+  - The process is in the PMO kit's `pmo-ux-common.md` and agent rule 14.
+- **The design-quality audit (2026-10-07):** 33 defects (S1 6, S2 19, S3 8). The owner approved the fix wave in the recommended order the same day.
+- **Owner, 2026-10-08:** approved the post-freeze string "Grades kept outside Canvas" (plan 08 §6).
+- **The fix wave, delivered 2026-10-08 → 10-10.** Every PR passed both gates:
+
+  | PR | Package | Defects |
+  |---|---|---|
+  | #42 | UX-FP1 chrome and overlays | D01, D03, D17, D22, D26, D27, D29 (safe area), D31 |
+  | #43 | UX-FP2 accessibility-size reflow | D02, D04, D05, D11, D18, D19, D20, plus D16 |
+  | #44 | UX-FP6 dark-mode colour tokens | D28, D29 (band), D32, D33, plus the tour and CI harness fixes |
+  | #45 | UX-FP3 Dashboard and Courses + UX-SPARK-2 | D08, D09, D13, D14, D15, D21, D25 |
+  | #46 | UX-FP4 contrast, targets and consistency | D07, D10, D12, D30 |
+  | #47 | UX-FP5 widgets and privacy cover | D06, D23, D24, G2, the onboarding tint |
+
+  A small widget follow-up, UX-FP7, covers N1 and N2, D23's polish and the review-render fidelity.
+- **PMO rulings in the wave (owner may veto):**
+  - the large tab titles stay (the opaque bar background appears only once content scrolls under it);
+  - destructive confirmations become a full-screen sheet at accessibility sizes, built from the same strings;
+  - To-Do select mode shows only the selection circle (D16);
+  - status chips wrap between words at AX sizes, and only score chips shrink to stay on one line.
+- **Carried open items:**
+  - **Device-only checks:** widgets on a tinted Home Screen and in StandBy; Lock Screen accessories; the privacy cover; the first-sync failure page on a Release build (the DEBUG test band covers it in the tour); the Increase Contrast variants.
+  - **S3 polish:** the AX large-title subtitle doesn't scale; the slow-refresh breadcrumb's light wash reads sand, not amber; the What-If chips are near-circles at 44 pt; the Paywall's legal links are spaced further apart.
+  - **Test reliability:**
+    - `SubscriptionEngineTests` "Launch: the Keychain record's state reaches the gate before StoreKit answers" is timing-flaky under ASan (0 ASan reports; passed on re-run in PRs #39 and #43);
+    - the `launchThenCommit` flake;
+    - the `SettingsSignedInUITests` AX5 sign-out test was date-sensitive (it didn't scroll to the button), fixed in PR #47.
+
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
 - Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
@@ -218,6 +256,7 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | **M2 iOS shell** ✅ *complete 2026-09-28: validation run 36494900022 (PR #3), launch gate per owner decision O10 (branch `pmo/m2-exit`); plan 07 §3* | ARC E01–E04; SEC-04, 07, 08; ENC-03; UX-WP-02, 03, 05; ASC-01, 03, 09, 10, 11 (mock Canvas server), 14 (sample-data mode) | O5 (else placeholders) | App boots from cache in the simulator (no Canvas request before the cached paint), <300 ms warm **on device** (calibration D-P3; on the CI simulator a required gate of 3.0 s median, owner decision O10, 2026-09-28); 12-s slow replay shows the breadcrumb, which self-heals |
 | **M3 Features** ✅ *complete 2026-10-03: PRs #21–#35 and the M3-exit PR merged; `main` run 37093187408 had every required job green; English string freeze (plan 08 §6); FAM-04/05, FAM-11 and the real-account family flows moved to M4* | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
 | ↳ *plan 08 (2026-09-30)* | Multilingual support (L10N-01…05: iOS system language by default, per-app language through iOS; English + Spanish) and grades kept outside Canvas (XG-01…05: "—" plus an info bubble plus Tell My School; strict detection; a per-course override). Sequencing: `docs/pmo/08-localization-and-external-grades.md` §6. M3 exit adds: the lint baseline is 0 and XG-01…03 are in. M5 adds L10N-05. | owner decisions L-1…3, G-1…6 (decided) | see plan 08 §5 |
+| ↳ *design-quality fix wave* ✅ *complete 2026-10-10: PRs #41–#47 (§2, "Owner decisions and PMO rulings after M3")* | The audit's 33 defects in six UI packages, each through the automated layout gate and an Opus design review; UX-SPARK-2 included | — | Every package's gate-2 review PASS; required CI green |
 | **MVP gate** *(owner, 2026-10-01)* | **M3 feature-complete, plus the account-independent parts of M5:** the release checks green on the simulator, the accessibility audit, a full screenshot gallery (the PMO screenshot tour), the privacy manifest, and Sample Data mode as the App Review path. Everything is demonstrable in the simulator, with no Canvas or Apple account needed. | — | **The owner then pursues O1 (Canvas access), O4 (Apple Developer account) and O7 (legal, with a specialist compliance dossier) in parallel. M4 starts when O1 lands.** |
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |
 | **M5 Harden + pre-TestFlight gate** | UX-WP-21–23; ASC-05–08, 12, 17, 18; ENC-06–08; SEC-14, 15; ARC E08, G01 (delete legacy) | — | `release-gate.yml` all green: Release build, XCUITest critical flows (kit 13), accessibility audit 0 unwaived, screenshots at 1320×2868, privacy manifest + plist checks |
