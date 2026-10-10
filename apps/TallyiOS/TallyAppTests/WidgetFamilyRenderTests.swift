@@ -71,6 +71,17 @@ struct WidgetFamilyRenderTests {
             }
         }
 
+        /// Only the Lock Screen's rectangular and circular accessories need a stand-in backdrop
+        /// (G2 gap 2): `AccessoryWidgetBackground()` paints nothing under `ImageRenderer`. The
+        /// inline accessory has no backdrop even on the real Lock Screen (`Color.clear`).
+        var needsAccessoryBackdropStandIn: Bool {
+            switch self {
+            case .dueTodayCircular, .nextItemRectangular: true
+            case .nextDueInline: false
+            default: false
+            }
+        }
+
         @MainActor
         func view(_ entry: GlanceEntry) -> AnyView {
             switch self {
@@ -98,6 +109,26 @@ struct WidgetFamilyRenderTests {
             case .fullColor: .fullColor
             case .accented: .accented
             case .vibrant: .vibrant
+            }
+        }
+    }
+
+    /// A second device class (G2 gap 5 / N1 / N2): Apple's HIG "Specifications" document each
+    /// Home widget family's size per device width class. `Surface.size` above already is the
+    /// 428 pt-wide class's (6.7-inch, Pro Max/Plus) small/medium/large sizes. This is the
+    /// 390 pt-wide class's (6.1-inch, e.g. iPhone 15/16 non-Max) documented small and medium sizes
+    /// — the two families N1 and N2 are about. Large and the two accessories are not documented as
+    /// varying by phone size, so this only overrides small and medium.
+    enum PhoneClass: String, CaseIterable, Sendable {
+        case proMax = "pro-max"
+        case smallest = "smallest"
+
+        func size(for surface: Surface) -> CGSize {
+            guard self == .smallest else { return surface.size }
+            switch surface {
+            case .nextUpSmall, .standingSmall: return CGSize(width: 158, height: 158)
+            case .standingMedium, .dueSoonMedium: return CGSize(width: 338, height: 158)
+            default: return surface.size
             }
         }
     }
@@ -172,7 +203,23 @@ struct WidgetFamilyRenderTests {
     /// widget host also applies around a widget's root content and a bare `ImageRenderer` does not.
     /// Used only for the attached snapshots below: the functional tests keep using the plain,
     /// unbacked `renderer`/`png`/`alpha` so an opaque test backdrop never masks what they check.
-    private static func hostedPNG(_ surface: Surface, _ entry: GlanceEntry, mode: Mode, colorScheme: ColorScheme) -> Data? {
+    ///
+    /// G2's four gaps, fixed here:
+    /// 1. Accented and vibrant are the two modes where the system itself removes a widget's
+    ///    `containerBackground` (`GlanceHomeLayout`'s own doc comment). Painting `bg.brand` behind
+    ///    them anyway produced a false "dark glyph on navy" reading in the light renders. These two
+    ///    modes now get a neutral, wallpaper-like stand-in instead (a mid grey in light, near-black
+    ///    in dark) — never the real brand colour, so a reviewer can't mistake it for a real Home
+    ///    Screen or StandBy background. `snapshot(surface:mode:)` labels the file name accordingly.
+    /// 2. `AccessoryWidgetBackground()` draws nothing under `ImageRenderer` (only the real Lock
+    ///    Screen host draws it), so the rectangular and circular accessories rendered on nothing —
+    ///    92.8% transparent. They get a visible dark stand-in chip instead, so their content can be
+    ///    judged against *something*. It is not the real Lock Screen material either.
+    /// 4. Rendered at `scale` 3, the actual device scale (`main` had this at 2x).
+    /// `size` defaults to the surface's Pro Max size; the smallest-phone snapshots (gap 5) pass
+    /// `PhoneClass.smallest.size(for:)` instead.
+    private static func hostedPNG(_ surface: Surface, _ entry: GlanceEntry, mode: Mode, colorScheme: ColorScheme,
+                                  size: CGSize? = nil) -> Data? {
         // `\.widgetFamily` has no writable key path (only the system host sets it) — the same
         // reason `StandingWidgetView` above takes `family` as an explicit init argument instead
         // of reading the environment; `surface.view(_:)` already passes the right one that way.
@@ -182,21 +229,42 @@ struct WidgetFamilyRenderTests {
         switch surface.family {
         case .accessoryInline:
             hosted = AnyView(content)
-        case .accessoryCircular, .accessoryRectangular:
-            hosted = AnyView(content.background(AccessoryWidgetBackground()))
+        case .accessoryCircular:
+            hosted = AnyView(content.background(Self.accessoryBackdropStandIn, in: Circle()))
+        case .accessoryRectangular:
+            hosted = AnyView(content.background(Self.accessoryBackdropStandIn,
+                                                in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous)))
         default:
+            let backdrop: AnyShapeStyle = mode == .fullColor
+                ? AnyShapeStyle(TallyColor.bgBrand)
+                : AnyShapeStyle(colorScheme == .dark ? Color(white: 0.07) : Color(white: 0.55))
             hosted = AnyView(
                 content
                     .padding(TallySpacing.lg)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .background(TallyColor.bgBrand)
+                    .background(backdrop)
             )
         }
+        let renderSize = size ?? surface.size
         let renderer = ImageRenderer(content: hosted
-            .frame(width: surface.size.width, height: surface.size.height)
+            .frame(width: renderSize.width, height: renderSize.height)
             .environment(\.colorScheme, colorScheme))
-        renderer.scale = 2
+        renderer.scale = 3
         return renderer.uiImage?.pngData()
+    }
+
+    /// A visible dark chip standing in for the real Lock Screen material (G2 gap 2). Not a measured
+    /// colour — a test-only placeholder so a reviewer has something to judge the content against.
+    private static let accessoryBackdropStandIn = Color.black.opacity(0.55)
+
+    /// G2 gap 1: the file-name suffix that labels a render whose backdrop is a test stand-in rather
+    /// than the real thing — the neutral accented/vibrant backdrop for a Home family, or the dark
+    /// chip for an accessory (gap 2). Never added to a full-colour Home render, which is the real
+    /// `bg.brand`.
+    private static func backdropLabel(for surface: Surface, mode: Mode) -> String {
+        if surface.needsAccessoryBackdropStandIn { return "-standin-bg" }
+        if !surface.isLockScreen, mode != .fullColor { return "-neutral-bg" }
+        return ""
     }
 
     /// Each pixel's opacity: all the system keeps of a widget in the accented mode.
@@ -246,14 +314,57 @@ struct WidgetFamilyRenderTests {
           arguments: Surface.allCases, Mode.allCases)
     func snapshot(surface: Surface, mode: Mode) throws {
         let entry = Self.entry(Self.glance())
+        let label = Self.backdropLabel(for: surface, mode: mode)
         for colorScheme: ColorScheme in [.light, .dark] {
             let png = try #require(Self.hostedPNG(surface, entry, mode: mode, colorScheme: colorScheme),
                                    "\(surface.rawValue) did not render in \(mode.rawValue) (\(colorScheme))")
             let schemeName = colorScheme == .dark ? "dark" : "light"
-            Attachment.record(png, named: "widget-\(surface.rawValue)-\(mode.rawValue)-\(schemeName).png")
+            Attachment.record(png, named: "widget-\(surface.rawValue)-\(mode.rawValue)-\(schemeName)\(label).png")
         }
         let opaque = Self.alpha(surface, entry, mode: mode).filter { $0 > 0 }.count
         #expect(opaque > 0, "\(surface.rawValue) in \(mode.rawValue) drew nothing")
+    }
+
+    /// G2 gap 5 / N1 / N2: the same hosted render, at the 390 pt-wide class's documented small and
+    /// medium sizes (`PhoneClass.smallest`), for the two families those two defects are about.
+    @Test("Snapshot: Home small and medium also render at the smallest phone's widget sizes",
+          arguments: [Surface.nextUpSmall, .standingSmall, .standingMedium, .dueSoonMedium], Mode.allCases)
+    func smallestPhoneSnapshot(surface: Surface, mode: Mode) throws {
+        let entry = Self.entry(Self.glance())
+        let size = PhoneClass.smallest.size(for: surface)
+        for colorScheme: ColorScheme in [.light, .dark] {
+            let png = try #require(Self.hostedPNG(surface, entry, mode: mode, colorScheme: colorScheme, size: size),
+                                   "\(surface.rawValue) did not render at the smallest phone size in \(mode.rawValue) (\(colorScheme))")
+            let schemeName = colorScheme == .dark ? "dark" : "light"
+            let label = Self.backdropLabel(for: surface, mode: mode)
+            Attachment.record(png, named: "widget-\(surface.rawValue)-\(mode.rawValue)-\(schemeName)\(label)-smallest.png")
+        }
+    }
+
+    /// G2 gap 3: no hosted render included the Mark Done button. This one does, light and dark, at
+    /// the real container background, margins and device scale (`hostedPNG`'s composition, inlined
+    /// here because `DueSoonWidgetView`'s trailing-button closure needs building before `hostedPNG`
+    /// ever sees the view).
+    @Test("Snapshot: Due soon with the Mark Done button, hosted, light and dark")
+    func dueSoonWithMarkDoneHostedSnapshot() throws {
+        let entry = Self.entry(Self.glance())
+        let content = DueSoonWidgetView(entry: entry) { itemID, accessibilityLabel in
+            AnyView(MarkDoneButton(itemID: itemID, accessibilityLabel: accessibilityLabel))
+        }
+        .environment(\.widgetRenderingMode, Mode.fullColor.renderingMode)
+        for colorScheme: ColorScheme in [.light, .dark] {
+            let hosted = content
+                .padding(TallySpacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(TallyColor.bgBrand)
+                .frame(width: Surface.dueSoonMedium.size.width, height: Surface.dueSoonMedium.size.height)
+                .environment(\.colorScheme, colorScheme)
+            let renderer = ImageRenderer(content: hosted)
+            renderer.scale = 3
+            let png = try #require(renderer.uiImage?.pngData())
+            let schemeName = colorScheme == .dark ? "dark" : "light"
+            Attachment.record(png, named: "widget-due-soon-medium-mark-done-\(schemeName).png")
+        }
     }
 
     // MARK: The "Mark Done" button (M3-D2)
