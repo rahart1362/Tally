@@ -54,6 +54,12 @@ public struct TallyUnavailableView<Actions: View>: View {
             .padding(.vertical, TallySpacing.xxl)
             .frame(maxWidth: .infinity)
         } else {
+            // Onboarding tint (ux-fp5 review): a `.tint()` far up the tree (the onboarding
+            // `NavigationStack`, ux-ui.md's tab/`.sheet` precedent) does not reliably reach the
+            // system `ContentUnavailableView`'s own action buttons — School search's "Retry"
+            // still measured system blue (3.20:1) with that ancestor tint in place. Fixed once
+            // here, in the one shared component every "unavailable" state already uses, rather
+            // than at each call site.
             ContentUnavailableView {
                 Label {
                     title
@@ -67,6 +73,7 @@ public struct TallyUnavailableView<Actions: View>: View {
             } actions: {
                 actions
             }
+            .tint(TallyColor.accent)
         }
     }
 }
