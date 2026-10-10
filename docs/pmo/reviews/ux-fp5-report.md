@@ -151,3 +151,14 @@ the brief.
 
 ## PMO note (2026-10-10): the reproducible Settings failure
 `SettingsSignedInUITests.testSignOutConfirmationReadableAtAccessibilityXXXL` (added in UX-FP1, PR #42) failed in runs 38010346618 (and its rerun) and 38019483219 with "settings.signOut Button never appeared". The failure hierarchy shows the Settings sheet **open**, with the Subscription row 284 pt tall at AX5 and Sign Out & Erase not yet built by the lazy List. The test tapped without scrolling. The row's "Active until …" date text changes by day, so this is a date-sensitive test gap, not this package's code; it passed on `main` on 10-09. **Fix (PMO):** the test scrolls to the button first (`scrollUntilHittable`), as the suite's other AX tests do.
+
+## Gate 2 (PMO, 2026-10-10)
+Opus review: **PASS**. D06 1.21 → 15.56:1 light, 12.73:1 dark. D24 fixed; the emblem files are byte-identical to `main`. D23 is better but uneven (S3). G2 is faithful in full colour, but the accented and vibrant renders paint a navy backdrop the system removes, and the Lock Screen accessories get no backdrop. Retry measures 7.24:1 light, 9.64:1 dark.
+
+**Correction:** `cbac915`'s code comments claimed that the ancestor `.tint` didn't reach "Retry", "confirmed on device". The Audit tour captures show it did, and no device was used. The PMO rewrote both comments to match the evidence; the code is unchanged.
+
+New follow-ups, not caused by this PR:
+- **N1 (S2):** the Standing (small) widget truncates "3 courses not includ…".
+- **N2 (S3):** the Due soon (medium) widget content is about 12 pt taller than its box (9 pt / 11.5 pt vertical margins against 16 pt sides).
+
+Device checks: D06 on a tinted Home Screen and in StandBy, the Lock Screen accessories, and the cover.

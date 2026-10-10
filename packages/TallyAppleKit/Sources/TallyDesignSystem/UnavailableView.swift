@@ -54,15 +54,11 @@ public struct TallyUnavailableView<Actions: View>: View {
             .padding(.vertical, TallySpacing.xxl)
             .frame(maxWidth: .infinity)
         } else {
-            // Onboarding tint (ux-fp5 review): the system `ContentUnavailableView`'s own action
-            // buttons do not honour an ancestor `.tint()` — tried both on the onboarding
-            // `NavigationStack` and directly here; School search's "Retry" still measured system
-            // blue (3.20:1) either way (confirmed on device, Audit tour runs 38018253185 and
-            // 38023201467). A caller whose `actions` has no `.buttonStyle` of its own (every
-            // other `TallyUnavailableView` call site already applies `.tallyPrimary`/
-            // `.tallySecondary`, which paint their own colour directly and are unaffected) needs
-            // an explicit `.foregroundStyle(TallyColor.accent)` on its own label instead —
-            // `SchoolSearchView.swift`'s `.searchFailed` case.
+            // Onboarding tint (ux-fp5): the onboarding stack's `.tint(TallyColor.accent)`
+            // (`WelcomeFlowView`) colours School search's "Retry" (measured 7.24:1 light, 9.64:1
+            // dark in Audit tour 38023201467, gate 2). The call sites that pass a `.tallyPrimary`/
+            // `.tallySecondary` button paint their own colour; `SchoolSearchView`'s plain "Retry"
+            // also sets `.foregroundStyle(TallyColor.accent)` so it never depends on an ancestor.
             ContentUnavailableView {
                 Label {
                     title
