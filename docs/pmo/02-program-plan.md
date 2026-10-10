@@ -159,7 +159,7 @@ Canvas natively supports parent access through **observer** accounts and student
   - The process is in the PMO kit's `pmo-ux-common.md` and agent rule 14.
 - **The design-quality audit (2026-10-07):** 33 defects (S1 6, S2 19, S3 8). The owner approved the fix wave in the recommended order the same day.
 - **Owner, 2026-10-08:** approved the post-freeze string "Grades kept outside Canvas" (plan 08 §6).
-- **The fix wave, delivered 2026-10-08 → 10-10.** Every PR passed both gates:
+- **The fix wave, delivered 2026-10-08 → 10-10.** Every PR passed both gates (PR #48 is a follow-up):
 
   | PR | Package | Defects |
   |---|---|---|
@@ -170,7 +170,7 @@ Canvas natively supports parent access through **observer** accounts and student
   | #46 | UX-FP4 contrast, targets and consistency | D07, D10, D12, D30 |
   | #47 | UX-FP5 widgets and privacy cover | D06, D23, D24, G2, the onboarding tint |
 
-  A small widget follow-up, UX-FP7, covers N1 and N2, D23's polish and the review-render fidelity.
+  | #48 | UX-FP7 widget follow-up | N1 (the Standing small widget no longer truncates), N2 (Due soon fits), D23 polish, G2 review-render fidelity |
 - **PMO rulings in the wave (owner may veto):**
   - the large tab titles stay (the opaque bar background appears only once content scrolls under it);
   - destructive confirmations become a full-screen sheet at accessibility sizes, built from the same strings;
@@ -256,7 +256,7 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | **M2 iOS shell** ✅ *complete 2026-09-28: validation run 36494900022 (PR #3), launch gate per owner decision O10 (branch `pmo/m2-exit`); plan 07 §3* | ARC E01–E04; SEC-04, 07, 08; ENC-03; UX-WP-02, 03, 05; ASC-01, 03, 09, 10, 11 (mock Canvas server), 14 (sample-data mode) | O5 (else placeholders) | App boots from cache in the simulator (no Canvas request before the cached paint), <300 ms warm **on device** (calibration D-P3; on the CI simulator a required gate of 3.0 s median, owner decision O10, 2026-09-28); 12-s slow replay shows the breadcrumb, which self-heals |
 | **M3 Features** ✅ *complete 2026-10-03: PRs #21–#35 and the M3-exit PR merged; `main` run 37093187408 had every required job green; English string freeze (plan 08 §6); FAM-04/05, FAM-11 and the real-account family flows moved to M4* | ARC E05a–e, E06, E07; UX-WP-07–20; SEC-10, 11; ENC-05 | O3, O8, O9 | Every screen is driven by real domain data via sample mode; per-screen UI tests; widget + intents on the simulator |
 | ↳ *plan 08 (2026-09-30)* | Multilingual support (L10N-01…05: iOS system language by default, per-app language through iOS; English + Spanish) and grades kept outside Canvas (XG-01…05: "—" plus an info bubble plus Tell My School; strict detection; a per-course override). Sequencing: `docs/pmo/08-localization-and-external-grades.md` §6. M3 exit adds: the lint baseline is 0 and XG-01…03 are in. M5 adds L10N-05. | owner decisions L-1…3, G-1…6 (decided) | see plan 08 §5 |
-| ↳ *design-quality fix wave* ✅ *complete 2026-10-10: PRs #41–#47 (§2, "Owner decisions and PMO rulings after M3")* | The audit's 33 defects in six UI packages, each through the automated layout gate and an Opus design review; UX-SPARK-2 included | — | Every package's gate-2 review PASS; required CI green |
+| ↳ *design-quality fix wave* ✅ *complete 2026-10-10: PRs #41–#48 (§2, "Owner decisions and PMO rulings after M3")* | The audit's 33 defects in six UI packages, each through the automated layout gate and an Opus design review; UX-SPARK-2 included | — | Every package's gate-2 review PASS; required CI green |
 | **MVP gate** *(owner, 2026-10-01)* | **M3 feature-complete, plus the account-independent parts of M5:** the release checks green on the simulator, the accessibility audit, a full screenshot gallery (the PMO screenshot tour), the privacy manifest, and Sample Data mode as the App Review path. Everything is demonstrable in the simulator, with no Canvas or Apple account needed. | — | **The owner then pursues O1 (Canvas access), O4 (Apple Developer account) and O7 (legal, with a specialist compliance dossier) in parallel. M4 starts when O1 lands.** |
 | **M4 Real Canvas** | ARC F01, F02, B07; SEC-05, 06, 12, **17 (hosted-Canvas spike)**; ASC-13 (demo instance) | **O1, O2, O6** | Real sign-in + refresh + sign-out/erase against a real Canvas; ADR records the token TTL evidence |
 | **M5 Harden + pre-TestFlight gate** | UX-WP-21–23; ASC-05–08, 12, 17, 18; ENC-06–08; SEC-14, 15; ARC E08, G01 (delete legacy) | — | `release-gate.yml` all green: Release build, XCUITest critical flows (kit 13), accessibility audit 0 unwaived, screenshots at 1320×2868, privacy manifest + plist checks |
