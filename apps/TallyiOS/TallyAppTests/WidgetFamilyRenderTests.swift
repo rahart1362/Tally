@@ -56,10 +56,10 @@ struct WidgetFamilyRenderTests {
             }
         }
 
-        /// The real `WidgetFamily` each surface stands in for (G2): the production views that key
-        /// off `\.widgetFamily` (`StandingFamilyView`/`NextUpFamilyView` in
-        /// `GlanceAccessoryViews.swift`) see the family a real host would set, not whatever default
-        /// the environment happens to hold.
+        /// The real `WidgetFamily` each surface stands in for (G2): drives `hostedPNG`'s choice of
+        /// backing (the Home families' `bg.brand`, the two accessories' `AccessoryWidgetBackground`,
+        /// or nothing for the inline accessory) — `\.widgetFamily` itself has no writable key path,
+        /// so this can't be set as an environment value the way `widgetRenderingMode` is.
         var family: WidgetFamily {
             switch self {
             case .nextUpSmall, .standingSmall: .systemSmall
@@ -173,9 +173,11 @@ struct WidgetFamilyRenderTests {
     /// Used only for the attached snapshots below: the functional tests keep using the plain,
     /// unbacked `renderer`/`png`/`alpha` so an opaque test backdrop never masks what they check.
     private static func hostedPNG(_ surface: Surface, _ entry: GlanceEntry, mode: Mode, colorScheme: ColorScheme) -> Data? {
+        // `\.widgetFamily` has no writable key path (only the system host sets it) — the same
+        // reason `StandingWidgetView` above takes `family` as an explicit init argument instead
+        // of reading the environment; `surface.view(_:)` already passes the right one that way.
         let content = surface.view(entry)
             .environment(\.widgetRenderingMode, mode.renderingMode)
-            .environment(\.widgetFamily, surface.family)
         let hosted: AnyView
         switch surface.family {
         case .accessoryInline:
