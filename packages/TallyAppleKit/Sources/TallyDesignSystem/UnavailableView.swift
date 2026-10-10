@@ -54,12 +54,15 @@ public struct TallyUnavailableView<Actions: View>: View {
             .padding(.vertical, TallySpacing.xxl)
             .frame(maxWidth: .infinity)
         } else {
-            // Onboarding tint (ux-fp5 review): a `.tint()` far up the tree (the onboarding
-            // `NavigationStack`, ux-ui.md's tab/`.sheet` precedent) does not reliably reach the
-            // system `ContentUnavailableView`'s own action buttons — School search's "Retry"
-            // still measured system blue (3.20:1) with that ancestor tint in place. Fixed once
-            // here, in the one shared component every "unavailable" state already uses, rather
-            // than at each call site.
+            // Onboarding tint (ux-fp5 review): the system `ContentUnavailableView`'s own action
+            // buttons do not honour an ancestor `.tint()` — tried both on the onboarding
+            // `NavigationStack` and directly here; School search's "Retry" still measured system
+            // blue (3.20:1) either way (confirmed on device, Audit tour runs 38018253185 and
+            // 38023201467). A caller whose `actions` has no `.buttonStyle` of its own (every
+            // other `TallyUnavailableView` call site already applies `.tallyPrimary`/
+            // `.tallySecondary`, which paint their own colour directly and are unaffected) needs
+            // an explicit `.foregroundStyle(TallyColor.accent)` on its own label instead —
+            // `SchoolSearchView.swift`'s `.searchFailed` case.
             ContentUnavailableView {
                 Label {
                     title
@@ -73,7 +76,6 @@ public struct TallyUnavailableView<Actions: View>: View {
             } actions: {
                 actions
             }
-            .tint(TallyColor.accent)
         }
     }
 }
