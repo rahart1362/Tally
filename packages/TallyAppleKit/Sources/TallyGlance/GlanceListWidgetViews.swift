@@ -58,10 +58,20 @@ public struct WeekAheadWidgetView: View {
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
+                // D23: `GlanceHomeLayout`'s own `.frame(maxHeight: .infinity, alignment:
+                // .topLeading)` sizes its *outer* bounds to the large widget's full height for the
+                // container background, but proposes this VStack only its own ideal (content)
+                // height — a nested `Spacer` several VStacks down (inside `GlanceItemList`, before
+                // its footer) never sees that extra height to absorb, so the strip + list floated
+                // at the top with the lower ~40% empty and "1 overdue" stranded right under the
+                // last row. Making *this* VStack explicitly flexible gives `GlanceItemList`'s own
+                // `Spacer` the large widget's real leftover height to distribute, so the footer
+                // lands at the actual bottom edge instead of a dead gap below everything.
                 VStack(alignment: .leading, spacing: TallySpacing.sm) {
                     GlanceWeekStrip(days: summary.week)
                     GlanceItemList(summary: summary, rows: GlanceMetrics.weekAheadRows)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
         }
     }

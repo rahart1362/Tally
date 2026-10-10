@@ -3,6 +3,7 @@ import Foundation
 import PDFKit
 import SwiftUI
 import Testing
+import TallyDesignSystem
 import TallyDomain
 import TallyStore
 import UIKit
@@ -52,6 +53,21 @@ struct WidgetFamilyRenderTests {
             switch self {
             case .dueTodayCircular, .nextItemRectangular, .nextDueInline: true
             default: false
+            }
+        }
+
+        /// The real `WidgetFamily` each surface stands in for (G2): the production views that key
+        /// off `\.widgetFamily` (`StandingFamilyView`/`NextUpFamilyView` in
+        /// `GlanceAccessoryViews.swift`) see the family a real host would set, not whatever default
+        /// the environment happens to hold.
+        var family: WidgetFamily {
+            switch self {
+            case .nextUpSmall, .standingSmall: .systemSmall
+            case .standingMedium, .dueSoonMedium: .systemMedium
+            case .weekAheadLarge: .systemLarge
+            case .dueTodayCircular: .accessoryCircular
+            case .nextItemRectangular: .accessoryRectangular
+            case .nextDueInline: .accessoryInline
             }
         }
 
@@ -143,6 +159,44 @@ struct WidgetFamilyRenderTests {
         renderer(surface, entry, mode: mode, redacted: redacted).uiImage?.pngData()
     }
 
+    /// G2 (review fidelity): `ImageRenderer` never paints a view's `.containerBackground(for:
+    /// .widget)` — it only runs inside WidgetKit's own host — so the plain `renderer(...)` above
+    /// comes back with that background simply missing. That gap is the defect this fixes: "renders
+    /// with no containerBackground and no system content margins, so reviewers had to composite
+    /// colours by hand." This composites, behind the real production view, exactly what each
+    /// surface's own `containerBackground` call already asks for in `GlanceWidgetViews.swift` /
+    /// `GlanceAccessoryViews.swift` — `TallyColor.bgBrand` for every Home family,
+    /// `AccessoryWidgetBackground()` (the system's own type) for the two Lock Screen accessories
+    /// that ask for it, nothing for the inline accessory (`Color.clear`) — plus the Home families'
+    /// standard 16 pt system content margin (`TallySpacing.lg`, the HIG default), which the real
+    /// widget host also applies around a widget's root content and a bare `ImageRenderer` does not.
+    /// Used only for the attached snapshots below: the functional tests keep using the plain,
+    /// unbacked `renderer`/`png`/`alpha` so an opaque test backdrop never masks what they check.
+    private static func hostedPNG(_ surface: Surface, _ entry: GlanceEntry, mode: Mode, colorScheme: ColorScheme) -> Data? {
+        let content = surface.view(entry)
+            .environment(\.widgetRenderingMode, mode.renderingMode)
+            .environment(\.widgetFamily, surface.family)
+        let hosted: AnyView
+        switch surface.family {
+        case .accessoryInline:
+            hosted = AnyView(content)
+        case .accessoryCircular, .accessoryRectangular:
+            hosted = AnyView(content.background(AccessoryWidgetBackground()))
+        default:
+            hosted = AnyView(
+                content
+                    .padding(TallySpacing.lg)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(TallyColor.bgBrand)
+            )
+        }
+        let renderer = ImageRenderer(content: hosted
+            .frame(width: surface.size.width, height: surface.size.height)
+            .environment(\.colorScheme, colorScheme))
+        renderer.scale = 2
+        return renderer.uiImage?.pngData()
+    }
+
     /// Each pixel's opacity: all the system keeps of a widget in the accented mode.
     private static func alpha(_ surface: Surface, _ entry: GlanceEntry, mode: Mode) -> [UInt8] {
         guard let image = renderer(surface, entry, mode: mode).cgImage,
@@ -180,12 +234,22 @@ struct WidgetFamilyRenderTests {
 
     // MARK: Snapshots
 
+    /// G2: every family, every rendering mode (unchanged parameterization), now also light AND
+    /// dark, rendered inside the real container background and system content margins
+    /// (`hostedPNG`) so a reviewer reads the colour straight off the PNG instead of compositing it
+    /// by hand. The opacity assertion is unchanged — it still runs against the plain, unbacked
+    /// render, so an always-opaque test backdrop never masks whether the surface itself drew
+    /// anything.
     @Test("Snapshot: every surface draws in every rendering mode (attached as a PNG)",
           arguments: Surface.allCases, Mode.allCases)
     func snapshot(surface: Surface, mode: Mode) throws {
         let entry = Self.entry(Self.glance())
-        let png = try #require(Self.png(surface, entry, mode: mode), "\(surface.rawValue) did not render in \(mode.rawValue)")
-        Attachment.record(png, named: "m3d-\(surface.rawValue)-\(mode.rawValue).png")
+        for colorScheme: ColorScheme in [.light, .dark] {
+            let png = try #require(Self.hostedPNG(surface, entry, mode: mode, colorScheme: colorScheme),
+                                   "\(surface.rawValue) did not render in \(mode.rawValue) (\(colorScheme))")
+            let schemeName = colorScheme == .dark ? "dark" : "light"
+            Attachment.record(png, named: "widget-\(surface.rawValue)-\(mode.rawValue)-\(schemeName).png")
+        }
         let opaque = Self.alpha(surface, entry, mode: mode).filter { $0 > 0 }.count
         #expect(opaque > 0, "\(surface.rawValue) in \(mode.rawValue) drew nothing")
     }
@@ -222,6 +286,65 @@ struct WidgetFamilyRenderTests {
         #expect(offered.itemIDs.contains("assignment:9101"), "the assignment row got no Mark Done button")
         #expect(offered.itemIDs.allSatisfy { GlancePlannerID.assignmentID($0) != nil },
                 "a non-assignment row got a Mark Done button: \(offered.itemIDs)")
+    }
+
+    /// D06 (S1) regression: before the fix, the glyph had no `foregroundStyle` and took `.plain`'s
+    /// default (`.primary` — black in light mode), 1.21:1 on `bg.brand`. This renders the button
+    /// alone on `bg.brand` (the same colour `GlanceHomeLayout` puts behind every Home widget that
+    /// hosts it), samples the background corner and the pixel that differs from it the most — the
+    /// glyph's own fill at its most opaque, whatever colour it is — and measures their WCAG
+    /// contrast directly from those pixels (never a claimed value), light and dark, against the
+    /// acceptance bar's own 3:1 floor for a control.
+    @Test("D06: the Mark Done glyph measures at least 3:1 against bg.brand, light and dark",
+          arguments: [ColorScheme.light, .dark])
+    func markDoneButtonGlyphContrast(colorScheme: ColorScheme) throws {
+        let size = CGSize(width: 40, height: 40)
+        let view = MarkDoneButton(itemID: "assignment:1", accessibilityLabel: "Mark done")
+            .frame(width: size.width, height: size.height)
+            .background(TallyColor.bgBrand)
+            .environment(\.colorScheme, colorScheme)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let image = try #require(renderer.cgImage, "the Mark Done button did not render")
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: image.width, height: image.height,
+                                          bitsPerComponent: 8, bytesPerRow: image.width * 4, space: space,
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        }
+        // The top-left corner is always clear of the centred glyph, so it reads the actual
+        // rendered background colour (never a hardcoded hex, which would drift from the asset).
+        let corner = (r: pixels[0], g: pixels[1], b: pixels[2])
+        var glyph = corner
+        var worstDelta = 0
+        for pixel in stride(from: 0, to: pixels.count, by: 4) {
+            let r = pixels[pixel], g = pixels[pixel + 1], b = pixels[pixel + 2]
+            let delta = abs(Int(r) - Int(corner.r)) + abs(Int(g) - Int(corner.g)) + abs(Int(b) - Int(corner.b))
+            if delta > worstDelta {
+                worstDelta = delta
+                glyph = (r, g, b)
+            }
+        }
+        #expect(worstDelta > 0, "the glyph drew nothing different from bg.brand in \(colorScheme)")
+        let contrast = Self.wcagContrast(corner, glyph)
+        #expect(contrast >= 3.0,
+                "Mark Done glyph measures \(contrast):1 against bg.brand in \(colorScheme) — below the 3:1 floor (D06)")
+    }
+
+    /// WCAG 2.x relative-luminance contrast, from raw 8-bit sRGB components (the audit's own
+    /// method, `defects.md`: "Contrast ratios were measured from pixels").
+    private static func wcagContrast(_ a: (r: UInt8, g: UInt8, b: UInt8), _ b: (r: UInt8, g: UInt8, b: UInt8)) -> Double {
+        func channel(_ value: UInt8) -> Double {
+            let normalized = Double(value) / 255
+            return normalized <= 0.03928 ? normalized / 12.92 : pow((normalized + 0.055) / 1.055, 2.4)
+        }
+        func luminance(_ colour: (r: UInt8, g: UInt8, b: UInt8)) -> Double {
+            0.2126 * channel(colour.r) + 0.7152 * channel(colour.g) + 0.0722 * channel(colour.b)
+        }
+        let (lighter, darker) = luminance(a) > luminance(b) ? (luminance(a), luminance(b)) : (luminance(b), luminance(a))
+        return (lighter + 0.05) / (darker + 0.05)
     }
 
     @Test("Every state renders on every surface: placeholder, each message (the subscription lock too), a summary",

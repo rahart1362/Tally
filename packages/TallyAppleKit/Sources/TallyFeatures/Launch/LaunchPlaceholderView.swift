@@ -6,12 +6,19 @@ import TallyDesignSystem
 /// every launch (perf-app-runtime.md §2.4 L2) and doubles as the **privacy cover** (ADR 0001 step
 /// 1; ux-ui.md §3.7.8): opaque, never a material, so no grade can show through it in the app
 /// switcher or before the lock decision.
+///
+/// ux-fp5 D24: the privacy cover used to be a small navy rounded rect (160 pt, with a 48 pt T-mark
+/// pinned to its leading edge) floating near the top of an otherwise blank `bg.canvas` page — "a
+/// navy block with a small icon on a blank page," read as a half-loaded screen in the app switcher.
+/// It now fills the whole card with `bg.brand` and centres the T-mark on it, the same brand-panel
+/// treatment `WelcomeView.brandPanel` uses, so the switcher shows a deliberate, recognisable,
+/// content-free Tally card instead.
 struct LaunchPlaceholderView: View {
     enum Role {
         /// `RootRoute.launching`: the launch colour alone, exactly the system launch screen.
         case launch
-        /// The privacy cover on `.inactive`: the launch colour plus a redacted hero silhouette
-        /// (ux-ui.md §3.7.8), so the app switcher shows a recognisable, content-free Tally card.
+        /// The privacy cover on `.inactive`: the brand panel (ux-ui.md §3.7.8), so the app switcher
+        /// shows a recognisable, content-free Tally card.
         case privacyCover
     }
 
@@ -19,11 +26,10 @@ struct LaunchPlaceholderView: View {
 
     var body: some View {
         ZStack {
-            TallyColor.bgCanvas
+            backgroundColor
                 .ignoresSafeArea()
             if role == .privacyCover {
-                HeroSilhouette()
-                    .padding(.horizontal, TallySpacing.screenMargin)
+                TMark(size: 96)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -31,21 +37,8 @@ struct LaunchPlaceholderView: View {
         .accessibilityLabel(role == .privacyCover ? Text(verbatim: "Tally") : Text(verbatim: ""))
         .accessibilityIdentifier(role == .privacyCover ? "privacy.cover" : "launch.placeholder")
     }
-}
 
-/// The hero card's shape with nothing in it: no figures, no names.
-private struct HeroSilhouette: View {
-    var body: some View {
-        VStack {
-            RoundedRectangle(cornerRadius: TallyRadius.hero, style: .continuous)
-                .fill(TallyColor.bgBrand)
-                .frame(height: 160)
-                .overlay(alignment: .leading) {
-                    TMark(size: 48)
-                        .padding(TallySpacing.lg)
-                }
-            Spacer()
-        }
-        .padding(.top, TallySpacing.xxxl)
+    private var backgroundColor: Color {
+        role == .privacyCover ? TallyColor.bgBrand : TallyColor.bgCanvas
     }
 }
