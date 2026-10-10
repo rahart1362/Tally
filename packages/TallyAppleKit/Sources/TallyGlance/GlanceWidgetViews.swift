@@ -238,16 +238,22 @@ private struct StandingSummaryView: View {
             if let band = summary.standing {
                 Spacer(minLength: 0)
                 GradeBandBadge(band: band)
-                ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
-                    // N1: at the small widget's real 16 pt margins, a single line truncates
-                    // "N courses not included" ("3 courses not includ…"). Copy is frozen, so this
-                    // wraps to a second line instead of shortening or cutting off the text; the
-                    // `Spacer`s above and below already yield (`minLength: 0`) when a caption
-                    // needs the extra line.
+                // N1: at the small widget's real 16 pt margins, a single line truncates
+                // "N courses not included" ("3 courses not includ…"). Copy is frozen, so this
+                // wraps that one to a second line instead of shortening or cutting it off; the
+                // `Spacer`s above and below already yield (`minLength: 0`) when it needs the
+                // extra line. Only the second caption (`standingCaptions` returns "Average of N
+                // courses" first, then "N courses not included" when there is one) gets the
+                // 2-line budget — giving both captions a 2-line budget left the *first* one
+                // ("Average of N courses", normally short enough for 1 line, and never the one
+                // the defect was about) truncating instead, on the smallest phone's shorter
+                // small widget, where the two captions were competing for the same few points of
+                // slack (confirmed on the smallest-phone Audit tour render, then fixed here).
+                ForEach(Array(GlanceText.standingCaptions(summary).enumerated()), id: \.offset) { index, caption in
                     Text(verbatim: caption)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(style.secondary)
-                        .lineLimit(2)
+                        .lineLimit(index == 0 ? 1 : 2)
                 }
             } else if let message = GlanceText.standingMessage(summary.grades) {
                 if summary.grades == .notInCanvas {
