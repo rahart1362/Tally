@@ -58,10 +58,22 @@ public struct WeekAheadWidgetView: View {
             case .message(let message):
                 GlanceMessageText(message: message)
             case .summary(let summary):
+                // D23: on a typical glance (a handful of upcoming items, nowhere near
+                // `GlanceMetrics.weekAheadRows`), the large widget's content is naturally much
+                // shorter than its 382 pt canvas. `GlanceItemList`'s own trailing `Spacer` already
+                // reaches the widget's real bottom edge (so the footer was never adrift — it
+                // landed on the last pixel, which is what the audit's own composited evidence
+                // shows), but that put the *entire* ~100 pt+ of slack into one gap between the
+                // last row and "N overdue", reading as a half-built widget. A second `Spacer`
+                // between the strip and the list splits that one dead block into two smaller,
+                // deliberate-looking gaps instead — "distribute the spacing" (`defects.md`), not
+                // dependent on how many items a given glance happens to have.
                 VStack(alignment: .leading, spacing: TallySpacing.sm) {
                     GlanceWeekStrip(days: summary.week)
+                    Spacer(minLength: TallySpacing.lg)
                     GlanceItemList(summary: summary, rows: GlanceMetrics.weekAheadRows)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
         }
     }

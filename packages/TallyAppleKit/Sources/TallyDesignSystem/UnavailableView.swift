@@ -54,6 +54,11 @@ public struct TallyUnavailableView<Actions: View>: View {
             .padding(.vertical, TallySpacing.xxl)
             .frame(maxWidth: .infinity)
         } else {
+            // Onboarding tint (ux-fp5): the onboarding stack's `.tint(TallyColor.accent)`
+            // (`WelcomeFlowView`) colours School search's "Retry" (measured 7.24:1 light, 9.64:1
+            // dark in Audit tour 38023201467, gate 2). The call sites that pass a `.tallyPrimary`/
+            // `.tallySecondary` button paint their own colour; `SchoolSearchView`'s plain "Retry"
+            // also sets `.foregroundStyle(TallyColor.accent)` so it never depends on an ancestor.
             ContentUnavailableView {
                 Label {
                     title

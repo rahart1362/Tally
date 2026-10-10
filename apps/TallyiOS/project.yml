@@ -216,6 +216,11 @@ targets:
       # WidgetGlanceTests: the widget's reader, timeline, Keychain parity and views.
       - package: TallyAppleKit
         product: TallyGlance
+      # ux-fp5 G2: WidgetFamilyRenderTests composites the real `TallyColor.bgBrand` /
+      # `AccessoryWidgetBackground` behind each snapshot (ImageRenderer does not paint
+      # `containerBackground` outside WidgetKit's own host), same re-export rule as above.
+      - package: TallyAppleKit
+        product: TallyDesignSystem
       # LocalizationTests (plan 08 L10N-01): L10n, TallyFormat and TallyLocale.
       - package: TallyAppleKit
         product: TallyStrings

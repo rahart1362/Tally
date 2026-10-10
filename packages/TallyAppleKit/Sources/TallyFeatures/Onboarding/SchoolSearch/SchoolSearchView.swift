@@ -164,8 +164,14 @@ struct SchoolSearchView: View {
             TallyUnavailableView(Text(L10n.Onboarding.SchoolSearch.searchFailedTitle()), systemImage: "exclamationmark.triangle",
                                  description: Text(L10n.Onboarding.SchoolSearch.searchFailedDescription())) {
                 // D10: the 44 pt minimum inside the label, not on the button itself.
+                // Onboarding tint (FP-4/FP-5 review): "Retry" was system blue (3.20:1). The
+                // onboarding stack's tint now reaches it (gate 2 measured 7.24:1 light, 9.64:1
+                // dark); this explicit colour keeps it on brand without relying on an ancestor.
+                // It stays a plain text action, not `.tallyPrimary`, which would add chrome this
+                // inline failure never had.
                 Button(action: viewModel.retry) {
                     Text(L10n.Onboarding.retry())
+                        .foregroundStyle(TallyColor.accent)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }

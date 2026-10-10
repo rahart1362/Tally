@@ -28,6 +28,11 @@ struct WelcomeFlowView: View {
                 destination(for: route)
             }
         }
+        // FP-4 review: School search's "Retry" (and any other unstyled control in this stack)
+        // fell back to the system blue tint, 3.20:1 on its background. One tint here, the same
+        // fix `HomeShellView`'s `TabView`/`.sheet` already apply, covers the whole onboarding
+        // stack — Welcome, school search and its failure states, sign-in hand-off, first sync.
+        .tint(TallyColor.accent)
     }
 
     @ViewBuilder

@@ -18,6 +18,14 @@ struct MarkDoneButton: View {
         Button(intent: MarkDoneIntent(itemID: itemID)) {
             Image(systemName: "checkmark.circle")
                 .font(TallyTypography.cardTitle)
+                // D06: with no foreground style, the glyph took `.plain`'s default
+                // (`.primary`), which renders black in light mode — 1.21:1 on `bg.brand`'s navy,
+                // the owner's "dark glyph on navy" lapse. `brandCream` is the fixed wordmark/mark
+                // fill already used on this same brand surface (`TallyColor.swift`), so the glyph
+                // reads the same regardless of the system's light/dark setting; `.widgetAccentable()`
+                // keeps it visible when the system takes over in the accented and vibrant modes.
+                .foregroundStyle(TallyColor.brandCream)
+                .widgetAccentable()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
