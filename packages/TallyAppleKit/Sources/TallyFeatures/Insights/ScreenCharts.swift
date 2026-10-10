@@ -26,6 +26,15 @@ struct CategoryWeightsChart: View {
         }
         .chartXScale(domain: 0.0...100.0)
         .chartXAxis(.hidden)
+        // D07: the category names are the chart's y-axis value labels, drawn by Swift Charts in
+        // the system secondary grey by default (3.44:1 on white); style them like every other
+        // secondary label.
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisValueLabel()
+                    .foregroundStyle(TallyColor.textSecondary)
+            }
+        }
         .frame(height: CGFloat(max(weights.count, 1)) * rowHeight)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)

@@ -91,6 +91,10 @@ struct SettingsView: View {
             // D01: content scrolled past the top stayed visible, blurred, under the inline title
             // and the status bar, even at rest.
             .tallyFormScreenChrome()
+            // D07: every `LabeledContent` row value in this Form (plus the embedded Linked
+            // students, Reminders and Family & Sharing sections) in `TallyColor.textSecondary`
+            // instead of the system secondary grey.
+            .labeledContentStyle(.tallySecondaryValue)
             .navigationTitle(Text(L10n.Settings.navigationTitle()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -246,6 +250,7 @@ struct SettingsView: View {
             }
         } header: {
             Text(L10n.Settings.accountHeader())
+                .tallySectionText()
         }
     }
 
@@ -299,8 +304,10 @@ struct SettingsView: View {
                 }
             } header: {
                 Text(L10n.Settings.whatChangedHeader())
+                    .tallySectionText()
             } footer: {
                 Text(SettingsCopy.thresholdFooter)
+                    .tallySectionText()
             }
         }
     }
@@ -319,6 +326,7 @@ struct SettingsView: View {
                            value: home.isSampleData ? String(localized: L10n.Settings.notUsedForSampleData()) : backgroundRefresh.text)
         } header: {
             Text(L10n.Settings.dataAndRefreshHeader())
+                .tallySectionText()
         }
     }
 
@@ -338,8 +346,10 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.subscribe")
             } header: {
                 Text(L10n.Calendar.tabTitle())
+                    .tallySectionText()
             } footer: {
                 Text(L10n.Settings.calendarFooter())
+                    .tallySectionText()
             }
         }
     }
@@ -358,9 +368,11 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.whatTallyStores")
         } header: {
             Text(L10n.Settings.privacySecurityHeader())
+                .tallySectionText()
         } footer: {
             if let lockSettings, lockSettings.hasLoaded {
                 Text(lockSettings.footer)
+                    .tallySectionText()
             }
         }
         if isSignedIn, let settings {
@@ -375,6 +387,7 @@ struct SettingsView: View {
                 }
             } footer: {
                 Text(SettingsCopy.widgetGradesFooter)
+                    .tallySectionText()
             }
         }
     }
@@ -385,8 +398,10 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.version")
         } header: {
             Text(L10n.Settings.aboutHeader())
+                .tallySectionText()
         } footer: {
             Text(SettingsCopy.disclaimer)
+                .tallySectionText()
         }
     }
 }
@@ -445,6 +460,7 @@ struct PerCourseThresholdsView: View {
                 }
             } footer: {
                 Text(SettingsCopy.thresholdFooter)
+                    .tallySectionText()
             }
         }
         // D01: content scrolled past the top stayed visible, blurred, under the inline title and

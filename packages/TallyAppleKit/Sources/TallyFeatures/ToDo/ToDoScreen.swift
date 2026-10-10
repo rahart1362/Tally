@@ -27,6 +27,7 @@ struct ToDoScreen: View {
                             }
                         } header: {
                             Text(section.title)
+                                .tallySectionText()
                         }
                         // D31 round 2: applied to the Section, which reaches every row inside it.
                         .tallyRow()

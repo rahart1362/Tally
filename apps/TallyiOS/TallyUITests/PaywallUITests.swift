@@ -69,6 +69,26 @@ final class PaywallUITests: TallyUITestCase {
         assertEveryButtonHasALabel(app, screen: "the paywall at AX5")
     }
 
+    /// D10 (S2): "Restore Purchases", "Redeem Code", "Terms of Use" and "Privacy Policy" were small
+    /// text links whose hit area stayed text-sized (20 / 21 / 15 / 15 pt, measured); the fix moves
+    /// `.frame(minHeight: 44)` inside each label so the whole row is tappable.
+    @MainActor
+    func testPaywallLinksMeetTheMinimumHitTarget() throws {
+        let app = launchSample(arguments: TestHooks.entitlement("none"))
+        openSubscriptionSettings(app)
+        openPaywallThroughTheInterstitial(app)
+        for id in ["paywall.restore", "paywall.redeem"] {
+            let button = app.buttons[id]
+            XCTAssertTrue(scrollUntilHittable(button, in: app), "\(id) is out of reach. Hierarchy: \(app.debugDescription)")
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44, "\(id): \(button.frame)")
+        }
+        for id in ["paywall.terms", "paywall.privacy"] {
+            let link = element(id, in: app)
+            XCTAssertTrue(scrollUntilHittable(link, in: app), "\(id) is out of reach. Hierarchy: \(app.debugDescription)")
+            XCTAssertGreaterThanOrEqual(link.frame.height, 44, "\(id): \(link.frame)")
+        }
+    }
+
     // MARK: - PAY-06: placement
 
     /// (a) Before sign-in and on "not available at your school": no purchase control at all.

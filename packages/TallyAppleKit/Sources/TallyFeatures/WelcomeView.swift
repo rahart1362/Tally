@@ -58,6 +58,12 @@ struct WelcomeView: View {
         }
         // ux-fp2 D05: a scroll cue on appear (only when the page is taller than the screen).
         .scrollIndicatorsFlash(onAppear: true)
+        // ux-fp4 S3: at AX5 the tall navy brand panel scrolls up under the status bar; with no
+        // navigation bar here (hidden below) to pair with `tallyScreenChrome()`'s own
+        // `toolbarBackground`, this screen never picked up D01's `.hard` edge fix, so the
+        // system's default `.soft` edge blurred/faded the navy into a grey haze at the top, the
+        // same failure mode D01 fixed everywhere else.
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .background(TallyColor.bgCanvas)
         // perf-app-runtime.md §7 step 3: both entry actions are pinned above the bottom safe
         // area, so they are on screen and tappable from the first frame on every iPhone and at

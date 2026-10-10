@@ -179,18 +179,27 @@ public struct HomeShellView: View {
         // two chained `.sheet` modifiers here, the subscription changing under Settings closed it (run
         // 36976774341).
         .sheet(item: presentedSheet) { sheet in
-            switch sheet {
-            case .settings:
-                // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
-                SettingsView(opensAddStudent: settingsAddsStudent)
-                    .environment(home)
-                    .environment(appModel)
-            case .paywall(let request):
-                if let appModel {
-                    PaywallView(model: PaywallModel(trigger: request.trigger, school: home.dashboard.hero.school,
-                                                    subscription: appModel.subscription, storefront: appModel.storefront))
+            // D30: the TabView's `.tint(TallyColor.accent)` above does not reach a `.sheet`'s own
+            // hierarchy, so Settings/Subscription/Family/Paywall links fell back to the system's
+            // iOS blue. One tint here covers all four: Subscription and Family are pushed from
+            // SettingsView's own NavigationStack, and SettingsView's own further sheets (add
+            // student, invite) inherit it too, since a sheet's presentation inherits the
+            // presenting view's environment.
+            Group {
+                switch sheet {
+                case .settings:
+                    // M3-A (UX-WP-20): the sheet's content gets the Home model and the app model explicitly.
+                    SettingsView(opensAddStudent: settingsAddsStudent)
+                        .environment(home)
+                        .environment(appModel)
+                case .paywall(let request):
+                    if let appModel {
+                        PaywallView(model: PaywallModel(trigger: request.trigger, school: home.dashboard.hero.school,
+                                                        subscription: appModel.subscription, storefront: appModel.storefront))
+                    }
                 }
             }
+            .tint(TallyColor.accent)
         }
         // FAM-09: a student shown for the first time starts their own Home (`start()` runs once).
         .task(id: ObjectIdentifier(home)) { await home.start() }

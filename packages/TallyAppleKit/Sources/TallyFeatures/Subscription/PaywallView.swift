@@ -98,6 +98,10 @@ private struct PaywallHeader: View {
 private struct PaywallFeatures: View {
     let features: [PaywallContent.Feature]
 
+    /// D12 at AX sizes (ux-fp4 gate 2): the icon column scales with the text, as the glyph does,
+    /// so a fixed 28 pt frame no longer lets an AX5 glyph spill onto its text and the margin.
+    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
+
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.md) {
             Text(L10n.Subscription.includedHeader())
@@ -106,8 +110,11 @@ private struct PaywallFeatures: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(features, id: \.self) { feature in
                 HStack(alignment: .firstTextBaseline, spacing: TallySpacing.md) {
+                    // D12: a fixed icon width, as `WelcomeView`'s `BenefitRow` already does, so the
+                    // text starts at one edge instead of a ragged 56 / 50 / 48.7 pt.
                     Image(systemName: Self.symbol(feature))
                         .foregroundStyle(TallyColor.accent)
+                        .frame(width: iconWidth)
                         .accessibilityHidden(true)
                     Text(Self.text(feature))
                         .font(TallyTypography.body)
@@ -212,13 +219,24 @@ private struct PaywallActions: View {
             .buttonStyle(.tallyPrimary)
             .disabled(!model.canPurchase)
             .accessibilityIdentifier("paywall.purchase")
-            Button(String(localized: L10n.Subscription.restorePurchases())) {
+            // D10: the HIG's 44 pt minimum on the label, so the hit area grows with it (the same
+            // fix as the refresh banner's "See Plans", `SubscriptionLockViews.swift`), while the
+            // visual text stays its own small size.
+            Button {
                 Task { await model.restore() }
+            } label: {
+                Text(L10n.Subscription.restorePurchases())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .disabled(model.isWorking)
             .accessibilityIdentifier("paywall.restore")
-            Button(String(localized: L10n.Subscription.redeemCode()), action: onRedeem)
-                .accessibilityIdentifier("paywall.redeem")
+            Button(action: onRedeem) {
+                Text(L10n.Subscription.redeemCode())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("paywall.redeem")
         }
         .font(TallyTypography.body)
     }
@@ -247,13 +265,19 @@ private struct PaywallLegalLinks: View {
     private var links: some View {
         if let terms = SubscriptionLinks.termsOfUse {
             Link(destination: terms) {
+                // D10: the same 44 pt minimum as the buttons above, inside the label so the
+                // visible text stays footnote-sized.
                 Text(L10n.Subscription.termsOfUse())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityIdentifier("paywall.terms")
         }
         if let privacy = SubscriptionLinks.privacyPolicy {
             Link(destination: privacy) {
                 Text(L10n.Subscription.privacyPolicy())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityIdentifier("paywall.privacy")
         }
