@@ -239,10 +239,15 @@ private struct StandingSummaryView: View {
                 Spacer(minLength: 0)
                 GradeBandBadge(band: band)
                 ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
+                    // N1: at the small widget's real 16 pt margins, a single line truncates
+                    // "N courses not included" ("3 courses not includ…"). Copy is frozen, so this
+                    // wraps to a second line instead of shortening or cutting off the text; the
+                    // `Spacer`s above and below already yield (`minLength: 0`) when a caption
+                    // needs the extra line.
                     Text(verbatim: caption)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(style.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             } else if let message = GlanceText.standingMessage(summary.grades) {
                 if summary.grades == .notInCanvas {
