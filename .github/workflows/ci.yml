@@ -705,13 +705,19 @@ jobs:
     runs-on: xcode-27
     # TEST-REL 2026-10-11: this job was cancelled at this cap, never reporting, on every main push
     # for 12 runs (run 38059604806: the build passed at 14:29, TallyAppTests' last result printed
-    # at 14:42:19, then nothing for 30 min until the cap). Giving it the Makefile's IOS_TEST_FLAGS
-    # (-test-timeouts-enabled YES, 120 s/300 s allowances, via `make ios-test` below) did not fix
-    # it: a verification dispatch (run 38138052657) still ran the full 45 minutes, ending with
-    # "Terminate orphan process: ... xcodebuild" — a per-test allowance cannot stop whatever this
-    # is. Each test bundle now gets its own step-level timeout (see "Run TallyAppTests" / "Run
-    # TallyUITests" below) so a hang in one no longer costs the other its chance to report; this
-    # job-level cap just needs enough margin for setup, both 20-minute step budgets and the upload.
+    # at 14:42:19, then nothing for 30 min until the cap). Two confirmed causes, found by splitting
+    # the one `xcodebuild test` call below into its two bundles, each with its own step timeout
+    # (run 38141278119, 36m44s total, both steps ending in failure but the job completing and
+    # reporting instead of being cancelled):
+    # 1. `SubscriptionStoreKitTests.purchase()` hangs on this SDK: "Test exceeded execution time
+    #    allowance of 3 minutes" (its suite's own `.timeLimit`, already present) once xcodebuild
+    #    actually enforces it, which needs IOS_TEST_FLAGS' -test-timeouts-enabled YES — missing
+    #    before this fix. No suite here lacks a `.timeLimit`; this one just needed the flag.
+    # 2. The UI tests never launch at all: 20 minutes of zero output (no "Test Suite … started",
+    #    nothing but xcodebuild's own idle noise) before the step's own timeout. Not a test or a
+    #    missing allowance — xcodebuild/the simulator never gets past launching the first UI test
+    #    on this preview SDK. No timeout *inside* a test process can reach a hang before launch; the
+    #    step-level timeout below is a damage bound, not a fix, and is an open item for the PMO.
     timeout-minutes: 55
     continue-on-error: true # preview image; must never gate the required checks above
     steps:
@@ -747,17 +753,19 @@ jobs:
       # result bundle is ready to upload even when a test fails.
       - name: Build TallyAppTests + TallyUITests for testing (Xcode 27 SDK)
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
-      # Split from the UI tests (TEST-REL, 2026-10-11, run 38138052657: with IOS_TEST_FLAGS this
-      # job *still* ran to its 45-minute cap with "Terminate orphan process: ... xcodebuild" at the
-      # end — a per-test allowance cannot stop whatever this is, so each bundle gets its own
-      # step-level timeout instead: a hang in one no longer costs the other its chance to report,
-      # and the job reaches Upload either way.
+      # Split into its two bundles (TEST-REL, 2026-10-11): TallyAppTests reports real counts in
+      # ~11 min (run 38141278119); the UI tests currently never launch on this SDK at all (20 min
+      # of silence). Splitting means the one that completes still gets to report, and the one that
+      # cannot is bounded to its own step, not the whole job.
       - name: Run TallyAppTests (Xcode 27 SDK, every failure printed in full)
         timeout-minutes: 20
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.sim27.outputs.udid }}" IOS_RESULT_NAME=Tally-xcode27-apptests \
             IOS_ONLY_TESTING=-only-testing:TallyAppTests
+      # Open item (PMO): 20 minutes of zero output every time so far — the UI test host never
+      # launches on this preview SDK's simulator. `if: always()` so this still runs, and still gets
+      # its own bounded failure, when the step above times out or fails.
       - name: Run TallyUITests (Xcode 27 SDK, every failure printed in full)
         if: always()
         timeout-minutes: 20
