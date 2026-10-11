@@ -74,6 +74,7 @@ struct SettingsView: View {
                                           onExploreStudentMode: studentModeAction)
                 }
                 accountSection
+                languageSection
                 // M3-C (UX-WP-12): the reminders permission and "Hide Course Names".
                 RemindersSettingsSection(reminders: app?.reminders, isSampleData: home.isSampleData,
                                          settings: isSignedIn ? settings : nil)
@@ -99,7 +100,10 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
+                    // L10N-04: a stable id (the Audit tour looked this up by its English label —
+                    // "Done" — which Spanish changes to "Listo").
                     Button(String(localized: L10n.Account.done())) { dismiss() }
+                        .accessibilityIdentifier("settings.done")
                 }
             }
             // D03 (AX5) round 2: a `.confirmationDialog` was an anchored popover that cut the
@@ -252,6 +256,40 @@ struct SettingsView: View {
             Text(L10n.Settings.accountHeader())
                 .tallySectionText()
         }
+    }
+
+    // MARK: - Language (L-2, L10N-04)
+
+    /// Plan 08 L-2 / L10N-04: no custom picker. The row shows the current app language (the
+    /// system's own language name, not a new string) and opens Tally's page in iOS's own
+    /// Settings, where iOS offers a per-app language override once the main bundle declares more
+    /// than one localization. The row itself appears only once Tally ships more than one
+    /// (`en` alone would have nothing to switch to).
+    @ViewBuilder
+    private var languageSection: some View {
+        if Bundle.main.localizations.filter({ $0 != "Base" }).count > 1 {
+            Section {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                } label: {
+                    LabeledContent(String(localized: L10n.Settings.languageLabel()), value: Self.currentLanguageName)
+                }
+                .accessibilityIdentifier("settings.language")
+            } footer: {
+                Text(L10n.Settings.languageFooter())
+                    .tallySectionText()
+            }
+        }
+    }
+
+    /// The system's own display name for Tally's current language, in Tally's own current
+    /// language (so an es-running Tally reads "español", not "Spanish") — never a new catalog
+    /// string (L10N-04 brief item 3).
+    private static var currentLanguageName: String {
+        let code = Bundle.main.preferredLocalizations.first ?? "en"
+        return Locale.current.localizedString(forIdentifier: code) ?? code
     }
 
     /// PAY-08, PAY-09 (M3-B2): Settings → Subscription, in sample mode too (App Review buys there).

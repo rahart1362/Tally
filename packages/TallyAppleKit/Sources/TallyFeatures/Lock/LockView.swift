@@ -19,10 +19,13 @@ struct LockView: View {
         VStack(spacing: TallySpacing.xl) {
             Spacer()
             TMark(size: 64)
+            // L10N-04: a stable id (the Audit tour looked this up by its English text — "Tally
+            // is locked" — which Spanish changes).
             Text(L10n.Lock.title())
                 .font(TallyTypography.screenTitle)
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("lock.title")
             if lock.lastFailure == .passcodeNotSet {
                 Text(L10n.Lock.passcodeNotSetMessage())
                     .font(TallyTypography.footnote)

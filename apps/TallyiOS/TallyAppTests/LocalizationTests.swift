@@ -34,18 +34,18 @@ struct LocalizationTests {
 
     // MARK: - What the app and the widget ship
 
-    /// `en.lproj` in the app, the widget and the TallyStrings bundle inside each; each declares
-    /// English as its development region and only localization (main ships en only; L10N-04 adds
-    /// es). The display names and the widget gallery keys resolve from the compiled catalogs.
-    @Test("The app and the widget ship en.lproj, declare [en] and resolve their catalogs")
+    /// `en.lproj` and `es.lproj` in the app, the widget and the TallyStrings bundle inside each;
+    /// each declares English as its development region, with Spanish added by L10N-04. The display
+    /// names and the widget gallery keys resolve from the compiled catalogs in both languages.
+    @Test("The app and the widget ship en.lproj and es.lproj, declare [en, es] and resolve their catalogs")
     func shippedLocalizations() throws {
         let app = Bundle.main
         #expect(app.bundleURL.pathExtension == "app", "the tests run hosted in Tally.app: \(app.bundleURL.path)")
-        Self.expectEnglishOnly(app, displayName: "Tally")
+        Self.expectShipped(app, displayName: "Tally")
 
         let plugins = try #require(app.builtInPlugInsURL)
         let widget = try #require(Bundle(url: plugins.appending(path: "TallyWidgets.appex")))
-        Self.expectEnglishOnly(widget, displayName: "Tally Widgets")
+        Self.expectShipped(widget, displayName: "Tally Widgets")
         let gallery = [
             "widget.nextUp.displayName": "Next Up",
             "widget.nextUp.description": "The next thing due in your courses.",
@@ -59,17 +59,19 @@ struct LocalizationTests {
 
         for container in [app, widget] {
             let strings = try #require(Self.stringsBundle(in: container), "no TallyStrings bundle in \(container.bundleURL.lastPathComponent)")
-            #expect(Self.languages(of: strings) == ["en"], "\(strings.bundleURL.path): \(strings.localizations)")
+            #expect(Self.languages(of: strings) == ["en", "es"], "\(strings.bundleURL.path): \(strings.localizations)")
             #expect(FileManager.default.fileExists(atPath: strings.bundleURL.appending(path: "en.lproj").path))
+            #expect(FileManager.default.fileExists(atPath: strings.bundleURL.appending(path: "es.lproj").path))
         }
     }
 
-    private static func expectEnglishOnly(_ bundle: Bundle, displayName: String) {
+    private static func expectShipped(_ bundle: Bundle, displayName: String) {
         let name = bundle.bundleURL.lastPathComponent
         #expect(bundle.object(forInfoDictionaryKey: "CFBundleDevelopmentRegion") as? String == "en", "\(name)")
-        #expect(bundle.object(forInfoDictionaryKey: "CFBundleLocalizations") as? [String] == ["en"], "\(name)")
-        #expect(languages(of: bundle) == ["en"], "\(name): \(bundle.localizations)")
+        #expect(bundle.object(forInfoDictionaryKey: "CFBundleLocalizations") as? [String] == ["en", "es"], "\(name)")
+        #expect(languages(of: bundle) == ["en", "es"], "\(name): \(bundle.localizations)")
         #expect(FileManager.default.fileExists(atPath: bundle.bundleURL.appending(path: "en.lproj").path), "\(name)")
+        #expect(FileManager.default.fileExists(atPath: bundle.bundleURL.appending(path: "es.lproj").path), "\(name)")
         #expect(bundle.localizedInfoDictionary?["CFBundleDisplayName"] as? String == displayName,
                 "\(name): InfoPlist.xcstrings was not compiled into en.lproj")
     }

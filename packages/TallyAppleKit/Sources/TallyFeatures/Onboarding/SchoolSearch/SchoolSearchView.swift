@@ -175,7 +175,13 @@ struct SchoolSearchView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                // L10N-04: a stable id (the Audit tour looked this up by its English label —
+                // "Retry" — which Spanish changes to "Reintentar").
+                .accessibilityIdentifier("onboarding.retry")
             }
+            // L10N-04: a stable id (the Audit tour looked this state up by its English title —
+            // "Couldn't search" — which Spanish changes).
+            .accessibilityIdentifier("schoolSearch.searchFailed")
             .tallyCenteredScrolling()
         }
     }
@@ -189,9 +195,12 @@ struct SchoolSearchView: View {
                 }
             }
             Section {
+                // L10N-04: a stable id (the Audit tour looked this up by its English text, which
+                // Spanish changes).
                 Text(L10n.Onboarding.SchoolSearch.typeAtLeast2Letters())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
+                    .accessibilityIdentifier("schoolSearch.idleHint")
             }
         }
     }
@@ -254,6 +263,9 @@ struct SchoolSearchView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: L10n.Onboarding.SchoolSearch.useAddressAccessibilityLabel(host)))
+        // L10N-04: a stable id (the Audit tour looked this up by its English accessibility
+        // label — "Use %@" — which Spanish changes to "Usar %@").
+        .accessibilityIdentifier("schoolSearch.useAddress")
     }
 
     private func select(_ match: InstitutionMatch) {

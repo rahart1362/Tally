@@ -10,6 +10,12 @@
             "state" : "translated",
             "value" : "Refresh ${applicationName}"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualizar ${applicationName}"
+          }
         }
       }
     },
@@ -21,6 +27,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Update ${applicationName}"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Refrescar ${applicationName}"
           }
         }
       }
@@ -34,6 +46,12 @@
             "state" : "translated",
             "value" : "What's due in ${applicationName}"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence en ${applicationName}"
+          }
         }
       }
     },
@@ -45,6 +63,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What's due next in ${applicationName}"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence a continuación en ${applicationName}"
           }
         }
       }
@@ -58,6 +82,12 @@
             "state" : "translated",
             "value" : "What's due today in ${applicationName}"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence hoy en ${applicationName}"
+          }
         }
       }
     },
@@ -69,6 +99,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What's next in ${applicationName}"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué sigue en ${applicationName}"
           }
         }
       }

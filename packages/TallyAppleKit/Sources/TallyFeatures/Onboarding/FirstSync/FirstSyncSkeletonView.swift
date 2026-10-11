@@ -65,9 +65,12 @@ struct FirstSyncSkeletonView: View {
 
     private var heroPlaceholder: some View {
         VStack(spacing: TallySpacing.lg) {
+            // L10N-04: a stable id (the Audit tour looked this up by its English text —
+            // "Setting up Tally" — which Spanish changes, as its "first sync in progress" signal).
             Text(L10n.Onboarding.FirstSync.settingUpTally())
                 .font(TallyTypography.sectionHeader)
                 .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityIdentifier("onboarding.firstSync.settingUpTally")
 
             HStack(spacing: TallySpacing.lg) {
                 Circle()
@@ -108,8 +111,11 @@ struct FirstSyncSkeletonView: View {
     private func failureState(_ failure: RefreshFailure) -> some View {
         TallyUnavailableView(Text(L10n.Onboarding.FirstSync.failedTitle()), systemImage: "exclamationmark.triangle",
                              description: Text(Self.message(for: failure))) {
+            // L10N-04: a stable id (the Audit tour looked this up by its English label — "Retry"
+            // — which Spanish changes to "Reintentar").
             Button(String(localized: L10n.Onboarding.retry()), action: onRetry)
                 .buttonStyle(.tallyPrimary)
+                .accessibilityIdentifier("onboarding.retry")
             Button(String(localized: L10n.Onboarding.chooseDifferentSchool()), action: onChooseDifferentSchool)
                 .buttonStyle(.tallySecondary)
         }

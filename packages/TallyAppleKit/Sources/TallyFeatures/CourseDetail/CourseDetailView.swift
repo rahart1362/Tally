@@ -384,7 +384,10 @@ struct GradeOverrideMenu: View {
                 get: { GradeOverrideChoice(model.gradeAvailabilityOverride(for: courseID)) },
                 set: { model.setGradeAvailabilityOverride($0.override, for: courseID) })) {
                 ForEach(GradeOverrideChoice.allCases) { choice in
+                    // L10N-04: a stable id per choice (the Audit tour looked these up by their
+                    // English label — "Automatic" — which Spanish changes).
                     Text(choice.title).tag(choice)
+                        .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(choice.rawValue)")
                 }
             } label: {
                 // D17 (pending owner approval): the full question truncates to "…kept outside
@@ -448,7 +451,10 @@ private struct SegmentPicker: View {
     var body: some View {
         Picker(String(localized: L10n.CourseDetail.segmentedControlAccessibilityLabel()), selection: $selection) {
             ForEach(CourseDetailSegment.allCases) { segment in
+                // L10N-04: a stable, language-independent id per segment (the Audit tour looked
+                // these up by their English label — "Grades" — which Spanish changes).
                 Text(segment.title).tag(segment)
+                    .accessibilityIdentifier("courseDetail.segment.\(segment.rawValue)")
             }
         }
         .pickerStyle(.segmented)

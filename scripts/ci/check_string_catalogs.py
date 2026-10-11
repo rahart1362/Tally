@@ -15,14 +15,19 @@ Checks every `.xcstrings` file under apps/ and packages/ (Xcode's String Catalog
      declare in `apps/TallyiOS/project.yml` (`CFBundleLocalizations`, equal for both, with
      `CFBundleDevelopmentRegion: en`). A catalog language that does not ship fails: a partial
      translation on main would show a half-translated app. For each shipping language every key
-     is `translated` (unless marked `shouldTranslate: false`).
+     has a value (unless marked `shouldTranslate: false`), in state `translated` or
+     `needs_review` — plan 08 L10N-04, the owner's 2026-10-11 decision ("machine pass now,
+     review later"): a first machine pass ships as `needs_review`, and a paid native-speaker
+     review flips it to `translated`. **`--release`** tightens this: every unit of every
+     shipping language must be `translated` (`needs_review` fails). `release-gate.yml` and/or
+     `check_release.py` run in `--release` mode; every PR's own run does not.
   5. Code and catalog agree: every keyed lookup in Swift (`LocalizedStringResource("key",
      defaultValue: …)` or `String(localized: "key", defaultValue: …)`) names a key in the
      catalog of its own bundle (the TallyStrings target, or the widget's own catalog), with a
      plain `defaultValue` equal to the English value; every key in those catalogs is used; and
      no other shipping target makes keyed lookups (its bundle has no catalog: use `L10n`).
 
-    python3 scripts/ci/check_string_catalogs.py [ROOT]
+    python3 scripts/ci/check_string_catalogs.py [--release] [ROOT]
     python3 scripts/ci/check_string_catalogs.py --self-test
 
 Exit 0 when every check passes, 1 when one fails, 2 when an input is missing or unreadable.
@@ -137,7 +142,8 @@ def plural_categories(unit: dict) -> list[set[str]]:
     return sets
 
 
-def check_catalog(name: str, catalog: object, shipping: list[str]) -> tuple[list[str], dict[str, str | None]]:
+def check_catalog(name: str, catalog: object, shipping: list[str],
+                  release: bool = False) -> tuple[list[str], dict[str, str | None]]:
     """(problems, {key: plain English value, or None when it varies}) for one parsed catalog."""
     problems: list[str] = []
     english: dict[str, str | None] = {}
@@ -178,8 +184,12 @@ def check_catalog(name: str, catalog: object, shipping: list[str]) -> tuple[list
                 continue
             unit = localizations.get(language)
             states = {leaf.get("state") for _, leaf in leaves(unit)} if isinstance(unit, dict) else set()
-            if not unit or states != {"translated"}:
-                problems.append(f"{where}: {language!r} ships but this key is not translated (states {sorted(map(str, states))})")
+            # Plan 08 L10N-04 (owner, 2026-10-11): "needs_review" (a first machine pass) ships
+            # normally; only --release (the release gate) requires every unit "translated".
+            allowed = {"translated"} if release else {"translated", "needs_review"}
+            label = "translated" if release else "translated or needs_review"
+            if not unit or not states or (states - allowed):
+                problems.append(f"{where}: {language!r} ships but this key is not {label} (states {sorted(map(str, states))})")
     return problems, english
 
 
@@ -350,7 +360,7 @@ def _swift_sources(root: pathlib.Path, directory: str, skip: tuple[str, ...] = (
     return sources
 
 
-def run(root: pathlib.Path) -> int:
+def run(root: pathlib.Path, release: bool = False) -> int:
     try:
         project = (root / PROJECT_YML).read_text(encoding="utf-8")
         catalogs = sorted(p for d in ("apps", "packages") for p in (root / d).rglob("*.xcstrings")
@@ -367,7 +377,7 @@ def run(root: pathlib.Path) -> int:
             except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
                 problems.append(f"{name}: cannot parse: {error}")
                 continue
-            found, english = check_catalog(name, catalog, shipping)
+            found, english = check_catalog(name, catalog, shipping, release=release)
             problems += found
             english_by_catalog[name] = english
             keys += len(english)
@@ -385,8 +395,9 @@ def run(root: pathlib.Path) -> int:
         return 2
     for problem in problems:
         print(f"CATALOG | FAIL | {problem}")
+    mode = " (--release)" if release else ""
     print(f"CATALOG | {'FAIL' if problems else 'PASS'} | {len(catalogs)} catalogs, {keys} keys, "
-          f"shipping {shipping} | {len(problems)} problems")
+          f"shipping {shipping}{mode} | {len(problems)} problems")
     return 1 if problems else 0
 
 
@@ -414,8 +425,8 @@ def self_test() -> int:
         checks += 1
         assert condition, message
 
-    def problems_of(strings: dict, shipping: list[str] | None = None) -> list[str]:
-        return check_catalog("c.xcstrings", _catalog(strings), shipping or ["en"])[0]
+    def problems_of(strings: dict, shipping: list[str] | None = None, release: bool = False) -> list[str]:
+        return check_catalog("c.xcstrings", _catalog(strings), shipping or ["en"], release=release)[0]
 
     # Signatures.
     expect(signature("Average of %lld courses") == {1: "lld"}, signature("Average of %lld courses"))
@@ -459,10 +470,18 @@ def self_test() -> int:
     expect(any("no English value" in p for p in problems_of({"k": {"comment": "c", "localizations": {}}})), "no en")
     expect(any("no translator comment" in p for p in problems_of({"k": {"localizations": {"en": _unit("Hi")}}})),
            "no comment")
-    untranslated = {"k": {"comment": "c", "localizations": {"en": _unit("Hi"), "es": _unit("Hola", "needs_review")}}}
-    expect(any("not translated" in p for p in problems_of(untranslated, ["en", "es"])), "needs_review")
+    # Plan 08 L10N-04 (owner, 2026-10-11): needs_review ships normally; --release requires
+    # every unit translated.
+    needs_review = {"k": {"comment": "c", "localizations": {"en": _unit("Hi"), "es": _unit("Hola", "needs_review")}}}
+    expect(problems_of(needs_review, ["en", "es"]) == [], "needs_review ships in the normal run")
+    expect(any("not translated" in p for p in problems_of(needs_review, ["en", "es"], release=True)),
+           "needs_review fails --release")
+    translated = {"k": {"comment": "c", "localizations": {"en": _unit("Hi"), "es": _unit("Hola", "translated")}}}
+    expect(problems_of(translated, ["en", "es"], release=True) == [], "translated passes --release")
     absent = {"k": {"comment": "c", "localizations": {"en": _unit("Hi")}}}
-    expect(any("not translated" in p for p in problems_of(absent, ["en", "es"])), "missing es")
+    expect(any("not translated or needs_review" in p for p in problems_of(absent, ["en", "es"])), "missing es")
+    expect(any("not translated" in p for p in problems_of(absent, ["en", "es"], release=True)),
+           "missing es fails --release too")
     expect(problems_of({"k": {"comment": "c", "shouldTranslate": False, "localizations": {"en": _unit("Tally")}}},
                        ["en", "es"]) == [], "shouldTranslate false")
     expect(check_catalog("c", {"sourceLanguage": "fr", "strings": {}}, ["en"])[0] != [], "source language")
@@ -499,8 +518,10 @@ def main(argv: list[str]) -> int:
     args = argv[1:]
     if args == ["--self-test"]:
         return self_test()
-    if len(args) <= 1 and not (args and args[0].startswith("--")):
-        return run(pathlib.Path(args[0] if args else ".").resolve())
+    release = "--release" in args
+    rest = [a for a in args if a != "--release"]
+    if len(rest) <= 1 and not (rest and rest[0].startswith("--")):
+        return run(pathlib.Path(rest[0] if rest else ".").resolve(), release=release)
     print(__doc__)
     return 2
 

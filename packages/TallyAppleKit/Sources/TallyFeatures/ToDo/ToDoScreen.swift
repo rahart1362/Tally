@@ -101,6 +101,9 @@ struct ToDoScreen: View {
             // change can't reach; `accent` flips to a light blue in dark (2.08–2.15:1). `accentFill`
             // stays dark enough in both appearances.
             .tint(TallyColor.accentFill)
+            // L10N-04: a stable id (the Audit tour looked this up by its English label — "Done" —
+            // which Spanish changes to "Hecho"/"No hecho").
+            .accessibilityIdentifier(isDone ? "todo.swipe.notDone" : "todo.swipe.done")
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = item.canvasURL {
                 Button {

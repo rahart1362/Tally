@@ -1175,6 +1175,24 @@ public enum L10n {
                                     comment: "Settings sheet's navigation title.")
         }
 
+        /// Plan 08 L-2 / L10N-04 (PENDING owner approval): the row that opens iOS's own per-app
+        /// Language setting for Tally. No custom picker; the row's value is the system's own
+        /// language name, built in `SettingsView`, never a catalog string.
+        public static func languageLabel() -> LocalizedStringResource {
+            LocalizedStringResource("settings.language.label", defaultValue: "Language", bundle: #bundle,
+                                    comment: "Settings row title: opens iOS's own per-app Language setting for Tally (L-2). PENDING owner approval (L10N-04).")
+        }
+
+        /// L10N-01 spike §2 answer 2: iOS lists the per-app Language choice only when the iPhone
+        /// itself has more than one preferred language.
+        public static func languageFooter() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "settings.language.footer",
+                defaultValue: "Tally uses your iPhone's language. iOS shows a Language choice here only when your iPhone has more than one preferred language.",
+                bundle: #bundle,
+                comment: "Settings, Language row footer: explains that iOS lists the per-app Language choice only when the iPhone itself has more than one preferred language (L10N-01 spike §2 answer 2). PENDING owner approval (L10N-04).")
+        }
+
         /// The sign-out confirmation dialog's "Cancel" action.
         public static func cancel() -> LocalizedStringResource {
             LocalizedStringResource("settings.cancel", defaultValue: "Cancel", bundle: #bundle,

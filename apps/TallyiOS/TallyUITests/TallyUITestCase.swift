@@ -28,6 +28,12 @@ class TallyUITestCase: XCTestCase {
     /// here, and the suites that build their own `XCUIApplication` add it themselves.
     static let pinnedLocaleArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
 
+    /// Plan 08 L10N-04: the launch arguments `launchApp(arguments:)` actually uses. A `class var`
+    /// (not `static let`), so `AuditTourUITests` — the one suite the Audit tour workflow runs with
+    /// `language=es` — can override it for an es dispatch while every other suite keeps the plain
+    /// English pin above untouched.
+    class var currentLocaleArguments: [String] { pinnedLocaleArguments }
+
     /// The per-test hang limit for UI tests (`-test-timeouts-enabled`; the command line's
     /// maximum is 300 s). The 120 s default was too tight for this environment: in run
     /// 36370850272 `testSchoolNotEnabledToSampleData` spent 80 s in "Open app" (the app process
@@ -68,7 +74,7 @@ class TallyUITestCase: XCTestCase {
     @discardableResult
     func launchApp(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += Self.pinnedLocaleArguments + TestHooks.entitled + arguments
+        app.launchArguments += Self.currentLocaleArguments + TestHooks.entitled + arguments
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         app.launch()
         return app

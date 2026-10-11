@@ -43,6 +43,9 @@ struct FreshnessFooter: View {
                 }
                 .disabled(presentation.action == .none)
                 .accessibilityLabel(String(localized: L10n.Freshness.refreshButtonLabel()))
+                // L10N-04: a stable id (the Audit tour looked this up by its English
+                // accessibility label — "Refresh" — which Spanish changes to "Actualizar").
+                .accessibilityIdentifier("freshness.refresh")
             }
         }
     }

@@ -219,12 +219,18 @@ struct WidgetFamilyRenderTests {
     /// `size` defaults to the surface's Pro Max size; the smallest-phone snapshots (gap 5) pass
     /// `PhoneClass.smallest.size(for:)` instead.
     private static func hostedPNG(_ surface: Surface, _ entry: GlanceEntry, mode: Mode, colorScheme: ColorScheme,
-                                  size: CGSize? = nil) -> Data? {
+                                  size: CGSize? = nil, locale: Locale? = nil) -> Data? {
         // `\.widgetFamily` has no writable key path (only the system host sets it) — the same
         // reason `StandingWidgetView` above takes `family` as an explicit init argument instead
         // of reading the environment; `surface.view(_:)` already passes the right one that way.
-        let content = surface.view(entry)
-            .environment(\.widgetRenderingMode, mode.renderingMode)
+        // L10N-04: `locale` overrides the SwiftUI environment's `\.locale`, which is what a
+        // catalog-backed `Text(L10n....)` resolves against — the same mechanism the app itself
+        // uses once the per-app Language setting changes it, not a test-only shortcut.
+        var content = AnyView(surface.view(entry)
+            .environment(\.widgetRenderingMode, mode.renderingMode))
+        if let locale {
+            content = AnyView(content.environment(\.locale, locale))
+        }
         let hosted: AnyView
         switch surface.family {
         case .accessoryInline:
@@ -339,6 +345,22 @@ struct WidgetFamilyRenderTests {
             let label = Self.backdropLabel(for: surface, mode: mode)
             Attachment.record(png, named: "widget-\(surface.rawValue)-\(mode.rawValue)-\(schemeName)\(label)-smallest.png")
         }
+    }
+
+    /// Plan 08 L10N-04: every surface, light, at both phone sizes, with the SwiftUI environment's
+    /// `\.locale` set to `es` — the same override the app's own `TallyLocale.effective` produces
+    /// once the per-app Language setting is Spanish, so a catalog-backed `L10n.*` string resolves
+    /// to its (`needs_review`) Spanish value instead of English's `defaultValue`. Attached for the
+    /// owner sheet's "widget on a Spanish Home Screen" row (gate 1).
+    @Test("Snapshot: every surface renders in Spanish, light, at both phone sizes",
+          arguments: Surface.allCases, PhoneClass.allCases)
+    func spanishSnapshot(surface: Surface, phoneClass: PhoneClass) throws {
+        let entry = Self.entry(Self.glance())
+        let size = phoneClass.size(for: surface)
+        let png = try #require(
+            Self.hostedPNG(surface, entry, mode: .fullColor, colorScheme: .light, size: size, locale: Locale(identifier: "es")),
+            "\(surface.rawValue) did not render in es at \(phoneClass.rawValue)")
+        Attachment.record(png, named: "widget-\(surface.rawValue)-es-light-\(phoneClass.rawValue).png")
     }
 
     /// G2 gap 3: no hosted render included the Mark Done button. This one does, light and dark, at

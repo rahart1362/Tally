@@ -233,10 +233,17 @@ final class SettingsSignedInUITests: TallyUITestCase {
 }
 
 extension TallyUITestCase {
+    /// L10N-04 (shared, small and additive): was `app.buttons["Settings"]` and
+    /// `app.navigationBars["Settings"]` — both English labels, which Spanish changes (the Audit
+    /// tour's es dispatch calls this). The toolbar button now has its own id
+    /// (`HomeShellView.settingsToolbarItem`); "Settings opened" is now read off
+    /// `settings.subscription`, a row every route shows (sample, signed-in, school-seat) and which
+    /// already carries its own id, rather than the sheet's localized navigation title. Matching by
+    /// identifier instead of label is strictly more robust for every existing (English) caller too.
     @MainActor
     func openSettings(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        tapWhenHittable(app.buttons["Settings"], in: app, file: file, line: line)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)",
+        tapWhenHittable(element("home.settingsButton", in: app), in: app, file: file, line: line)
+        XCTAssertTrue(element("settings.subscription", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)",
                       file: file, line: line)
     }
 

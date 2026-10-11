@@ -86,6 +86,8 @@ public struct HomeShellView: View {
                 // the same practice L10N-03a's report documents for other lint gaps (flagged for the PMO
                 // in the hand-off report, §3.8).
                 TabView(selection: tabSelection) {
+                    // L10N-04: each tab gets a stable id (the Audit tour's `openTabInTour` looked
+                    // these up by their English label, which Spanish changes).
                     Tab(String(localized: L10n.Home.tabDashboard()), systemImage: "house", value: HomeTab.dashboard) {
                         BuiltTab(.dashboard, isBuilt: builtTabs.contains(.dashboard)) {
                             NavigationStack {
@@ -95,6 +97,7 @@ public struct HomeShellView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("home.tab.dashboard")
                     // M3-A (E05a-e, UX-WP-14…20): each tab's root screen, over `model`'s projections.
                     Tab(String(localized: L10n.Home.tabCourses()), systemImage: "books.vertical", value: HomeTab.courses) {
                         BuiltTab(.courses, isBuilt: builtTabs.contains(.courses)) {
@@ -112,6 +115,7 @@ public struct HomeShellView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("home.tab.courses")
                     Tab(String(localized: L10n.Home.tabCalendar()), systemImage: "calendar", value: HomeTab.calendar) {
                         BuiltTab(.calendar, isBuilt: builtTabs.contains(.calendar)) {
                             NavigationStack {
@@ -127,6 +131,7 @@ public struct HomeShellView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("home.tab.calendar")
                     Tab(String(localized: L10n.Home.tabToDo()), systemImage: "checklist", value: HomeTab.toDo) {
                         BuiltTab(.toDo, isBuilt: builtTabs.contains(.toDo)) {
                             NavigationStack {
@@ -142,6 +147,7 @@ public struct HomeShellView: View {
                     }
                     // ux-ui.md §3.4: the To-Do badge counts missing work only (HIG: critical information).
                     .badge(home.toDoScreen.missingCount)
+                    .accessibilityIdentifier("home.tab.toDo")
                     Tab(String(localized: L10n.Home.tabInsights()), systemImage: "chart.xyaxis.line", value: HomeTab.insights) {
                         BuiltTab(.insights, isBuilt: builtTabs.contains(.insights)) {
                             NavigationStack {
@@ -155,6 +161,7 @@ public struct HomeShellView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("home.tab.insights")
                 }
                 // A dynamic colour (ux-ui.md §3.4: "never navy on dark"); minimised-on-scroll is the
                 // system default for a 2-tab bar but not requested here, so no `.tabViewStyle` override.
@@ -288,6 +295,9 @@ public struct HomeShellView: View {
                 Image(systemName: "person.crop.circle")
             }
             .accessibilityLabel(Text(L10n.Home.settingsButton()))
+            // L10N-04: a stable id (the Audit tour looked this up by its English accessibility
+            // label — "Settings" — which Spanish changes).
+            .accessibilityIdentifier("home.settingsButton")
         }
     }
 }
