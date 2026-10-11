@@ -62,6 +62,26 @@ extension TallyUITestCase {
         return clear()
     }
 
+    /// Waits for `element`'s frame to stop moving (two checks `interval` apart land on the same
+    /// rect), up to `timeout`: the swipe that brought it on screen (`bringClearOfTheBottom`) has
+    /// finished decelerating. `true` once it has, or once `timeout` passes regardless (run
+    /// 38059604806's To-Do batch select: `isHittable` and clear of the bottom bar both go true
+    /// before the list's deceleration ends, so a tap right after can still land mid-scroll).
+    @MainActor
+    @discardableResult
+    func waitUntilRowAtRest(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 3,
+                            interval: TimeInterval = 0.15) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        var previous = element.frame
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(interval))
+            let next = element.frame
+            if next == previous { return true }
+            previous = next
+        }
+        return element.frame == previous
+    }
+
     /// Flips a Form toggle. The toggle's element spans the whole row, and a tap on the row's centre
     /// lands on the label, which does not flip it; tap the switch itself (the row's inner switch
     /// when the hierarchy has one, else the trailing end of the row where the switch sits).

@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). Pull requests run the required jobs; the PR run is the hand-off run."
+        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). compat: only ios-xcode27-forward-compat, to dispatch it without a full run. Pull requests run the required jobs; the PR run is the hand-off run."
         type: choice
-        options: [full, quick, unit]
+        options: [full, quick, unit, compat]
         default: full
 
 permissions:
@@ -28,6 +28,9 @@ jobs:
     name: Hygiene gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request (this
+    # is always true for both, same as having no `if:` at all).
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: App icon is 1024x1024 with no alpha
@@ -147,6 +150,8 @@ jobs:
     name: TallyCore tests (Linux, Swift 6.4)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     container:
       image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; same digest as `make core-test`
     steps:
@@ -162,6 +167,8 @@ jobs:
     name: Crash-safety lint (SwiftLint 0.59.1, pinned)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make lint (force_unwrapping, force_try, force_cast, implicitly_unwrapped_optional)
@@ -171,6 +178,8 @@ jobs:
     name: TallyCore sanitizers (TSan + ASan/LSan, Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # TSan needs a memory layout that high ASLR entropy breaks. The Makefile already
@@ -196,6 +205,8 @@ jobs:
     # Timing on shared runners is noisy. Report-only until the PMO has seen five
     # green runs on main (perf-app-runtime.md D-P3); after that it becomes required.
     continue-on-error: true
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make core-perf (median of >= 5, release)
@@ -236,6 +247,8 @@ jobs:
     # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
     timeout-minutes: 110 # ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
+    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -684,10 +697,19 @@ jobs:
 
   ios-xcode27-forward-compat:
     name: iOS forward-compat (Xcode 27 preview, non-blocking)
-    # Report-only: main pushes and full dispatches, not pull requests (PMO, 2026-10-01). GitHub runs
-    # 5 macOS jobs at a time; a PR run keeps only the 4 required macOS jobs, so two streams' runs queue less.
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.scope == 'full') }}
+    # Report-only: main pushes, full dispatches and compat dispatches, not pull requests (PMO,
+    # 2026-10-01). GitHub runs 5 macOS jobs at a time; a PR run keeps only the 4 required macOS
+    # jobs, so two streams' runs queue less. `compat` (TEST-REL, 2026-10-11) runs only this job: the
+    # other jobs above each carry their own exclusion for it.
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.scope == 'full' || inputs.scope == 'compat')) }}
     runs-on: xcode-27
+    # TEST-REL 2026-10-11: this job was cancelled at this cap, never reporting, on every main push
+    # for 12 runs (run 38059604806: the build passed at 14:29, TallyAppTests' last result printed
+    # at 14:42:19, then nothing for 30 min until the cap). Its `xcodebuild test` never got the
+    # Makefile's IOS_TEST_FLAGS (-test-timeouts-enabled YES, 120 s/300 s allowances), so a hung test
+    # could run unbounded instead of failing at its allowance. Fixed below by calling `make ios-test`,
+    # like the required `ios-build` job does; this value is still pending a measurement of a run
+    # that no longer hangs.
     timeout-minutes: 45 # at 30 the limit cancelled it before it reported in PR runs for #9, #10, #12 and #14
     continue-on-error: true # preview image; must never gate the required checks above
     steps:
@@ -716,25 +738,17 @@ jobs:
       - name: Pick an iOS 27 simulator
         id: sim27
         run: python3 scripts/ci/pick_ios_simulator.py --min-major 27 >> "$GITHUB_OUTPUT"
-      - name: TallyAppTests + TallyUITests on the iOS 27 SDK
-        working-directory: apps/TallyiOS
+      # Calls the Makefile's ios-* targets, like the required ios-build job (don't duplicate magic
+      # numbers if the job can call make): `ios-test` carries IOS_TEST_FLAGS' per-test hang limit
+      # (120 s default, 300 s max) this job's hand-rolled `xcodebuild test` lacked, and prints every
+      # xcresult failure (`ios-summary`) before its own success check, so the summary runs and the
+      # result bundle is ready to upload even when a test fails.
+      - name: Build TallyAppTests + TallyUITests for testing (Xcode 27 SDK)
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run TallyAppTests and TallyUITests (Xcode 27 SDK, every failure printed in full)
         run: |
-          set -o pipefail
-          xcodebuild test -project Tally.xcodeproj -scheme Tally \
-            -destination "platform=iOS Simulator,id=${{ steps.sim27.outputs.udid }}" \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/Tally-xcode27.xcresult" \
-            -collect-test-diagnostics never \
-            | tee "$RUNNER_TEMP/test-xcode27.log" | grep -E "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed" || true
-          grep -q "TEST SUCCEEDED" "$RUNNER_TEMP/test-xcode27.log"
-      - name: Summarize test results
-        if: always()
-        run: |
-          if [ -d "$RUNNER_TEMP/Tally-xcode27.xcresult" ]; then
-            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/Tally-xcode27.xcresult" \
-              --compact --format json > "$RUNNER_TEMP/test-summary-xcode27.json" || true
-            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/test-summary-xcode27.json"
-          fi
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim27.outputs.udid }}" IOS_RESULT_NAME=Tally-xcode27
       - name: Upload build/test logs on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -742,6 +756,6 @@ jobs:
           name: build-logs-xcode27
           path: |
             ${{ runner.temp }}/build-sim-xcode27.log
-            ${{ runner.temp }}/test-xcode27.log
-            ${{ runner.temp }}/Tally-xcode27.xcresult
+            ${{ runner.temp }}/ios/Tally-xcode27-test.log
+            ${{ runner.temp }}/ios/Tally-xcode27.xcresult
           retention-days: 7

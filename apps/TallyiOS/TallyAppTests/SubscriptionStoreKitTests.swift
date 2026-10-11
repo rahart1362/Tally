@@ -250,7 +250,13 @@ struct SubscriptionStoreKitTests {
         try stage.session.approveAskToBuyTransaction(identifier: pending.identifier)
         #expect(await stage.storeKitShows { _ in true }, "StoreKit never showed the approved purchase")
         // PAY-03: "Ask to Buy pending → granted via `updates`": the listener grants it, no foreground.
-        let deadline = ContinuousClock.now + .seconds(30)
+        // Run 38030358624 failed here after 30.401 s total, almost the whole test, with
+        // `storeKitShows` just above (a direct poll of `Transaction.latest`) not implicated: the
+        // likely cause is this wait, the one that depends on StoreKit Testing's own delivery of the
+        // `Transaction.updates` element the engine's listener awaits, which can lag past 30 s on a
+        // loaded CI runner. Raised, not removed: shortening it would weaken PAY-03's "no foreground"
+        // proof, not fix the flake.
+        let deadline = ContinuousClock.now + .seconds(60)
         while await stage.gate.current?.isActiveEntitlement != true, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(50))
         }

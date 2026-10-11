@@ -57,8 +57,19 @@ final class ToDoUITests: TallyUITestCase {
         for label in picked {
             let row = rows.matching(NSPredicate(format: "label == %@", label)).firstMatch
             XCTAssertTrue(bringClearOfTheBottom(row, in: app), "'\(label)' is not clear of the bottom bar. Hierarchy: \(app.debugDescription)")
-            row.tap()
-            XCTAssertTrue(eventually(timeout: 5) { row.isSelected }, "'\(label)' was not selected. Hierarchy: \(app.debugDescription)")
+            // bringClearOfTheBottom only guards the bottom-bar overlap (run 36463736410): isHittable
+            // and the frame check both pass while the list is still decelerating from its swipe, so
+            // a tap right after can land mid-scroll and miss the selection (run 38059604806,
+            // 38039203669, 37925235523: "'<row>' was not selected"). Wait for the row to stop
+            // moving, tap its centre (not whichever point XCTest's default tap picks), and retry
+            // once before failing.
+            waitUntilRowAtRest(row, in: app)
+            let centre = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            centre.tap()
+            if !eventually(timeout: 3, { row.isSelected }) {
+                centre.tap()
+            }
+            XCTAssertTrue(eventually(timeout: 2) { row.isSelected }, "'\(label)' was not selected after a retry. Hierarchy: \(app.debugDescription)")
         }
         tapWhenHittable(app.buttons["todo.markDone"], in: app)
         // The rows keep their places; the scroll may have moved the first one above the screen.
