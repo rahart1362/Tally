@@ -30,6 +30,13 @@ extension AccountLifecycleSuites {
             rig.source.holdReads()
             await rig.engine.start()
             #expect(await F.eventually { await rig.gate.current == .entitled(until: until) }, "the gate waited for StoreKit")
+            // `start()` only enqueues the launch verification (SubscriptionEngine.swift: it does
+            // not await it), and the record-first `apply()` above completes before that task calls
+            // `currentFacts()`, so the gate can already read `.entitled` a beat before `reads`
+            // increments: a plain `#expect(reads == 1)` here raced the engine's task (CI run
+            // ios-asan, 10-03 and 10-09: `reads == 1` read 0, with no ASan report). Wait for the
+            // read itself before asserting its count.
+            #expect(await F.eventually { rig.source.reads >= 1 }, "StoreKit was never asked")
             #expect(rig.source.reads == 1, "StoreKit was asked, and is still answering")
             rig.source.release()
             await rig.engine.settle()
