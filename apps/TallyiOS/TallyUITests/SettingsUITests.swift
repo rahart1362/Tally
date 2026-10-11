@@ -236,14 +236,17 @@ extension TallyUITestCase {
     /// L10N-04 (shared, small and additive): was `app.buttons["Settings"]` and
     /// `app.navigationBars["Settings"]` — both English labels, which Spanish changes (the Audit
     /// tour's es dispatch calls this). The toolbar button now has its own id
-    /// (`HomeShellView.settingsToolbarItem`); "Settings opened" is now read off
-    /// `settings.subscription`, a row every route shows (sample, signed-in, school-seat) and which
-    /// already carries its own id, rather than the sheet's localized navigation title. Matching by
-    /// identifier instead of label is strictly more robust for every existing (English) caller too.
+    /// (`HomeShellView.settingsToolbarItem`). "Settings opened" is read off `settings.done`
+    /// (the sheet's own toolbar dismiss button, pinned, not `settings.subscription`: run
+    /// 38179171050 found that a *second* `openSettings` call, while already scrolled into parent
+    /// mode, could not find `settings.subscription` within 10 s at AX5 on the smallest and Pro Max
+    /// simulators — a scrollable list row is the wrong "opened" signal at any text size; a pinned
+    /// toolbar button is scroll-position-independent by construction). Matching by identifier
+    /// instead of label is strictly more robust for every existing (English) caller too.
     @MainActor
     func openSettings(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         tapWhenHittable(element("home.settingsButton", in: app), in: app, file: file, line: line)
-        XCTAssertTrue(element("settings.subscription", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)",
+        XCTAssertTrue(element("settings.done", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)",
                       file: file, line: line)
     }
 
