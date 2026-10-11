@@ -705,12 +705,14 @@ jobs:
     runs-on: xcode-27
     # TEST-REL 2026-10-11: this job was cancelled at this cap, never reporting, on every main push
     # for 12 runs (run 38059604806: the build passed at 14:29, TallyAppTests' last result printed
-    # at 14:42:19, then nothing for 30 min until the cap). Its `xcodebuild test` never got the
-    # Makefile's IOS_TEST_FLAGS (-test-timeouts-enabled YES, 120 s/300 s allowances), so a hung test
-    # could run unbounded instead of failing at its allowance. Fixed below by calling `make ios-test`,
-    # like the required `ios-build` job does; this value is still pending a measurement of a run
-    # that no longer hangs.
-    timeout-minutes: 45 # at 30 the limit cancelled it before it reported in PR runs for #9, #10, #12 and #14
+    # at 14:42:19, then nothing for 30 min until the cap). Giving it the Makefile's IOS_TEST_FLAGS
+    # (-test-timeouts-enabled YES, 120 s/300 s allowances, via `make ios-test` below) did not fix
+    # it: a verification dispatch (run 38138052657) still ran the full 45 minutes, ending with
+    # "Terminate orphan process: ... xcodebuild" — a per-test allowance cannot stop whatever this
+    # is. Each test bundle now gets its own step-level timeout (see "Run TallyAppTests" / "Run
+    # TallyUITests" below) so a hang in one no longer costs the other its chance to report; this
+    # job-level cap just needs enough margin for setup, both 20-minute step budgets and the upload.
+    timeout-minutes: 55
     continue-on-error: true # preview image; must never gate the required checks above
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -745,10 +747,24 @@ jobs:
       # result bundle is ready to upload even when a test fails.
       - name: Build TallyAppTests + TallyUITests for testing (Xcode 27 SDK)
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
-      - name: Run TallyAppTests and TallyUITests (Xcode 27 SDK, every failure printed in full)
+      # Split from the UI tests (TEST-REL, 2026-10-11, run 38138052657: with IOS_TEST_FLAGS this
+      # job *still* ran to its 45-minute cap with "Terminate orphan process: ... xcodebuild" at the
+      # end — a per-test allowance cannot stop whatever this is, so each bundle gets its own
+      # step-level timeout instead: a hang in one no longer costs the other its chance to report,
+      # and the job reaches Upload either way.
+      - name: Run TallyAppTests (Xcode 27 SDK, every failure printed in full)
+        timeout-minutes: 20
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim27.outputs.udid }}" IOS_RESULT_NAME=Tally-xcode27
+            IOS_SIM_UDID="${{ steps.sim27.outputs.udid }}" IOS_RESULT_NAME=Tally-xcode27-apptests \
+            IOS_ONLY_TESTING=-only-testing:TallyAppTests
+      - name: Run TallyUITests (Xcode 27 SDK, every failure printed in full)
+        if: always()
+        timeout-minutes: 20
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim27.outputs.udid }}" IOS_RESULT_NAME=Tally-xcode27-uitests \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests
       - name: Upload build/test logs on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -756,6 +772,8 @@ jobs:
           name: build-logs-xcode27
           path: |
             ${{ runner.temp }}/build-sim-xcode27.log
-            ${{ runner.temp }}/ios/Tally-xcode27-test.log
-            ${{ runner.temp }}/ios/Tally-xcode27.xcresult
+            ${{ runner.temp }}/ios/Tally-xcode27-apptests-test.log
+            ${{ runner.temp }}/ios/Tally-xcode27-apptests.xcresult
+            ${{ runner.temp }}/ios/Tally-xcode27-uitests-test.log
+            ${{ runner.temp }}/ios/Tally-xcode27-uitests.xcresult
           retention-days: 7
