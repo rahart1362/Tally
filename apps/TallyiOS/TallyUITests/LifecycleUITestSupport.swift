@@ -65,7 +65,12 @@ extension TallyUITestCase {
     @MainActor
     func seedFlagshipAccount(extra: [String] = [], file: StaticString = #filePath, line: UInt = #line) {
         let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + extra)
-        XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30),
+        // L10N-04: was app.staticTexts[TestHooks.flagshipHero] (the English text "Average of 5
+        // courses", which Spanish changes — this helper's `launchApp` honours
+        // `currentLocaleArguments`, so a caller that overrides it, like `AuditTourUITests`, now
+        // launches this seed in that language too). The identifier match is equally valid for
+        // every other, English-only caller of this shared helper.
+        XCTAssertTrue(element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30),
                       "the seeded launch never painted the dashboard. Hierarchy: \(app.debugDescription)",
                       file: file, line: line)
         app.terminate()

@@ -65,6 +65,27 @@ final class AuditTourUITests: TallyUITestCase {
         language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_US"] : pinnedLocaleArguments
     }
 
+    /// The Home shell's tab bar items, by their current leg's language. Run 38175021381 found that
+    /// `.accessibilityIdentifier` on a `Tab(_:systemImage:value:)` (iOS 18's `TabView` content
+    /// builder) never reaches the tab bar button XCUITest actually queries ("No matches found …
+    /// IN identifiers") — a real API gap, not something this work package can fix with an
+    /// identifier alone, so `openTabInTour` keeps matching by label, now picking the right one for
+    /// the leg's language instead of only English's.
+    private static func tabLabel(_ tab: HomeTabForTour) -> String {
+        let labels: [HomeTabForTour: [String: String]] = [
+            .dashboard: ["en": "Dashboard", "es": "Tablero"],
+            .courses: ["en": "Courses", "es": "Cursos"],
+            .calendar: ["en": "Calendar", "es": "Calendario"],
+            .toDo: ["en": "To-Do", "es": "Por hacer"],
+            .insights: ["en": "Insights", "es": "Estadísticas"],
+        ]
+        return labels[tab]?[language] ?? labels[tab]?["en"] ?? ""
+    }
+
+    private enum HomeTabForTour {
+        case dashboard, courses, calendar, toDo, insights
+    }
+
     private static let demoHost = "canvas.northfield.example"
 
     // MARK: - Per-method bookkeeping (a fresh instance per test method; never shared)
@@ -132,7 +153,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         captureScreenfuls(app, screen: "courses", reachedVia: "Courses tab", maxScreens: 10)
 
         // `captureScreenfuls` may have scrolled to the bottom (AX5 legs, 5 cards that no longer fit);
@@ -170,7 +191,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         let cards = elements("course.card", in: app)
         guard goScrolling(cards.element(boundBy: 0), app, screen: "course1", state: "card-b2", reachedVia: "Courses list, card 1"),
               element("courseDetail.hero", in: app).waitForExistence(timeout: 10) else {
@@ -222,7 +243,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         let cards = elements("course.card", in: app)
         // CI run 37639511433: missed on the smallest device at AX5 (two legs) with the default
         // 15-swipe cap; a card 44 pt tall plus huge text can need more swipes to reach.
@@ -255,7 +276,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.calendar", in: app)
+        openTabInTour(Self.tabLabel(.calendar), in: app)
         _ = elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "calendar", state: "weekStripAndAgenda", reachedVia: "Calendar tab")
 
@@ -290,7 +311,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.toDo", in: app)
+        openTabInTour(Self.tabLabel(.toDo), in: app)
         // L10N-04: was text("Missing & overdue", in: app) — the English section header, which
         // Spanish changes; any row is an equally good "the To-Do projection landed" signal.
         _ = elements("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
@@ -355,7 +376,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("home.tab.insights", in: app)
+        openTabInTour(Self.tabLabel(.insights), in: app)
         _ = element("chart.trend", in: app).waitForExistence(timeout: 30)
         captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 10)
 
@@ -469,7 +490,7 @@ final class AuditTourUITests: TallyUITestCase {
             snap(app, screen: "demoSignIn", state: "missing-firstSyncProgress",
                  reachedVia: "first sync had already finished before it could be captured")
         }
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
 
         app.terminate()
         finish("I")
@@ -513,7 +534,7 @@ final class AuditTourUITests: TallyUITestCase {
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.demoSignIn + Self.textSizeArguments)
         _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
         signInToDemoSchool(app)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
 
         if element("paywall.root", in: app).waitForExistence(timeout: 15) {
             captureScreenfuls(app, screen: "paywall", reachedVia: "paywall after the first sync", maxScreens: 10)
@@ -538,8 +559,8 @@ final class AuditTourUITests: TallyUITestCase {
 
         seedFlagshipAccount()
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts + Self.textSizeArguments)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
-        openTabInTour("home.tab.courses", in: app)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
+        openTabInTour(Self.tabLabel(.courses), in: app)
 
         let seePlans = app.buttons["subscription.locked.seePlans"]
         if scrollUntilHittable(seePlans, in: app) {
@@ -556,7 +577,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
         seedFlagshipAccount()
         let schoolSeatApp = launchApp(arguments: TestHooks.entitlement("schoolSeat") + TestHooks.replayAccounts + Self.textSizeArguments)
-        _ = schoolSeatApp.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: schoolSeatApp).waitForExistence(timeout: 30)
         openSettings(schoolSeatApp)
         if goScrolling(schoolSeatApp.buttons["settings.subscription"], schoolSeatApp, screen: "settings-subscription-schoolSeat",
                        state: "page", reachedVia: "Settings -> Subscription, school seat") {
@@ -595,7 +616,7 @@ final class AuditTourUITests: TallyUITestCase {
         seedFlagshipAccount()
         let unlocked = launchApp(arguments: TestHooks.replayAccounts + TestHooks.appLockOn + TestHooks.deviceAuth("success")
             + Self.textSizeArguments)
-        guard unlocked.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 20) else {
+        guard element("dashboard.hero.averageOfCourses", in: unlocked).waitForExistence(timeout: 20) else {
             snap(unlocked, screen: "appLock", state: "missing-privacyCover",
                  reachedVia: "could not unlock to reach the dashboard first")
             unlocked.terminate()
@@ -790,7 +811,7 @@ final class AuditTourUITests: TallyUITestCase {
     private func launchSignedIn() -> XCUIApplication {
         let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + TestHooks.deviceAuth("success")
             + ["-TallyTestHooks.notifications", "notDetermined:denied"] + Self.textSizeArguments)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
         return app
     }
 
