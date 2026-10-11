@@ -17,11 +17,14 @@ import TallyStrings
 /// Coverage: every placeholder-free, non-plural key in the shared catalog (527 of 706 —
 /// `L10N04SpanishFixture.samples`, generated from the same source `main.json`/`main_es_merged.json`
 /// extraction this work package used to write the translations, so this test and the catalog
-/// cannot silently drift apart) resolves generically, by key, through the same
-/// `LocalizedStringResource` initializer the `L10n` wrappers use. Plural and placeholder keys need
-/// their own interpolation to resolve correctly (the plural/argument wiring lives in the `L10n`
-/// wrapper, not in a bare key lookup), so those are spot-checked through their real wrappers below
-/// instead of the generic loop.
+/// cannot silently drift apart) resolves generically, by key, through `Bundle.localizedString
+/// (forKey:value:table:)` on the compiled `es.lproj` sub-bundle directly — not `LocalizedStringResource`,
+/// whose keyed initializer takes its key as `StaticString` (a compile-time literal), which a
+/// runtime loop over a key list cannot supply. Forcing a language via its own `.lproj` sub-bundle
+/// is the standard way to read a specific language's compiled strings regardless of the device's
+/// or the test's own locale. Plural and placeholder keys need their own interpolation to resolve
+/// correctly (the plural/argument wiring lives in the `L10n` wrapper, not in a bare key lookup), so
+/// those are spot-checked through their real wrappers below instead of the generic loop.
 @Suite("L10N-04: needs_review Spanish values compile and resolve at run time")
 struct L10N04SpanishResolutionTests {
     private static let es = Locale(identifier: "es")
@@ -37,25 +40,35 @@ struct L10N04SpanishResolutionTests {
         return try #require(Bundle(url: url))
     }
 
-    /// Every placeholder-free key resolves to its Spanish value under the es locale — not the
-    /// English `defaultValue`, and not the raw key. 527 keys, all `needs_review`.
+    /// The compiled `es.lproj` directly inside the `TallyStrings` resource bundle: a sub-bundle
+    /// whose own `preferredLocalizations` is just `["es"]`, so `localizedString(forKey:value:table:)`
+    /// on it returns the Spanish string regardless of the device's or the test process's own
+    /// locale — the standard "force a language" technique, not `LocalizedStringResource` (whose
+    /// keyed initializer needs a compile-time `StaticString` key, which a runtime key list can't
+    /// supply).
+    private static func esSubBundle() throws -> Bundle {
+        let strings = try Self.stringsBundle()
+        let lprojPath = try #require(strings.path(forResource: "es", ofType: "lproj"),
+                                      "no es.lproj inside \(strings.bundleURL.lastPathComponent)")
+        return try #require(Bundle(path: lprojPath), "es.lproj at \(lprojPath) is not a bundle")
+    }
+
+    /// Every placeholder-free key resolves to its Spanish value — not the English `defaultValue`,
+    /// and not the raw key (`Bundle.localizedString` falls back to the key itself when a table has
+    /// no match, so a lookup failure shows up as a mismatch here, never a silent pass). 527 keys,
+    /// all `needs_review`.
     @Test("Every placeholder-free TallyStrings key resolves to Spanish under the es locale")
     func everyPlaceholderFreeKeyResolvesInSpanish() throws {
-        let bundle = try Self.stringsBundle()
+        let esBundle = try Self.esSubBundle()
         var wrong: [String] = []
         for sample in L10N04SpanishFixture.samples {
-            var resource = LocalizedStringResource(
-                String.LocalizationValue(sample.key),
-                defaultValue: String.LocalizationValue(sample.english),
-                bundle: .atURL(bundle.bundleURL))
-            resource.locale = Self.es
-            let resolved = String(localized: resource)
+            let resolved = esBundle.localizedString(forKey: sample.key, value: nil, table: "Localizable")
             if resolved != sample.spanish {
                 wrong.append("\(sample.key): got \(resolved.debugDescription), want \(sample.spanish.debugDescription)")
             }
         }
-        #expect(wrong.isEmpty, "\(wrong.count) of \(L10N04SpanishFixture.samples.count) keys did not resolve to Spanish:\n"
-                + wrong.prefix(15).joined(separator: "\n"))
+        let detail = wrong.prefix(15).joined(separator: "\n")
+        #expect(wrong.isEmpty, "\(wrong.count) of \(L10N04SpanishFixture.samples.count) keys did not resolve to Spanish:\n\(detail)")
     }
 
     /// A specific `needs_review` key, resolved the same way `LocalizationTests.heroCaptionPlural`
@@ -116,8 +129,7 @@ struct L10N04SpanishResolutionTests {
     func languageRowConditionAndLink() throws {
         let shipped = Bundle.main.localizations.filter { $0 != "Base" }
         #expect(Set(shipped) == ["en", "es"], "\(shipped)")
-        #expect(shipped.count > 1, "the row's own condition (SettingsView.languageSection): "
-                + "more than one localization ships")
+        #expect(shipped.count > 1, "the row's own condition (SettingsView.languageSection): more than one localization ships")
         // Not pinned to a specific scheme string: Apple's own constant, not a literal this
         // work package controls, and it has changed shape across iOS versions. The contract
         // `SettingsView.languageSection` relies on is just that it parses to a URL `openURL` can
