@@ -1,0 +1,50 @@
+# TEST-REL report: test and CI reliability (hand-off)
+
+- **Author:** Test Reliability Engineer (work package TEST-REL).
+- **Branch:** `test/reliability`, from `origin/main` @ `ecf7984`. `main` has not moved since.
+- **Scope:** tests and CI only (`.github/workflows/ci.yml`); no app or widget code touched.
+- **Journal:** `build/logs/journal/2026-10-11-test-rel.md`.
+
+Every claim below is grounded in a CI run I watched, a log I read, or code I read; anything not
+observed is flagged as a hypothesis, not stated as fact.
+
+## Items
+
+| # | Cause | Fix | Evidence | First-attempt result |
+|---|---|---|---|---|
+| 1 | **Confirmed.** `SubscriptionEngine.start()` is non-async internally — it enqueues the launch verification and returns without awaiting it; `verify()`/`foreground()`/`purchase()` all await their enqueued task via `.value`, but `start()` doesn't. `launchRecordFirst` only waited for the gate to reach `.entitled` (set *before* the task calls `source.currentFacts()`), so the following `#expect(reads == 1)` could read 0. | `SubscriptionEngineTests.swift:33` — wait for `F.eventually { rig.source.reads >= 1 }` before asserting the count. Searched the other 19 tests in the file for the same pattern (a plain `#expect` on a count another task increments, right after a non-blocking trigger); none found — every other entry point awaits its verification or runs inline. | ios-asan failed on 10-03 and 10-09 (`reads == 1` read 0, no ASan report) — matches a benign scheduling race exactly. CI verification: pending the PR run (`ios-asan` only runs on push/PR/`scope=full`; both my `full`-class dispatches went to item 5). | Pending PR run. |
+| 2 | **Confirmed.** `bringClearOfTheBottom` asserts `isHittable` and clear of the bottom bar (the old run-36463736410 fix), but neither implies the list has stopped decelerating from the swipe that made them true; a tap right after can land as a "stop scrolling" touch rather than a selection tap. (`app.debugDescription`'s hierarchy at the failure, `ios-build-test-38059604806.log:4244`, is only the root `Application` node — not useful for confirming row state directly, so this is reasoned from the helper's own contract, not read off that hierarchy.) | `ScreenUITestSupport.swift` — new `waitUntilRowAtRest` (frame-stability poll). `ToDoUITests.swift`'s batch-select loop: wait for it, tap the row's centre via `coordinate(withNormalizedOffset:)` instead of default `tap()`, retry once before failing. | Failed attempts in 3/30 runs (38059604806, 38039203669, 37925235523), always `ToDoUITests.swift:61`. | **2/2** (`scope=quick` runs 38143992412, 38148993646 — no `Failed attempt` annotation named this test in either). PR run will be the third. |
+| 3 | **Reasoned, not directly observed** (no log for run 38030358624, only the one-line annotation: failed after 30.401 s with 1 issue). The test has exactly two ~30 s waits: `storeKitShows` (a direct poll of `Transaction.latest`, deterministic) and the inline loop waiting on `gate.current?.isActiveEntitlement`, fed only by `Transaction.updates` — no foreground call, by design (that's PAY-03's point). 30.401 s total, with every earlier step normally sub-second, fits one ~30 s wait dominating the test; the brief already distinguishes `storeKitShows` as deterministic, so the inline loop (genuinely dependent on StoreKit Testing's own delivery) is the best-supported match. | `SubscriptionStoreKitTests.swift:256` — raised the deadline 30 s → 60 s, with a comment. Did not touch the entitlement logic or shorten the wait (would weaken PAY-03's "no foreground" proof). | Run 38030358624: "Ask to Buy: pending, then the approval is granted through Transaction.updates, with no foreground" failed after 30.401 s with 1 issue. | Not independently re-observed (the original failure was a single occurrence in 30 runs; `askToBuy` itself passed in every run I made, including both `compat` dispatches). |
+| 4 | **Confirmed absent.** `grep -c REMINDER-TIMING` on the 3 newest `main` push runs (38067816503, 38059604806, 38030358624 — iOS job ids 114258950115, 114234990089, 114149802159): **0, 0, 0**. | `RemindersTests.swift` — removed the timing-bookkeeping scaffolding (`clock`/`started`/`timings`/`mark()`, the `withKnownIssue` slow-pass block) per its own "Remove once explained" comment; every wait (`AccountTestSupport.eventually`) and assertion kept unchanged. | 3/3 of the newest main push run logs, `grep -c REMINDER-TIMING` = 0 in each. | `launchThenCommit` passed in every run I made (2 `quick`, 1 `unit`; `scope=unit`/`quick` both run `-only-testing:TallyAppTests`/the full `ios-build` job). |
+| 5 | **Confirmed, two separate causes** (run 38141278119, split-step verification): (a) `SubscriptionStoreKitTests.purchase()` hangs on this SDK — `"Test exceeded execution time allowance of 3 minutes"`, the suite's *existing* `.timeLimit(.minutes(3))` finally enforced once xcodebuild actually honors `-test-timeouts-enabled YES` (it was missing before this fix; no suite here lacks a `.timeLimit`). (b) The UI tests never launch at all on this SDK/simulator: 20 minutes of zero test output (no `Test Suite '…' started`, just xcodebuild's own idle chatter) before the step's own timeout — this is before any test process is running, so no per-test allowance or trait can reach it. | `ci.yml`: `ios-xcode27-forward-compat` now calls `make ios-build-for-testing`/`make ios-test` (same as the required `ios-build` job) instead of a hand-rolled `xcodebuild test`, split into two steps — `-only-testing:TallyAppTests` and `-only-testing:TallyUITests` — each with its own `timeout-minutes: 20`; job timeout raised 45→55 for setup/upload margin. Added a `compat` `scope` choice (dispatches only this job) and a matching exclusion `if:` on every job that previously had none (`hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`, and the non-required `core-perf`) — a no-op for push/PR, only changing `workflow_dispatch` behaviour for the new `compat` value. | Run 38138052657 (IOS_TEST_FLAGS alone): still ran the full 45-minute cap, ended with `Terminate orphan process: ... xcodebuild`. Run 38141278119 (split steps): job completed in 36m44s and reported — `Run TallyAppTests` 10m53s (`xcresult: totalTestCount=574, passedTests=570, failedTests=2`), `Run TallyUITests` hit its 20-min cap with no test activity at all; "Upload build/test logs on failure" ran (previously it never got the chance to). | N/A (report-only job; "first attempt" doesn't apply the same way — see below). |
+
+### Item 5, the report-only triage (brief's three + one I found)
+
+| Test | One-line cause hypothesis | Fixed? |
+|---|---|---|
+| `SubscriptionStoreKitTests.swift:273` "Interrupted purchase" | Reproduced in my verification run too (`Expectation failed: await stage.gate.current == .preview`). StoreKit Testing's Xcode 27 preview build likely does not honor `interruptedPurchasesEnabled` the way 26.6 does (the purchase appears to grant despite the simulated interruption). Not in the test — the assertion is exactly what PAY-03 needs proven; loosening it would hide a real gap. | No — open item for the PMO/Apple's preview SDK. |
+| `SubscriptionStoreKitTests.swift:154` **`purchase()`** (found in this package, not in the brief's three) | Hangs until the suite's 3-minute `.timeLimit` cuts it off. Likely a StoreKit Testing preview-SDK issue specific to the plain (non-Ask-to-Buy, non-interrupted) purchase-grant path — every *other* StoreKit-dependent test in the same suite (renewal, expiry, refund, askToBuy, interruptedPurchase) completed normally in the same run. Not in the test — it already awaits `engine.purchase(.student) == .purchased` correctly. | No — open item; the suite's `.timeLimit` now bounds it to 3 minutes instead of hanging the whole job. |
+| `RemindersTests.swift:641` "sign-out waits for a pass in flight" | Did **not** reproduce in my verification run (passed, 3.741 s) — intermittent, not a deterministic SDK incompatibility. No cause confirmed. | No — insufficient evidence either way; left open. |
+| `WidgetIntentsTests.swift:187` "The build ships every intent" | Did **not** reproduce in my verification run (passed, 0.008 s) — the file's own comment already documents a build-linking-order sensitivity for a *different* scenario (TSan + the preview stub dylib), consistent with "a property of the build," intermittent rather than deterministic. | No — insufficient evidence either way; left open. |
+
+Never `#if`-gated any test on the OS version.
+
+## Open items
+
+- Item 3's cause is my best-supported reasoning from the code and timing, not something I read
+  directly in a log (none exists for that run). If it recurs, the next engineer should pull
+  run 38030358624's log if GitHub still has it, or watch for a fresh occurrence.
+- Item 5: the UI tests cannot run at all on the Xcode 27 preview SDK/simulator (20 minutes of
+  silence, twice). This is before any test process starts, so it's outside anything in this
+  package's scope (tests/CI); likely needs a newer preview SDK or Apple's own fix. The job now
+  bounds the damage and reports the TallyAppTests portion instead of hanging the whole thing.
+- Item 5: `SubscriptionStoreKitTests.purchase()` hanging on Xcode 27 (now bounded to 3 minutes,
+  reported as a failure) is a new, confirmed finding, not previously tracked.
+- The three failures named in the brief are not all reproducible: only `interruptedPurchase` is
+  so far. `RemindersTests` sign-out and `WidgetIntentsTests.appIntentsMetadata` passed in my one
+  verification run; more data points would be needed to call either "fixed" or "still broken."
+- An unrelated flake surfaced once: `SubscriptionStoreKitTests` "Expiry: lapsed within one
+  foreground" failed its first attempt in `scope=quick` run 38143992412, then passed on the
+  automatic retry. It's earlier in the suite's declaration order than anything I touched
+  (`askToBuy`), so not something my change caused; already covered by the existing suite's
+  documented StoreKit-Testing timing flakiness. No action taken (it didn't persist).
