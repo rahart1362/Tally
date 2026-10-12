@@ -222,6 +222,12 @@ jobs:
       # and a Dark test cannot share one xcodebuild run. AccessibilityAuditUITests.swift's own top
       # doc comment has the full rationale for all three classes.
       - name: "Accessibility audit (MVP-2): Light, Dark, Increase Contrast"
+        env:
+          # AccessibilityAuditUITests.swift's own gate (XCTSkipUnless, same mechanism
+          # AuditTourUITests uses for AUDIT_APPEARANCE): every method in all three classes skips
+          # unless this is set. PMO direction after run 38280762497 (a plain scope=quick dispatch
+          # hit CI's own 110-minute cap bundling them with the rest of TallyUITests).
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
         run: |
           set +e -o pipefail
           udid="${{ steps.sim.outputs.udid }}"

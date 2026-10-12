@@ -43,7 +43,16 @@ import XCTest
 /// `ToDoUITests`, `InsightsUITests`, `WelcomeCTAUITests`, `RemindersUITests`); A11Y-12 has a unit
 /// test (`SignInHandoffViewModelTests`) but no UI test yet — an open item, not claimed here.
 final class AccessibilityAuditUITests: TallyUITestCase {
+    private var runs = false
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try skipUnlessA11yAuditScopeIsSet()
+        runs = true
+    }
+
     override func tearDownWithError() throws {
+        guard runs else { return }
         MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
@@ -168,7 +177,16 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 /// and back to Light afterward (the class above's own doc comment explains why this cannot share a
 /// run with it).
 final class AccessibilityAuditDarkUITests: TallyUITestCase {
+    private var runs = false
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try skipUnlessA11yAuditScopeIsSet()
+        runs = true
+    }
+
     override func tearDownWithError() throws {
+        guard runs else { return }
         MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
@@ -209,7 +227,16 @@ final class AccessibilityAuditDarkUITests: TallyUITestCase {
 /// Increase Contrast, default size, `.contrast` only (this class's own doc comment above has the
 /// two-mechanism rationale).
 final class AccessibilityAuditContrastUITests: TallyUITestCase {
+    private var runs = false
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try skipUnlessA11yAuditScopeIsSet()
+        runs = true
+    }
+
     override func tearDownWithError() throws {
+        guard runs else { return }
         MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
     }
 
@@ -279,6 +306,20 @@ extension TallyUITestCase {
     /// This file's own top doc comment has the two-mechanism rationale.
     static let a11yIncreaseContrast = ["-UIAccessibilityDarkerSystemColorsEnabled", "YES"]
     static let a11yDemoHost = "canvas.northfield.example"
+
+    /// Shared by all three classes above: `XCTSkipUnless` on `TALLY_A11Y_AUDIT`, read from
+    /// `ProcessInfo` the same way `AuditTourUITests` reads `AUDIT_APPEARANCE` (the
+    /// `TEST_RUNNER_` prefix is `xcodebuild`'s own mechanism for reaching the UI test runner
+    /// process, so CI sets it as `TEST_RUNNER_TALLY_A11Y_AUDIT`). PMO direction after run
+    /// 38280762497: a plain `scope=quick` dispatch bundled these classes with the rest of
+    /// `TallyUITests` and hit CI's own 110-minute job cap (16:55→18:48, cancelled) — they now run
+    /// only from `ci.yml`'s dedicated `scope=a11y` dispatch and from the release gate's
+    /// accessibility-audit step, both of which set this variable; a plain push, PR, or any other
+    /// dispatch scope skips every method in all three classes.
+    func skipUnlessA11yAuditScopeIsSet() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["TALLY_A11Y_AUDIT"] != nil,
+                          "The accessibility audit classes run only from scope=a11y or the release gate (they set TALLY_A11Y_AUDIT)")
+    }
 
     /// CI run 38277982949 (`iOS build + test`, Xcode 26.6): `XCUIAccessibilityAuditType` has no
     /// `.action` or `.parentChild` member on this SDK — ux-ui.md §3.9's own list of nine names was

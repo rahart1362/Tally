@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). compat: only ios-xcode27-forward-compat, to dispatch it without a full run. Pull requests run the required jobs; the PR run is the hand-off run."
+        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). compat: only ios-xcode27-forward-compat, to dispatch it without a full run. a11y: only ios-a11y-audit (AccessibilityAuditUITests/-DarkUITests/-ContrastUITests; MVP-2, run 38280762497: bundled into a plain scope=quick they hit CI's own 110-minute job cap). Pull requests run the required jobs; the PR run is the hand-off run."
         type: choice
-        options: [full, quick, unit, compat]
+        options: [full, quick, unit, compat, a11y]
         default: full
 
 permissions:
@@ -28,9 +28,9 @@ jobs:
     name: Hygiene gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request (this
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request (this
     # is always true for both, same as having no `if:` at all).
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: App icon is 1024x1024 with no alpha
@@ -150,8 +150,8 @@ jobs:
     name: TallyCore tests (Linux, Swift 6.4)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     container:
       image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; same digest as `make core-test`
     steps:
@@ -167,8 +167,8 @@ jobs:
     name: Crash-safety lint (SwiftLint 0.59.1, pinned)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make lint (force_unwrapping, force_try, force_cast, implicitly_unwrapped_optional)
@@ -178,8 +178,8 @@ jobs:
     name: TallyCore sanitizers (TSan + ASan/LSan, Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # TSan needs a memory layout that high ASLR entropy breaks. The Makefile already
@@ -205,8 +205,8 @@ jobs:
     # Timing on shared runners is noisy. Report-only until the PMO has seen five
     # green runs on main (perf-app-runtime.md D-P3); after that it becomes required.
     continue-on-error: true
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make core-perf (median of >= 5, release)
@@ -247,8 +247,8 @@ jobs:
     # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
     timeout-minutes: 110 # ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
-    # compat dispatches only ios-xcode27-forward-compat; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'compat' }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
@@ -529,6 +529,112 @@ jobs:
           path: |
             ${{ runner.temp }}/build-device.log
             ${{ runner.temp }}/build-sim.log
+            ${{ runner.temp }}/ios/*.log
+            ${{ runner.temp }}/ios/*.xcresult
+          retention-days: 7
+
+  ios-a11y-audit:
+    name: iOS accessibility audit (Light, Dark, Increase Contrast; dispatch only)
+    runs-on: macos-26
+    timeout-minutes: 90
+    # MVP-2: AccessibilityAuditUITests/-DarkUITests/-ContrastUITests are gated behind
+    # TEST_RUNNER_TALLY_A11Y_AUDIT (XCTSkipUnless — AccessibilityAuditUITests.swift's own
+    # `skipUnlessA11yAuditScopeIsSet`, the same mechanism AuditTourUITests uses for
+    # AUDIT_APPEARANCE). PMO direction after run 38280762497: bundled into a plain `scope=quick`
+    # (with the rest of TallyUITests, retried once on failure) they pushed `ios-build` past CI's
+    # own 110-minute job cap (16:55→18:48, cancelled). This dispatch-only scope runs just the
+    # three classes, nothing else in TallyUITests or TallyAppTests, so they can be iterated on
+    # without that cap and without slowing a push, a PR run, or any other dispatch scope.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.scope == 'a11y' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator (never a hard-coded device name)
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        # Every other job in this file lets `xcodebuild test` boot the simulator implicitly, on
+        # first use; this job calls `simctl ui` *before* its first `xcodebuild test`, so it boots
+        # explicitly first — audit-tour.yml's "Boot the simulator" step always precedes its own
+        # `simctl ui appearance` call the same way, the only other place in this repo that uses it.
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" 2>/dev/null || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
+      - name: Build TallyAppTests + TallyUITests for testing
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: "Accessibility audit: Light (default size, all types; AX5, dynamicType+textClipped)"
+        env:
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
+        run: |
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditUITests IOS_RESULT_NAME=Tally-a11y-light
+      - name: "Accessibility audit: Dark (default size, all types)"
+        if: ${{ !cancelled() }}
+        env:
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
+        run: |
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditDarkUITests IOS_RESULT_NAME=Tally-a11y-dark
+      - name: "Accessibility audit: Increase Contrast (default size, .contrast only)"
+        # ux-ui.md §3.9 "Harness": `simctl ui`'s `increase_contrast` subcommand is UNVERIFIED on
+        # the CI simulator — a failing command here is not fatal, the suite's own launch-argument
+        # fallback (AccessibilityAuditUITests.swift's top doc comment) still runs regardless.
+        if: ${{ !cancelled() }}
+        env:
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
+        run: |
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast enabled \
+            || echo "simctl ui increase_contrast not available on this runner; relying on the suite's own launch-argument fallback"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditContrastUITests IOS_RESULT_NAME=Tally-a11y-contrast
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast disabled 2>/dev/null || true
+      - name: Export the audit's issue JSON (evidence, not just a pass/fail count)
+        # Every `<screen>-<variant>-audit` attachment `runA11yAudit` keeps (type, element,
+        # description, every issue whether waived or not) — the only way to read it without Xcode.
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/a11y-evidence"
+          for name in Tally-a11y-light Tally-a11y-dark Tally-a11y-contrast; do
+            if [ -d "$RUNNER_TEMP/ios/$name.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/$name.xcresult" \
+                --output-path "$RUNNER_TEMP/a11y-evidence/$name" || true
+            fi
+          done
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type f | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: a11y-audit-evidence
+          path: ${{ runner.temp }}/a11y-evidence
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Upload build/test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: a11y-audit-logs
+          path: |
             ${{ runner.temp }}/ios/*.log
             ${{ runner.temp }}/ios/*.xcresult
           retention-days: 7
