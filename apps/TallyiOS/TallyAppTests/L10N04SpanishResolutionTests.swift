@@ -117,7 +117,9 @@ struct L10N04SpanishResolutionTests {
 
         var menuRow = L10n.GradeOverride.menuRowTitle()
         menuRow.locale = Self.es
-        #expect(String(localized: menuRow) == "Calificaciones fuera de Canvas")
+        // L10N-04 round 2 (gate-2 verdict fix list item 2 / L2): shortened to fit the Course
+        // Options menu row at AX5 on the smallest iPhone without hyphenating mid-word.
+        #expect(String(localized: menuRow) == "Calificaciones externas")
     }
 
     /// L-2 / L10N-04 brief item 3: the Settings → Language row's own gating condition ("the row
