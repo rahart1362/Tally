@@ -610,15 +610,39 @@ jobs:
       - name: Export the audit's issue JSON (evidence, not just a pass/fail count)
         # Every `<screen>-<variant>-audit` attachment `runA11yAudit` keeps (type, element,
         # description, every issue whether waived or not) — the only way to read it without Xcode.
+        #
+        # Run 38306768609: `xcresulttool export attachments` writes each file under an opaque
+        # UUID name on disk; the readable name (with "audit" in it) is only in the `suggestedName`
+        # it prints to stdout and in `manifest.json`, so filtering the exported *filenames* by
+        # `*audit*.json` matched nothing and deleted every file. Fixed the way `audit-tour.yml`
+        # already does it (the only other place in this repo that calls this tool): rename each
+        # file from its manifest entry first, then filter by the renamed, readable name.
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/a11y-evidence"
           for name in Tally-a11y-light Tally-a11y-dark Tally-a11y-contrast; do
             if [ -d "$RUNNER_TEMP/ios/$name.xcresult" ]; then
+              mkdir -p "$RUNNER_TEMP/a11y-evidence/$name"
               xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/$name.xcresult" \
                 --output-path "$RUNNER_TEMP/a11y-evidence/$name" || true
             fi
           done
+          python3 - "$RUNNER_TEMP/a11y-evidence" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          for sub in os.listdir(root):
+              manifest_path = os.path.join(root, sub, "manifest.json")
+              if not os.path.isfile(manifest_path):
+                  continue
+              for test in json.load(open(manifest_path)):
+                  for a in test.get("attachments", []):
+                      name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                      name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+                      src = os.path.join(root, sub, a["exportedFileName"])
+                      dst = os.path.join(root, sub, name)
+                      if os.path.exists(src) and not os.path.exists(dst):
+                          os.rename(src, dst)
+          PY
           find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort

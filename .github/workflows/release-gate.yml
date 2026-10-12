@@ -306,15 +306,37 @@ jobs:
         # description) — the detail this host cannot read any other way (no Xcode, no
         # xcresulttool). `xcresulttool export attachments` only runs on this macOS runner; keep
         # just the JSON (not the xcresult's own screenshots), named for the Opus review (gate 2).
+        #
+        # Run 38306768609 (ci.yml's scope=a11y, the same export logic): the exported filename on
+        # disk is an opaque UUID, not the readable `suggestedHumanReadableName` — filtering by
+        # `*audit*.json` on the raw filenames matched nothing and deleted every file. Renames from
+        # each bundle's own `manifest.json` first, the way `audit-tour.yml` already does it.
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/a11y-evidence"
           for bundle in A11y-light A11y-dark A11y-contrast; do
             if [ -d "$RUNNER_TEMP/$bundle.xcresult" ]; then
+              mkdir -p "$RUNNER_TEMP/a11y-evidence/$bundle"
               xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$bundle.xcresult" \
                 --output-path "$RUNNER_TEMP/a11y-evidence/$bundle" || true
             fi
           done
+          python3 - "$RUNNER_TEMP/a11y-evidence" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          for sub in os.listdir(root):
+              manifest_path = os.path.join(root, sub, "manifest.json")
+              if not os.path.isfile(manifest_path):
+                  continue
+              for test in json.load(open(manifest_path)):
+                  for a in test.get("attachments", []):
+                      name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                      name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+                      src = os.path.join(root, sub, a["exportedFileName"])
+                      dst = os.path.join(root, sub, name)
+                      if os.path.exists(src) and not os.path.exists(dst):
+                          os.rename(src, dst)
+          PY
           find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort

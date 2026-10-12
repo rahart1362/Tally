@@ -388,11 +388,22 @@ extension TallyUITestCase {
             try app.performAccessibilityAudit(for: types) { issue in
                 let typeName = Self.a11yAuditTypeName(issue.auditType)
                 let elementID = issue.element?.identifier ?? ""
+                // CI run 38306768609: most `contrast` and several `dynamicType`/`elementDetection`
+                // issues land on a plain `Text` with no `.accessibilityIdentifier` — `element:
+                // ''` alone names nothing a fix can target. `element?.label` (always real text on
+                // screen, never used for the waiver key below: several different unidentified
+                // elements can share the same empty identifier, so waiving by identifier alone
+                // when it is empty would silently become a blanket waiver by accident) gives the
+                // actual words to search the source for.
+                let elementLabel = issue.element?.label ?? ""
                 let waived = A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
-                issues.append(["type": typeName, "element": elementID, "description": issue.compactDescription,
-                               "waived": waived ? "true" : "false"])
+                issues.append(["type": typeName, "element": elementID, "elementLabel": elementLabel,
+                               "description": issue.compactDescription, "waived": waived ? "true" : "false"])
                 if !waived {
-                    unwaived.append("\(typeName) on '\(elementID)': \(issue.compactDescription)")
+                    let target = elementID.isEmpty
+                        ? (elementLabel.isEmpty ? "(no identifier or label)" : "label '\(elementLabel)'")
+                        : "'\(elementID)'"
+                    unwaived.append("\(typeName) on \(target): \(issue.compactDescription)")
                 }
                 return waived
             }
