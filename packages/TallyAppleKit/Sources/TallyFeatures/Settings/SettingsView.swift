@@ -318,7 +318,8 @@ struct SettingsView: View {
         let code = Bundle.main.preferredLocalizations.first ?? "en"
         let name = Locale.current.localizedString(forIdentifier: code) ?? code
         guard let first = name.first else { return name }
-        return first.uppercased(with: Locale.current) + name.dropFirst()
+        // `Character.uppercased()` takes no locale (only `String.uppercased(with:)` does).
+        return String(first).uppercased(with: Locale.current) + name.dropFirst()
     }
 
     /// PAY-08, PAY-09 (M3-B2): Settings → Subscription, in sample mode too (App Review buys there).
