@@ -31,6 +31,10 @@ same gate and stay PENDING here until they land.
         One result a workflow step measured itself (for example the launch smoke test).
     python3 scripts/ci/check_release.py --pending ID MILESTONE OWNER DETAIL --title TITLE --json OUT
         A check that is not implemented yet and is due by MILESTONE (the M5 screenshot job).
+    python3 scripts/ci/check_release.py --a11y-audit RESULTS [RESULTS ...] --waivers N [--due M] --json OUT
+        MVP-2: REL.a11y.audit, from `AccessibilityAuditUITests`/`-DarkUITests`/`-ContrastUITests`'
+        combined `xcresulttool get test-results tests` JSON (each RESULTS a path, like --flows).
+        --waivers is the waiver count the CI step read from A11yWaivers.waived.
     python3 scripts/ci/check_release.py --merge OUT IN [IN ...]
         Combines the jobs' reports into one compliance JSON, prints the table and decides.
     python3 scripts/ci/check_release.py --self-test
@@ -566,6 +570,28 @@ FLOWS = (
 )
 
 
+# ------------------------------------------------------------------------------------------------
+# Accessibility audit (MVP-2, UX-WP-22, ux-ui.md A11Y-01/02/04/09)
+# ------------------------------------------------------------------------------------------------
+
+def a11y_audit_checks(results: dict[str, str], waivers: int, due: str = "MVP") -> list[Check]:
+    """One check, REL.a11y.audit: passes only when every `AccessibilityAuditUITests` /
+    `-DarkUITests` / `-ContrastUITests` test case in `results` ("Suite/test" -> xcresult result,
+    from `test_results()`) passed, and reports `waivers` (the CI step counts the
+    `^\\s*Key\\(elementIdentifier:` lines in `AccessibilityAuditUITests.swift`'s `A11yWaivers.waived`
+    set — the suite's own registry is the source of truth; this script never re-derives it). No
+    results at all is a failing check, same rule as `flow_checks`: nothing passes by being
+    missing."""
+    if not results:
+        return [Check("REL.a11y.audit", "Accessibility audit: 0 unwaived issues", "ERROR", due, False,
+                      "no AccessibilityAuditUITests/-DarkUITests/-ContrastUITests test results were given")]
+    failed = {test: result for test, result in results.items() if result.lower() != "passed"}
+    detail = f"{len(results)} audit test(s) ran, {waivers} waiver(s) in A11yWaivers.waived"
+    if failed:
+        detail += "; failed: " + ", ".join(f"{test}: {result}" for test, result in sorted(failed.items()))
+    return [Check("REL.a11y.audit", "Accessibility audit: 0 unwaived issues", "ERROR", due, not failed, detail)]
+
+
 def test_results(document: object) -> dict[str, str]:
     """`Suite/test` -> result, from `xcresulttool get test-results tests` JSON. Tolerant of nesting:
     every node with nodeType "Test Case" counts, identified by its nodeIdentifier, or by its suite's
@@ -723,7 +749,17 @@ def self_test() -> int:
         "NSPrivacyAccessedAPICategoryUserDefaults": ["_OBJC_CLASS_$_NSUserDefaults"],
         "NSPrivacyAccessedAPICategoryActiveKeyboards": ["activeInputModes"]}
     assert categories_in({"_malloc"}, {"init"}) == {}
-    print("check_release self-test: 20 checks passed")
+    # MVP-2: REL.a11y.audit.
+    a11y_passing = {"AccessibilityAuditUITests/testWelcome": "Passed", "AccessibilityAuditDarkUITests/testWelcome": "Passed"}
+    a11y_pass_check = a11y_audit_checks(a11y_passing, waivers=2)[0].settle()
+    assert a11y_pass_check.status == "PASS", a11y_pass_check
+    assert "2 waiver" in a11y_pass_check.detail, a11y_pass_check.detail
+    a11y_failing = {"AccessibilityAuditUITests/testWelcome": "Passed", "AccessibilityAuditUITests/testDashboard": "Failed"}
+    a11y_fail_check = a11y_audit_checks(a11y_failing, waivers=0)[0].settle()
+    assert a11y_fail_check.status == "FAIL", "a failed audit test fails the gate at MVP"
+    assert "testDashboard: Failed" in a11y_fail_check.detail, a11y_fail_check.detail
+    assert a11y_audit_checks({}, waivers=0)[0].settle().status == "FAIL", "no results is a failing check, not a silent pass"
+    print("check_release self-test: 24 checks passed")
     return 0
 
 
@@ -772,7 +808,17 @@ def main(argv: list[str]) -> int:
         if "--pending" in options:
             id_, due, owner, detail = options["--pending"].split("\t", 3)
             return write([Check(id_, options.get("--title") or id_, "ERROR", due, False, detail, owner)], out, id_)
-    except (InputError, OSError, KeyError, json.JSONDecodeError) as error:
+        if "--a11y-audit" in options:
+            results: dict[str, str] = {}
+            for path in options["--a11y-audit"].split():
+                raw = pathlib.Path(path).read_text(encoding="utf-8")
+                parsed = test_results(json.loads(raw))
+                results.update(parsed)
+                print(f"RELEASE | a11y-audit | {path}: {len(parsed)} test case(s)")
+            waivers = int(options.get("--waivers") or "0")
+            due = options.get("--due") or "MVP"
+            return write(a11y_audit_checks(results, waivers, due), out, "a11y-audit", report_only)
+    except (InputError, OSError, KeyError, ValueError, json.JSONDecodeError) as error:
         print(f"RELEASE | ERROR | input | {error}")
         return 2
     print(__doc__)
