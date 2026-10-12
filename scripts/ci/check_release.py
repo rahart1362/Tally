@@ -8,6 +8,13 @@ that does not pass yet is PENDING: it is reported with its milestone and owner a
 the gate. A check that is due now and fails is FAIL, and fails the gate. Nothing is dropped: every
 check appears in the compliance report, and a pending check that starts passing says so.
 
+Milestones, in order: M2, M3, MVP, M4, M5. MVP (program plan §3: "release checks green on the
+simulator" plus the account-independent parts of M5 — the privacy manifest; Sample Data as the App
+Review path) sits between M3 and M4: every check or flow a Canvas or Apple account needs (OAuth,
+TestFlight versions, signing, the owner's go-live values, counsel's sign-off) stays M4/M5. The
+accessibility audit and the screenshot gallery are separate work packages (MVP-2, MVP-3) in the
+same gate and stay PENDING here until they land.
+
     python3 scripts/ci/check_release.py --source [ROOT] --json OUT
         Linux. Info.plist settings in project.yml, entitlements, the icon, release strings, the
         disclaimer, go-live placeholders, store metadata, and the privacy manifests (ASC-03,
@@ -46,8 +53,8 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 
-CURRENT_MILESTONE = "M2"
-MILESTONES = ("M2", "M3", "M4", "M5")  # in order; a check due after CURRENT_MILESTONE can be pending
+CURRENT_MILESTONE = "MVP"
+MILESTONES = ("M2", "M3", "MVP", "M4", "M5")  # in order; a check due after CURRENT_MILESTONE can be pending
 
 
 @dataclass
@@ -129,6 +136,12 @@ RELEASE_STRINGS = [
     ("Calculus III Midterm", re.compile(r"Calculus III Midterm")),
 ]
 DISCLAIMER = re.compile(r"not affiliated with.{0,80}Instructure", re.S)
+# A translator's note, never shipping text: `comment: "..."` is the only way this repo's L10n
+# calls (LocalizedStringResource/String(localized:), check_string_catalogs.py's KEYED_LOOKUP) name
+# one, so this is not file- or call-specific (confirmed: every `comment:` string literal in the
+# shipping Swift tree is one of those two calls' argument, never an unrelated parameter of the same
+# name). A real string (defaultValue, or any other literal) is never matched by this.
+TRANSLATOR_COMMENT = re.compile(r'\bcomment\s*:\s*"(?:[^"\\]|\\.)*"')
 # Lines find-placeholders.sh lists on purpose, with the reason. Anything else in shipping code fails.
 PLACEHOLDER_ALLOWLIST = {
     "packages/TallyAppleKit/Sources/TallyPlatform/KeychainCredentialStore.swift":
@@ -179,6 +192,35 @@ def _placeholder_hits(root: pathlib.Path) -> list[tuple[str, str, str]]:
             hits.append((category, path, number))
     if result.returncode not in (0, 1) or (result.returncode == 1 and not hits):
         raise InputError(f"find-placeholders.sh exited {result.returncode} without a list: {result.stderr.strip()}")
+    return hits
+
+
+def _mask_translator_comments(text: str) -> str:
+    """`text` with every `comment:` argument's string literal blanked (newlines kept, so line
+    numbers still match). Run after `privacy.mask(text, keep_strings=True)`: that already blanks
+    `//`/`/* */` comments but keeps string literals, including a translator's `comment:` note,
+    which is not shipping text and must not trip RELEASE_STRINGS."""
+    out = list(text)
+    for m in TRANSLATOR_COMMENT.finditer(text):
+        for i in range(m.start(), m.end()):
+            if out[i] != "\n":
+                out[i] = " "
+    return "".join(out)
+
+
+def _release_string_hits(privacy, path: str, text: str) -> list[str]:
+    """`path:line label` for each RELEASE_STRINGS match in shipping (non-DEBUG-only) code. A
+    translator's `comment:` note is masked out first, so a name used only there (an example in a
+    translator's note, never shown to a student) is not a hit; the same name in a `defaultValue`
+    or any other real string literal still is."""
+    masked = _mask_translator_comments(privacy.mask(text, keep_strings=True))
+    debug = privacy.debug_only_lines(masked)
+    hits = []
+    for label, pattern in RELEASE_STRINGS:
+        for m in pattern.finditer(masked):
+            line = masked.count("\n", 0, m.start()) + 1
+            if line not in debug:
+                hits.append(f"{path}:{line} {label}")
     return hits
 
 
@@ -284,13 +326,7 @@ def source_checks(root: pathlib.Path) -> list[Check]:
     # Release strings and the disclaimer (§3.3.1, R10 of the ASC review), outside #if DEBUG.
     hits = []
     for path, text in shipping.items():
-        masked = privacy.mask(text, keep_strings=True)
-        debug = privacy.debug_only_lines(masked)
-        for label, pattern in RELEASE_STRINGS:
-            for m in pattern.finditer(masked):
-                line = masked.count("\n", 0, m.start()) + 1
-                if line not in debug:
-                    hits.append(f"{path}:{line} {label}")
+        hits.extend(_release_string_hits(privacy, path, text))
     add("REL.strings.release-clean", "No mock, placeholder or fabricated content in shipping code",
         not hits, "; ".join(hits[:10]) or f"{len(shipping)} shipping Swift files scanned")
     disclaimer = [path for path, text in shipping.items() if DISCLAIMER.search(privacy.mask(text, keep_strings=True))]
@@ -492,9 +528,8 @@ class Flow:
 FLOWS = (
     Flow("REL.flow.01-first-login", "First login: OAuth sign-in, then the Dashboard", (), "", "M5",
          "M5: ASC-11's mock OAuth/Canvas server was deferred to M5 (plan 07 §1); M2-C1 builds the replay-backed first sync"),
-    Flow("REL.flow.02-launch-with-cache", "Launch with a valid cache paints it before the network", (), "", "M2",
-         "M2-C1 (plan 06 step 8; plan 07 §3 item 1): LaunchFromCacheUITests on m2/lifecycle, not merged at this "
-         "commit; map it here (and run it) when it merges"),
+    Flow("REL.flow.02-launch-with-cache", "Launch with a valid cache paints it before the network",
+         ("LaunchFromCacheUITests/testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity",), "Debug", "M2", ""),
     Flow("REL.flow.03-launch-no-cache", "Launch with no cache shows Welcome",
          ("TallyLaunchUITests/testAppLaunchesAndRootViewExists",), "Release", "M2", ""),
     Flow("REL.flow.04-refresh-under-10s", "A refresh under 10 s updates in place", (), "", "M5",
@@ -504,15 +539,21 @@ FLOWS = (
     Flow("REL.flow.06-refresh-self-heals", "A refresh that lands after the budget self-heals the UI",
          ("SlowRefreshUITests/testSlowRefreshShowsTheBreadcrumbThenSelfHeals",
           "SlowRefreshUITests/testPullToRefreshStopsAtTheBudgetWhileTheRefreshRuns"), "Debug", "M2", ""),
-    Flow("REL.flow.07-threshold-alert", "A threshold alert is scheduled", (), "", "M3", "M3-C notifications (E07)"),
-    Flow("REL.flow.08-quiet-hours", "Quiet hours are respected", (), "", "M3", "M3-C notifications (E07)"),
-    Flow("REL.flow.10-no-prompt-at-launch", "No system permission alert at first launch", (), "", "M3",
-         "M3-C: in-context permission priming (UX-WP-12) with its UI test"),
-    Flow("REL.flow.11-denied-permissions", "Denied notifications and calendar leave the app usable", (), "", "M3",
-         "M3-C notifications and M3-A calendar"),
-    Flow("REL.flow.12-privacy-policy-link", "The privacy policy link opens", (), "", "M3", "M3-A Settings"),
+    Flow("REL.flow.07-threshold-alert", "A threshold alert is scheduled",
+         ("ReleaseFlowCoverageTests/testThresholdAlertIsScheduled",), "Release", "MVP", ""),
+    Flow("REL.flow.08-quiet-hours", "Quiet hours are respected",
+         ("ReleaseFlowCoverageTests/testQuietHoursShiftReminderOutsideTheWindow",), "Release", "MVP", ""),
+    Flow("REL.flow.10-no-prompt-at-launch", "No system permission alert at first launch",
+         ("RemindersUITests/testTipAsksInContextAndSettingsShowsTheReminderState",), "Debug", "MVP", ""),
+    Flow("REL.flow.11-denied-permissions", "Denied notifications and calendar leave the app usable",
+         ("RemindersUITests/testTipAsksInContextAndSettingsShowsTheReminderState",), "Debug", "MVP",
+         "proven for notifications only: calendar has no shipping feature yet (no EventKit import under "
+         "apps/TallyiOS/project.yml's dependency closure; packages/TallyCalendarSync is an unlinked legacy "
+         "package, REL.go-live.unlinked-legacy) — mvp1-report.md open items"),
+    Flow("REL.flow.12-privacy-policy-link", "The privacy policy link opens",
+         ("PaywallUITests/testPrivacyPolicyLinkOpens",), "Debug", "MVP", ""),
     Flow("REL.flow.13-sign-out-erase", "Sign out & erase leaves no Keychain item, cache, notification or widget data",
-         (), "", "M3", "M2-C1 (plan 06 step 10) and M3-A Settings"),
+         ("SettingsUITests/testAccountRowsThenSignOutAndErase",), "Debug", "MVP", ""),
     Flow("REL.flow.14-demo-mode", "Explore with Sample Data works end to end",
          ("SampleDataUITests/testWelcomeToSampleDataDashboard", "SampleDataUITests/testSampleEntryAndExitTwice",
           "SampleDataUITests/testSchoolNotEnabledToSampleData"), "Release", "M2", ""),
@@ -647,6 +688,16 @@ def self_test() -> int:
     assert Check("a", "t", "WARN", "M2", False, "").settle().status == "WARN"
     assert Check("a", "t", "ERROR", "M5", False, "").settle().status == "PENDING", "a later milestone is pending"
     assert Check("a", "t", "ERROR", "M5", True, "").settle().status == "PASS", "a pending check that passes says so"
+    # The MVP milestone (release checks + privacy manifest work package) sits between M3 and M4.
+    assert MILESTONES.index("M3") < MILESTONES.index("MVP") < MILESTONES.index("M4"), MILESTONES
+    assert Check("a", "t", "ERROR", "MVP", False, "").settle().status == "FAIL", "MVP is the current milestone"
+    assert Check("a", "t", "ERROR", "M4", False, "").settle().status == "PENDING", "M4 is still after MVP"
+    # A translator's `comment:` note never trips release-clean; the same name in a real string does.
+    sample = ('LocalizedStringResource("k", defaultValue: "Hi Alex", bundle: #bundle,\n'
+             '                        comment: "Example name is Alex, a translator note only.")\n')
+    privacy_for_test = _sibling("check_privacy_manifest")
+    release_hits = _release_string_hits(privacy_for_test, "x.swift", sample)
+    assert release_hits == ["x.swift:1 Alex"], release_hits
     tests = {"testNodes": [{"nodeType": "Test Plan", "name": "Tally", "children": [
         {"nodeType": "UI test bundle", "name": "TallyUITests", "children": [
             {"nodeType": "Test Suite", "name": "TallyLaunchUITests", "children": [
@@ -663,7 +714,7 @@ def self_test() -> int:
     assert "missing (did not run)" in by_id["REL.flow.14-demo-mode"].detail
     assert by_id["REL.flow.05-refresh-over-10s"].status == "FAIL", "a test that did not run never passes"
     assert by_id["REL.flow.05-refresh-over-10s.release-config"].status == "PENDING"
-    assert by_id["REL.flow.07-threshold-alert"].status == "PENDING"
+    assert by_id["REL.flow.04-refresh-under-10s"].status == "PENDING", "a flow due after MVP with no test is pending"
     assert by_id["REL.flow.01-first-login"].status == "PENDING"
     only = {c.id for c in flow_checks({"Release": results}, only_given=True)}
     assert "REL.flow.03-launch-no-cache" in only and "REL.flow.05-refresh-over-10s" not in only \
@@ -672,7 +723,7 @@ def self_test() -> int:
         "NSPrivacyAccessedAPICategoryUserDefaults": ["_OBJC_CLASS_$_NSUserDefaults"],
         "NSPrivacyAccessedAPICategoryActiveKeyboards": ["activeInputModes"]}
     assert categories_in({"_malloc"}, {"init"}) == {}
-    print("check_release self-test: 16 checks passed")
+    print("check_release self-test: 20 checks passed")
     return 0
 
 

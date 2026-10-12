@@ -28,12 +28,21 @@ env:
     -collect-test-diagnostics never -test-timeouts-enabled YES
     -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
   # The critical flows that need no DEBUG-only launch hook run against a Release build.
+  # ReleaseFlowCoverageTests (TallyAppTests, MVP: REL.flow.07/08) calls ReminderPlanner directly, no
+  # hook needed either.
   RELEASE_FLOWS: >-
     -only-testing:TallyUITests/TallyLaunchUITests -only-testing:TallyUITests/SampleDataUITests
     -only-testing:TallyUITests/WelcomeCTAUITests -only-testing:TallyUITests/SchoolSearchUITests
-  # The slow-refresh flows need `-TallyDebugSampleRefreshLatency`, a DEBUG-only hook, until the
-  # UITest configuration (Release optimizations plus TALLY_UI_TESTING) exists (M5).
-  DEBUG_FLOWS: -only-testing:TallyUITests/SlowRefreshUITests
+    -only-testing:TallyAppTests/ReleaseFlowCoverageTests
+  # Every other mapped flow still needs `TestHooks`/`ReminderTestHooks` (`-TallyTestHooks.*`): those
+  # compile only under DEBUG or the `TALLY_TEST_HOOKS` condition `make ios-perf` sets for its own
+  # Release test build (not this job), so they run against the Debug build here, like
+  # SlowRefreshUITests' DEBUG-only `-TallyDebugSampleRefreshLatency` hook, until the UITest
+  # configuration (Release optimizations plus TALLY_UI_TESTING) exists (M5).
+  DEBUG_FLOWS: >-
+    -only-testing:TallyUITests/SlowRefreshUITests -only-testing:TallyUITests/LaunchFromCacheUITests
+    -only-testing:TallyUITests/RemindersUITests -only-testing:TallyUITests/PaywallUITests
+    -only-testing:TallyUITests/SettingsUITests
 
 jobs:
   static-linux:

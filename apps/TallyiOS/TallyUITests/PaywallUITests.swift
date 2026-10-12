@@ -89,6 +89,21 @@ final class PaywallUITests: TallyUITestCase {
         }
     }
 
+    /// REL.flow.12-privacy-policy-link (release-gate.yml, M3): tapping it leaves Tally — the system
+    /// opens the page, the same "leaves the app" signal `AppLockUITests` uses for Face ID handing off
+    /// to the system — rather than doing nothing or opening an in-app sheet.
+    @MainActor
+    func testPrivacyPolicyLinkOpens() throws {
+        let app = launchSample(arguments: TestHooks.entitlement("none"))
+        openSubscriptionSettings(app)
+        openPaywallThroughTheInterstitial(app)
+        let privacy = element("paywall.privacy", in: app)
+        XCTAssertTrue(scrollUntilHittable(privacy, in: app), "Privacy Policy is out of reach. Hierarchy: \(app.debugDescription)")
+        privacy.tap()
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10) || app.wait(for: .runningBackgroundSuspended, timeout: 5),
+                     "tapping Privacy Policy did not leave Tally. Hierarchy: \(app.debugDescription)")
+    }
+
     // MARK: - PAY-06: placement
 
     /// (a) Before sign-in and on "not available at your school": no purchase control at all.

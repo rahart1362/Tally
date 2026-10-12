@@ -92,6 +92,11 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - $(PRODUCT_BUNDLE_IDENTIFIER).refresh
         ITSAppUsesNonExemptEncryption: NO
+        # SEC-07/R15: LocalAuthenticationAdapter's LAContext needs this key (REL.plist.purpose-strings)
+        # or Face ID authorization can fail. English is a NEW string PENDING owner approval
+        # (docs/pmo/reviews/mvp1-report.md); Spanish ships needs_review, like every other L10N-04
+        # string. Tally/InfoPlist.xcstrings supplies both languages' values, same as CFBundleDisplayName.
+        NSFaceIDUsageDescription: "Face ID unlocks Tally to protect your courses and grades."
         TallyOrgDomain: $(TALLY_ORG_DOMAIN)
         TallyAppGroupID: $(TALLY_SHARED_APP_GROUP_ID)
     dependencies:
