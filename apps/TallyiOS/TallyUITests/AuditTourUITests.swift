@@ -314,7 +314,10 @@ final class AuditTourUITests: TallyUITestCase {
         openTabInTour(Self.tabLabel(.toDo), in: app)
         // L10N-04: was text("Missing & overdue", in: app) — the English section header, which
         // Spanish changes; any row is an equally good "the To-Do projection landed" signal.
-        _ = elements("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
+        // Round 2: "todo.row" is now "todo.row.done"/"todo.row.notDone" (VoiceOver-safe way to
+        // carry the done state — see ToDoScreen.swift); elementsWithPrefix finds every row either
+        // way, same as the flat identifier did.
+        _ = elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "todo", state: "default", reachedVia: "To-Do tab")
 
         if go(app.buttons["todo.sort"], app, screen: "todo", state: "sortMenu", reachedVia: "sort toolbar menu") {
@@ -322,7 +325,7 @@ final class AuditTourUITests: TallyUITestCase {
             dismissOverlay(app)
         }
 
-        let rows = elements("todo.row", in: app)
+        let rows = elementsWithPrefix("todo.row", in: app)
         if rows.count > 1 {
             // ux-fp6: row 2 (`boundBy: 1`) sits under the floating tab bar at Pro Max AX5 (a single
             // AX5 row is tall enough to push it there), so the swipe landed on the tab bar instead
@@ -352,7 +355,11 @@ final class AuditTourUITests: TallyUITestCase {
         }
 
         if go(app.buttons["todo.select"], app, screen: "todo", state: "selectMode", reachedVia: "Select toolbar button") {
-            let notDone = rows.matching(NSPredicate(format: "NOT (label CONTAINS 'Marked done in Tally')"))
+            // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a match on
+            // the English label "Marked done in Tally", which Spanish translates — the filter
+            // silently stopped filtering instead of failing loudly. The row's own identifier
+            // ("todo.row.notDone"/"todo.row.done", never spoken or localized) carries the state.
+            let notDone = rows.matching(NSPredicate(format: "identifier == 'todo.row.notDone'"))
             for index in 0..<min(2, notDone.count) {
                 let row = notDone.element(boundBy: index)
                 if bringClearOfTheBottom(row, in: app) { row.tap() }
@@ -411,13 +418,14 @@ final class AuditTourUITests: TallyUITestCase {
         // end the account early for whichever other method runs in this process next).
         scrollToTop(app)
         if goScrolling(app.buttons["settings.signOut"], app, screen: "settings", state: "signOutButton", reachedVia: "Settings") {
-            let confirmation = app.staticTexts.matching(
-                NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'")).firstMatch
-            if confirmation.waitForExistence(timeout: 10) {
+            // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English confirmation
+            // message and the English "Cancel" button label, which Spanish translates — this
+            // screen was missing from every es leg (std used `.alert`, AX5 the sheet; both show
+            // the same message, so both failed the same way). `settings.signOutConfirm.cancel`
+            // is set on the Cancel button in both presentations (`DestructiveConfirmation.swift`).
+            let cancel = element("settings.signOutConfirm.cancel", in: app)
+            if cancel.waitForExistence(timeout: 10) {
                 snap(app, screen: "settings", state: "signOutConfirm", reachedVia: "Sign Out & Erase")
-            }
-            let cancel = app.buttons["Cancel"]
-            if cancel.waitForExistence(timeout: 3) {
                 cancel.tap()
             } else {
                 let popover = app.otherElements["PopoverDismissRegion"].firstMatch
@@ -694,16 +702,15 @@ final class AuditTourUITests: TallyUITestCase {
                 let unlink = app.buttons["family.unlink"]
                 if scrollUntilHittable(unlink, in: app) {
                     unlink.tap()
-                    if app.staticTexts["Unlink Rowan?"].waitForExistence(timeout: 10) {
+                    // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English title
+                    // and "Cancel" label, which Spanish translates.
+                    let cancel = element("family.unlinkConfirm.cancel", in: app)
+                    if cancel.waitForExistence(timeout: 10) {
                         snap(app, screen: "family", state: "unlinkConfirm", reachedVia: "Rowan Sample -> Unlink")
-                        let cancel = app.buttons.matching(
-                            NSPredicate(format: "label == 'Cancel' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-                        if cancel.waitForExistence(timeout: 3) {
-                            cancel.tap()
-                        } else {
-                            let popover = app.otherElements["PopoverDismissRegion"].firstMatch
-                            if popover.waitForExistence(timeout: 3) { popover.tap() }
-                        }
+                        cancel.tap()
+                    } else {
+                        let popover = app.otherElements["PopoverDismissRegion"].firstMatch
+                        if popover.waitForExistence(timeout: 3) { popover.tap() }
                     }
                 }
                 goBack(app)
@@ -749,13 +756,20 @@ final class AuditTourUITests: TallyUITestCase {
             // detail screen); `goScrolling` is a safe strict improvement, same fallback on failure.
             guard goScrolling(app.buttons["family.removeFromTally"], app, screen: "family", state: "removeConfirm-\(name)",
                               reachedVia: "\(name) Sample -> Remove from Tally") else { continue }
-            if app.staticTexts["Remove \(name) from Tally?"].waitForExistence(timeout: 10) {
+            // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English title and
+            // "Remove from Tally" confirm-button label, which Spanish translates. Under es neither
+            // ever matched, so the confirm button was never tapped, the sheet stayed open, and the
+            // *next* loop iteration's row lookup failed too — its "missing-removeStudent-<name>"
+            // screenshot was actually this student's still-open confirmation (the misfiled-name
+            // bug the verdict found: "Rowan" filed under "Skyler").
+            let confirm = element("family.removeConfirm.destructive", in: app)
+            if confirm.waitForExistence(timeout: 10) {
                 snap(app, screen: "family", state: "removeConfirm-\(name)", reachedVia: "\(name) Sample -> Remove from Tally")
+                confirm.tap()
             }
-            let confirm = app.buttons.matching(
-                NSPredicate(format: "label == 'Remove from Tally' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-            if confirm.waitForExistence(timeout: 5) { confirm.tap() }
-            _ = text("Linked Students", in: app).waitForExistence(timeout: 10)
+            // Back on Linked Students once the removal completes and the sheet dismisses: waits on
+            // "Add a Student", not translated English text.
+            _ = element("family.addStudent", in: app).waitForExistence(timeout: 10)
         }
 
         if element("family.parentEmpty", in: app).waitForExistence(timeout: 10) {
@@ -793,8 +807,10 @@ final class AuditTourUITests: TallyUITestCase {
             app.terminate()
             return
         }
-        let breadcrumb = app.staticTexts.matching(
-            NSPredicate(format: "label BEGINSWITH 'Live refresh is taking longer than expected'")).firstMatch
+        // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a match on the
+        // English label prefix, which Spanish translates — a real breadcrumb was filed under
+        // "missing-breadcrumb" on every es leg instead of "breadcrumb".
+        let breadcrumb = element("freshness.breadcrumb", in: app)
         if breadcrumb.waitForExistence(timeout: 15) {
             snap(app, screen: "slowRefresh", state: "breadcrumb", reachedVia: "tapped Refresh, waited past the live budget")
         } else {

@@ -224,7 +224,18 @@ struct ToDoRowView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(item.spokenLabel(isDone: isDone))
-            .accessibilityIdentifier("todo.row")
+            // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a flat
+            // "todo.row" for every row, so the Audit tour's batch-select filter matched on this
+            // row's spoken label containing the English "Marked done in Tally" instead — which
+            // Spanish translates, so under es the filter silently stopped filtering rather than
+            // failing loudly. `.accessibilityValue` was considered and rejected: VoiceOver speaks
+            // a value alongside the label, so a literal English word there would read aloud in
+            // every language, a real regression for a screen-reader user. The identifier itself
+            // (never spoken; test-only) carries the state instead. Every row still matches a
+            // `identifier BEGINSWITH "todo.row"` query exactly as "todo.row" alone did
+            // (`ScreenUITestSupport.elementsWithPrefix`), so `ToDoUITests.swift`'s existing exact
+            // match is updated to that prefix form, not removed.
+            .accessibilityIdentifier(isDone ? "todo.row.done" : "todo.row.notDone")
         }
     }
 }

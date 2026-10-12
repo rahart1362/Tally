@@ -1183,14 +1183,18 @@ public enum L10n {
                                     comment: "Settings row title: opens iOS's own per-app Language setting for Tally (L-2). PENDING owner approval (L10N-04).")
         }
 
-        /// L10N-01 spike §2 answer 2: iOS lists the per-app Language choice only when the iPhone
-        /// itself has more than one preferred language.
-        public static func languageFooter() -> LocalizedStringResource {
+        /// L10N-04 round 2 (gate-2 verdict, "Language row" section): the round-1 draft
+        /// (`settings.language.footer`) was ambiguous about where the choice appears and implied
+        /// the link lands on Tally's own Settings page, when `openSettingsURLString` opens
+        /// Settings at its root (the L10N-01 spike). This is the reviewer's proposed replacement.
+        /// Still PENDING owner approval; both English drafts are in
+        /// `docs/pmo/reviews/l10n-04-report.md` for the owner to choose between.
+        public static func languageFooterV2() -> LocalizedStringResource {
             LocalizedStringResource(
-                "settings.language.footer",
-                defaultValue: "Tally uses your iPhone's language. iOS shows a Language choice here only when your iPhone has more than one preferred language.",
+                "settings.language.footerV2",
+                defaultValue: "Tally uses your iPhone's language. To pick a language just for Tally, open Settings → Apps → Tally → Language. iOS shows that choice only after you add a second language in Settings → General → Language & Region.",
                 bundle: #bundle,
-                comment: "Settings, Language row footer: explains that iOS lists the per-app Language choice only when the iPhone itself has more than one preferred language (L10N-01 spike §2 answer 2). PENDING owner approval (L10N-04).")
+                comment: "Settings, Language row footer, round 2 (L10N-04 gate-2 verdict, 'Language row' section): explains how to pick a language just for Tally, and that iOS offers the choice only after a second preferred language exists. Replaces the round-1 draft (settings.language.footer, removed). PENDING owner approval -- both English drafts are in docs/pmo/reviews/l10n-04-report.md.")
         }
 
         /// The sign-out confirmation dialog's "Cancel" action.

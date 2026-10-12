@@ -78,6 +78,14 @@ struct FreshnessBreadcrumb: View {
                     .background(TallyColor.warning.opacity(colorScheme == .dark ? 0.16 : 0.30),
                                in: RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
                     .accessibilityAddTraits(.updatesFrequently)
+                    // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): the
+                    // Audit tour found this breadcrumb by its English label prefix, which Spanish
+                    // translates — the es tour filed a real breadcrumb under a "missing" name
+                    // instead of failing loudly. A stable id, usable in every language. Only this
+                    // package's own `AuditTourUITests.swift` reads it; the other suites that still
+                    // match the English text (`SlowRefreshUITests`, `LaunchFromCacheUITests`) stay
+                    // on the pinned English locale, so they are unaffected.
+                    .accessibilityIdentifier("freshness.breadcrumb")
             }
         }
     }

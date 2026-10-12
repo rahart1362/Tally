@@ -22,11 +22,16 @@ struct TallyConfirmationAction: Identifiable {
     let id = UUID()
     let title: String
     let role: Role
+    /// L10N-04 round 2 (gate-2 verdict item 16): a stable id for this button, independent of its
+    /// (translated) title, so the Audit tour can find "Cancel"/the destructive action/etc. in
+    /// every language. `nil` where no call site needs one yet.
+    let accessibilityIdentifier: String?
     let action: () -> Void
 
-    init(_ title: String, role: Role = .normal, action: @escaping () -> Void) {
+    init(_ title: String, role: Role = .normal, accessibilityIdentifier: String? = nil, action: @escaping () -> Void) {
         self.title = title
         self.role = role
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.action = action
     }
 
@@ -42,10 +47,18 @@ struct TallyConfirmationAction: Identifiable {
 extension View {
     /// D03 round 2: `.alert` below the accessibility sizes, a full-screen sheet built from the same
     /// title/message/actions at AX1 and up. See `TallyConfirmationAction`.
+    ///
+    /// L10N-04 round 2 (gate-2 verdict item 16): `accessibilityIdentifier`, when given, tags the
+    /// confirmation itself (the AX1+ sheet's root view — the only one of the two presentations
+    /// this package can tag directly; a plain `.alert`'s own container is not a taggable SwiftUI
+    /// view), so the Audit tour can detect "is this confirmation showing" without matching its
+    /// (translated) title or message text.
     func tallyDestructiveConfirmation(
-        _ title: String, isPresented: Binding<Bool>, message: String, actions: [TallyConfirmationAction]
+        _ title: String, isPresented: Binding<Bool>, message: String, actions: [TallyConfirmationAction],
+        accessibilityIdentifier: String? = nil
     ) -> some View {
-        modifier(TallyDestructiveConfirmationModifier(title: title, isPresented: isPresented, message: message, actions: actions))
+        modifier(TallyDestructiveConfirmationModifier(title: title, isPresented: isPresented, message: message,
+                                                       actions: actions, accessibilityIdentifier: accessibilityIdentifier))
     }
 }
 
@@ -54,6 +67,7 @@ private struct TallyDestructiveConfirmationModifier: ViewModifier {
     @Binding var isPresented: Bool
     let message: String
     let actions: [TallyConfirmationAction]
+    let accessibilityIdentifier: String?
     @Environment(\.dynamicTypeSize) private var typeSize
 
     func body(content: Content) -> some View {
@@ -64,6 +78,7 @@ private struct TallyDestructiveConfirmationModifier: ViewModifier {
             )) {
                 ForEach(actions) { action in
                     Button(action.title, role: action.alertRole, action: action.action)
+                        .accessibilityIdentifier(action.accessibilityIdentifier ?? "")
                 }
             } message: {
                 Text(message)
@@ -73,6 +88,7 @@ private struct TallyDestructiveConfirmationModifier: ViewModifier {
                 set: { shown in if !shown { isPresented = false } }
             )) {
                 TallyConfirmationSheet(title: title, message: message, actions: actions, dismiss: { isPresented = false })
+                    .accessibilityIdentifier(accessibilityIdentifier ?? "")
             }
     }
 }
@@ -166,6 +182,7 @@ private struct TallyConfirmationSheet: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(ScreenPalette.color(ScreenPalette.danger, scheme: .light, contrast: contrast))
+            .accessibilityIdentifier(action.accessibilityIdentifier ?? "")
         } else {
             Button {
                 dismiss()
@@ -175,6 +192,7 @@ private struct TallyConfirmationSheet: View {
             }
             .buttonStyle(.bordered)
             .tint(action.role == .cancel ? TallyColor.textSecondary : TallyColor.accent)
+            .accessibilityIdentifier(action.accessibilityIdentifier ?? "")
         }
     }
 

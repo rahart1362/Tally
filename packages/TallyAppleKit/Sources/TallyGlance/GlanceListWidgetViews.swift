@@ -101,11 +101,13 @@ struct GlanceItemRows: View {
     let rows: Int
     var trailingButton: (_ itemID: String, _ accessibilityLabel: String) -> AnyView = { _, _ in AnyView(EmptyView()) }
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
         if summary.upcoming.isEmpty {
-            Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingSoon(), TallyLocale.effective))
+            Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingSoon(), locale))
                 .font(TallyTypography.cardTitle)
                 .foregroundStyle(style.primary)
         } else {
@@ -122,8 +124,8 @@ struct GlanceItemRows: View {
     /// an inert one (owner, 2026-10-03; M3-D2 report O2).
     private func markDoneButton(for item: GlanceSummary.Item) -> AnyView {
         guard GlancePlannerID.assignmentID(item.id) != nil else { return AnyView(EmptyView()) }
-        let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames)
-        return trailingButton(item.id, GlanceText.resolve(L10n.Widgets.markDoneButton(title), TallyLocale.effective))
+        let title = GlanceText.title(item, hidesNames: summary.hidesCourseNames, locale: locale)
+        return trailingButton(item.id, GlanceText.resolve(L10n.Widgets.markDoneButton(title), locale))
     }
 }
 
@@ -152,12 +154,14 @@ struct GlanceItemRow: View {
     /// .combine)`, so VoiceOver can still reach the button as its own stop.
     var trailing: AnyView = AnyView(EmptyView())
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
         HStack(alignment: .firstTextBaseline, spacing: TallySpacing.xs) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: GlanceText.title(item, hidesNames: hidesNames))
+                Text(verbatim: GlanceText.title(item, hidesNames: hidesNames, locale: locale))
                     .font(TallyTypography.subheadline.weight(.semibold))
                     .foregroundStyle(style.primary)
                     .lineLimit(1)
@@ -167,7 +171,7 @@ struct GlanceItemRow: View {
                         Text(verbatim: code)
                             .foregroundStyle(style.secondary)
                     }
-                    Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent))
+                    Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent, locale: locale))
                         .foregroundStyle(style.accent)
                 }
                 .font(TallyTypography.caption)
@@ -185,23 +189,25 @@ struct GlanceItemRow: View {
 struct GlanceWeekStrip: View {
     let days: [GlanceSummary.Day]
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
         HStack(alignment: .top, spacing: TallySpacing.xs) {
             ForEach(days, id: \.start) { day in
                 VStack(spacing: GlanceMetrics.dayColumnSpacing) {
-                    Text(verbatim: GlanceText.weekdayShort(day.start, calendar: .autoupdatingCurrent, locale: TallyLocale.effective))
+                    Text(verbatim: GlanceText.weekdayShort(day.start, calendar: .autoupdatingCurrent, locale: locale))
                         .font(TallyTypography.caption)
                         .foregroundStyle(style.secondary)
-                    Text(verbatim: GlanceText.dayCount(day))
+                    Text(verbatim: GlanceText.dayCount(day, locale: locale))
                         .font(TallyTypography.cardTitle)
                         .foregroundStyle(style.primary)
                         .minimumScaleFactor(GlanceMetrics.dayCountMinimumScale)
                         .widgetAccentable()
                     if day.isBusy {
                         Label {
-                            Text(verbatim: GlanceText.busy())
+                            Text(verbatim: GlanceText.busy(locale: locale))
                         } icon: {
                             Image(systemName: "exclamationmark.triangle")
                         }

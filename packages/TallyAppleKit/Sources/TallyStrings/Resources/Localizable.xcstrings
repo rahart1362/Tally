@@ -14,7 +14,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tally es una app independiente, no afiliada a Instructure, Inc. ni patrocinada o avalada por ella. Canvas es una marca registrada de Instructure, Inc."
+            "value" : "Tally es una app independiente, no afiliada a Instructure, Inc. ni patrocinada o avalada por ella. Canvas es una marca comercial de Instructure, Inc."
           }
         }
       }
@@ -194,7 +194,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "vence a las %@"
+            "value" : "vence, %@"
           }
         }
       }
@@ -920,7 +920,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Calificaciones fuera de Canvas"
+            "value" : "Calificaciones externas"
           }
         }
       }
@@ -1100,7 +1100,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Calificado"
+            "value" : "Calificadas"
           }
         }
       }
@@ -1118,7 +1118,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Faltante"
+            "value" : "Faltantes"
           }
         }
       }
@@ -1136,7 +1136,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Pasado"
+            "value" : "Anteriores"
           }
         }
       }
@@ -1154,7 +1154,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Entregado"
+            "value" : "Entregadas"
           }
         }
       }
@@ -1172,7 +1172,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Próximo"
+            "value" : "Próximas"
           }
         }
       }
@@ -2072,7 +2072,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Qué pasaría si"
+            "value" : "Simulador"
           }
         }
       }
@@ -2216,7 +2216,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ a las %2$@"
+            "value" : "%1$@, %2$@"
           }
         }
       }
@@ -2234,7 +2234,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence %1$@ a las %2$@"
+            "value" : "Vence %1$@, %2$@"
           }
         }
       }
@@ -2342,7 +2342,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ tu meta de %2$@"
+            "value" : "%1$@ de tu meta de %2$@"
           }
         }
       }
@@ -2690,7 +2690,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%@ está faltante"
+            "value" : "Falta entregar %@"
           }
         }
       }
@@ -2726,7 +2726,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tramo ocupado a partir del %@"
+            "value" : "Varias entregas seguidas desde el %@"
           }
         }
       }
@@ -3428,7 +3428,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence en %lldm"
+            "value" : "Vence en %lld min"
           }
         }
       }
@@ -3500,7 +3500,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vencido"
+            "value" : "Atrasado"
           }
         }
       }
@@ -3572,7 +3572,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Semana que viene"
+            "value" : "Próximos 7 días"
           }
         }
       }
@@ -3770,7 +3770,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Semana que viene"
+            "value" : "Tu semana"
           }
         }
       }
@@ -4310,7 +4310,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$lld pendientes · más ocupado %2$@"
+            "value" : "%1$lld pendientes · día más cargado: %2$@"
           }
         }
       }
@@ -4976,7 +4976,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Doble toque para cambiar de estudiante"
+            "value" : "Toca dos veces para cambiar de estudiante"
           }
         }
       }
@@ -5120,7 +5120,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tu sesión venció — mostrando datos guardados de %@."
+            "value" : "Mostrando datos guardados de %@ — tu sesión venció"
           }
         }
       }
@@ -5156,7 +5156,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "La actualización en vivo está tardando más de lo esperado — mostrando datos guardados de %@."
+            "value" : "Mostrando datos guardados de %@ — la actualización en vivo está tardando más de lo esperado"
           }
         }
       }
@@ -5174,7 +5174,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "No se pudo actualizar — mostrando datos guardados de %@."
+            "value" : "Mostrando datos guardados de %@ — no se pudo actualizar"
           }
         }
       }
@@ -5372,7 +5372,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Actualizado justo ahora"
+            "value" : "Actualizado ahora"
           }
         }
       }
@@ -5732,7 +5732,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Calificación no está en Canvas"
+            "value" : "Calificación fuera de Canvas"
           }
         }
       }
@@ -5845,6 +5845,24 @@
         }
       }
     },
+    "insights.category.other" : {
+      "comment" : "The category-breakdown chart's catch-all bucket name, for every category beyond the shown limit, summed together.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otras"
+          }
+        }
+      }
+    },
     "insights.categoryBreakdown.subtitle" : {
       "comment" : "Insights, under the Category breakdown header: what the chart means.",
       "extractionState" : "manual",
@@ -5930,7 +5948,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$lld de %2$lld tareas atrasadas se entregaron a tiempo."
+            "value" : "Entregaste a tiempo %1$lld de %2$lld tareas cuya fecha ya pasó."
           }
         }
       }
@@ -5966,7 +5984,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Trabajo atrasado que entregaste a tiempo este período."
+            "value" : "Tareas con fecha ya pasada que entregaste a tiempo este período."
           }
         }
       }
@@ -6182,7 +6200,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Promedio de tus cursos, desde que se publicó cada calificación."
+            "value" : "Promedio de tus cursos, según la fecha en que se publicó cada calificación."
           }
         }
       }
@@ -7160,7 +7178,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ a las %2$@"
+            "value" : "%1$@, %2$@"
           }
         }
       }
@@ -7448,7 +7466,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$lld pendientes · más ocupado %2$@"
+            "value" : "%1$lld pendientes · día más cargado: %2$@"
           }
         }
       }
@@ -7772,7 +7790,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tu semana que viene"
+            "value" : "Tu semana"
           }
         }
       }
@@ -8132,7 +8150,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "¿Considerarían habilitar Tally en %1$@? Es una app que muestra a los estudiantes sus cursos, calificaciones y fechas de entrega de Canvas. No hay servidor de Tally ni cuentas de estudiante — Tally inicia sesión directamente con tu Canvas, igual que un navegador. La configuración le toma a un administrador de Canvas unos minutos: https://%2$@/admin"
+            "value" : "¿Considerarían habilitar Tally en %1$@? Es una app que muestra a los estudiantes sus cursos, calificaciones y fechas de entrega de Canvas. No hay servidor de Tally ni cuentas de estudiante — Tally inicia sesión directamente con el Canvas de la escuela, igual que un navegador. La configuración le toma a un administrador de Canvas unos minutos: https://%2$@/admin"
           }
         }
       }
@@ -8168,7 +8186,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "¿No la encuentras?"
+            "value" : "¿No aparece?"
           }
         }
       }
@@ -8186,7 +8204,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Buscar tu escuela"
+            "value" : "Buscar escuela"
           }
         }
       }
@@ -8312,7 +8330,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Reciente"
+            "value" : "Recientes"
           }
         }
       }
@@ -8366,7 +8384,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Nombre de la escuela o dirección de Canvas"
+            "value" : "Escuela o dirección de Canvas"
           }
         }
       }
@@ -8600,7 +8618,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aprobar acceso de lectura"
+            "value" : "Aprueba el acceso de lectura"
           }
         }
       }
@@ -9217,20 +9235,20 @@
         }
       }
     },
-    "settings.language.footer" : {
-      "comment" : "Settings, Language row footer: explains that iOS lists the per-app Language choice only when the iPhone itself has more than one preferred language (L10N-01 spike §2 answer 2). PENDING owner approval (L10N-04).",
+    "settings.language.footerV2" : {
+      "comment" : "Settings, Language row footer, round 2 (L10N-04 gate-2 verdict, 'Language row' section): explains how to pick a language just for Tally, and that iOS offers the choice only after a second preferred language exists. Replaces the round-1 draft (settings.language.footer, removed). PENDING owner approval -- both English drafts are in docs/pmo/reviews/l10n-04-report.md.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tally uses your iPhone's language. iOS shows a Language choice here only when your iPhone has more than one preferred language."
+            "value" : "Tally uses your iPhone's language. To pick a language just for Tally, open Settings → Apps → Tally → Language. iOS shows that choice only after you add a second language in Settings → General → Language & Region."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tally usa el idioma de tu iPhone. iOS muestra la opción de idioma aquí solo cuando tu iPhone tiene más de un idioma preferido."
+            "value" : "Tally usa el idioma de tu iPhone. Para elegir un idioma solo para Tally, abre Configuración → Apps → Tally → Idioma. iOS muestra esa opción solo después de agregar un segundo idioma en Configuración → General → Idioma y región."
           }
         }
       }
@@ -9992,7 +10010,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Suscríbete para actualizar — mostrando datos guardados de %@."
+            "value" : "Mostrando datos guardados de %@ — suscríbete para actualizar"
           }
         }
       }
@@ -10028,7 +10046,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Fechas de entrega, Por hacer y Calendario, siempre actualizados"
+            "value" : "Fechas de entrega, Por hacer y Calendario, y al día"
           }
         }
       }
@@ -10046,7 +10064,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Calificaciones y calificaciones hipotéticas en cada curso"
+            "value" : "Calificaciones y simulaciones en cada curso"
           }
         }
       }
@@ -10208,7 +10226,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Cursos, Calendario, Por hacer y Estadísticas vienen con una suscripción. Tu Tablero sigue siendo gratis."
+            "value" : "Cursos, Calendario, Por hacer y Estadísticas requieren suscripción. Tu Tablero sigue siendo gratis."
           }
         }
       }
@@ -10262,7 +10280,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tally Anual"
+            "value" : "Tally Annual"
           }
         }
       }
@@ -11384,7 +11402,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Faltante y atrasado"
+            "value" : "Faltantes y atrasadas"
           }
         }
       }
@@ -11762,7 +11780,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ve cómo vas"
+            "value" : "Mira cómo vas"
           }
         }
       }
@@ -11798,7 +11816,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "A partir de %@."
+            "value" : "Estos datos son de %@."
           }
         }
       }
@@ -12086,7 +12104,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "hoy a las %@"
+            "value" : "hoy, %@"
           }
         }
       }
@@ -12104,7 +12122,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "mañana a las %@"
+            "value" : "mañana, %@"
           }
         }
       }
@@ -12122,7 +12140,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ a las %2$@"
+            "value" : "%1$@, %2$@"
           }
         }
       }
@@ -12140,7 +12158,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "A partir de %@"
+            "value" : "Datos de %@"
           }
         }
       }
@@ -12266,7 +12284,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "No aprobando"
+            "value" : "Sin aprobar"
           }
         }
       }
@@ -12626,7 +12644,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Semana que viene"
+            "value" : "Tu semana"
           }
         }
       }

@@ -19,9 +19,13 @@ should be applied with `scripts/l10n/es_review.py apply`, not by hand-editing th
   "usted" register. **Reviewer: confirm this holds**, especially for the parent-onboarding sheets
   (`family.invite.*`) and the school-facing share text (`grades.info.shareText*`,
   `onboarding.schoolSearch.adminRequestText`), which address a third party (the school) rather than
-  the student or parent directly and so use neither tú nor usted — they're phrased as a request
-  ("¿Podría la escuela considerar...?", "¿Considerarían habilitar Tally...?") without a second-person
-  pronoun.
+  the student or parent directly and so are phrased as a request ("¿Podría la escuela
+  considerar...?", "¿Considerarían habilitar Tally...?").
+  **Correction (L10N-04 round 2, gate-2 verdict T30):** this note previously claimed school-facing
+  text used "neither tú nor usted" — inaccurate. `onboarding.schoolSearch.adminRequestText` mixed
+  ustedes ("¿Considerarían...?") with a stray tú ("con tu Canvas"), found by the gate-2 review
+  (T11) and fixed in round 2 (now "con el Canvas de la escuela", no second-person pronoun).
+  Reviewer: confirm no other school-facing string has the same slip.
 
 ## Canvas vocabulary (the PMO's seed; confirm against Canvas's own Spanish UI)
 
@@ -77,11 +81,14 @@ These recur across catalogs; keep them consistent if correcting one occurrence.
 ## Copy-honesty notes for the reviewer
 
 - **No new claims.** Every Spanish value says only what the English says. In particular, no
-  Spanish string uses "gratis" where the English avoided "free" (owner decision X-1, already
-  reflected upstream: the catalog has no "free app" wording to translate). `subscription.feature.*`
-  and `subscription.paywall.startFreeTrial` ("Start Free Trial" → "Comenzar prueba gratis") are the
-  only "free" occurrences, and they translate an English "free" that is itself about the trial
-  period, not the app.
+  Spanish string uses "gratis" where the English avoided "free" (owner decision X-1). **Correction
+  (L10N-04 round 2, gate-2 verdict T30):** this note previously said the trial strings
+  (`subscription.feature.*`, `subscription.paywall.startFreeTrial`) were the *only* "gratis"
+  occurrences — inaccurate, found by the gate-2 review. `subscription.locked.body`'s "Tu Tablero
+  sigue siendo gratis" also says "gratis", faithfully translating the English "Your Dashboard stays
+  free" — so there is no honesty issue, but the claim of "only" was wrong. Every "gratis"
+  occurrence translates an English "free" (never a new claim): the trial strings above, and
+  `subscription.locked.body`.
 - **Legal/subscription text** (`account.disclaimer`, `subscription.paywall.renewal`,
   `subscription.settings.footer*`) keeps every legal fact the English states (the renewal window,
   the revocation of the "free app" framing, etc.) — nothing was summarized or softened.

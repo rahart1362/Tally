@@ -52,6 +52,12 @@ struct LockedFeatureCard: View {
             .padding(TallySpacing.screenMargin)
         }
         .background(TallyColor.bgCanvas)
+        // L10N-04 round 2 (gate-2 verdict L6): reserve the floating tab bar's own footprint at
+        // the bottom, so "Ver planes" cannot land in its zone regardless of how tall the locked
+        // body text runs (`TallySpacing.tabBarClearance`) — Spanish's longer
+        // `subscription.locked.body` pushed the button under the tab bar at AX5 on the smallest
+        // iPhone, and the tour's tap on it then never opened the paywall (L6 evidence).
+        .safeAreaPadding(.bottom, TallySpacing.tabBarClearance)
         // ux-fp2 D04 follow-up: with the banner compact, the card scrolls at AX5 (it is reachable
         // now), and scrolled it passed under the toolbar's Settings button (Audit tour run
         // 37827539573); the screens' own D01 chrome hides it under an opaque bar instead.

@@ -194,7 +194,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Elige cuáles alertas de Tally llegan durante este modo de enfoque."
+            "value" : "Elige qué alertas de Tally llegan durante este modo de concentración."
           }
         }
       }

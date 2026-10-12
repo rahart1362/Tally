@@ -115,7 +115,10 @@ struct SettingsView: View {
             // visible at rest) at AX1 and up, from the same title/message/actions.
             .tallyDestructiveConfirmation(
                 String(localized: SettingsCopy.signOutTitle), isPresented: $confirmsSignOut,
-                message: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat), actions: signOutActions)
+                message: SettingsCopy.signOutMessage(isSchoolSeat: isSchoolSeat), actions: signOutActions,
+                // L10N-04 round 2 (gate-2 verdict item 16): was found by its English title/message
+                // text, which Spanish translates. Captured as "settings-signOutConfirm".
+                accessibilityIdentifier: "settings.signOutConfirm")
             .manageSubscriptionsSheet(isPresented: $presentsManageSubscriptions)
             .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {
                 Button(String(localized: L10n.Calendar.subscribeAlertOK()), role: .cancel) {}
@@ -203,7 +206,8 @@ struct SettingsView: View {
     /// the accessibility sizes) and the AX1+ sheet (`tallyDestructiveConfirmation`).
     private var signOutActions: [TallyConfirmationAction] {
         var actions = [
-            TallyConfirmationAction(String(localized: L10n.Account.signOutAndErase()), role: .destructive) {
+            TallyConfirmationAction(String(localized: L10n.Account.signOutAndErase()), role: .destructive,
+                                    accessibilityIdentifier: "settings.signOutConfirm.destructive") {
                 dismiss()
                 app?.signOut()
             },
@@ -211,11 +215,13 @@ struct SettingsView: View {
         // PAY-11 (PRD §11.4): erasing does not cancel the subscription; cancelling is one tap away.
         // M3-B3: omitted for a school-assigned seat, which this Apple Account has nothing to cancel.
         if !isSchoolSeat {
-            actions.append(TallyConfirmationAction(String(localized: L10n.Subscription.manage())) {
+            actions.append(TallyConfirmationAction(String(localized: L10n.Subscription.manage()),
+                                                   accessibilityIdentifier: "settings.signOutConfirm.manage") {
                 presentsManageSubscriptions = true
             })
         }
-        actions.append(TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel) {})
+        actions.append(TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel,
+                                               accessibilityIdentifier: "settings.signOutConfirm.cancel") {})
         return actions
     }
 
@@ -265,6 +271,13 @@ struct SettingsView: View {
     /// Settings, where iOS offers a per-app language override once the main bundle declares more
     /// than one localization. The row itself appears only once Tally ships more than one
     /// (`en` alone would have nothing to switch to).
+    ///
+    /// Round 2 (gate-2 verdict, L10): a value row, not an action row — a black label, the value
+    /// and a trailing exit glyph both in the row's secondary colour (`TallyLabeledContentStyle`,
+    /// same as every other value row's `LabeledContent`), and a capitalized language name. The
+    /// row still acts like "Privacy Policy"-style external links elsewhere in the app: it leaves
+    /// Tally, so it gets `arrow.up.forward` rather than a chevron (a chevron here would wrongly
+    /// suggest an in-app push).
     @ViewBuilder
     private var languageSection: some View {
         if Bundle.main.localizations.filter({ $0 != "Base" }).count > 1 {
@@ -274,22 +287,38 @@ struct SettingsView: View {
                         openURL(url)
                     }
                 } label: {
-                    LabeledContent(String(localized: L10n.Settings.languageLabel()), value: Self.currentLanguageName)
+                    LabeledContent {
+                        HStack(spacing: TallySpacing.xs) {
+                            Text(Self.currentLanguageName)
+                            Image(systemName: "arrow.up.forward")
+                                .accessibilityHidden(true)
+                        }
+                    } label: {
+                        Text(L10n.Settings.languageLabel())
+                            .foregroundStyle(TallyColor.textPrimary)
+                    }
                 }
                 .accessibilityIdentifier("settings.language")
             } footer: {
-                Text(L10n.Settings.languageFooter())
+                // Round 2 (gate-2 verdict, "Language row" section): the reviewer's proposed
+                // replacement footer. PENDING owner approval (§6 of the report has both drafts).
+                Text(L10n.Settings.languageFooterV2())
                     .tallySectionText()
             }
         }
     }
 
     /// The system's own display name for Tally's current language, in Tally's own current
-    /// language (so an es-running Tally reads "español", not "Spanish") — never a new catalog
-    /// string (L10N-04 brief item 3).
+    /// language (so an es-running Tally reads "Español", not "Spanish") — never a new catalog
+    /// string (L10N-04 brief item 3). Round 2 (gate-2 verdict, L10): capitalized with the locale —
+    /// `Locale.localizedString(forIdentifier:)` returns the lowercase form ("español"), where iOS
+    /// Settings itself capitalizes it ("Español"); this uppercases only the first character, by
+    /// the current locale's own case mapping, leaving the rest of a multi-word name untouched.
     private static var currentLanguageName: String {
         let code = Bundle.main.preferredLocalizations.first ?? "en"
-        return Locale.current.localizedString(forIdentifier: code) ?? code
+        let name = Locale.current.localizedString(forIdentifier: code) ?? code
+        guard let first = name.first else { return name }
+        return first.uppercased(with: Locale.current) + name.dropFirst()
     }
 
     /// PAY-08, PAY-09 (M3-B2): Settings → Subscription, in sample mode too (App Review buys there).

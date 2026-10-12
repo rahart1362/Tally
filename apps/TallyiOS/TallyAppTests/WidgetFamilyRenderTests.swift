@@ -177,10 +177,16 @@ struct WidgetFamilyRenderTests {
     }
 
     private static func renderer(_ surface: Surface, _ entry: GlanceEntry, mode: Mode = .fullColor,
-                                 redacted: Bool = false) -> ImageRenderer<some View> {
-        let view = surface.view(entry)
-            .environment(\.widgetRenderingMode, mode.renderingMode)
-            .frame(width: surface.size.width, height: surface.size.height)
+                                 redacted: Bool = false, locale: Locale? = nil) -> ImageRenderer<some View> {
+        var content = AnyView(surface.view(entry)
+            .environment(\.widgetRenderingMode, mode.renderingMode))
+        // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): `\.locale` alone has no
+        // effect on a `GlanceText.*` call (see GlanceLocaleOverride.swift's doc comment);
+        // `\.glanceLocaleOverride` is the seam the widget views actually read.
+        if let locale {
+            content = AnyView(content.environment(\.locale, locale).environment(\.glanceLocaleOverride, locale))
+        }
+        let view = content.frame(width: surface.size.width, height: surface.size.height)
         let renderer = ImageRenderer(content: Group { if redacted { view.redacted(reason: .privacy) } else { view } })
         renderer.scale = 2
         return renderer
@@ -223,13 +229,16 @@ struct WidgetFamilyRenderTests {
         // `\.widgetFamily` has no writable key path (only the system host sets it) — the same
         // reason `StandingWidgetView` above takes `family` as an explicit init argument instead
         // of reading the environment; `surface.view(_:)` already passes the right one that way.
-        // L10N-04: `locale` overrides the SwiftUI environment's `\.locale`, which is what a
-        // catalog-backed `Text(L10n....)` resolves against — the same mechanism the app itself
-        // uses once the per-app Language setting changes it, not a test-only shortcut.
+        // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): `\.locale` is still set, for
+        // the rare `Text(_:LocalizedStringResource)` call that *does* read it natively
+        // (`StandingSummaryView`'s `message.title`/`.detail`); `\.glanceLocaleOverride` is what
+        // every `GlanceText.*`-driven `Text(verbatim:)` call actually resolves against — see
+        // GlanceLocaleOverride.swift. Round 1 set only `\.locale`, which is why this had no effect
+        // on the vast majority of this file's text (the gate-2 verdict's finding).
         var content = AnyView(surface.view(entry)
             .environment(\.widgetRenderingMode, mode.renderingMode))
         if let locale {
-            content = AnyView(content.environment(\.locale, locale))
+            content = AnyView(content.environment(\.locale, locale).environment(\.glanceLocaleOverride, locale))
         }
         let hosted: AnyView
         switch surface.family {
@@ -290,9 +299,9 @@ struct WidgetFamilyRenderTests {
     /// The text the surface draws: rendered into a one-page PDF and read back with PDFKit, spaces
     /// and line breaks removed (PDF text extraction places them by position).
     private static func renderedText(_ surface: Surface, _ entry: GlanceEntry, mode: Mode = .fullColor,
-                                     redacted: Bool = false) -> String {
+                                     redacted: Bool = false, locale: Locale? = nil) -> String {
         let data = NSMutableData()
-        renderer(surface, entry, mode: mode, redacted: redacted).render { size, draw in
+        renderer(surface, entry, mode: mode, redacted: redacted, locale: locale).render { size, draw in
             var box = CGRect(origin: .zero, size: size)
             guard let consumer = CGDataConsumer(data: data as CFMutableData),
                   let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return }
@@ -347,36 +356,52 @@ struct WidgetFamilyRenderTests {
         }
     }
 
-    /// Plan 08 L10N-04: every surface, light, at both phone sizes, with the SwiftUI environment's
-    /// `\.locale` set to `es`.
+    /// Plan 08 L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): every surface, light, at
+    /// both phone sizes, actually rendered in Spanish — fixed from round 1's gap (see
+    /// `GlanceLocaleOverride.swift`'s doc comment for why `.environment(\.locale, …)` alone never
+    /// reached these views, and what seam does).
     ///
-    /// **Known gap, found by visually inspecting the attached PNGs (never claim what was not
-    /// observed): this does NOT render Spanish text**, and the assertion below does not claim it
-    /// does. `GlanceWidgetViews`' views (`StandingWidgetView` and siblings) take no `locale`
-    /// parameter; internally they call `GlanceText.*` (`GlanceText.swift`), whose functions default
-    /// to `locale: Locale = TallyLocale.effective` — a plain Swift default argument evaluated from
-    /// `Bundle.main.preferredLocalizations` at the call site, not a reactive read of SwiftUI's
-    /// `\.locale` environment key. `.environment(\.locale, …)` therefore has no effect on what these
-    /// views draw; `GlanceText.bandLabel(_:locale:)` two lines below *does* accept an explicit
-    /// locale when a caller passes one directly (used for `gradeTokens`), which is the shape a real
-    /// fix needs: a `locale:` parameter threaded into the widget views themselves, a `TallyGlance`
-    /// production-code change outside this work package's ownership, and one this host could not
-    /// verify further (the CI budget for this work package is spent). On a real device the widget
-    /// extension's own `Bundle.main.preferredLocalizations` does reflect the per-app Language
-    /// setting (the L10N-01 spike observed this directly: run 36775064980, the widget gallery
-    /// in Spanish), so production behaviour is not known to be affected — only this specific test
-    /// harness's ability to simulate it. Attached anyway: the PNGs are real renders (English
-    /// content, `es` locale requested), useful as a plain draws-without-crashing smoke test, not
-    /// as Spanish-content evidence for gate 1's widget row.
-    @Test("Snapshot: every surface renders without crashing with an es locale requested, light, at both phone sizes (does not verify Spanish content — see doc comment)",
+    /// Round 1's version of this test only proved these views draw *something* with an es locale
+    /// requested; it explicitly did not claim Spanish content, because there wasn't any. This
+    /// version proves there is: the rendered text differs from the same surface's English text, and
+    /// never-translated content (an item's title, a course code — plan 08 §3.7) still reads
+    /// identically in both, so the diff is really a language change, not noise.
+    @Test("Snapshot: every surface renders in Spanish, light, at both phone sizes, and the text actually differs from English",
           arguments: Surface.allCases, PhoneClass.allCases)
     func spanishSnapshot(surface: Surface, phoneClass: PhoneClass) throws {
         let entry = Self.entry(Self.glance())
         let size = phoneClass.size(for: surface)
         let png = try #require(
             Self.hostedPNG(surface, entry, mode: .fullColor, colorScheme: .light, size: size, locale: Locale(identifier: "es")),
-            "\(surface.rawValue) did not render with an es locale requested at \(phoneClass.rawValue)")
-        Attachment.record(png, named: "widget-\(surface.rawValue)-es-requested-light-\(phoneClass.rawValue).png")
+            "\(surface.rawValue) did not render in es at \(phoneClass.rawValue)")
+        Attachment.record(png, named: "widget-\(surface.rawValue)-es-light-\(phoneClass.rawValue).png")
+
+        let english = Self.renderedText(surface, entry, locale: Locale(identifier: "en"))
+        let spanish = Self.renderedText(surface, entry, locale: Locale(identifier: "es"))
+        #expect(spanish != english, "\(surface.rawValue) reads identically in es and en: '\(spanish)'")
+        // Never translated (plan 08 §3.7): an item's title and course code pass through untouched,
+        // so their presence must not depend on which locale was requested.
+        #expect(spanish.contains("LabReport4") == english.contains("LabReport4"),
+               "\(surface.rawValue): the item title's visibility changed with the locale")
+        #expect(spanish.contains("BIO101") == english.contains("BIO101"),
+               "\(surface.rawValue): the course code's visibility changed with the locale")
+    }
+
+    /// Plan 08 L10N-04 round 2: the seam added for `spanishSnapshot` above (`glanceLocaleOverride`,
+    /// `GlanceLocaleOverride.swift`) must never change what ships. Every production code path
+    /// leaves the override unset, so `effectiveGlanceLocale` always falls back to
+    /// `TallyLocale.effective` exactly as every `GlanceText.*` call did before this seam existed —
+    /// this proves that holds: with no override requested, every surface's text is byte-for-byte
+    /// the same as explicitly requesting English (today's actual default language in this test
+    /// host), for every rendering mode these views support.
+    @Test("L10N-04 round 2: with no locale override, every surface renders exactly what it rendered before the seam (English, unaffected)",
+          arguments: Surface.allCases, Mode.allCases)
+    func localeSeamDefaultsToUnaffectedEnglish(surface: Surface, mode: Mode) {
+        let entry = Self.entry(Self.glance())
+        let withNoOverride = Self.renderedText(surface, entry, mode: mode)
+        let explicitEnglish = Self.renderedText(surface, entry, mode: mode, locale: Locale(identifier: "en"))
+        #expect(withNoOverride == explicitEnglish,
+               "\(surface.rawValue)/\(mode.rawValue): requesting no override no longer matches explicit English")
     }
 
     /// G2 gap 3: no hosted render included the Mark Done button. This one does, light and dark, at
