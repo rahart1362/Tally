@@ -846,6 +846,15 @@ extension L10n.Insights {
                                 comment: "Trend chart range picker: the whole term, abbreviated.")
     }
 
+    /// L10N-04 round 2, gate-2 T5: `InsightsProjection.categoryShares` left this category's name as
+    /// the bare English literal "Other" (never localized). This is a new key for text already shown
+    /// today, not a copy change — the PMO rules a key for already-displayed English is not a copy
+    /// change, but to list it in the report.
+    public static func categoryOther() -> LocalizedStringResource {
+        LocalizedStringResource("insights.category.other", defaultValue: "Other", bundle: #bundle,
+                                comment: "The category-breakdown chart's catch-all bucket name, for every category beyond the shown limit, summed together.")
+    }
+
     public static func trendRangeMonthSpoken() -> LocalizedStringResource {
         LocalizedStringResource("insights.trend.range.month.spoken", defaultValue: "Last month", bundle: #bundle,
                                 comment: "Trend chart range picker's accessibility label: 1 month, spelled out.")

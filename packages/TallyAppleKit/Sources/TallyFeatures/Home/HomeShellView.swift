@@ -288,6 +288,9 @@ public struct HomeShellView: View {
                 Image(systemName: "person.crop.circle")
             }
             .accessibilityLabel(Text(L10n.Home.settingsButton()))
+            // L10N-04: a stable id (the Audit tour looked this up by its English accessibility
+            // label — "Settings" — which Spanish changes).
+            .accessibilityIdentifier("home.settingsButton")
         }
     }
 }

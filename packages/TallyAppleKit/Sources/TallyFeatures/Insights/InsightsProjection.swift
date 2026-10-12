@@ -258,7 +258,11 @@ public nonisolated enum InsightsBuilder {
         }
         let rest = ranked.dropFirst(categoryLimit).reduce(0) { $0 + $1.share }
         if rest > 0 {
-            shown.append(CategoryWeight(id: "other", name: "Other", share: rest, shareText: formatter.shareText(rest)))
+            // L10N-04 round 2, gate-2 T5: this literal was never localized (Insights → category
+            // breakdown showed English "Other" even under es). New key, not a copy change: the
+            // English text shown today is unchanged.
+            let otherName = L10n.string(L10n.Insights.categoryOther)
+            shown.append(CategoryWeight(id: "other", name: otherName, share: rest, shareText: formatter.shareText(rest)))
         }
         return (shown, shown.map { "\($0.name) \($0.shareText)" }.joined(separator: ", "))
     }

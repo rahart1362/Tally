@@ -148,9 +148,13 @@ struct HeroSection: View {
                     // Plan 08 G-5 (XG-02): N counts only the courses averaged; with none, there is no
                     // average to caption.
                     if hero.averagedCount > 0 {
+                        // L10N-04: a stable id (the Audit tour used this English text — "Average
+                        // of 5 courses" — as its "the projection landed" signal, which Spanish
+                        // changes to "Promedio de 5 cursos").
                         Text(L10n.Dashboard.averageOfCourses(hero.averagedCount))
                             .font(TallyTypography.footnote)
                             .foregroundStyle(TallyColor.textOnHero2)
+                            .accessibilityIdentifier("dashboard.hero.averageOfCourses")
                     }
 
                     if hero.overallPercent == nil, hero.averagedCount > 0, isGlance {

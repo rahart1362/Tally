@@ -10,6 +10,12 @@
             "state" : "translated",
             "value" : "Opens Tally to what's due next."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abre Tally en lo que vence a continuación."
+          }
         }
       }
     },
@@ -21,6 +27,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next Up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lo próximo"
           }
         }
       }
@@ -34,6 +46,12 @@
             "state" : "translated",
             "value" : "Refreshes Tally's saved Canvas data."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualiza los datos guardados de Canvas en Tally."
+          }
         }
       }
     },
@@ -45,6 +63,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Refresh Tally"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualizar Tally"
           }
         }
       }
@@ -58,6 +82,12 @@
             "state" : "translated",
             "value" : "Your next three assignments."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tus próximas tres tareas."
+          }
         }
       }
     },
@@ -69,6 +99,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Due Soon"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vence pronto"
           }
         }
       }
@@ -82,6 +118,12 @@
             "state" : "translated",
             "value" : "How many assignments are still due today."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cuántas tareas aún vencen hoy."
+          }
         }
       }
     },
@@ -93,6 +135,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Due Today"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vence hoy"
           }
         }
       }
@@ -106,6 +154,12 @@
             "state" : "translated",
             "value" : "The next thing due in your courses."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lo próximo que vence en tus cursos."
+          }
         }
       }
     },
@@ -117,6 +171,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next Up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lo próximo"
           }
         }
       }
@@ -130,6 +190,12 @@
             "state" : "translated",
             "value" : "Your average grade band, if you choose to show grades in widgets. Hidden while your iPhone is locked."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu rango de calificación promedio, si eliges mostrar calificaciones en los widgets. Se oculta mientras tu iPhone está bloqueado."
+          }
         }
       }
     },
@@ -141,6 +207,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Standing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Situación"
           }
         }
       }
@@ -154,6 +226,12 @@
             "state" : "translated",
             "value" : "What's due each day this week, and what's next."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence cada día esta semana, y qué sigue."
+          }
         }
       }
     },
@@ -165,6 +243,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Week Ahead"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu semana"
           }
         }
       }

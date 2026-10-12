@@ -111,6 +111,9 @@ struct SignInHandoffView: View {
             }
             .buttonStyle(.tallyPrimary)
             .disabled(viewModel.phase == .presenting)
+            // L10N-04: a stable id (the Audit tour looked this up by its English text —
+            // "Continue to %@" — which Spanish changes to "Continuar a %@").
+            .accessibilityIdentifier("onboarding.signIn.continueTo")
 
             Button(String(localized: L10n.Onboarding.chooseDifferentSchool()), action: onChooseDifferentSchool)
                 .buttonStyle(.tallySecondary)

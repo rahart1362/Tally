@@ -134,13 +134,17 @@ struct WelcomeView: View {
 
     private var actions: some View {
         VStack(spacing: TallySpacing.md) {
+            // L10N-04: stable ids (the Audit tour looked these up by their English labels, which
+            // Spanish changes).
             Button(String(localized: L10n.Account.findMySchool()), action: onFindSchool)
                 .buttonStyle(.tallyPrimary)
                 .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("account.findMySchool")
 
             Button(String(localized: L10n.Account.exploreWithSampleData()), action: onExploreSampleData)
                 .buttonStyle(.tallySecondary)
                 .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("account.exploreWithSampleData")
         }
     }
 

@@ -18,7 +18,10 @@ final class ToDoUITests: TallyUITestCase {
         XCTAssertLessThan(missingHeader.frame.minY, weekHeader.frame.minY, "Missing is not the first section")
 
         // A11Y-06: rows carry the course code and their status words.
-        let rows = elements("todo.row", in: app)
+        // L10N-04 round 2: "todo.row" split into "todo.row.done"/"todo.row.notDone" (a VoiceOver-
+        // safe way to carry the done state for the Audit tour's batch-select filter); this still
+        // finds every row, exactly as the flat "todo.row" identifier did.
+        let rows = elementsWithPrefix("todo.row", in: app)
         XCTAssertGreaterThanOrEqual(rows.count, 3)
         let first = rows.element(boundBy: 0)
         XCTAssertTrue(Self.codes.contains { first.label.contains($0) }, "row: '\(first.label)'")

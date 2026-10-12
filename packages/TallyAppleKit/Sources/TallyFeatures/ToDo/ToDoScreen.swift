@@ -101,6 +101,9 @@ struct ToDoScreen: View {
             // change can't reach; `accent` flips to a light blue in dark (2.08–2.15:1). `accentFill`
             // stays dark enough in both appearances.
             .tint(TallyColor.accentFill)
+            // L10N-04: a stable id (the Audit tour looked this up by its English label — "Done" —
+            // which Spanish changes to "Hecho"/"No hecho").
+            .accessibilityIdentifier(isDone ? "todo.swipe.notDone" : "todo.swipe.done")
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = item.canvasURL {
                 Button {
@@ -221,7 +224,18 @@ struct ToDoRowView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(item.spokenLabel(isDone: isDone))
-            .accessibilityIdentifier("todo.row")
+            // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a flat
+            // "todo.row" for every row, so the Audit tour's batch-select filter matched on this
+            // row's spoken label containing the English "Marked done in Tally" instead — which
+            // Spanish translates, so under es the filter silently stopped filtering rather than
+            // failing loudly. `.accessibilityValue` was considered and rejected: VoiceOver speaks
+            // a value alongside the label, so a literal English word there would read aloud in
+            // every language, a real regression for a screen-reader user. The identifier itself
+            // (never spoken; test-only) carries the state instead. Every row still matches a
+            // `identifier BEGINSWITH "todo.row"` query exactly as "todo.row" alone did
+            // (`ScreenUITestSupport.elementsWithPrefix`), so `ToDoUITests.swift`'s existing exact
+            // match is updated to that prefix form, not removed.
+            .accessibilityIdentifier(isDone ? "todo.row.done" : "todo.row.notDone")
         }
     }
 }

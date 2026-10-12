@@ -10,6 +10,12 @@
             "state" : "translated",
             "value" : "Course"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Curso"
+          }
         }
       }
     },
@@ -21,6 +27,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next Up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lo próximo"
           }
         }
       }
@@ -34,6 +46,12 @@
             "state" : "translated",
             "value" : "Tally Screen"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pantalla de Tally"
+          }
         }
       }
     },
@@ -45,6 +63,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tells you the next assignments due in your courses."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Te dice las próximas tareas que vencen en tus cursos."
           }
         }
       }
@@ -58,6 +82,12 @@
             "state" : "translated",
             "value" : "Due Next"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Próximo"
+          }
         }
       }
     },
@@ -69,6 +99,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What's Due Next"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence a continuación"
           }
         }
       }
@@ -82,6 +118,12 @@
             "state" : "translated",
             "value" : "Tells you the assignments still due today."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Te dice las tareas que aún vencen hoy."
+          }
         }
       }
     },
@@ -93,6 +135,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Due Today"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vence hoy"
           }
         }
       }
@@ -106,6 +154,12 @@
             "state" : "translated",
             "value" : "What's Due Today"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Qué vence hoy"
+          }
         }
       }
     },
@@ -117,6 +171,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Courses"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cursos"
           }
         }
       }
@@ -130,6 +190,12 @@
             "state" : "translated",
             "value" : "Choose which of Tally's alerts come through during this Focus."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elige qué alertas de Tally llegan durante este modo de concentración."
+          }
         }
       }
     },
@@ -141,6 +207,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only Urgent Alerts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Solo alertas urgentes"
           }
         }
       }
@@ -154,6 +226,12 @@
             "state" : "translated",
             "value" : "Tally Alerts"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Alertas de Tally"
+          }
         }
       }
     },
@@ -165,6 +243,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Marks one assignment done in Tally, from the Due Soon widget."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Marca una tarea como hecha en Tally, desde el widget Vence pronto."
           }
         }
       }
@@ -178,6 +262,12 @@
             "state" : "translated",
             "value" : "Item"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elemento"
+          }
         }
       }
     },
@@ -189,6 +279,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mark Done in Tally"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Marcar como hecho en Tally"
           }
         }
       }
@@ -202,6 +298,12 @@
             "state" : "translated",
             "value" : "Opens Tally to what's due next."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abre Tally en lo que vence a continuación."
+          }
         }
       }
     },
@@ -213,6 +315,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Screen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pantalla"
           }
         }
       }
@@ -226,6 +334,12 @@
             "state" : "translated",
             "value" : "Open Tally"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir Tally"
+          }
         }
       }
     },
@@ -237,6 +351,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Refreshes Tally's saved Canvas data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualiza los datos guardados de Canvas en Tally."
           }
         }
       }
@@ -250,6 +370,12 @@
             "state" : "translated",
             "value" : "Refresh"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualizar"
+          }
         }
       }
     },
@@ -261,6 +387,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Refresh Tally"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Actualizar Tally"
           }
         }
       }
@@ -274,6 +406,12 @@
             "state" : "translated",
             "value" : "Shows what's due in your courses."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Muestra qué vence en tus cursos."
+          }
         }
       }
     },
@@ -285,6 +423,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tally Widget"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Widget de Tally"
           }
         }
       }

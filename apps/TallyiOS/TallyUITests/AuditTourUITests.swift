@@ -49,6 +49,43 @@ final class AuditTourUITests: TallyUITestCase {
             : []
     }
 
+    /// Plan 08 L10N-04: the leg's language, from the `Audit tour` workflow's own `language` input
+    /// (`TEST_RUNNER_AUDIT_LANGUAGE`, landing here as `AUDIT_LANGUAGE`, the same mechanism as
+    /// `AUDIT_APPEARANCE`/`AUDIT_TEXT_SIZE` above). Default `en` when the workflow does not set it
+    /// (every dispatch before this work package, and any future one that omits it).
+    private static var language: String {
+        ProcessInfo.processInfo.environment["AUDIT_LANGUAGE"] ?? "en"
+    }
+
+    /// Overrides `TallyUITestCase.currentLocaleArguments`: on an `es` leg the tour launches in
+    /// Spanish instead of `TallyUITestCase`'s own English pin; every other suite is untouched
+    /// (plan 08 L10N-04's brief: "the tour launches with `-AppleLanguages (es) -AppleLocale
+    /// es_US` in place of `TallyUITestCase`'s en pin. Every other suite keeps the pin").
+    override class var currentLocaleArguments: [String] {
+        language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_US"] : pinnedLocaleArguments
+    }
+
+    /// The Home shell's tab bar items, by their current leg's language. Run 38175021381 found that
+    /// `.accessibilityIdentifier` on a `Tab(_:systemImage:value:)` (iOS 18's `TabView` content
+    /// builder) never reaches the tab bar button XCUITest actually queries ("No matches found …
+    /// IN identifiers") — a real API gap, not something this work package can fix with an
+    /// identifier alone, so `openTabInTour` keeps matching by label, now picking the right one for
+    /// the leg's language instead of only English's.
+    private static func tabLabel(_ tab: HomeTabForTour) -> String {
+        let labels: [HomeTabForTour: [String: String]] = [
+            .dashboard: ["en": "Dashboard", "es": "Tablero"],
+            .courses: ["en": "Courses", "es": "Cursos"],
+            .calendar: ["en": "Calendar", "es": "Calendario"],
+            .toDo: ["en": "To-Do", "es": "Por hacer"],
+            .insights: ["en": "Insights", "es": "Estadísticas"],
+        ]
+        return labels[tab]?[language] ?? labels[tab]?["en"] ?? ""
+    }
+
+    private enum HomeTabForTour {
+        case dashboard, courses, calendar, toDo, insights
+    }
+
     private static let demoHost = "canvas.northfield.example"
 
     // MARK: - Per-method bookkeeping (a fresh instance per test method; never shared)
@@ -116,7 +153,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("Courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         captureScreenfuls(app, screen: "courses", reachedVia: "Courses tab", maxScreens: 10)
 
         // `captureScreenfuls` may have scrolled to the bottom (AX5 legs, 5 cards that no longer fit);
@@ -132,7 +169,7 @@ final class AuditTourUITests: TallyUITestCase {
         captureScreenfuls(app, screen: "course1", reachedVia: "Courses list, card 1", maxScreens: 10)
 
         scrollToTop(app)
-        if goScrolling(app.buttons["Grades"], app, screen: "course1", state: "grades", reachedVia: "segment control") {
+        if goScrolling(element("courseDetail.segment.grades", in: app), app, screen: "course1", state: "grades", reachedVia: "segment control") {
             snap(app, screen: "course1", state: "grades", reachedVia: "Grades segment")
         }
 
@@ -154,7 +191,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("Courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         let cards = elements("course.card", in: app)
         guard goScrolling(cards.element(boundBy: 0), app, screen: "course1", state: "card-b2", reachedVia: "Courses list, card 1"),
               element("courseDetail.hero", in: app).waitForExistence(timeout: 10) else {
@@ -169,8 +206,8 @@ final class AuditTourUITests: TallyUITestCase {
             if go(element("courseDetail.gradesOutsideCanvas", in: app), app, screen: "course1", state: "gradesOutsideCanvas",
                   reachedVia: "menu -> This course's grades are kept outside Canvas") {
                 snap(app, screen: "course1", state: "gradesOutsideCanvas", reachedVia: "opened the grades-outside-Canvas picker")
-                if app.buttons["Automatic"].waitForExistence(timeout: 3) {
-                    app.buttons["Automatic"].tap()
+                if element("courseDetail.gradesOutsideCanvas.automatic", in: app).waitForExistence(timeout: 3) {
+                    element("courseDetail.gradesOutsideCanvas.automatic", in: app).tap()
                 } else {
                     dismissOverlay(app)
                 }
@@ -183,10 +220,11 @@ final class AuditTourUITests: TallyUITestCase {
         let whatIf = element("courseDetail.whatIf", in: app)
         if goScrolling(whatIf, app, screen: "course1", state: "whatIf", reachedVia: "What-If button") {
             _ = element("whatif.simulationLabel", in: app).waitForExistence(timeout: 10)
-            let bar = app.navigationBars["What-If"]
-            if bar.waitForExistence(timeout: 5) { bar.swipeUp() }
+            // L10N-04: was `app.navigationBars["What-If"]` — the English nav-bar title, which
+            // Spanish changes. Any on-screen element serves the same "pull the sheet up" purpose.
+            app.swipeUp()
             snap(app, screen: "course1", state: "whatIf", reachedVia: "What-If button, pulled up")
-            let done = app.navigationBars["What-If"].buttons["Done"]
+            let done = element("whatif.done", in: app)
             if done.waitForExistence(timeout: 5), done.isHittable { done.tap() }
         }
 
@@ -205,7 +243,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("Courses", in: app)
+        openTabInTour(Self.tabLabel(.courses), in: app)
         let cards = elements("course.card", in: app)
         // CI run 37639511433: missed on the smallest device at AX5 (two legs) with the default
         // 15-swipe cap; a card 44 pt tall plus huge text can need more swipes to reach.
@@ -219,7 +257,7 @@ final class AuditTourUITests: TallyUITestCase {
             return
         }
         snap(app, screen: "course2", state: "overview", reachedVia: "Courses list, card 2")
-        if goScrolling(app.buttons["Grades"], app, screen: "course2", state: "grades", reachedVia: "segment control") {
+        if goScrolling(element("courseDetail.segment.grades", in: app), app, screen: "course2", state: "grades", reachedVia: "segment control") {
             snap(app, screen: "course2", state: "grades", reachedVia: "Grades segment")
         }
 
@@ -238,18 +276,22 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("Calendar", in: app)
+        openTabInTour(Self.tabLabel(.calendar), in: app)
         _ = elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "calendar", state: "weekStripAndAgenda", reachedVia: "Calendar tab")
 
         if go(app.buttons["calendar.options"], app, screen: "calendar", state: "optionsMenu", reachedVia: "toolbar options button") {
             snap(app, screen: "calendar", state: "optionsMenu", reachedVia: "tapped calendar.options")
-            let subscribe = app.buttons["Subscribe to Canvas Calendar…"]
+            // L10N-04: was `app.buttons["Subscribe to Canvas Calendar…"]`, `app.alerts["Subscribing
+            // needs your school's Canvas"]` and `note.buttons["OK"]` — English labels, which Spanish
+            // changes. The menu row now has its own id; the native alert is matched structurally
+            // (it has exactly one button) rather than by its localized title and button text.
+            let subscribe = element("calendar.subscribeMenuItem", in: app)
             if go(subscribe, app, screen: "calendar", state: "subscribeAlert", reachedVia: "Subscribe to Canvas Calendar…") {
-                let note = app.alerts["Subscribing needs your school's Canvas"]
+                let note = app.alerts.firstMatch
                 if note.waitForExistence(timeout: 5) {
                     snap(app, screen: "calendar", state: "subscribeAlert", reachedVia: "Subscribe to Canvas Calendar…")
-                    if note.buttons["OK"].exists { note.buttons["OK"].tap() }
+                    if note.buttons.firstMatch.exists { note.buttons.firstMatch.tap() }
                 }
             }
         }
@@ -269,8 +311,13 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("To-Do", in: app)
-        _ = text("Missing & overdue", in: app).waitForExistence(timeout: 15)
+        openTabInTour(Self.tabLabel(.toDo), in: app)
+        // L10N-04: was text("Missing & overdue", in: app) — the English section header, which
+        // Spanish changes; any row is an equally good "the To-Do projection landed" signal.
+        // Round 2: "todo.row" is now "todo.row.done"/"todo.row.notDone" (VoiceOver-safe way to
+        // carry the done state — see ToDoScreen.swift); elementsWithPrefix finds every row either
+        // way, same as the flat identifier did.
+        _ = elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "todo", state: "default", reachedVia: "To-Do tab")
 
         if go(app.buttons["todo.sort"], app, screen: "todo", state: "sortMenu", reachedVia: "sort toolbar menu") {
@@ -278,7 +325,7 @@ final class AuditTourUITests: TallyUITestCase {
             dismissOverlay(app)
         }
 
-        let rows = elements("todo.row", in: app)
+        let rows = elementsWithPrefix("todo.row", in: app)
         if rows.count > 1 {
             // ux-fp6: row 2 (`boundBy: 1`) sits under the floating tab bar at Pro Max AX5 (a single
             // AX5 row is tall enough to push it there), so the swipe landed on the tab bar instead
@@ -302,12 +349,17 @@ final class AuditTourUITests: TallyUITestCase {
             if let target {
                 target.swipeLeft()
                 snap(app, screen: "todo", state: "swipeAction", reachedVia: "swiped a row left, fully revealed")
-                if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+                // L10N-04: was app.buttons["Done"] — the English label, which Spanish changes.
+                if element("todo.swipe.done", in: app).exists { element("todo.swipe.done", in: app).tap() }
             }
         }
 
         if go(app.buttons["todo.select"], app, screen: "todo", state: "selectMode", reachedVia: "Select toolbar button") {
-            let notDone = rows.matching(NSPredicate(format: "NOT (label CONTAINS 'Marked done in Tally')"))
+            // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a match on
+            // the English label "Marked done in Tally", which Spanish translates — the filter
+            // silently stopped filtering instead of failing loudly. The row's own identifier
+            // ("todo.row.notDone"/"todo.row.done", never spoken or localized) carries the state.
+            let notDone = rows.matching(NSPredicate(format: "identifier == 'todo.row.notDone'"))
             for index in 0..<min(2, notDone.count) {
                 let row = notDone.element(boundBy: index)
                 if bringClearOfTheBottom(row, in: app) { row.tap() }
@@ -331,7 +383,7 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchSignedIn()
-        openTabInTour("Insights", in: app)
+        openTabInTour(Self.tabLabel(.insights), in: app)
         _ = element("chart.trend", in: app).waitForExistence(timeout: 30)
         captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 10)
 
@@ -356,7 +408,7 @@ final class AuditTourUITests: TallyUITestCase {
         scrollToTop(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "settings-subscription", state: "page",
                        reachedVia: "Settings -> Subscription") {
-            if app.navigationBars["Subscription"].waitForExistence(timeout: 10) {
+            if element("subscription.status", in: app).waitForExistence(timeout: 10) {
                 captureScreenfuls(app, screen: "settings-subscription", reachedVia: "Settings -> Subscription", maxScreens: 10)
             }
             goBack(app)
@@ -366,13 +418,14 @@ final class AuditTourUITests: TallyUITestCase {
         // end the account early for whichever other method runs in this process next).
         scrollToTop(app)
         if goScrolling(app.buttons["settings.signOut"], app, screen: "settings", state: "signOutButton", reachedVia: "Settings") {
-            let confirmation = app.staticTexts.matching(
-                NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'")).firstMatch
-            if confirmation.waitForExistence(timeout: 10) {
+            // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English confirmation
+            // message and the English "Cancel" button label, which Spanish translates — this
+            // screen was missing from every es leg (std used `.alert`, AX5 the sheet; both show
+            // the same message, so both failed the same way). `settings.signOutConfirm.cancel`
+            // is set on the Cancel button in both presentations (`DestructiveConfirmation.swift`).
+            let cancel = element("settings.signOutConfirm.cancel", in: app)
+            if cancel.waitForExistence(timeout: 10) {
                 snap(app, screen: "settings", state: "signOutConfirm", reachedVia: "Sign Out & Erase")
-            }
-            let cancel = app.buttons["Cancel"]
-            if cancel.waitForExistence(timeout: 3) {
                 cancel.tap()
             } else {
                 let popover = app.otherElements["PopoverDismissRegion"].firstMatch
@@ -380,7 +433,8 @@ final class AuditTourUITests: TallyUITestCase {
             }
         }
 
-        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+        // L10N-04: was app.buttons["Done"] — the English label, which Spanish changes.
+        if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
         app.terminate()
         finish("G")
     }
@@ -396,11 +450,11 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: Self.textSizeArguments)
-        _ = app.buttons["Find My School"].waitForExistence(timeout: 30)
+        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
         snap(app, screen: "welcome", state: "default", reachedVia: "fresh launch")
 
-        if go(app.buttons["Find My School"], app, screen: "schoolSearch", state: "idle", reachedVia: "Find My School") {
-            _ = app.staticTexts["Type at least 2 letters of your school's name."].waitForExistence(timeout: 10)
+        if go(element("account.findMySchool", in: app), app, screen: "schoolSearch", state: "idle", reachedVia: "Find My School") {
+            _ = element("schoolSearch.idleHint", in: app).waitForExistence(timeout: 10)
             snap(app, screen: "schoolSearch", state: "idle", reachedVia: "Find My School")
 
             let searchField = schoolSearchField(app)
@@ -409,7 +463,7 @@ final class AuditTourUITests: TallyUITestCase {
                 // No live search transport is wired in yet (SchoolSearchUITests' doc comment): every
                 // query reaches `searchFailed`, the same state a real network failure would. A
                 // "results" state is not reachable with the hooks this app ships today.
-                if app.staticTexts["Couldn't search"].waitForExistence(timeout: 5) {
+                if element("schoolSearch.searchFailed", in: app).waitForExistence(timeout: 5) {
                     snap(app, screen: "schoolSearch", state: "failure", reachedVia: "typed 'northfield'")
                 } else {
                     snap(app, screen: "schoolSearch", state: "missing-failure", reachedVia: "typed 'northfield'")
@@ -432,19 +486,19 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
-        _ = app.buttons["Find My School"].waitForExistence(timeout: 30)
+        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
         signInToDemoSchool(app)
 
         // First sync progress, once its content is stable — racing the root switch to Home, so this
         // is best-effort: a fast replay may already have switched by the time the check runs.
-        let progress = app.staticTexts["Setting up Tally"]
+        let progress = element("onboarding.firstSync.settingUpTally", in: app)
         if progress.waitForExistence(timeout: 5) {
             snap(app, screen: "demoSignIn", state: "firstSyncProgress", reachedVia: "Continue to \(Self.demoHost)")
         } else {
             snap(app, screen: "demoSignIn", state: "missing-firstSyncProgress",
                  reachedVia: "first sync had already finished before it could be captured")
         }
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
 
         app.terminate()
         finish("I")
@@ -462,10 +516,10 @@ final class AuditTourUITests: TallyUITestCase {
 
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.demoSignIn + TestHooks.blockNetwork
             + Self.textSizeArguments)
-        _ = app.buttons["Find My School"].waitForExistence(timeout: 30)
+        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
         signInToDemoSchool(app)
 
-        if app.buttons["Retry"].waitForExistence(timeout: 130) {
+        if element("onboarding.retry", in: app).waitForExistence(timeout: 130) {
             snap(app, screen: "demoSignIn", state: "firstSyncFailed", reachedVia: "blocked network")
         } else {
             snap(app, screen: "demoSignIn", state: "missing-firstSyncFailed", reachedVia: "blocked network")
@@ -486,9 +540,9 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.demoSignIn + Self.textSizeArguments)
-        _ = app.buttons["Find My School"].waitForExistence(timeout: 30)
+        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
         signInToDemoSchool(app)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
 
         if element("paywall.root", in: app).waitForExistence(timeout: 15) {
             captureScreenfuls(app, screen: "paywall", reachedVia: "paywall after the first sync", maxScreens: 10)
@@ -513,8 +567,8 @@ final class AuditTourUITests: TallyUITestCase {
 
         seedFlagshipAccount()
         let app = launchApp(arguments: TestHooks.entitlement("none") + TestHooks.replayAccounts + Self.textSizeArguments)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
-        openTabInTour("Courses", in: app)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
+        openTabInTour(Self.tabLabel(.courses), in: app)
 
         let seePlans = app.buttons["subscription.locked.seePlans"]
         if scrollUntilHittable(seePlans, in: app) {
@@ -531,11 +585,11 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
         seedFlagshipAccount()
         let schoolSeatApp = launchApp(arguments: TestHooks.entitlement("schoolSeat") + TestHooks.replayAccounts + Self.textSizeArguments)
-        _ = schoolSeatApp.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: schoolSeatApp).waitForExistence(timeout: 30)
         openSettings(schoolSeatApp)
         if goScrolling(schoolSeatApp.buttons["settings.subscription"], schoolSeatApp, screen: "settings-subscription-schoolSeat",
                        state: "page", reachedVia: "Settings -> Subscription, school seat") {
-            if schoolSeatApp.navigationBars["Subscription"].waitForExistence(timeout: 10) {
+            if element("subscription.status", in: schoolSeatApp).waitForExistence(timeout: 10) {
                 snap(schoolSeatApp, screen: "settings-subscription-schoolSeat", state: "page",
                      reachedVia: "Settings -> Subscription, school seat")
             }
@@ -558,7 +612,8 @@ final class AuditTourUITests: TallyUITestCase {
         seedFlagshipAccount()
         let locked = launchApp(arguments: TestHooks.replayAccounts + TestHooks.appLockOn + TestHooks.deviceAuth("cancel")
             + Self.textSizeArguments)
-        if locked.staticTexts["Tally is locked"].waitForExistence(timeout: 15) {
+        // L10N-04: was locked.staticTexts["Tally is locked"] — the English text, which Spanish changes.
+        if element("lock.title", in: locked).waitForExistence(timeout: 15) {
             snap(locked, screen: "appLock", state: "locked", reachedVia: "cold launch with App Lock on")
         } else {
             snap(locked, screen: "appLock", state: "missing-locked", reachedVia: "cold launch with App Lock on")
@@ -569,7 +624,7 @@ final class AuditTourUITests: TallyUITestCase {
         seedFlagshipAccount()
         let unlocked = launchApp(arguments: TestHooks.replayAccounts + TestHooks.appLockOn + TestHooks.deviceAuth("success")
             + Self.textSizeArguments)
-        guard unlocked.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 20) else {
+        guard element("dashboard.hero.averageOfCourses", in: unlocked).waitForExistence(timeout: 20) else {
             snap(unlocked, screen: "appLock", state: "missing-privacyCover",
                  reachedVia: "could not unlock to reach the dashboard first")
             unlocked.terminate()
@@ -609,19 +664,20 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: Self.textSizeArguments)
-        guard go(app.buttons["Explore with Sample Data"], app, screen: "sampleData", state: "dashboard",
+        guard go(element("account.exploreWithSampleData", in: app), app, screen: "sampleData", state: "dashboard",
                  reachedVia: "Welcome -> Explore with Sample Data") else {
             finish("N")
             app.terminate()
             return
         }
-        _ = app.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
         snap(app, screen: "sampleData", state: "dashboard", reachedVia: "Explore with Sample Data (banner included)")
 
         openSettings(app)
         guard goScrolling(app.buttons["family.sample.viewAsParent"], app, screen: "family", state: "parentDashboard",
                           reachedVia: "Settings -> Explore Parent Mode", maxSwipes: 30) else {
-            if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+            // L10N-04: was app.buttons["Done"] — the English label, which Spanish changes.
+            if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
             finish("N")
             app.terminate()
             return
@@ -638,7 +694,7 @@ final class AuditTourUITests: TallyUITestCase {
             }
         }
 
-        if go(app.buttons["Settings"], app, screen: "family", state: "linkedStudents", reachedVia: "toolbar Settings button") {
+        if go(element("home.settingsButton", in: app), app, screen: "family", state: "linkedStudents", reachedVia: "toolbar Settings button") {
             snap(app, screen: "family", state: "linkedStudents", reachedVia: "Settings while in parent mode")
 
             let rowanRow = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Rowan Sample'")).firstMatch
@@ -646,16 +702,15 @@ final class AuditTourUITests: TallyUITestCase {
                 let unlink = app.buttons["family.unlink"]
                 if scrollUntilHittable(unlink, in: app) {
                     unlink.tap()
-                    if app.staticTexts["Unlink Rowan?"].waitForExistence(timeout: 10) {
+                    // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English title
+                    // and "Cancel" label, which Spanish translates.
+                    let cancel = element("familyConfirm.unlink.cancel", in: app)
+                    if cancel.waitForExistence(timeout: 10) {
                         snap(app, screen: "family", state: "unlinkConfirm", reachedVia: "Rowan Sample -> Unlink")
-                        let cancel = app.buttons.matching(
-                            NSPredicate(format: "label == 'Cancel' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-                        if cancel.waitForExistence(timeout: 3) {
-                            cancel.tap()
-                        } else {
-                            let popover = app.otherElements["PopoverDismissRegion"].firstMatch
-                            if popover.waitForExistence(timeout: 3) { popover.tap() }
-                        }
+                        cancel.tap()
+                    } else {
+                        let popover = app.otherElements["PopoverDismissRegion"].firstMatch
+                        if popover.waitForExistence(timeout: 3) { popover.tap() }
                     }
                 }
                 goBack(app)
@@ -677,13 +732,13 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: Self.textSizeArguments)
-        guard go(app.buttons["Explore with Sample Data"], app, screen: "family", state: "emptyRouteEntry",
+        guard go(element("account.exploreWithSampleData", in: app), app, screen: "family", state: "emptyRouteEntry",
                  reachedVia: "Welcome -> Explore with Sample Data") else {
             finish("O")
             app.terminate()
             return
         }
-        _ = app.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
         openSettings(app)
         guard goScrolling(app.buttons["family.sample.viewAsParent"], app, screen: "family", state: "emptyRouteParentMode",
                           reachedVia: "Settings -> Explore Parent Mode", maxSwipes: 30) else {
@@ -701,13 +756,20 @@ final class AuditTourUITests: TallyUITestCase {
             // detail screen); `goScrolling` is a safe strict improvement, same fallback on failure.
             guard goScrolling(app.buttons["family.removeFromTally"], app, screen: "family", state: "removeConfirm-\(name)",
                               reachedVia: "\(name) Sample -> Remove from Tally") else { continue }
-            if app.staticTexts["Remove \(name) from Tally?"].waitForExistence(timeout: 10) {
+            // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English title and
+            // "Remove from Tally" confirm-button label, which Spanish translates. Under es neither
+            // ever matched, so the confirm button was never tapped, the sheet stayed open, and the
+            // *next* loop iteration's row lookup failed too — its "missing-removeStudent-<name>"
+            // screenshot was actually this student's still-open confirmation (the misfiled-name
+            // bug the verdict found: "Rowan" filed under "Skyler").
+            let confirm = element("familyConfirm.remove.destructive", in: app)
+            if confirm.waitForExistence(timeout: 10) {
                 snap(app, screen: "family", state: "removeConfirm-\(name)", reachedVia: "\(name) Sample -> Remove from Tally")
+                confirm.tap()
             }
-            let confirm = app.buttons.matching(
-                NSPredicate(format: "label == 'Remove from Tally' AND NOT (identifier BEGINSWITH 'family.')")).firstMatch
-            if confirm.waitForExistence(timeout: 5) { confirm.tap() }
-            _ = text("Linked Students", in: app).waitForExistence(timeout: 10)
+            // Back on Linked Students once the removal completes and the sheet dismisses: waits on
+            // "Add a Student", not translated English text.
+            _ = element("family.addStudent", in: app).waitForExistence(timeout: 10)
         }
 
         if element("family.parentEmpty", in: app).waitForExistence(timeout: 10) {
@@ -731,22 +793,24 @@ final class AuditTourUITests: TallyUITestCase {
         resetAppState()
 
         let app = launchApp(arguments: ["-TallyDebugSampleRefreshLatency", "20"] + Self.textSizeArguments)
-        guard go(app.buttons["Explore with Sample Data"], app, screen: "slowRefresh", state: "entry",
+        guard go(element("account.exploreWithSampleData", in: app), app, screen: "slowRefresh", state: "entry",
                  reachedVia: "Welcome -> Explore with Sample Data") else {
             finish("P")
             app.terminate()
             return
         }
-        _ = app.staticTexts["Average of 5 courses"].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
 
-        let refresh = app.buttons["Refresh"]
+        let refresh = element("freshness.refresh", in: app)
         guard goScrolling(refresh, app, screen: "slowRefresh", state: "refreshButton", reachedVia: "Dashboard hero") else {
             finish("P")
             app.terminate()
             return
         }
-        let breadcrumb = app.staticTexts.matching(
-            NSPredicate(format: "label BEGINSWITH 'Live refresh is taking longer than expected'")).firstMatch
+        // L10N-04 round 2 (gate-2 verdict item 16 / round-1 report §8 item 3): was a match on the
+        // English label prefix, which Spanish translates — a real breadcrumb was filed under
+        // "missing-breadcrumb" on every es leg instead of "breadcrumb".
+        let breadcrumb = element("freshness.breadcrumb", in: app)
         if breadcrumb.waitForExistence(timeout: 15) {
             snap(app, screen: "slowRefresh", state: "breadcrumb", reachedVia: "tapped Refresh, waited past the live budget")
         } else {
@@ -763,7 +827,7 @@ final class AuditTourUITests: TallyUITestCase {
     private func launchSignedIn() -> XCUIApplication {
         let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + TestHooks.deviceAuth("success")
             + ["-TallyTestHooks.notifications", "notDetermined:denied"] + Self.textSizeArguments)
-        _ = app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30)
+        _ = element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30)
         return app
     }
 
@@ -772,18 +836,18 @@ final class AuditTourUITests: TallyUITestCase {
     /// reused here through `go` instead of an assertion).
     @MainActor
     private func signInToDemoSchool(_ app: XCUIApplication) {
-        guard go(app.buttons["Find My School"], app, screen: "demoSignIn", state: "schoolSearch", reachedVia: "Find My School")
+        guard go(element("account.findMySchool", in: app), app, screen: "demoSignIn", state: "schoolSearch", reachedVia: "Find My School")
         else { return }
         let searchField = schoolSearchField(app)
         guard go(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field", timeout: 5)
         else { return }
         searchField.typeText(Self.demoHost)
-        guard go(app.buttons["Use \(Self.demoHost)"], app, screen: "demoSignIn", state: "useSchool",
+        guard go(element("schoolSearch.useAddress", in: app), app, screen: "demoSignIn", state: "useSchool",
                  reachedVia: "typed \(Self.demoHost)") else { return }
         // CI run 37639511433: `go` alone missed this at AX5 on every leg (the confirmation screen's
         // button is below the fold at that text size) — `goScrolling` degrades to the same
         // "missing" recording if it still can't be found, so this can only help, never regress.
-        _ = goScrolling(app.buttons["Continue to \(Self.demoHost)"], app, screen: "demoSignIn", state: "continue",
+        _ = goScrolling(element("onboarding.signIn.continueTo", in: app), app, screen: "demoSignIn", state: "continue",
                         reachedVia: "Use \(Self.demoHost)")
     }
 

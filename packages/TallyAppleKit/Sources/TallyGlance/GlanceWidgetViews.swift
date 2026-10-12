@@ -100,18 +100,20 @@ struct GradeBandBadge: View {
     let band: GradeBand
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         Group {
             if redactionReasons.contains(.privacy) {
                 Label {
-                    Text(verbatim: GlanceText.resolve(L10n.Widgets.hiddenWhileLocked(), TallyLocale.effective))
+                    Text(verbatim: GlanceText.resolve(L10n.Widgets.hiddenWhileLocked(), locale))
                 } icon: {
                     Image(systemName: "lock.fill")
                 }
                 .font(TallyTypography.subheadline.weight(.semibold))
             } else {
-                Text(verbatim: GlanceText.bandLabel(band))
+                Text(verbatim: GlanceText.bandLabel(band, locale: locale))
                     .font(TallyTypography.screenTitle)
                     .minimumScaleFactor(GlanceMetrics.bandMinimumScale)
                     .lineLimit(1)
@@ -186,12 +188,14 @@ struct GlanceHomeLayout<Content: View>: View {
 private struct GlanceHeader: View {
     let title: LocalizedStringResource
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         HStack(spacing: TallySpacing.xs) {
             TMark(size: GlanceMetrics.headerMarkSize)
                 .widgetAccentable()
-            Text(verbatim: GlanceText.resolve(title, TallyLocale.effective))
+            Text(verbatim: GlanceText.resolve(title, locale))
                 .font(TallyTypography.caption.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(GlanceStyle(renderingMode).secondary)
@@ -202,12 +206,14 @@ private struct GlanceHeader: View {
 private struct NextUpSummaryView: View {
     let summary: GlanceSummary
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
             if let item = summary.nextUp {
-                Text(verbatim: GlanceText.title(item, hidesNames: summary.hidesCourseNames))
+                Text(verbatim: GlanceText.title(item, hidesNames: summary.hidesCourseNames, locale: locale))
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(style.primary)
                     .lineLimit(GlanceMetrics.titleLineLimit)
@@ -221,7 +227,7 @@ private struct NextUpSummaryView: View {
                 Spacer(minLength: 0)
                 GlanceDueLine(item: item)
             } else {
-                Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingNow(), TallyLocale.effective))
+                Text(verbatim: GlanceText.resolve(L10n.Widgets.nothingNow(), locale))
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(style.primary)
                 Spacer(minLength: 0)
@@ -234,6 +240,8 @@ private struct NextUpSummaryView: View {
 private struct StandingSummaryView: View {
     let summary: GlanceSummary
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
@@ -255,7 +263,7 @@ private struct StandingSummaryView: View {
                 // small — the truncated "Average of 2 cours…" already renders 122 of a 126 pt-wide
                 // line (measured), so the full string needs only a few points less to fit at 1
                 // line, well inside `standingCaptionMinimumScale`'s 20% floor.
-                ForEach(GlanceText.standingCaptions(summary), id: \.self) { caption in
+                ForEach(GlanceText.standingCaptions(summary, locale: locale), id: \.self) { caption in
                     Text(verbatim: caption)
                         .font(TallyTypography.footnote)
                         .foregroundStyle(style.secondary)
@@ -288,12 +296,14 @@ private struct StandingSummaryView: View {
 private struct StandingCourseRows: View {
     let courses: [GlanceSummary.CourseStanding]
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         let style = GlanceStyle(renderingMode)
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
             ForEach(courses.prefix(GlanceMetrics.standingCourseRows)) { course in
-                let value = GlanceText.courseValue(course.value)
+                let value = GlanceText.courseValue(course.value, locale: locale)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: TallySpacing.xs) {
                         Text(verbatim: course.code)
@@ -326,9 +336,11 @@ private struct StandingCourseRows: View {
 struct GlanceDueLine: View {
     let item: GlanceSummary.Item
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
-        Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent))
+        Text(verbatim: GlanceText.dueLine(item, calendar: .autoupdatingCurrent, locale: locale))
             .font(TallyTypography.footnote.weight(.semibold))
             .foregroundStyle(GlanceStyle(renderingMode).accent)
             .lineLimit(1)
@@ -342,6 +354,8 @@ struct GlanceFooter: View {
     let summary: GlanceSummary
     let shown: Int?
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
         if let text = footerText {
@@ -353,17 +367,19 @@ struct GlanceFooter: View {
     }
 
     private var footerText: String? {
-        if let shown { return GlanceText.footer(summary, shown: shown, calendar: .autoupdatingCurrent) }
-        return summary.isStale ? GlanceText.asOf(summary, calendar: .autoupdatingCurrent) : nil
+        if let shown { return GlanceText.footer(summary, shown: shown, calendar: .autoupdatingCurrent, locale: locale) }
+        return summary.isStale ? GlanceText.asOf(summary, calendar: .autoupdatingCurrent, locale: locale) : nil
     }
 }
 
 struct GlanceMessageText: View {
     let message: GlanceMessage
     @Environment(\.widgetRenderingMode) private var renderingMode
+    // L10N-04 round 2 (gate-2 verdict, "Spanish widget renders"): see GlanceLocaleOverride.swift.
+    @Environment(\.effectiveGlanceLocale) private var locale
 
     var body: some View {
-        Text(verbatim: GlanceText.message(message))
+        Text(verbatim: GlanceText.message(message, locale: locale))
             .font(TallyTypography.subheadline)
             .foregroundStyle(GlanceStyle(renderingMode).primary)
     }

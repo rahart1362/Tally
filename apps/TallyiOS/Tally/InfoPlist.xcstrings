@@ -10,6 +10,12 @@
             "state" : "translated",
             "value" : "Tally"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tally"
+          }
         }
       }
     }

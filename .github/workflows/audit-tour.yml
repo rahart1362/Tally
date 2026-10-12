@@ -1,14 +1,21 @@
 name: Audit tour
 # Design-quality audit capture (HANDOFF §4b gate 1): screenshots plus an automated layout check
 # (overlap, clipping, hit targets < 44 pt, leading insets, truncation) of every screen and state, per
-# leg = device x appearance x text size. Manual dispatch on any branch, e.g. a UI package's "after":
+# leg = language x device x appearance x text size. Manual dispatch on any branch, e.g. a UI
+# package's "after":
 #   gh workflow run "Audit tour" --ref <branch> -f tests=testA_dashboard,testE_toDo
+# Plan 08 L10N-04: or, for the Spanish captures (gate 1's es vs. en comparison):
+#   gh workflow run "Audit tour" --ref l10n/es -f language=es -f devices='["proMax","smallest"]' \
+#     -f appearances='["light"]' -f sizes='["std","ax5"]' -f widgets=true
 # AuditTourUITests skips unless this workflow sets AUDIT_APPEARANCE, so CI never runs it. First run:
 # 37649050231 (pmo/audit-tour). Each leg's artifact holds the xcresult attachments renamed to their
 # readable names (NN-<screen>-<state>.png / .layout.json) plus xcresulttool's manifest.json.
 on:
   workflow_dispatch:
     inputs:
+      language:
+        description: 'en or es (plan 08 L10N-04): the tour launches with that language''s pin instead of TallyUITestCase''s en pin'
+        default: 'en'
       devices:
         description: 'JSON list: proMax (largest Pro Max, newest iOS 26), smallest'
         default: '["proMax","smallest"]'
@@ -40,7 +47,7 @@ env:
 
 jobs:
   tour:
-    name: Audit screenshots (${{ matrix.device }}, ${{ matrix.appearance }}, ${{ matrix.textSize }})
+    name: Audit screenshots (${{ inputs.language }}, ${{ matrix.device }}, ${{ matrix.appearance }}, ${{ matrix.textSize }})
     runs-on: macos-26
     timeout-minutes: 90
     strategy:
@@ -111,6 +118,10 @@ jobs:
           # uses it for TALLY_PERF_RUN), so no app or package source changes are needed for this.
           TEST_RUNNER_AUDIT_APPEARANCE: ${{ matrix.appearance }}
           TEST_RUNNER_AUDIT_TEXT_SIZE: ${{ matrix.textSize }}
+          # Plan 08 L10N-04: default 'en' (every leg before this work package, and any future
+          # dispatch that omits it) keeps AuditTourUITests.currentLocaleArguments at the plain
+          # English pin; 'es' switches it to the Spanish launch arguments.
+          TEST_RUNNER_AUDIT_LANGUAGE: ${{ inputs.language }}
         run: |
           TESTS=""
           for t in $(echo "${{ inputs.tests }}" | tr ',' ' '); do TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/$t"; done
@@ -149,6 +160,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: audit-${{ matrix.device }}-${{ matrix.appearance }}-${{ matrix.textSize }}
+          name: audit-${{ inputs.language }}-${{ matrix.device }}-${{ matrix.appearance }}-${{ matrix.textSize }}
           path: ${{ runner.temp }}/shots
           retention-days: 14

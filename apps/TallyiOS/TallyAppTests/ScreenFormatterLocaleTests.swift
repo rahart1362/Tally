@@ -164,14 +164,17 @@ struct ScreenFormatterLocaleTests {
     /// The old implementation took the *already-built* visual text ("92/100") and replaced its "/"
     /// with " out of " — fragile, because "/" is data punctuation, not a translatable separator.
     /// The fix is a whole-sentence key taking both already-formatted point values directly, so
-    /// nothing here depends on the visual form's separator at all. en_US unchanged; the point values
-    /// stay locale-formatted inside the sentence (the same pre-existing `pointsText` behaviour),
-    /// while the template itself (like `dueText`'s) falls back to English pre-L10N-04.
+    /// nothing here depends on the visual form's separator at all. en_US/en_GB unchanged. L10N-04
+    /// shipped `es` with a real translation ("%1$@ de %2$@") and this resource explicitly sets
+    /// `.locale`, so es_ES now resolves it, unlike `dueText`'s whole-sentence keys below (which
+    /// don't set `.locale` on their resource and so keep resolving against the ambient/pinned
+    /// locale regardless of the `identifier` parameter — ScreenFormatter's own `locale` only drives
+    /// the `TallyFormat` day/time primitives, never the catalog resource's locale).
     @Test("courseDetail.scoreOutOf: a whole-sentence key with two already-formatted placeholders, not a '/' replace",
           arguments: [
               ("en_US", "92 out of 100"),
               ("en_GB", "92 out of 100"),
-              ("es_ES", "92 out of 100"),
+              ("es_ES", "92 de 100"),
           ])
     func scoreOutOfKey(identifier: String, expected: String) {
         var resource = L10n.CourseDetail.scoreOutOf("92", "100")
@@ -193,32 +196,44 @@ struct ScreenFormatterLocaleTests {
     /// exactly 1, so count 1 reads "item" (singular) and every other count reads "items" — the same
     /// `one`/`other` mechanism L10N-01's own exemplar (`dashboard.hero.averageOfCourses`) proved
     /// works through `#bundle` from a main-actor caller (`LocalizationTests.heroCaptionPlural`).
-    /// en_GB and es_ES share English's plural rule (one ↔ n==1), so the same expectations hold for
-    /// every locale in the required matrix; fr_FR's different rule (one ↔ n∈{0,1}) is reserved for
-    /// the Percent row's extra locale, per the brief, not tested here.
+    /// en_GB shares English's plural rule and words (one ↔ n==1); fr_FR's different rule (one ↔
+    /// n∈{0,1}) is reserved for the Percent row's extra locale, per the brief, not tested here.
+    /// L10N-04 shipped `es` with real `one`/`other` Spanish text (the same plural *rule* as
+    /// English — "one" still means exactly 1 — but different words), which these resources resolve
+    /// because each explicitly sets `.locale`.
     @Test("courses.health.missingItemsStillAccepted: a genuine catalog plural, not hand-pluralised",
-          arguments: ["en_US", "en_GB", "es_ES"])
-    func missingItemsPlural(identifier: String) {
+          arguments: [
+              ("en_US", "1 missing item is still accepted", "3 missing items are still accepted"),
+              ("en_GB", "1 missing item is still accepted", "3 missing items are still accepted"),
+              ("es_ES", "1 tarea faltante aún se acepta", "3 tareas faltantes aún se aceptan"),
+          ])
+    func missingItemsPlural(identifier: String, expectedOne: String, expectedMany: String) {
         let locale = Locale(identifier: identifier)
         var one = L10n.Courses.missingItemsStillAccepted(1)
         one.locale = locale
         var many = L10n.Courses.missingItemsStillAccepted(3)
         many.locale = locale
-        #expect(String(localized: one) == "1 missing item is still accepted")
-        #expect(String(localized: many) == "3 missing items are still accepted")
+        #expect(String(localized: one) == expectedOne)
+        #expect(String(localized: many) == expectedMany)
     }
 
     /// `insights.streak.days`: "1-day streak" (singular, no catalog plural category chosen by
     /// chance — `one` is written out directly) versus "N-day streak" for every other count.
-    @Test("insights.streak.days: 1 is singular, every other count is plural", arguments: ["en_US", "en_GB", "es_ES"])
-    func streakDaysPlural(identifier: String) {
+    /// L10N-04 shipped `es` with real Spanish text, which this resource resolves (it sets
+    /// `.locale` explicitly).
+    @Test("insights.streak.days: 1 is singular, every other count is plural", arguments: [
+        ("en_US", "1-day streak", "5-day streak"),
+        ("en_GB", "1-day streak", "5-day streak"),
+        ("es_ES", "Racha de 1 día", "Racha de 5 días"),
+    ])
+    func streakDaysPlural(identifier: String, expectedOne: String, expectedMany: String) {
         let locale = Locale(identifier: identifier)
         var one = L10n.Insights.streakDays(1)
         one.locale = locale
         var many = L10n.Insights.streakDays(5)
         many.locale = locale
-        #expect(String(localized: one) == "1-day streak")
-        #expect(String(localized: many) == "5-day streak")
+        #expect(String(localized: one) == expectedOne)
+        #expect(String(localized: many) == expectedMany)
     }
 
     /// The gap-text fixed pair (`courses.health.pointAbove`/`pointsAboveCount`): L10N-03a's

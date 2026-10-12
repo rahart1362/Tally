@@ -68,7 +68,10 @@ struct WhatIfSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
+                    // L10N-04: a stable id (the Audit tour looked this up through the "What-If"
+                    // navigation bar and the English "Done" label, both of which Spanish changes).
                     Button(String(localized: L10n.Account.done())) { dismiss() }
+                        .accessibilityIdentifier("whatif.done")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(String(localized: L10n.CourseDetail.whatIfResetButton())) { model.reset() }

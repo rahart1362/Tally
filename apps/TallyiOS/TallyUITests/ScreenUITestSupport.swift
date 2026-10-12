@@ -30,6 +30,15 @@ extension TallyUITestCase {
         elements(identifier, in: app).firstMatch
     }
 
+    /// Every element whose identifier begins with `prefix` — for a row whose identifier itself
+    /// carries state (L10N-04 round 2: `todo.row.done`/`todo.row.notDone`, so a query for "every
+    /// row regardless of state" still finds them all, the same count `elements("todo.row", …)`
+    /// found before that identifier was split).
+    @MainActor
+    func elementsWithPrefix(_ prefix: String, in app: XCUIApplication) -> XCUIElementQuery {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+    }
+
     /// A static text by its words, ignoring case: grouped-list section headers may be shown (and
     /// reported to accessibility) in capitals.
     @MainActor

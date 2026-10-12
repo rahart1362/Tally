@@ -99,6 +99,9 @@ struct CalendarScreen: View {
                         } label: {
                             Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
                         }
+                        // L10N-04: a stable id (the Audit tour looked this menu row up by its
+                        // English label, which Spanish changes).
+                        .accessibilityIdentifier("calendar.subscribeMenuItem")
                     }
                     // ux-ui.md §3.7.4: the timeline only below the accessibility sizes.
                     if Self.offersTimeline(at: typeSize) {
