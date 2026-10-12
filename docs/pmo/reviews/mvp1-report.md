@@ -160,6 +160,17 @@ used for every Spanish value (`docs/pmo/reviews/l10n-04-report.md` §2), confirm
    permission API existed; `LAContext` now has one, correctly paired). The check's boolean result
    is correct; only the fallback detail text undersells it. Not fixed here: out of this package's
    two named FAILs, and a one-line message, not a behavior.
-4. CI run IDs and the release-gate's own merged compliance report are pending the dispatches
-   below — this report's §1/§2 compliance counts are the Linux `--source` run only, not yet
-   merged with the `ios-gate` app/flow checks.
+4. **Release-gate dispatch 1 (run 38244355050, commit `a324586`): FAIL 1, PENDING 17, PASS 85.**
+   Every mapped flow passed exactly as mapped (`REL.flow.02/07/08/10/11/12` all PASS;
+   `ReleaseFlowCoverageTests`'s two new tests passed in Release as designed) except
+   `REL.flow.13-sign-out-erase`: `SettingsUITests/testAccountRowsThenSignOutAndErase: missing
+   (did not run)`. The raw `flows-debug.log` (downloaded from the `ios-gate-results` artifact,
+   not just the console's grep-filtered view) shows `-only-testing:TallyUITests/SettingsUITests`
+   selected only 1 of that class's 4 methods (`testFormRowsAndTheWhatChangedThreshold`, declared
+   first in the file) — xcodebuild's own summary line reads "Executed 1 test, with 0 failures (0
+   unexpected)", with no crash, timeout or error anywhere in the raw log. A whole-class
+   `-only-testing` selection quirk, not a crash in the test itself; this host has no Xcode to
+   diagnose it further. Fixed by pinning `DEBUG_FLOWS` to the fully-qualified
+   `-only-testing:TallyUITests/SettingsUITests/testAccountRowsThenSignOutAndErase` instead of the
+   whole class — the only method this package needs from it. Second (and, per the CI budget,
+   final) release-gate dispatch pending.

@@ -39,10 +39,16 @@ env:
   # Release test build (not this job), so they run against the Debug build here, like
   # SlowRefreshUITests' DEBUG-only `-TallyDebugSampleRefreshLatency` hook, until the UITest
   # configuration (Release optimizations plus TALLY_UI_TESTING) exists (M5).
+  # SettingsUITests is pinned to its one needed method, not the whole class: run 38244355050
+  # (`-only-testing:TallyUITests/SettingsUITests`) executed only 1 of its 4 tests
+  # (testFormRowsAndTheWhatChangedThreshold, declared first in the file) with no error, crash or
+  # timeout logged (xcodebuild's own "Executed 1 test, with 0 failures" summary) — a selection
+  # quirk this host has no Xcode to diagnose further. The fully-qualified target/class/method
+  # form leaves no ambiguity.
   DEBUG_FLOWS: >-
     -only-testing:TallyUITests/SlowRefreshUITests -only-testing:TallyUITests/LaunchFromCacheUITests
     -only-testing:TallyUITests/RemindersUITests -only-testing:TallyUITests/PaywallUITests
-    -only-testing:TallyUITests/SettingsUITests
+    -only-testing:TallyUITests/SettingsUITests/testAccountRowsThenSignOutAndErase
 
 jobs:
   static-linux:
