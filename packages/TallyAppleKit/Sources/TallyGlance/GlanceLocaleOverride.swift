@@ -1,4 +1,5 @@
 import SwiftUI
+import TallyStrings
 
 /// L10N-04 round 2 (gate-2 verdict item "Spanish widget renders"): every `GlanceText.*` call in
 /// the widget views resolves through `TallyLocale.effective` (`Bundle.main.preferredLocalizations`
