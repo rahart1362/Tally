@@ -280,10 +280,14 @@ extension TallyUITestCase {
     static let a11yIncreaseContrast = ["-UIAccessibilityDarkerSystemColorsEnabled", "YES"]
     static let a11yDemoHost = "canvas.northfield.example"
 
+    /// CI run 38277982949 (`iOS build + test`, Xcode 26.6): `XCUIAccessibilityAuditType` has no
+    /// `.action` or `.parentChild` member on this SDK — ux-ui.md §3.9's own list of nine names was
+    /// wrong about those two (trusted the code over the doc, rule 8: the compiler is the ground
+    /// truth here, not a review document). The seven below are the ones that actually exist.
     private static let a11yAuditTypeNames: [(XCUIAccessibilityAuditType, String)] = [
         (.contrast, "contrast"), (.elementDetection, "elementDetection"), (.hitRegion, "hitRegion"),
         (.sufficientElementDescription, "sufficientElementDescription"), (.dynamicType, "dynamicType"),
-        (.textClipped, "textClipped"), (.trait, "trait"), (.action, "action"), (.parentChild, "parentChild"),
+        (.textClipped, "textClipped"), (.trait, "trait"),
     ]
 
     /// `issue.auditType` is an `OptionSet` with no guaranteed string form; this names it from the
