@@ -294,6 +294,31 @@ jobs:
           python3 scripts/ci/check_release.py --a11y-audit \
             "$RUNNER_TEMP/a11y-light-tests.json" "$RUNNER_TEMP/a11y-dark-tests.json" "$RUNNER_TEMP/a11y-contrast-tests.json" \
             --waivers "$waivers" --json "$RUNNER_TEMP/compliance/a11y-audit.json" || [ $? -eq 1 ]
+      - name: Export the accessibility audit's issue JSON (evidence, not just a pass/fail count)
+        # `runA11yAudit` (AccessibilityAuditUITests.swift) attaches one `<screen>-<variant>-audit`
+        # JSON per audit call, every issue it found whether waived or not (type, element,
+        # description) — the detail this host cannot read any other way (no Xcode, no
+        # xcresulttool). `xcresulttool export attachments` only runs on this macOS runner; keep
+        # just the JSON (not the xcresult's own screenshots), named for the Opus review (gate 2).
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/a11y-evidence"
+          for bundle in A11y-light A11y-dark A11y-contrast; do
+            if [ -d "$RUNNER_TEMP/$bundle.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$bundle.xcresult" \
+                --output-path "$RUNNER_TEMP/a11y-evidence/$bundle" || true
+            fi
+          done
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type f | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: a11y-audit-evidence
+          path: ${{ runner.temp }}/a11y-evidence
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Device archive (Release, unsigned)
         id: archive
         run: |

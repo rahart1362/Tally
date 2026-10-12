@@ -319,6 +319,18 @@ extension TallyUITestCase {
     /// `<screen>-<variant>-audit` (type, element, description), and fails with the screen's own
     /// name in the message if any issue was not waived.
     ///
+    /// CI run 38280762497: `TallyUITestCase.setUpWithError` sets `continueAfterFailure = false`
+    /// (every suite inherits it), and when the issue handler returns `false`, the audit records
+    /// that issue as a failure *immediately*, through a mechanism this method's own `do`/`catch`
+    /// cannot intercept (not a thrown Swift error a `catch` clause can see — `continueAfterFailure
+    /// = false`'s abort unwinds past normal `try`/`catch` the same way an assertion failure does).
+    /// With it false, the *first* unwaived issue ended the test method on the spot: no later issue
+    /// in the same audit was ever found, no JSON got attached, and the only message on screen was
+    /// Apple's own terse one-liner ("Contrast failed") rather than this method's own. Toggling it
+    /// `true` for the span of the call — restored immediately after, before this method's own
+    /// assertion — lets the handler run for every issue the audit finds, so `issues`/`unwaived`
+    /// end up complete before anything decides pass or fail.
+    ///
     /// Collects into `unwaived` from inside the issue handler itself, rather than reading the
     /// thrown error's text: the handler already sees every issue with its element and type, the
     /// authoritative detail this suite's JSON attachment and failure message both need (the whole
@@ -329,6 +341,8 @@ extension TallyUITestCase {
                       file: StaticString = #filePath, line: UInt = #line) {
         var issues: [[String: String]] = []
         var unwaived: [String] = []
+        let previousContinueAfterFailure = continueAfterFailure
+        continueAfterFailure = true
         do {
             try app.performAccessibilityAudit(for: types) { issue in
                 let typeName = Self.a11yAuditTypeName(issue.auditType)
@@ -346,6 +360,7 @@ extension TallyUITestCase {
                 unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
             }
         }
+        continueAfterFailure = previousContinueAfterFailure
         attachA11yJSON(issues, name: "\(screen)-\(variant)-audit")
         XCTAssertTrue(unwaived.isEmpty,
                      "\(screen) (\(variant)): \(unwaived.count) unwaived accessibility issue(s): " + unwaived.joined(separator: " | "),
