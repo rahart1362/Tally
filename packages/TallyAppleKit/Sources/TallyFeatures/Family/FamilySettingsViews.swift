@@ -144,24 +144,31 @@ struct StudentDetailView: View {
         // Tally" confirm lookup never matched under es, so the sheet stayed open into the next
         // loop iteration and a *different* student's removal got filed under this student's name,
         // and the student was never actually removed).
+        //
+        // Deliberately NOT prefixed "family." — FamilyUITests.swift's own pre-existing
+        // `tapConfirmation`/Cancel lookups find the confirmation's button (as opposed to the
+        // page's own same-labeled row button) by excluding `identifier BEGINSWITH 'family.'`; a
+        // "family."-prefixed id on the confirmation's own buttons would get excluded by that same
+        // filter and break those tests (found via CI run 38197001967, fixed here rather than by
+        // touching that other stream's file).
         .tallyDestructiveConfirmation(
             String(localized: L10n.FamilyUI.removeTitle(student.firstName)), isPresented: $confirmsRemove,
             message: String(localized: L10n.FamilyUI.removeMessage(student.firstName)),
             actions: [
                 TallyConfirmationAction(String(localized: L10n.FamilyUI.removeFromTally()), role: .destructive,
-                                        accessibilityIdentifier: "family.removeConfirm.destructive") { remove() },
+                                        accessibilityIdentifier: "familyConfirm.remove.destructive") { remove() },
                 TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel,
-                                        accessibilityIdentifier: "family.removeConfirm.cancel") {},
-            ], accessibilityIdentifier: "family.removeConfirm")
+                                        accessibilityIdentifier: "familyConfirm.remove.cancel") {},
+            ], accessibilityIdentifier: "familyConfirm.remove")
         .tallyDestructiveConfirmation(
             String(localized: L10n.FamilyUI.unlinkTitle(student.firstName)), isPresented: $confirmsUnlink,
             message: String(localized: L10n.FamilyUI.unlinkMessage(student.firstName)),
             actions: [
                 TallyConfirmationAction(String(localized: L10n.FamilyUI.unlinkConfirm()), role: .destructive,
-                                        accessibilityIdentifier: "family.unlinkConfirm.destructive") { unlink() },
+                                        accessibilityIdentifier: "familyConfirm.unlink.destructive") { unlink() },
                 TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel,
-                                        accessibilityIdentifier: "family.unlinkConfirm.cancel") {},
-            ], accessibilityIdentifier: "family.unlinkConfirm")
+                                        accessibilityIdentifier: "familyConfirm.unlink.cancel") {},
+            ], accessibilityIdentifier: "familyConfirm.unlink")
     }
 
     private func notificationToggle(_ title: () -> LocalizedStringResource,

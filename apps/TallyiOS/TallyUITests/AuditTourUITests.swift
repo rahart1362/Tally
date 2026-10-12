@@ -704,7 +704,7 @@ final class AuditTourUITests: TallyUITestCase {
                     unlink.tap()
                     // L10N-04 round 2 (gate-2 verdict item 16): was a match on the English title
                     // and "Cancel" label, which Spanish translates.
-                    let cancel = element("family.unlinkConfirm.cancel", in: app)
+                    let cancel = element("familyConfirm.unlink.cancel", in: app)
                     if cancel.waitForExistence(timeout: 10) {
                         snap(app, screen: "family", state: "unlinkConfirm", reachedVia: "Rowan Sample -> Unlink")
                         cancel.tap()
@@ -762,7 +762,7 @@ final class AuditTourUITests: TallyUITestCase {
             // *next* loop iteration's row lookup failed too — its "missing-removeStudent-<name>"
             // screenshot was actually this student's still-open confirmation (the misfiled-name
             // bug the verdict found: "Rowan" filed under "Skyler").
-            let confirm = element("family.removeConfirm.destructive", in: app)
+            let confirm = element("familyConfirm.remove.destructive", in: app)
             if confirm.waitForExistence(timeout: 10) {
                 snap(app, screen: "family", state: "removeConfirm-\(name)", reachedVia: "\(name) Sample -> Remove from Tally")
                 confirm.tap()
