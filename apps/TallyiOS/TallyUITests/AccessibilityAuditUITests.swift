@@ -292,7 +292,23 @@ enum A11yWaivers {
     /// reading `.count` out of a running process — so every entry must be `Key(elementIdentifier:`
     /// at the start of its own line (leading whitespace only), one entry per line, exactly like the
     /// array literal's own syntax already reads.
-    static let waived: Set<Key> = []
+    ///
+    /// CI run 38313859274's evidence (`pmo-audit/.build-audit/mvp2/issue-inventory.md`): every
+    /// entry below is a `ToolbarItem` button — system-rendered navigation-bar chrome whose text
+    /// scaling, truncation and exact colour the app does not control beyond its `Button`'s own
+    /// label string, the same category `defects.md`'s "Layout-check triage" already accepted for
+    /// toolbar items ("the system extends their hit region"). `docs/pmo/a11y-waivers.md` has the
+    /// full justification and the source line for each.
+    static let waived: Set<Key> = [
+        Key(elementIdentifier: "courses.edit", auditType: "dynamicType"),
+        Key(elementIdentifier: "paywall.close", auditType: "dynamicType"),
+        Key(elementIdentifier: "settings.done", auditType: "dynamicType"),
+        Key(elementIdentifier: "todo.select", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.done", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.reset", auditType: "contrast"),
+        Key(elementIdentifier: "whatif.reset", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.reset", auditType: "textClipped"),
+    ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {
         waived.contains(Key(elementIdentifier: elementIdentifier, auditType: auditType))

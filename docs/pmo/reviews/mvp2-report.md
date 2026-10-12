@@ -28,15 +28,32 @@ ux-ui.md (Linux scripts, `ios-perf`'s launch gate).
 
 ## Issues found per screen (before/after counts)
 
-Pending the first CI run of `AccessibilityAuditUITests`/`-DarkUITests`/`-ContrastUITests`. Will be
-filled in from the run's JSON attachments (`<screen>-<variant>-audit`, one per screen × variant,
-every issue whether waived or not) once a run exists.
+Full detail: `pmo-audit/.build-audit/mvp2/issue-inventory.md` (built from two real `scope=a11y`
+runs — [38306768609](https://github.com/rahart1362/Tally/actions/runs/38306768609), then
+[38313859274](https://github.com/rahart1362/Tally/actions/runs/38313859274) after a
+`continueAfterFailure` fix and an element-label capture fix, both found and fixed mid-triage).
+**"Before" was never measured** — this suite did not exist before this work package, so there is
+no prior audit run to diff against; every count below is the suite's first-ever reading.
+
+Totals (all three classes, deduped): **133 `contrast`, 66 `dynamicType`, 22 `textClipped`, 9
+`elementDetection`, 2 `sufficientElementDescription`, 2 `hitRegion` — 234 unwaived issues before
+this round's waivers; 226 after** (8 waived, see below). Per-screen counts, worst first: What-If
+38, Parent Mode 31, Calendar 26, Courses 25, Course Detail 21, Settings 18, To-Do 17, Dashboard 12,
+First-Sync Skeleton 12, Hand-off 10, Paywall 6, Welcome 6, Insights 4. Clean across every variant:
+Course Options, Find School, Lock View.
 
 ## Fixes (file:line, evidence)
 
-None yet — no audit has run to find a real issue. Will be filled in as real issues are found and
-fixed, per `pmo-ux-common.md`'s implementation rules (design-system tokens, one shared fix,
-holding on every variant).
+**None yet.** Every named, real issue found this round needs either a device-measured colour
+value or a rendered screenshot to fix correctly (this host has no Xcode, no simulator, no
+device), and the single most promising root-cause candidate — `TallyPrimaryButtonStyle`'s
+`.glassProminent` tint, used on `account.exploreWithSampleData`/`account.findMySchool` and six
+other screens — would need the same device check before changing, since the existing colour value
+was already computed from sRGB math and still fails under this audit; changing it without
+measurement would trade one unverified number for another. `docs/pmo/a11y-waivers.md`'s "Real
+issues found, not yet fixed" table has every one, with its label, audit type and root-cause
+hypothesis where one exists. This is recorded honestly rather than claimed: `REL.a11y.audit` is
+**not** at 0 FAIL this round.
 
 One small, additive change made while building the suite's navigation (not an accessibility
 defect, a testability gap — a locale-safe waypoint this suite needs, since it runs in English
@@ -46,35 +63,62 @@ added `.accessibilityIdentifier("schoolSearch.askMySchool")`. No string change, 
 
 ## Waiver table
 
-See `docs/pmo/a11y-waivers.md` (kept in sync with `A11yWaivers.waived` in
-`AccessibilityAuditUITests.swift`). Currently empty — no CI run yet to find a real false positive.
+See `docs/pmo/a11y-waivers.md`. **8 waivers**, all `ToolbarItem` buttons (system-rendered
+navigation-bar chrome, the same category `defects.md`'s "Layout-check triage" already accepted
+for toolbar items): `courses.edit`, `paywall.close`, `settings.done`, `todo.select`, `whatif.done`
+(each `dynamicType`), and `whatif.reset` (`contrast` + `dynamicType` + `textClipped` — all three on
+the one button). Every waiver cites the exact `ToolbarItem` source line and the CI run's JSON
+attachment as evidence; none is a blanket filter on a whole type or screen. The two pre-identified
+`dynamicTypeSize` caps (`DashboardView.swift:499`, `StudentSwitcher.swift:204`) are **not** flagged
+by the audit at all (neither appears in either run's evidence, by label or otherwise) — no waiver
+needed; the `.dynamicType` check appears to be about text, and both caps are on icon-only/initials
+elements.
+
 Also holds the open item on `FamilyUITests`' existing switcher-audit filter (unverified scope, not
 narrowed this round — no Xcode to observe what it actually suppresses).
 
 ## Strings PENDING owner approval
 
-None yet. If the audit finds a missing accessibility label or hint, the fix adds a NEW string key
-(English + Spanish `needs_review`; never edits an existing English value) and it is listed here
-before this report is finalized.
+None. No missing accessibility label or hint was found this round — every real issue found is
+`contrast`, `dynamicType`, `textClipped` or `hitRegion` (layout/colour), not a missing label
+(`sufficientElementDescription`'s 2 instances, on Hand-off, are unidentified and not yet traced to
+a specific missing-label fix).
 
 ## Suite run time
 
-UNVERIFIED — not yet measured from a CI log (no run yet). Per the brief: goes into PR CI only if
-it adds under 5 minutes to the existing `ios-gate` job; otherwise stays gate-only, and this report
-will say so explicitly once measured.
+Measured from CI logs, `ios-a11y-audit` job (`ci.yml`'s `scope=a11y`, the dispatch-only scope this
+suite now runs from — see "Open items"): run 38306768609 took **1h0m50s** end to end (build +
+three test invocations + export); run 38313859274 (same suite, same simulator class) took
+**about 1 hour** as well. This is far over the brief's "under 5 minutes" bar for PR CI, so per the
+brief it **stays gate-only**, never added to the PR's own required jobs — consistent with why the
+PMO had this suite moved to a dedicated dispatch scope in the first place (a plain `scope=quick`
+bundling it with the rest of `TallyUITests` hit CI's 110-minute job cap twice, runs 38280762497
+and 38294121268).
 
-## Open items (so far)
+## Open items
 
+- **`REL.a11y.audit` is not at 0 FAIL.** 226 unwaived issues remain after this round's 8 waivers.
+  Full breakdown, root-cause hypotheses and the one significant systemic finding (the
+  `TallyPrimaryButtonStyle`/Liquid Glass contrast question) are in `docs/pmo/a11y-waivers.md`'s
+  "Real issues found, not yet fixed" table and `pmo-audit/.build-audit/mvp2/issue-inventory.md`.
+  Gate 1 (`docs/pmo/reviews/ux-ui.md`'s own bar, restated in the brief) is not met this round.
 - A11Y-07, A11Y-10, A11Y-12: coverage gaps found while mapping, not introduced by this work package
   and not fixed this round — out of this suite's A11Y-01/02/04/09 scope (see the coverage map).
 - The `FamilyUITests` switcher audit's existing filter — `docs/pmo/a11y-waivers.md`'s open item.
 - Device checks the brief asks for: VoiceOver on a device, Switch Control. Not done — this host has
-  no device and no simulator at all (no Xcode); CI's simulator cannot stand in for either.
+  no device and no simulator at all (no Xcode); CI's simulator cannot stand in for either. The same
+  gap blocks fixing most of the real issues above: several need a rendered screenshot or a
+  device-measured colour value, not just a code read.
 - Whether `-UIAccessibilityDarkerSystemColorsEnabled YES` or `xcrun simctl ui <udid>
-  increase_contrast enabled` (or neither) actually changes `colorSchemeContrast` on the CI
-  simulator — UNVERIFIED, flagged in the suite's own top doc comment, first CI run should confirm
-  or refute it.
+  increase_contrast enabled` (or neither) actually changed `colorSchemeContrast` on the CI
+  simulator is still not directly confirmed — the `contrast`-class run did find real `contrast`
+  issues (133 total, including under Increase Contrast specifically), so *something* is exercising
+  the `.contrast` audit type meaningfully, but which of the two mechanisms (or both) is responsible
+  was not isolated.
 - A11Y-04's `freshness.refresh`/`tip.dismissReminders` have no *explicit* frame assert (only the
   audit's own `.hitRegion` type will catch a regression there) — a possible follow-up, not done
   this round since the brief named the (non-existent) `refresh.button`/`tip.dismiss` identifiers
   specifically and the real ones were only found by reading the source.
+- 190+ `contrast`/`dynamicType` issues land on plain `Text` with a label but no identifier; tracing
+  each to a specific source line (rather than the design-token hypothesis as a class) was beyond
+  this round's remaining CI/time budget.
