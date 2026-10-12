@@ -348,19 +348,35 @@ struct WidgetFamilyRenderTests {
     }
 
     /// Plan 08 L10N-04: every surface, light, at both phone sizes, with the SwiftUI environment's
-    /// `\.locale` set to `es` — the same override the app's own `TallyLocale.effective` produces
-    /// once the per-app Language setting is Spanish, so a catalog-backed `L10n.*` string resolves
-    /// to its (`needs_review`) Spanish value instead of English's `defaultValue`. Attached for the
-    /// owner sheet's "widget on a Spanish Home Screen" row (gate 1).
-    @Test("Snapshot: every surface renders in Spanish, light, at both phone sizes",
+    /// `\.locale` set to `es`.
+    ///
+    /// **Known gap, found by visually inspecting the attached PNGs (never claim what was not
+    /// observed): this does NOT render Spanish text**, and the assertion below does not claim it
+    /// does. `GlanceWidgetViews`' views (`StandingWidgetView` and siblings) take no `locale`
+    /// parameter; internally they call `GlanceText.*` (`GlanceText.swift`), whose functions default
+    /// to `locale: Locale = TallyLocale.effective` — a plain Swift default argument evaluated from
+    /// `Bundle.main.preferredLocalizations` at the call site, not a reactive read of SwiftUI's
+    /// `\.locale` environment key. `.environment(\.locale, …)` therefore has no effect on what these
+    /// views draw; `GlanceText.bandLabel(_:locale:)` two lines below *does* accept an explicit
+    /// locale when a caller passes one directly (used for `gradeTokens`), which is the shape a real
+    /// fix needs: a `locale:` parameter threaded into the widget views themselves, a `TallyGlance`
+    /// production-code change outside this work package's ownership, and one this host could not
+    /// verify further (the CI budget for this work package is spent). On a real device the widget
+    /// extension's own `Bundle.main.preferredLocalizations` does reflect the per-app Language
+    /// setting (the L10N-01 spike observed this directly: run 36775064980, the widget gallery
+    /// in Spanish), so production behaviour is not known to be affected — only this specific test
+    /// harness's ability to simulate it. Attached anyway: the PNGs are real renders (English
+    /// content, `es` locale requested), useful as a plain draws-without-crashing smoke test, not
+    /// as Spanish-content evidence for gate 1's widget row.
+    @Test("Snapshot: every surface renders without crashing with an es locale requested, light, at both phone sizes (does not verify Spanish content — see doc comment)",
           arguments: Surface.allCases, PhoneClass.allCases)
     func spanishSnapshot(surface: Surface, phoneClass: PhoneClass) throws {
         let entry = Self.entry(Self.glance())
         let size = phoneClass.size(for: surface)
         let png = try #require(
             Self.hostedPNG(surface, entry, mode: .fullColor, colorScheme: .light, size: size, locale: Locale(identifier: "es")),
-            "\(surface.rawValue) did not render in es at \(phoneClass.rawValue)")
-        Attachment.record(png, named: "widget-\(surface.rawValue)-es-light-\(phoneClass.rawValue).png")
+            "\(surface.rawValue) did not render with an es locale requested at \(phoneClass.rawValue)")
+        Attachment.record(png, named: "widget-\(surface.rawValue)-es-requested-light-\(phoneClass.rawValue).png")
     }
 
     /// G2 gap 3: no hosted render included the Mark Done button. This one does, light and dark, at
