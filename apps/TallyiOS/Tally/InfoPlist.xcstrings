@@ -18,6 +18,24 @@
           }
         }
       }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Shown by iOS the first time Tally asks to use Face ID for the app lock (SEC-07, ADR 0001). PENDING owner approval (MVP-1, docs/pmo/reviews/mvp1-report.md).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID unlocks Tally to protect your courses and grades."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Face ID desbloquea Tally para proteger tus cursos y calificaciones."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
