@@ -160,9 +160,185 @@ plus a note on the widget gap (§8 item 1).
 | 38179171050 (+ 1 rerun of its failed jobs) | Audit tour, es (2/2) | std legs green; ax5 legs failed on one AX5-specific `openSettings` timing bug (fixed, `82893aa`, unverified in es — open item 4) |
 | 38185483478 | Audit tour, en (1/1) | **green**, all 4 legs — the English tour still passes |
 
-## 10. Evidence paths
+## 10. Evidence paths (round 1)
 
 - Owner sheet: `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/owner-sheet-l10n-04.jpg`
 - Review CSV (for the native-speaker reviewer): `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/es-review.csv` (772 rows; `scripts/l10n/es_review.py export`)
 - Raw es/en Audit tour captures: `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/{es,en}/audit-*`
 - None of the above are committed to the repo (public; images and the CSV are excluded per the brief).
+
+---
+
+# Round 2 — gate-2 fixes
+
+Author: Spanish Localization Engineer, round 2 (Claude Sonnet 5). PR #51, branch `l10n/es`,
+starting at round 1's hand-off commit `5481437`. Task list: the PMO's Opus gate-2 design review,
+`/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/review/verdict.md`.
+Journal: `build/logs/journal/2026-10-12-l10n-04-r2.md`.
+
+## R1. Verdict item → change → file/key → evidence
+
+| Verdict item | Change | File / key | Evidence |
+|---|---|---|---|
+| Fix 1 (L1) | `onboarding.schoolSearch.searchPrompt` → "Escuela o dirección de Canvas" | `Localizable.xcstrings` | `112-schoolSearch-idle.png` (smallest std): full text, no ellipsis — owner sheet row 1 |
+| Fix 2 (L2) | `courseDetail.override.menuRowTitle` → "Calificaciones externas" (23 chars) | `Localizable.xcstrings`; test expectation also fixed in `L10N04SpanishResolutionTests.postFreezeKeysResolveInSpanish` | `302-course1-gradesOutsideCanvas.png` (smallest AX5): wraps "Califica-/ciones/externas" on 3 lines, no truncation — owner sheet row 2 |
+| Fix 3 (L3, T14) | `courseDetail.whatIfHeader` → "Simulador" | `Localizable.xcstrings` | `303-course1-whatIf.png` (smallest AX5): sheet title "Simulador" fits the toolbar — owner sheet row 3 |
+| Fix 4 (L4) | `onboarding.schoolSearch.navigationTitle` → "Buscar escuela"; `onboarding.schoolSearch.cantFindIt` → "¿No aparece?" | `Localizable.xcstrings` | `112-schoolSearch-idle-UNSETTLED.png` (proMax AX5): both read in full |
+| Fix 5 (L5, T19) | `freshness.updatedJustNow` → "Actualizado ahora" | `Localizable.xcstrings` | `63-todo-batchSelect.png` (smallest AX5) subtitle: full text |
+| Fix 6 (L6), layout half | `LockedFeatureCard` reserves the floating tab bar's footprint (`TallySpacing.tabBarClearance` = 96 pt, `.safeAreaPadding(.bottom:)`) | `SubscriptionLockViews.swift`; new token in `Spacing.swift` | `156-lockedTab-card.png` (smallest AX5): "Ver planes" now sits with clean margin above the tab bar (round 1: button bled into/under it — see owner sheet row 4). The tap now reaches the button: `157-paywall-fromLockedTab-top.png` through `-scroll8.png` show the real paywall ("Tally Annual", "Qué incluye"), not the locked card — round 1 had the same bug (156 only, no paywall captures) |
+| Fix 6, copy half | `subscription.locked.body` shortened | `Localizable.xcstrings` | same captures |
+| Fix 7 (T1) | `widget.asOf` → "Datos de %@"; `widget.answer.asOf` → "Estos datos son de %@." | `Localizable.xcstrings` | not independently captured this round (not stale-data in the fixture's test data); catalog-verified |
+| Fix 8 (T2) | 5 Week-ahead keys → "Próximos 7 días" (header) / "Tu semana" (widget, notification, toggle) | `Localizable.xcstrings`, widget catalog | catalog-verified; `widget-week-ahead-large-es-*.png` (see R4) |
+| Fix 9 (T3) | `insights.completion.detail`/`.subtitle` reworded | `Localizable.xcstrings` | `77-insights-scroll1.png` (smallest std): "Entregaste a tiempo 36 de 41 tareas cuya fecha ya pasó." / "Tareas con fecha ya pasada que entregaste a tiempo este período." — owner sheet row 6 |
+| Fix 10 (T4) | `courses.health.aboveGoalReason` → "%1$@ de tu meta de %2$@" | `Localizable.xcstrings` | catalog-verified (grammatical now, matches sibling `aboveCutoffReason`'s "del") |
+| Fix 11 (T5) | New key `insights.category.other` (en "Other", es "Otras") for `InsightsProjection.swift:261`'s bare literal | `L10n+GradeScreensSweep.swift`, `InsightsProjection.swift`, `Localizable.xcstrings` | `77-insights-scroll1.png`: chart shows "Otras 30%" — owner sheet row 6 |
+| Fix 12 (T6) | `freshness.delayed/failed/authExpired.long`, `subscription.banner.savedFrom`: placeholder moved mid-sentence, no sentence-final period after it | `Localizable.xcstrings` | `156-lockedTab-card.png`: "Mostrando datos guardados de oct 12, 2026, 5:39 a.m. — suscríbete para actualizar" (no double period) |
+| Fix 13 (T7) | `courses.formatter.dueAtTime`/`.atTime`, `notification.dayAtTime`, `widget.answer.when.*`, `calendar.agenda.due.spoken`: comma, not "a las" | `Localizable.xcstrings` | `61-todo-default.png` (smallest std): "BIO 101 · Vence mañana, 1:00 p.m." on one line — **this is also L8's fix**, confirmed resolved by shorter wording (see R3) |
+| Item 14 (L10, required) | Language row: primary-coloured label, trailing `arrow.up.forward`, value capitalized by locale (`Español`); footer replaced with the reviewer's round-2 draft (`settings.language.footerV2`) | `SettingsView.swift` (`languageSection`, `currentLanguageName`), `L10n.swift`, `Localizable.xcstrings` | `91-settings-top.png` (smallest std): black "Idioma" label, "Español ↗" value, new footer in full — owner sheet row 5 |
+| Item 15 (T8–T30) | Applied T8, T9, T10, T11, T12, T13, T15–T20, T22–T28, T30; T21 resolved differently; T29 declined | `Localizable.xcstrings`, `AppIntents.xcstrings`, `es-glossary.md` | catalog-verified (see R2 for the per-item rationale already in each edit's inline comment, and R5 for T21/T29/T14 cross-references) |
+| Item 16 | `TallyConfirmationAction`/`tallyDestructiveConfirmation` gained `accessibilityIdentifier`; Audit tour switched from English-text matches to ids; fixed the Rowan/Skyler misfile; fixed the To-Do batch-select filter and the slow-refresh breadcrumb (both now identifier-based, not a spoken English literal) | `DestructiveConfirmation.swift`, `SettingsView.swift`, `FamilySettingsViews.swift`, `ToDoScreen.swift`, `FreshnessViews.swift`, `AuditTourUITests.swift`, `ScreenUITestSupport.swift`, `ToDoUITests.swift` | **std legs (both devices): all 4 captured and correctly named** — `96-settings-signOutConfirm.png`, `186-family-unlinkConfirm.png`, `201-family-removeConfirm-Rowan.png`, `202-family-removeConfirm-Skyler.png`, `203-family-parentEmpty.png` (round 1: `settings-signOutConfirm` and `family-unlinkConfirm` were entirely missing on every leg; `removeConfirm-Skyler` showed Rowan's dialog). Breadcrumb: `216-slowRefresh-breadcrumb` present on every leg (round 1: `missing-breadcrumb` on every leg). **AX5 legs: still not captured** — see R3, this is a pre-existing, unchanged-by-this-round gap, not a regression |
+| Item 5 (widget locale seam) | New `\.glanceLocaleOverride` environment value (`GlanceLocaleOverride.swift`), read by every `GlanceText.*` call site across the 3 `TallyGlance` view files; `WidgetFamilyRenderTests` updated to assert real Spanish content plus a default-unchanged test | `GlanceLocaleOverride.swift` (new), `GlanceWidgetViews.swift`, `GlanceListWidgetViews.swift`, `GlanceAccessoryViews.swift`, `WidgetFamilyRenderTests.swift` | `widget-due-soon-medium-es-light-pro-max.png`: "VENCE PRONTO", "Vence hoy, 18:00", "+2 más · 1 atrasada" — real Spanish, not the round-1 English-byte-identical renders (see R4) |
+
+## R2. S3 items declined or resolved differently (item 15)
+
+- **T21** (`subscription.name.student`): reviewer suggested matching App Store Connect's own es
+  display name, or keeping "Tally Annual". This host cannot query App Store Connect, so the es
+  value was changed **back to "Tally Annual"** (the safer of the two options the reviewer offered)
+  rather than guessing a translation that might disagree with the real purchase sheet.
+- **T29** (date formatting, `ScreenFormatter`/`TallyLocale`): declined. The verdict's own text for
+  this row says "the native reviewer should confirm the es-US pattern" — that is the reviewer
+  flagging genuine uncertainty, not a "clearly better" call this round should make unilaterally.
+  Recorded as open (R6).
+- **T14** was already covered by fix 3 (L3/item 3): one catalog edit serves both.
+
+## R3. The AX5 confirmation-capture gap (item 16, partial)
+
+Both std legs now capture and correctly name all four screens (`settings-signOutConfirm`,
+`family-unlinkConfirm`, `family-removeConfirm-Rowan`, `family-removeConfirm-Skyler`,
+`family-parentEmpty`). **Both AX5 legs still do not** — `testG_settingsSignedIn` and
+`testN_sampleDataAndParentMode` pass (no assertion failure; `continueAfterFailure` plus
+non-asserting `goScrolling`/`waitForExistence` calls that silently skip a capture when an element
+isn't found), but neither reaches a `snap()` call for the sign-out/unlink confirmation at AX5;
+`testO_parentEmptyState` gets as far as `201-family-missing-removeStudent-Skyler` (Rowan's own
+removal must have succeeded silently) before failing to find the Skyler row.
+
+**Confirmed pre-existing, not a round-2 regression**: round 1's own AX5 es captures
+(`pmo-audit/.build-audit/l10n-04/es/audit-es-proMax-light-ax5/`) show the *identical* gap —
+`201-family-missing-removeStudent-Skyler`/`202-family-missing-parentEmpty` with the same step
+numbers, and no `settings-signOutConfirm`/`family-unlinkConfirm` captures at all, before any of
+this round's identifier changes existed. The root cause is a separate, AX5-specific timing/element
+gap (likely related to round 1's own open item 4, the `openSettings` AX5 timing issue) — outside
+item 16's actual scope (which was the English-text-dependency bug, now fixed and confirmed on std)
+and outside this round's remaining CI budget to chase further (the one Audit tour dispatch is
+spent). Recorded as an open item (R6).
+
+## R4. Widget locale seam — verification
+
+`WidgetFamilyRenderTests` ran as part of the (green) PR run `38201921389` and the Audit tour's
+proMax/std leg (which also exports that suite's attachments). Spot-checked at full resolution:
+
+- `widget-due-soon-medium-es-light-pro-max.png`: header "VENCE PRONTO" (was "DUE SOON"), due lines
+  "Vence hoy, 18:00" / "Vence jueves, 9:00" (T7's fix, visible end-to-end), footer "+2 más · 1
+  atrasada" — real Spanish, not round 1's byte-identical-to-English renders.
+- `widget-due-today-circular-es-light-pro-max.png` and the `-smallest` variant also present.
+- The new `spanishSnapshot` test (`en` vs. `es` text compared, never-translated titles/course codes
+  checked unaffected) and `localeSeamDefaultsToUnaffectedEnglish` (no-override path byte-identical
+  to explicit English) both passed in the same green run.
+- Not independently re-opened at 200% beyond the one spot check above (CI/time budget); no
+  oversized or clipped Spanish widget text was observed in what was checked.
+
+## R5. S3 layout (L7–L9, L11) — fixed only where shorter wording already did it
+
+- **L8 resolved** by item 13/T7's wording fix (not a layout change): `61-todo-default.png` shows
+  "BIO 101 · Vence mañana, 1:00 p.m." on one line, where round 1 wrapped to two with a hanging
+  indent and a vertically-off-centre course code. No code layout touched.
+- **L7** (mid-word hyphenation on single words — "Desbloquear con Face ID", "Cumplimiento",
+  "Calificaciones", "Recordatorios"): no shorter wording exists for these without changing their
+  meaning or breaking consistency with the glossary's chosen terms. Open (R6).
+- **L9** (a date breaking mid-value, "…hasta oct / 11, 2027"): tied to T29's date-format question
+  (day/month order, native-reviewer confirmation needed) — not touched for the same reason T29 was
+  declined. Open (R6).
+- **L11** (an orphaned "se acepta" on the Dashboard's Next-up meta line): the candidate shorter
+  wording (dropping "Aún" from `dashboard.reason.stillAccepted`) would weaken the "still accepted"
+  meaning (a real fact: late work past its due date but not yet closed off) — not a safe "clearly
+  better" edit, and no S3 layout changes are in scope this round. Open (R6).
+
+## R6. Open items (round 2)
+
+1. **AX5 confirmation captures** (R3): `settings-signOutConfirm`, `family-unlinkConfirm`,
+   `family-removeConfirm-Skyler`, `family-parentEmpty` are not captured at AX5 on either device —
+   pre-existing, confirmed unchanged from round 1, root cause not chased (CI budget spent).
+2. **L7, L9, L11** (R5): no safe shorter-Spanish-wording fix found; all three need either a layout
+   change (out of scope for S3) or, for L9/T29, a native reviewer's date-format confirmation first.
+3. **T29**: date formatting (`ScreenFormatter`/`TallyLocale`) needs the native reviewer's
+   confirmation of the es-US day/month order before any change.
+4. **T21**: `subscription.name.student` kept as the English "Tally Annual" rather than guessing a
+   translation; needs the real App Store Connect es listing (or a reviewer decision) to settle.
+5. Fix 7/T1 (`widget.asOf`/`widget.answer.asOf`) and fix 8/T2 (the week-ahead keys) were not
+   independently visually re-verified this round beyond catalog correctness and the one widget
+   spot check in R4 — no stale-data or week-ahead screen happened to appear in this round's
+   captures.
+6. Round 1's open items 5–7 (overlap/hit-target deltas not reclassified pair-by-pair; device
+   checks are simulator/hosted only; the native-speaker review has not started) all still apply.
+7. Every Spanish value remains `needs_review`; nothing in this round changed that state.
+
+## R7. Strings PENDING owner approval (round 2)
+
+The Language row footer: **round 1's draft is superseded** by a new round-2 key
+(`settings.language.footerV2`); round 1's key (`settings.language.footer`) was removed from the
+catalog (an unused key fails CI's "every key is used" check) — its English is preserved here
+verbatim, unedited, for the owner to compare against the new draft:
+
+| Draft | English | Spanish |
+|---|---|---|
+| Round 1 (`settings.language.footer`, removed from the catalog) | Tally uses your iPhone's language. iOS shows a Language choice here only when your iPhone has more than one preferred language. | Tally usa el idioma de tu iPhone. iOS muestra la opción de idioma aquí solo cuando tu iPhone tiene más de un idioma preferido. |
+| Round 2 (`settings.language.footerV2`, current) | Tally uses your iPhone's language. To pick a language just for Tally, open Settings → Apps → Tally → Language. iOS shows that choice only after you add a second language in Settings → General → Language & Region. | Tally usa el idioma de tu iPhone. Para elegir un idioma solo para Tally, abre Configuración → Apps → Tally → Idioma. iOS muestra esa opción solo después de agregar un segundo idioma en Configuración → General → Idioma y región. |
+
+`settings.language.label` ("Language"/"Idioma") is unchanged from round 1, still PENDING.
+
+## R8. CI run IDs (round 2)
+
+| Run | What | Result |
+|---|---|---|
+| 38188594780 | Round 1's own PR run, re-checked before round-2 work started | **green** (confirmed before any round-2 push) |
+| 38195787377 | Push 1 (`d533a19`) | failed — `GlanceLocaleOverride.swift` missing `import TallyStrings` (fixed, `8ce19bc`) |
+| 38196505757 | Push 2 (`8ce19bc`) | failed — `Character.uppercased(with:)` doesn't exist (fixed, `7658e85`); also prompted the Spanish-fixture regeneration (`b22cee3`), found by inspection, bundled into the same cycle |
+| 38196873833 → 38197001967 (queue coalesced) | Push 3 (`b22cee3`/`7658e85`) | compiled and ran — `FamilyUITests` (pre-existing, not this round's file) failed on an identifier-prefix collision (fixed, `d677b86`) |
+| 38201921389 | Push 4 (`d677b86`) | **green**, every required job |
+| 38206798273 | es Audit tour (1/1): `devices=["proMax","smallest"]`, `appearances=["light"]`, `sizes=["std","ax5"]`, `widgets=true`, dispatched on `d677b86` | **green**, all 4 legs |
+
+Every push's own PR re-run served as this round's "iteration run" (no separate `scope=quick`
+dispatch was used — see the journal for why). One Audit tour dispatch used, as budgeted.
+
+## R9. Gate 1 — round 2 layout-check counts vs. round-1 baselines
+
+| | Captures | Missing | Truncation | Clipping | Overlap | Hit targets < 44 pt |
+|---|---|---|---|---|---|---|
+| es round 1 (baseline) | 376 | 18 | 0 | 164 | 2849 | 700 |
+| es round 2 | 340 | 10 | **0** | **142** | 2446 | 608 |
+| en round 1 (baseline) | 343 | 10 | 0 | 163 | 2348 | 601 |
+
+**Truncation stays 0. Clipping dropped from 164 to 142** — now *below* the English baseline (163).
+Overlap and hit-target counts also dropped (2446 vs. 2849; 608 vs. 700), consistent with shorter
+Spanish wording producing fewer wrapped lines and fewer of the already-documented
+"combined-element-vs-children" false positives (round-1 report §5). Missing captures dropped from
+18 to 10 — the difference is exactly `settings-signOutConfirm`/`family-unlinkConfirm`/
+`family-removeConfirm-Rowan` (std legs, now captured) and `slowRefresh-breadcrumb` (all 4 legs, now
+captured); the remaining 10 are the pre-existing AX5 gap (R3) plus two unrelated, unchanged gaps
+(`demoSignIn-firstSyncProgress` timing, `course2-missing-detail`) present identically in both
+rounds.
+
+Visually confirmed at full resolution (not just the owner-sheet thumbnails): L1–L6, L8, the
+Language row, and the Insights "Otras" category all read correctly with no ellipsis and no
+clipping, on the specific legs the verdict named. See R1's evidence column for each.
+
+**Owner sheet:** `pmo-audit/.build-audit/l10n-04/es-r2/owner-sheet-l10n-04-r2.jpg` (478 KB) — es
+round 1 vs. es round 2, six paired screens (L1, L2, L3, L6, the Language row, Insights "Otras").
+
+## R10. Evidence paths (round 2)
+
+- Owner sheet: `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/es-r2/owner-sheet-l10n-04-r2.jpg`
+- Review CSV, refreshed for round 2's edits: `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/es-review.csv` (773 rows)
+- Raw es round-2 Audit tour captures: `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/l10n-04/es-r2/audit-es-*`
+- CI job logs (downloaded for diagnosis, not evidence artifacts): `.build-l10n-04-r2/logs/` (git-ignored, inside the worktree)
+- None of the above are committed to the repo (public; images, logs and the CSV are excluded).
