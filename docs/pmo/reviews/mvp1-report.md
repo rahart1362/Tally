@@ -204,3 +204,11 @@ used for every Spanish value (`docs/pmo/reviews/l10n-04-report.md` §2), confirm
 7. **`REL.flow.02-launch-with-cache` is exposed to a pre-existing, documented CI timing flake**
    (the stale-breadcrumb wait) that this package did not introduce and does not own fixing (rule
    4: a failure outside this package's files, after the allowed re-run, is recorded, not chased).
+
+## 7. PMO correction (2026-10-12): open items 5 and 6 were a class-name mistake, not xcodebuild flakiness
+- `testAccountRowsThenSignOutAndErase` is declared in **`SettingsSignedInUITests`**, the second class in `SettingsUITests.swift` (line 86; the method is at line 99), not in `SettingsUITests`. That explains both runs deterministically:
+  - `-only-testing:TallyUITests/SettingsUITests` ran that class's one method (run 38244355050);
+  - `…/SettingsUITests/testAccountRowsThenSignOutAndErase` matched nothing (run 38250326627).
+- Fixed: flow 13 and `DEBUG_FLOWS` now name `SettingsSignedInUITests/testAccountRowsThenSignOutAndErase`.
+- **Open item 7 (flow 02's breadcrumb-timing flake):** the gate's `TEST_FLAGS` now carry CI's one automatic retry (`-retry-tests-on-failure -test-iterations 2`, Makefile `IOS_RETRY`; the owner's rule that a flake gets one re-run). `test_results` reads each Test Case node's final result, so a pass on retry counts as a pass.
+- Verified by the PMO's release-gate dispatch on this commit (see the PR's merge record).

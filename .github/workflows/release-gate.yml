@@ -23,10 +23,14 @@ env:
   XCODE_APP: /Applications/Xcode_26.6.app # uploads require Xcode 26+ since 2026-04-28 (R1)
   XCODEGEN_VERSION: "2.46.0"
   XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
-  # Same per-test limits as CI's ios-* targets (Makefile IOS_TEST_FLAGS).
+  # Same per-test limits and the same one automatic retry as CI's ios-* targets (Makefile
+  # IOS_TEST_FLAGS + IOS_RETRY; owner rule: a flake gets one re-run). A test that passes only on
+  # retry still reads "Passed" in the xcresult's Test Case node (its attempts are child nodes).
+  # Run 38250326627 failed flow 02 on LaunchFromCacheUITests' documented breadcrumb-timing flake.
   TEST_FLAGS: >-
     -collect-test-diagnostics never -test-timeouts-enabled YES
     -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
+    -retry-tests-on-failure -test-iterations 2
   # The critical flows that need no DEBUG-only launch hook run against a Release build.
   # ReleaseFlowCoverageTests (TallyAppTests, MVP: REL.flow.07/08) calls ReminderPlanner directly, no
   # hook needed either.
@@ -39,16 +43,13 @@ env:
   # Release test build (not this job), so they run against the Debug build here, like
   # SlowRefreshUITests' DEBUG-only `-TallyDebugSampleRefreshLatency` hook, until the UITest
   # configuration (Release optimizations plus TALLY_UI_TESTING) exists (M5).
-  # SettingsUITests is pinned to its one needed method, not the whole class: run 38244355050
-  # (`-only-testing:TallyUITests/SettingsUITests`) executed only 1 of its 4 tests
-  # (testFormRowsAndTheWhatChangedThreshold, declared first in the file) with no error, crash or
-  # timeout logged (xcodebuild's own "Executed 1 test, with 0 failures" summary) — a selection
-  # quirk this host has no Xcode to diagnose further. The fully-qualified target/class/method
-  # form leaves no ambiguity.
+  # Flow 13's test, testAccountRowsThenSignOutAndErase, is in SettingsSignedInUITests (the second
+  # class in SettingsUITests.swift), not SettingsUITests: runs 38244355050 and 38250326627 selected
+  # the wrong class (1 test, then 0). Pinned to the method in its real class.
   DEBUG_FLOWS: >-
     -only-testing:TallyUITests/SlowRefreshUITests -only-testing:TallyUITests/LaunchFromCacheUITests
     -only-testing:TallyUITests/RemindersUITests -only-testing:TallyUITests/PaywallUITests
-    -only-testing:TallyUITests/SettingsUITests/testAccountRowsThenSignOutAndErase
+    -only-testing:TallyUITests/SettingsSignedInUITests/testAccountRowsThenSignOutAndErase
 
 jobs:
   static-linux:

@@ -553,7 +553,7 @@ FLOWS = (
     Flow("REL.flow.12-privacy-policy-link", "The privacy policy link opens",
          ("PaywallUITests/testPrivacyPolicyLinkOpens",), "Debug", "MVP", ""),
     Flow("REL.flow.13-sign-out-erase", "Sign out & erase leaves no Keychain item, cache, notification or widget data",
-         ("SettingsUITests/testAccountRowsThenSignOutAndErase",), "Debug", "MVP", ""),
+         ("SettingsSignedInUITests/testAccountRowsThenSignOutAndErase",), "Debug", "MVP", ""),
     Flow("REL.flow.14-demo-mode", "Explore with Sample Data works end to end",
          ("SampleDataUITests/testWelcomeToSampleDataDashboard", "SampleDataUITests/testSampleEntryAndExitTwice",
           "SampleDataUITests/testSchoolNotEnabledToSampleData"), "Release", "M2", ""),
