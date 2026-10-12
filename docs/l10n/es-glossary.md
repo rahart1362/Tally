@@ -102,3 +102,9 @@ Several strings were reworded rather than translated word-for-word, specifically
 "Buenos días"/"Buenas tardes"/"Buenas noches" now carrying the whole greeting themselves, because
 Spanish does not compose a single "Good <word>" stem the way English does across morning/
 afternoon/evening).
+
+## Gate-2 round 2 choices (PMO, 2026-10-12): the reviewer should confirm these
+- **"Busy" → "Pico"** (`widget.week.busy`, the Week Ahead widget's label under a crowded day). "Ocupado" was truncated to "Oc…" where "Busy" fits. "Pico" follows the Latin American "hora pico" / "día pico".
+- **"Subscribe to Canvas Calendar…" → "Agregar calendario de Canvas…"** (`calendar.optionsMenu.subscribe`). "Suscribirse al calendario de Canvas…" was truncated on the smallest iPhone. The action adds Canvas's calendar feed to the Calendar app.
+- **The product name stays "Tally Annual"** everywhere on the purchase path (`subscription.locked.title`, `subscription.interstitial.message`), matching the paywall's App Store name.
+- **No sentence-final period after a time placeholder** (`notification.*.body`, `widget.answer.*`, `widget.refresh.*`). es-US times end in "p.m.", so "Vence %@." rendered "p.m..".

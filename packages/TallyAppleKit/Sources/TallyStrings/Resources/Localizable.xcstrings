@@ -470,7 +470,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Suscribirse al calendario de Canvas…"
+            "value" : "Agregar calendario de Canvas…"
           }
         }
       }
@@ -3770,7 +3770,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tu semana"
+            "value" : "Resumen semanal"
           }
         }
       }
@@ -4166,7 +4166,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence %@."
+            "value" : "Vence %@"
           }
         }
       }
@@ -4238,7 +4238,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aún se acepta hasta %@."
+            "value" : "Aún se acepta hasta %@"
           }
         }
       }
@@ -7268,7 +7268,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence %@."
+            "value" : "Vence %@"
           }
         }
       }
@@ -7304,7 +7304,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence %@."
+            "value" : "Vence %@"
           }
         }
       }
@@ -7358,7 +7358,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aún se acepta hasta %@."
+            "value" : "Aún se acepta hasta %@"
           }
         }
       }
@@ -10046,7 +10046,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Fechas de entrega, Por hacer y Calendario, y al día"
+            "value" : "Fechas de entrega, Por hacer y Calendario, al día"
           }
         }
       }
@@ -10190,7 +10190,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tally Anual funciona en las escuelas donde Tally está habilitada. Comprueba que la tuya sea una de ellas antes de suscribirte."
+            "value" : "Tally Annual funciona en las escuelas donde Tally está habilitada. Comprueba que la tuya sea una de ellas antes de suscribirte."
           }
         }
       }
@@ -10244,7 +10244,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Parte de Tally Anual"
+            "value" : "Parte de Tally Annual"
           }
         }
       }
@@ -11816,7 +11816,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Estos datos son de %@."
+            "value" : "Estos datos son de %@"
           }
         }
       }
@@ -11834,7 +11834,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Lo próximo: %@."
+            "value" : "Lo próximo: %@"
           }
         }
       }
@@ -11852,7 +11852,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vence hoy: %@."
+            "value" : "Vence hoy: %@"
           }
         }
       }
@@ -12896,7 +12896,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tally no pudo actualizar. Muestra datos de %@."
+            "value" : "Tally no pudo actualizar. Muestra datos de %@"
           }
         }
       }
@@ -12932,7 +12932,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Estás sin conexión. Tally muestra datos de %@."
+            "value" : "Estás sin conexión. Tally muestra datos de %@"
           }
         }
       }
@@ -13154,7 +13154,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ocupado"
+            "value" : "Pico"
           }
         }
       }
