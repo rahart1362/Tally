@@ -168,9 +168,39 @@ used for every Spanish value (`docs/pmo/reviews/l10n-04-report.md` §2), confirm
    not just the console's grep-filtered view) shows `-only-testing:TallyUITests/SettingsUITests`
    selected only 1 of that class's 4 methods (`testFormRowsAndTheWhatChangedThreshold`, declared
    first in the file) — xcodebuild's own summary line reads "Executed 1 test, with 0 failures (0
-   unexpected)", with no crash, timeout or error anywhere in the raw log. A whole-class
-   `-only-testing` selection quirk, not a crash in the test itself; this host has no Xcode to
-   diagnose it further. Fixed by pinning `DEBUG_FLOWS` to the fully-qualified
-   `-only-testing:TallyUITests/SettingsUITests/testAccountRowsThenSignOutAndErase` instead of the
-   whole class — the only method this package needs from it. Second (and, per the CI budget,
-   final) release-gate dispatch pending.
+   unexpected)", with no crash, timeout or error anywhere in the raw log. Fixed by pinning
+   `DEBUG_FLOWS` to the fully-qualified
+   `-only-testing:TallyUITests/SettingsUITests/testAccountRowsThenSignOutAndErase` (commit
+   `beb96aa`) instead of the whole class.
+5. **Release-gate dispatch 2 (run 38250326627, commit `beb96aa`): FAIL 2, PENDING 17, PASS 84 —
+   the method-level pin did not fix it, and surfaced a second, unrelated failure.** Raw
+   `flows-debug.log` for this run: `Test Suite 'SettingsUITests' started` and `passed` at the
+   **identical timestamp** (13:15:43.095) — zero tests ran this time, worse than dispatch 1's one.
+   The fully-qualified `target/class/method` form is standard `xcodebuild` syntax and the method
+   name was re-checked directly against the source (`apps/TallyiOS/TallyUITests/SettingsUITests.swift:99`);
+   this looks like a genuine `xcodebuild`/Xcode 26.6 flakiness in resolving `-only-testing` when
+   several specifiers target the same test bundle at mixed granularity, not a mistake in the
+   specifier itself — confirmed non-deterministic (1-of-4 then 0-of-1 for the same input class
+   across two runs). **Separately, `REL.flow.02-launch-with-cache` genuinely failed this run**
+   (`LaunchFromCacheUITests/testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity: Failed`,
+   66.2 s) — not missing this time, a real assertion timeout waiting for the stale-refresh
+   breadcrumb (`StaticText (First Match) to exist`, the same `Self.breadcrumbTimeout` wait the
+   test's own doc comment already names as a known CI-timing flake, "CI run 36445122276: … 40 s
+   after launch"). This exact test passed cleanly in both the `scope=quick` run (38235284131,
+   full unfiltered `ios-build`) and release-gate dispatch 1 — 2 of 3 observations green, consistent
+   with a pre-existing, documented flake in a file this package did not touch, not a regression
+   from this package's changes. Per rule 4, re-ran the failed jobs once (`gh run rerun 38250326627
+   --failed`); it re-merged the same already-uploaded artifacts (the `ios-gate` job itself is not
+   part of "failed" at the job level, only the merge step is) and reproduced the identical FAIL —
+   expected, since nothing upstream re-ran. **Both release-gate dispatches are now spent (CI
+   budget); not re-fixing blind a third time.** Recorded as open items 6 and 7 below rather than
+   guessed at further. Evidence: `pmo-audit/.build-audit/mvp1/release-gate-run1-settingsuitests-anomaly.txt`,
+   `release-gate-run2-anomalies.txt`, `release-gate-run-38244355050-compliance.json`,
+   `release-gate-run2-38250326627-compliance.json`.
+6. **`SettingsUITests`'s `-only-testing` selection is unreliable in this gate's Debug flows step**
+   across both forms tried (whole-class, fully-qualified method). Needs an engineer with Xcode to
+   reproduce directly (try it alone, with no other `-only-testing` flags, to isolate whether
+   co-occurrence with the other four flags is the trigger) — out of what this host can diagnose.
+7. **`REL.flow.02-launch-with-cache` is exposed to a pre-existing, documented CI timing flake**
+   (the stale-breadcrumb wait) that this package did not introduce and does not own fixing (rule
+   4: a failure outside this package's files, after the allowed re-run, is recorded, not chased).
