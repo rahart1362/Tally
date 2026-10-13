@@ -83,6 +83,10 @@ final class AccessibilityAuditUITests: TallyUITestCase {
     @MainActor
     func testFirstSyncSkeleton() throws {
         auditScreen("firstSyncSkeleton", reach: { self.a11yReachFirstSyncSkeleton(extra: $0) }, variant: "light-std")
+        // MVP-2b: the first audit signs in to the demo school; when its first sync finishes before
+        // the app is terminated, the next launch opens signed in, not on Welcome (run 38357314250:
+        // "account.findMySchool never appeared"). Back to Welcome first, as `tearDown` does.
+        resetAppState()
         auditScreen("firstSyncSkeleton", reach: { self.a11yReachFirstSyncSkeleton(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
@@ -335,6 +339,14 @@ enum A11yWaivers {
         Key(elementIdentifier: "paywall.restore", auditType: "contrast"),
         Key(elementIdentifier: "onboarding.signIn.chooseDifferentSchool", auditType: "contrast"),
         Key(elementIdentifier: "paywall.price", auditType: "textClipped"),
+        // Run 38357314250, What-If pulled up at AX5: measured as scaling with Dynamic Type on the
+        // audit's own screenshots (the score field's placeholder 12.0 pt tall at the default size,
+        // 38.7 pt at AX5; the group header 40 pt, one line, then 145 pt, two lines).
+        Key(elementIdentifier: "whatif.field", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.groupHeader", auditType: "dynamicType"),
+        // Same run's evidence for the hand-off address tag: at AX5 it shows "canvas." /
+        // "northfield." / "example", each whole (run 38350587735's screenshot).
+        Key(elementIdentifier: "onboarding.signIn.schoolText", auditType: "textClipped"),
     ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {
@@ -648,7 +660,15 @@ extension TallyUITestCase {
         // rows, chips and summary pulled up (`whatIf-light-std-large`, same run, every type).
         let sheetBar = app.navigationBars["What-If"]
         XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
+        // Run 38357314250: one swipe left the Dark sheet at its medium height. Pulled up means the
+        // bar sits in the top quarter of the screen; a second, slower drag if the first missed.
+        let pulledUp = { sheetBar.frame.minY < app.frame.height / 4 }
         sheetBar.swipeUp()
+        if !eventually(timeout: 3, { pulledUp() }) {
+            sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.2, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+        }
+        XCTAssertTrue(eventually(timeout: 3, { pulledUp() }), "What-If did not reach its large height: \(sheetBar.frame)")
         return app
     }
 
@@ -753,6 +773,7 @@ extension TallyUITestCase {
 /// under one of the app's own opaque pinned bars (`pinnedBars`: Calendar's week strip).
 /// Every other issue still fails, and so do these two types on anything wholly in view or pinned
 /// (a pinned button or banner is never held). A held issue is still attached, with its reason.
+/// The rule's one other case: an issue on the system keyboard's own elements (`heldReason`).
 struct A11yScene {
     /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming).
     static let dimmingOverlay = "AdditionalDimmingOverlay"
@@ -772,6 +793,8 @@ struct A11yScene {
     var scrolling: [(label: String, frame: CGRect, container: CGRect)] = []
     /// The frames of `pinnedBars` on this screen.
     var pinned: [CGRect] = []
+    /// The system keyboard, when it is up (Find School opens with its search field focused).
+    var keyboards: [CGRect] = []
 
     init() {}
 
@@ -797,6 +820,9 @@ struct A11yScene {
         if Self.pinnedBars.contains(identifier) {
             pinned.append(frame)
         }
+        if kind == .keyboard {
+            keyboards.append(frame)
+        }
         if let container {
             scrolling.append((label: label, frame: frame, container: container))
         }
@@ -816,10 +842,17 @@ struct A11yScene {
     }
 
     /// The audit-position rule (this type's doc comment): the reason an issue is held, or `nil`.
+    ///
+    /// One more case, of any audit type: an element wholly inside the system keyboard is the
+    /// keyboard's own (run 38357314250: Find School, Dark, three empty `TUIPredictionViewCell`s of
+    /// the predictive bar, "missing useful accessibility information"), not the app's.
     func heldReason(auditType: String, label: String, frame rawFrame: CGRect) -> String? {
-        guard auditType == "contrast" || auditType == "textClipped" else { return nil }
         let frame = Self.finite(rawFrame)
         guard frame.width > 0, frame.height > 0 else { return nil }
+        if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
+            return "on the system keyboard"
+        }
+        guard auditType == "contrast" || auditType == "textClipped" else { return nil }
         guard let node = scrolling.first(where: { $0.label == label && Self.same($0.frame, frame) }) else { return nil }
         let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
         if !inView.contains(frame) { return "partly outside its scroll view or the window" }

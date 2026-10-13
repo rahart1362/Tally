@@ -111,12 +111,20 @@ struct StatusChip: View {
             Image(systemName: symbol).foregroundStyle(tint)
         }
         // ux-fp2 D11: in a `List` row a plain `Label` took the list's icon column (an 18 pt gap
-        // before the words). Words stay full size and, at the accessibility sizes, wrap between
-        // words onto a second line: shrinking them (gate 2, R1) drew the same chip at different
+        // before the words). Words stay full size and, when they no longer fit on one line, wrap
+        // between words onto a second: shrinking them (gate 2, R1) drew the same chip at different
         // sizes side by side. Only a value chip (`valueStyle()`) keeps one line, shrunk at AX
         // sizes, so a score never breaks (D02's value rule, `TallyReflow`).
+        //
+        // MVP-2b: two lines at every size, not only from AX1 up. Between the default size and AX1
+        // (xLarge–xxxLarge) a word chip was held to one line, so a long one in a narrow column
+        // ("Needs attention" beside a course's grade) could only truncate there. Where a chip fits
+        // on one line, as at the default size, nothing changes. (Courses and Calendar each kept one
+        // "may be clipped at larger Dynamic Type sizes" the audit could not attach to an element,
+        // scope=a11y run 38357314250; both show word chips. Whether this was that is in MVP-2b's
+        // report, not assumed here.)
         .labelStyle(.tallyCompact)
-        .lineLimit(isValue || !typeSize.isAccessibilitySize ? 1 : 2)
+        .lineLimit(isValue ? 1 : 2)
         .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)

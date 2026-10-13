@@ -46,6 +46,8 @@ struct WhatIfSheet: View {
                             }
                         }
                         .tallySectionText()
+                        // MVP-2b: names the header for its measured Dynamic Type waiver.
+                        .accessibilityIdentifier("whatif.groupHeader")
                     }
                     .tallyRow()
                 }

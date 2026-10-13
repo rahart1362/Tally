@@ -127,10 +127,11 @@ struct CourseCardView: View {
             layout {
                 VStack(alignment: .leading, spacing: TallySpacing.xs) {
                     // MVP-2b: no line limit at any size. Two lines below the accessibility sizes
-                    // cut a long name at xLarge–xxxLarge ("Introduction to Psych…"), which Xcode's
-                    // audit reported on both two-line names as text that "may be clipped at larger
-                    // Dynamic Type sizes" (scope=a11y runs 38338079168, 38350587735); at the
-                    // default size every name already fits in two lines, so nothing moves there.
+                    // could only cut a long name at xLarge–xxxLarge ("Introduction to Psych…").
+                    // Xcode's audit reported two "may be clipped at larger Dynamic Type sizes" on
+                    // Courses that it could not attach to an element (scope=a11y runs 38338079168,
+                    // 38350587735), with two names on two lines at the default size; the next run
+                    // reported one. At the default size every sample name fits in two lines.
                     Text(card.name)
                         .font(TallyTypography.cardTitle)
                         .foregroundStyle(TallyColor.textPrimary)
