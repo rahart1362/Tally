@@ -332,6 +332,10 @@ enum A11yWaivers {
         // Measured false positive: #1D4E9E on #CCD6E8 is 5.44:1 (Light) and #123C80 on #CAD3E2 7.02:1
         // (Increase Contrast) on the audit's own screenshot, against 3:1 for 17 pt semibold text.
         Key(elementIdentifier: "account.exploreWithSampleData", auditType: "contrast"),
+        // Measured false positives, Increase Contrast: Calendar's day letter ("S", 9.41:1 and 9.52:1,
+        // in the toolbar buttons' glass shadow) and Settings' "Account" header (8.80:1).
+        Key(elementIdentifier: "calendar.weekStrip.weekday", auditType: "contrast"),
+        Key(elementIdentifier: "settings.accountHeader", auditType: "contrast"),
     ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {

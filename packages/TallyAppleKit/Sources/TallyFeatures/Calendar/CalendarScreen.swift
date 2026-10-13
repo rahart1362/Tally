@@ -208,6 +208,9 @@ private struct WeekStrip: View {
                         Text(day.weekdayLetter)
                             .font(TallyTypography.caption)
                             .foregroundStyle(TallyColor.textSecondary)
+                            // MVP-2b: names the letter for its measured contrast waiver
+                            // (`docs/pmo/a11y-waivers.md`).
+                            .accessibilityIdentifier("calendar.weekStrip.weekday")
                         Text(day.dayNumber)
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(TallyColor.textPrimary)

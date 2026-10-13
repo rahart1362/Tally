@@ -261,6 +261,8 @@ struct SettingsView: View {
         } header: {
             Text(L10n.Settings.accountHeader())
                 .tallySectionText()
+                // MVP-2b: names the header for its measured contrast waiver (`docs/pmo/a11y-waivers.md`).
+                .accessibilityIdentifier("settings.accountHeader")
         }
     }
 

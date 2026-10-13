@@ -39,6 +39,8 @@ source line, cited), never the whole screen or the whole audit type.
 | What-If | `whatif.summary.projectedValue` | `dynamicType` | Same summary, same cap. | run 38338079168, as above |
 | What-If | `whatif.summary.change` | `dynamicType` | Same summary, same cap (shown once a score changes the projection). | run 38338079168, as above |
 | Welcome | `account.exploreWithSampleData` | `contrast` | MVP-2b. **Measured false positive.** On the audit's own screenshot: `#1D4E9E` on `#CCD6E8`, **5.44:1** (Light), and `#123C80` on `#CAD3E2`, **7.02:1** (Increase Contrast); the threshold for 17 pt semibold text is 3:1 (4.5:1 for any text). The glass-tinted `.bordered` capsule is not what the audit compares against. | run 38338079168, `welcome-light-std`, `welcome-contrast` (`pmo-audit/.build-audit/mvp2b/contrast-measurements.md`) |
+| Calendar | `calendar.weekStrip.weekday` | `contrast` | MVP-2b. **Measured false positive.** The week strip's day letter (`textSecondary`, caption): the audit flagged the two "S" letters, which sit in the soft shadow under the toolbar's two glass buttons; on the audit's own screenshot they read `#333F52` on `#EFF1F5`, **9.41:1**, and `#333E52` on `#EFF1F5`, **9.52:1** (threshold 4.5:1). The other five letters, same style, were not flagged. `CalendarScreen.swift`. | run 38338079168, `calendar-contrast` |
+| Settings | `settings.accountHeader` | `contrast` | MVP-2b. **Measured false positive.** The "Account" section header (`tallySectionText()`): `#344054` on `#EBEBF0`, **8.80:1** on the audit's own screenshot (threshold 4.5:1). `SettingsView.swift`. | run 38338079168, `settings-contrast` |
 
 ## Real issues found, not yet fixed (open items, not waivers)
 
