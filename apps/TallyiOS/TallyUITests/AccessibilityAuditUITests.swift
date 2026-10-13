@@ -777,6 +777,8 @@ extension TallyUITestCase {
 struct A11yScene {
     /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming).
     static let dimmingOverlay = "AdditionalDimmingOverlay"
+    /// The system keyboard's own container, as the snapshot names it.
+    static let keyboardInputView = "inputView"
     /// The app's own pinned bars that scrolling content passes under (opaque, so text there is
     /// hidden by design): Calendar's week strip with its breadcrumb (`CalendarScreen.swift`).
     static let pinnedBars: Set<String> = ["calendar.pinnedHeader"]
@@ -820,7 +822,9 @@ struct A11yScene {
         if Self.pinnedBars.contains(identifier) {
             pinned.append(frame)
         }
-        if kind == .keyboard {
+        // Run 38363059477: the snapshot showed the keyboard as an "Other" element, `inputView` (402 x
+        // 335 pt, holding the predictive bar and the keys), not as a keyboard element.
+        if kind == .keyboard || identifier == Self.keyboardInputView {
             keyboards.append(frame)
         }
         if let container {

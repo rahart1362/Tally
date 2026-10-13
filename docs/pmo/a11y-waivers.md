@@ -1,26 +1,83 @@
 # Accessibility audit waivers
 
-Owner: MVP-2 (Accessibility Engineer). Source of truth for `REL.a11y.audit`
-(`.github/workflows/release-gate.yml`, `scripts/ci/check_release.py`) and the suite's own registry,
-`A11yWaivers.waived` in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swift`. The two must
-stay in sync: every row here is one `Key(elementIdentifier:auditType:)` entry there, and every entry
-there has a row here. **No blanket filters** — a waiver matches one element identifier plus one
-audit type exactly, never a whole audit type or a whole screen.
+Owners: MVP-2 (the suite), MVP-2b (the fixes, this rule and the waivers marked MVP-2b). Source of
+truth for `REL.a11y.audit` (`.github/workflows/release-gate.yml`, `scripts/ci/check_release.py`)
+and for the suite's own registry, `A11yWaivers.waived` in
+`apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swift`. The two stay in sync: every row of
+the waiver table is one `Key(elementIdentifier:auditType:)` entry there, and every entry there has
+a row here.
 
-A waiver is appropriate only for a genuine false positive (a system-owned control Apple's own audit
-flags on every app, or the documented "combined element vs its children" pattern) or an accepted,
-reviewed system behaviour. A real accessibility defect gets fixed, not waived (see MVP-2's
-report, `docs/pmo/reviews/mvp2-report.md`, for the fixes).
+## How an issue is judged
+
+`runA11yAudit` (AccessibilityAuditUITests.swift) attaches every issue the audit reports, with its
+element's frame and the screenshot taken at the audit moment, and decides each one:
+
+1. **Fixed** in the app (MVP-2b's report, `docs/pmo/reviews/mvp2b-report.md`, has every fix).
+2. **Waived**: one element identifier plus one audit type, exactly — never a whole type, a whole
+   screen or an identifier prefix. Only for a **measured false positive** (the text passes on the
+   audit's own pixels, measured in `pmo-audit/.build-audit/mvp2b/contrast-measurements.md`) or a
+   **deliberate, justified exception** (a cap the owner approved, system chrome). The table below
+   has the reason and the evidence for each.
+3. **Held by the audit-position rule** (below): not a waiver of any element, but a correction for
+   where the element was when the audit measured it. Recorded in the JSON with its reason.
+4. Anything else **fails the test**.
+
+## Audit configuration (MVP-2b, with the runs that showed why)
+
+- **Dynamic Type is audited at AX5** (each screen's `light-ax5` audit), not at the default size.
+  scope=a11y run 38338079168: every default-size Dynamic Type finding on text with no cap
+  (Settings' seven lower rows, light and dark) was absent from the same screen's AX5 audit, while
+  every capped element was flagged at both sizes. The audit grows the text and measures again; a
+  row the growth pushes below the fold cannot be measured again and reads "partially
+  unsupported" although it scales.
+- **The two checks that grow the text run last, each alone** (`a11yPasses`): first every check
+  that measures the screen as it is, then `textClipped`, then `dynamicType`. Run 38338079168: in
+  one `.all` audit, contrast and clipping issues on `List` screens came back with no element (the
+  list had rebuilt its rows at the larger size). Run 38350587735: with `textClipped` in the first
+  pass, Calendar's agenda moved while contrast was being measured.
+- **What-If is audited pulled up to its large height.** At the medium height the system draws
+  the sheet at 0.96 scale (Reset measured 64.65 × 34.57 pt there, 67.33 × 36 pt pulled up, run
+  38350587735), and the text checks misfire on the scaled text: 4 `textClipped` and 4
+  `elementDetection` at the medium height in Light and in Dark, none on the same rows, chips and
+  summary pulled up (`whatIf-light-std-large`, every type). The Audit tour captures the sheet
+  pulled up too.
+
+## The audit-position rule (`A11yScene.heldReason`; not a waiver)
+
+**What it holds.** A `contrast` or `textClipped` issue on an element that **scrolls** (it sits in
+a scroll view, table or collection view in the snapshot taken just before the audit, matched by
+its label and frame), which at the audit moment is **not wholly in view**: part of it lies
+outside its scroll view or the window, under system chrome (a tab bar, navigation bar or toolbar,
+or iOS 26's scroll-edge dimming `AdditionalDimmingOverlay`, the image the system lays over the
+content beside a bar), or under one of the app's own opaque pinned bars (`A11yScene.pinnedBars`:
+Calendar's week strip and breadcrumb, `calendar.pinnedHeader`). A pinned element is never held.
+One more case, of any audit type: an element wholly inside the **system keyboard** is the
+keyboard's own, not the app's (run 38357314250: Find School in Dark, three empty
+`TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").
+Nothing else is held.
+
+**Why.** Run 38338079168 measured every contrast issue on its own pixels: no colour token failed.
+Every pixel failure was a row that scrolls and, at that moment, sat under the floating tab bar or
+its dimming (58), under the navigation bar or the pinned week strip (4), or partly below the
+screen edge (8); even rows fully readable at the dimming's transparent top edge were flagged
+("Participation: September", 15.27:1). Which rows sit there depends on the scroll position and on
+the sample data's dates, which are relative to today, so no exact identifier waiver can name them,
+and an identifier on every row would waive those rows everywhere, in view or not: broader than
+this rule. The design audit already ruled this pattern out as a defect (`review/defects.md`,
+layout-check triage 1991: mid-scroll rows under the translucent bar; the last row clears it at
+the bottom of the scroll).
+
+**Evidence.** Every held issue is attached with its reason (`held` in
+`<screen>-<variant>-audit.json`); MVP-2b's report has the counts per run.
 
 ## Waiver table
 
-Evidence for every row: `scope=a11y` CI run
-[38313859274](https://github.com/rahart1362/Tally/actions/runs/38313859274)'s own JSON
-attachments (`pmo-audit/.build-audit/mvp2/issue-inventory.md` has the full inventory), read
-directly, not inferred. Every element below is a `ToolbarItem` button (confirmed by reading its
-source line, cited), never the whole screen or the whole audit type.
+MVP-2 waived eight `ToolbarItem` buttons (system-rendered navigation-bar chrome: the system scales,
+truncates and colours them, the app supplies only the label); MVP-2b's rows say "MVP-2b". The
+evidence column names the scope=a11y run and the `<screen>-<variant>` audit; every measurement
+is reproducible from that run's own screenshot (`pmo-audit/.build-audit/mvp2b/`).
 
-| Screen | Element identifier | Audit type | Why it's a false positive | Evidence |
+| Screen | Element identifier | Audit type | Why it is waived | Evidence |
 | :--- | :--- | :--- | :--- | :--- |
 | Courses | `courses.edit` | `dynamicType` | `ToolbarItem(.topBarLeading)` ("Edit"/"Done" toggle) — `CoursesScreen.swift:80`. The system navigation bar renders and scales this button's text; the app controls only the label string, the same reasoning `defects.md`'s "Layout-check triage" already accepted for "iOS 26 glass toolbar items". | run 38313859274, `courses-{light,dark}-std-audit.json`: "Dynamic Type font sizes are partially unsupported" |
 | Paywall | `paywall.close` | `dynamicType` | `ToolbarItem(.cancellationAction)` ("Not Now") — `PaywallView.swift:53`. | run 38313859274, `paywall-{light,dark}-std-audit.json` |
@@ -48,72 +105,31 @@ source line, cited), never the whole screen or the whole audit type.
 | What-If | `whatif.groupHeader` | `dynamicType` | MVP-2b. **Measured false positive.** The category header ("Lab Reports · 30% of grade"): 40 pt tall on one line at the default size, 145 pt on two at AX5, on the audit's own screenshots. `WhatIfSheet.swift`. | run 38357314250, as above |
 | Sign-in hand-off | `onboarding.signIn.schoolText` | `textClipped` | MVP-2b. **Measured false positive.** The address in the school tag (drawn with `TallyTokenBreaks`, labelled plain): the audit predicts it "may be clipped at larger Dynamic Type sizes"; at AX5 the screenshot shows "canvas." / "northfield." / "example", each whole inside the tag. `SignInHandoffView.swift`. | runs 38350587735 (AX5 screenshot) and 38357314250 |
 
-## Real issues found, not yet fixed (open items, not waivers)
-
-Every element below is genuinely app-controlled content (not a `ToolbarItem`) — these are kept
-**out** of `A11yWaivers.waived` on purpose; waiving them would hide a real defect. Not fixed this
-round: each needs either a device-measured colour check or a visual check this host cannot do
-(no Xcode, no simulator, no device). Evidence: run 38313859274, full detail in
-`pmo-audit/.build-audit/mvp2/issue-inventory.md`.
-
-| Screen | Element | Label | Audit type | What's suspected |
-| :--- | :--- | :--- | :--- | :--- |
-| Welcome | `account.exploreWithSampleData` | "Explore with Sample Data" | `contrast`, `dynamicType` | Uses `TallyPrimaryButtonStyle` (`ButtonStyles.swift`): `.buttonStyle(.glassProminent)` tinted with `accentFill`. That style's own doc comment computes white-on-`accentFill` at ≈10.6:1/9.0:1 from the asset's sRGB values and flags itself "**UNVERIFIED** on a device: no Increase Contrast capture exists ... to measure from" — this audit is the first thing to actually render it, and it now fails in both Light and Increase Contrast. Most likely cause: iOS 26's Liquid Glass translucency composites with whatever is behind the button, so the *effective* on-screen contrast is lower than the flat sRGB math predicts. This is the same style used on Paywall, App Lock, first-sync Retry, the sign-in hand-off, SchoolNotEnabled, SchoolRevoked and GradeNotInCanvas (per that file's own doc comment) — if confirmed, one fix here would resolve several screens' findings at once, but changing it without a device to verify the result risks trading one unverified contrast value for another. |
-| Welcome | `account.findMySchool` | "Find My School" | `dynamicType` | Same button style. |
-| Settings | `settings.exitSample` | "Exit Sample Data" | `dynamicType` | A plain `Button`, no custom style found yet — not yet traced to a shared component. |
-| Settings | `settings.reminders.sample` | "Reminders aren't scheduled for sample data. Sign in with your school's Canvas to be reminded before work is due." | `dynamicType` | Long body text in a `Section`; not yet traced further. |
-| Hand-off | `onboarding.signIn.continueTo` | "Continue to canvas.northfield.example" | `textClipped` | The button's text grows with the school's host name; `SignInHandoffView.swift` wraps it in `.frame(maxWidth: .infinity)` with no visible `.lineLimit`, so the clip's exact cause needs a rendered screenshot to confirm. |
-| Paywall | `paywall.price` | "$9.99 per year" | `textClipped` | `.font(TallyTypography.screenTitle)` (`.largeTitle`, bold, serif) — a large font for a price; the surrounding `.fixedSize(horizontal: false, vertical: true)` looks like the right pattern to allow wrapping, so this may need a rendered screenshot rather than a code read to confirm what's actually clipping. |
-| Paywall | `paywall.restore` | "Restore Purchases" | `contrast` | A custom `Button` with `Text(...).frame(minHeight: 44)`; colour/style not yet traced. |
-| What-If | `whatif.field` | "Score for Lab Report 4, / 50" | `dynamicType` | The score text field's label. |
-| What-If | `whatif.simulationLabel` | "Simulation — not your real grade" | `hitRegion` | `WhatIfSheet.swift:103`: a `Label` combined into one accessibility element via `.accessibilityElement(children: .ignore)` — the combining may be shrinking the element's effective hit-test frame below 44 pt; not yet confirmed. |
-| Courses | _(no identifier)_ | "Needs attention" | `contrast` | A course-health status chip; the specific colour token behind it is not yet traced. |
-
-**Widespread, unidentified `contrast` and `dynamicType` issues** (most of the 126 `contrast` and
-64 `dynamicType` instances the inventory counts) land on plain `Text` views with no
-`.accessibilityIdentifier`, so neither the element nor a precise source line is known yet — only
-the `elementLabel` the suite now also captures. A design-token hypothesis (not yet confirmed
-against a specific instance): of the 14 colour tokens in `Colors.xcassets`, only `accent`,
-`accent.fill`, `separator` and `text.secondary` have a High Contrast appearance; `text.primary`,
-`bg.canvas` and `bg.card` — the most universally-used of the ten that don't — are the most
-plausible explanation for how widespread this is, but adding High Contrast variants to them
-without a device to verify the result would itself be guessing at colour values, which rule 5
-("evidence, not claims") forbids just as much as waiving without evidence does.
-
-## Open item: the existing `FamilyUITests` switcher filter
+## The `FamilyUITests` switcher filter (resolved, MVP-2b)
 
 `FamilyUITests.testSwitcherPassesTheAccessibilityAudit` and
-`testSwitcherAtAX5ShowsInitialsAndPassesTheAudit` (`apps/TallyiOS/TallyUITests/FamilyUITests.swift`)
-each call:
+`testSwitcherAtAX5ShowsInitialsAndPassesTheAudit` ignored every issue on an element whose
+identifier did not start with `family.` (a prefix filter, not an exact pair). MVP-2b logged what it
+ignored (scope=a11y runs 38338079168 and 38350587735, `family-switcher-{std,ax5}-ignored-audit`):
+11 issues at the default size and 4 at AX5, **none on the family's own elements** — the SAMPLE
+DATA banner's two capped texts (`dynamicType`) and contrast on Dashboard rows under the tab bar
+and its scroll-edge dimming. All 15 are covered by the shared rules (2 by exact waivers, 13 by the
+audit-position rule; same runs, `held`/`waived` recorded beside each). So the filter is removed:
+both tests call `runA11yAudit`, which judges the whole parent-mode screen by this document's rules,
+and any other issue fails them.
 
-```swift
-try app.performAccessibilityAudit { issue in
-    !Self.isFamilyElement(issue.element)
-}
-```
+## MVP-2a's "real issues" list: where each one went
 
-`isFamilyElement` matches identifiers that start with `family.`. Read literally, this waives every
-issue whose element is **not** `family.`-prefixed — i.e. it is a scope restriction by element
-*prefix*, not a waiver of a specific (element, audit type) pair. The method's own doc comment states
-the intent: "only issues on the family's own elements count (the screens behind it have their own
-suites)" — the switcher is a sheet over the Dashboard or Settings, and elements from the screen
-behind it can still appear in the snapshot the audit walks; those screens already have their own
-accessibility coverage (this suite's `testDashboard`/`testSettings`, going forward), so re-reporting
-their issues here would be noise, not a missed defect.
-
-That reasoning is plausible but **unverified**: this task could not run Xcode to see which specific
-issues, if any, the filter is actually suppressing (this host has no Xcode; `FamilyUITests` was not
-in this work package's CI budget — MVP-2's own flaky-test fix and new suite already used the
-budget this round). Per the brief: narrow it, or justify it here. Justifying a predicate this broad
-without the underlying issue list would itself be the kind of unverified claim rule 5
-(`pmo-common-rules-v2.md`) forbids, so this is recorded as an **open item**, not waived:
-
-- **Next step:** dispatch `AccessibilityAuditUITests` (or `FamilyUITests` alone) once with the
-  filter changed to log every suppressed issue (`type`, element identifier, `compactDescription`)
-  before deciding true/false, the same JSON-attachment pattern this suite's own `runA11yAudit` uses.
-  Read the attachment, then either: replace the prefix filter with exact `(elementIdentifier,
-  auditType)` entries in `A11yWaivers.waived` (and add them to the table above, with that run's ID
-  as evidence), or confirm there is nothing to suppress and remove the filter outright.
-- Not done in this PR: it touches a file outside this work package's new additions, and changing a
-  currently-green test's behaviour without first observing what it is actually passing on would be
-  guessing, not fixing.
+| Element | Audit type | Outcome (MVP-2b) |
+| :--- | :--- | :--- |
+| `account.exploreWithSampleData` | `contrast` | Waived: measured 5.44:1 / 7.02:1 on the audit's own pixels (table above). |
+| `account.exploreWithSampleData`, `account.findMySchool` | `dynamicType` | Waived: pinned and capped at AX2 by design (D05); Large Content Viewer added. |
+| `settings.exitSample`, `settings.reminders.sample` (and five other Settings rows) | `dynamicType` | Not a defect: absent from the AX5 audit; rows the audit's own growth pushes below the fold. Dynamic Type is now audited at AX5, where Settings passes. |
+| `onboarding.signIn.continueTo` | `textClipped` | **Fixed**: the school address wraps at its dots (`TallyTokenBreaks`) with a plain accessibility label; no longer flagged. |
+| `paywall.price` | `textClipped` | Waived: the element reads "$9.99 per year"; the tour shows "$9.99/year" whole at AX5 on the smallest iPhone. |
+| `paywall.restore` | `contrast` | Waived: measured 7.24:1 / 9.61:1. |
+| `whatif.field` | `dynamicType` | Waived: measured scaling (placeholder 12.0 → 38.7 pt). |
+| `whatif.simulationLabel` | `hitRegion` | **Fixed**: the combined element is static text (`.isStaticText`); no longer flagged. |
+| "Needs attention" (Courses) | `contrast` | Held by the audit-position rule: the chip sat under the tab bar's scroll-edge dimming (y = 845 of 874 pt). |
+| What-If's 9 `elementDetection` | `elementDetection` | Not a defect of the content: none at the large height (the medium height is drawn at 0.96 scale). The quick-fill chips are now labelled with their own text ("100%", WCAG 2.5.3), the sentence moved to the hint. |
+| Hand-off's `sufficientElementDescription` (the address alone) | `sufficientElementDescription` | **Fixed**: the tag reads "School" with the address as its value. |

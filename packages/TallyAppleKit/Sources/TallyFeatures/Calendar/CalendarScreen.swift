@@ -178,18 +178,27 @@ private struct WeekStrip: View {
     /// 37842950859, every AX5 leg).
     @ScaledMetric(relativeTo: .headline) private var dayMarkDiameter: CGFloat = 32
 
+    /// MVP-2b: one view tree at every text size. The strip used to be a plain row below the
+    /// accessibility sizes and a different, scrolling tree from AX1 up, so its texts were new views
+    /// once the size crossed AX1. Xcode's audit predicts clipping by growing the text and finding
+    /// each text again; one it cannot find seems to come back as "may be clipped" with no element
+    /// (the sign-in hand-off had one such finding while its address tag switched layouts at AX1,
+    /// run 38357314250, and none once the tag kept one layout, run 38363059477). Now the strip is always
+    /// in the scroll view: the screen's own width, not scrolling, below the accessibility sizes (as
+    /// before); a fixed column width, scrolling and centred on the selected day, from AX1 up (D18).
     var body: some View {
-        if typeSize.isAccessibilitySize {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal) {
-                    strip.frame(width: columnWidth * CGFloat(days.count))
-                }
-                .scrollIndicatorsFlash(onAppear: true)
-                .onAppear { centre(selected, with: proxy, animated: false) }
-                .onChange(of: selected) { _, day in centre(day, with: proxy, animated: true) }
+        let scrolls = typeSize.isAccessibilitySize
+        let scrollingWidth = columnWidth * CGFloat(days.count)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                strip
+                    .containerRelativeFrame(.horizontal) { length, _ in scrolls ? scrollingWidth : length }
             }
-        } else {
-            strip
+            .scrollDisabled(!scrolls)
+            .scrollIndicators(scrolls ? .automatic : .hidden)
+            .scrollIndicatorsFlash(onAppear: scrolls)
+            .onAppear { if scrolls { centre(selected, with: proxy, animated: false) } }
+            .onChange(of: selected) { _, day in if scrolls { centre(day, with: proxy, animated: true) } }
         }
     }
 
@@ -291,11 +300,9 @@ private struct AgendaRow: View {
                         }
                         .tallyReflowValue()
                         if let location = item.location {
-                            if typeSize.isAccessibilitySize {
-                                Text(verbatim: location)
-                            } else {
-                                Text("· \(location)")
-                            }
+                            // MVP-2b: one text whose words change at AX1, not two texts (the week
+                            // strip's note: the audit loses a text that is replaced as it grows).
+                            Text(verbatim: typeSize.isAccessibilitySize ? location : "· " + location)
                         }
                     }
                     .font(TallyTypography.footnote)
