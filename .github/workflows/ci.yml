@@ -575,14 +575,20 @@ jobs:
           xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
       - name: Build TallyAppTests + TallyUITests for testing
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      # MVP-2b: `IOS_RETRY=` (no retry) in this dispatch-only measurement scope. An audit finding
+      # is deterministic, so a retry re-reports the same issues and doubles a failing class's time
+      # (run 38313859274: 72 min of a 90-min cap); the release gate keeps its own retry. The Light
+      # step also runs FamilyUITests' two switcher audits, whose scope filter now logs what it
+      # ignores (docs/pmo/a11y-waivers.md's open item).
       - name: "Accessibility audit: Light (default size, all types; AX5, dynamicType+textClipped)"
         env:
           TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
         run: |
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
-            IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditUITests IOS_RESULT_NAME=Tally-a11y-light
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
+            IOS_ONLY_TESTING="-only-testing:TallyUITests/AccessibilityAuditUITests -only-testing:TallyUITests/FamilyUITests/testSwitcherPassesTheAccessibilityAudit -only-testing:TallyUITests/FamilyUITests/testSwitcherAtAX5ShowsInitialsAndPassesTheAudit" \
+            IOS_RESULT_NAME=Tally-a11y-light
       - name: "Accessibility audit: Dark (default size, all types)"
         if: ${{ !cancelled() }}
         env:
@@ -590,7 +596,7 @@ jobs:
         run: |
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditDarkUITests IOS_RESULT_NAME=Tally-a11y-dark
       - name: "Accessibility audit: Increase Contrast (default size, .contrast only)"
         # ux-ui.md §3.9 "Harness": `simctl ui`'s `increase_contrast` subcommand is UNVERIFIED on
@@ -604,7 +610,7 @@ jobs:
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast enabled \
             || echo "simctl ui increase_contrast not available on this runner; relying on the suite's own launch-argument fallback"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditContrastUITests IOS_RESULT_NAME=Tally-a11y-contrast
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast disabled 2>/dev/null || true
       - name: Export the audit's issue JSON (evidence, not just a pass/fail count)
@@ -643,7 +649,9 @@ jobs:
                       if os.path.exists(src) and not os.path.exists(dst):
                           os.rename(src, dst)
           PY
-          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          # MVP-2b: keep the audit-moment screenshots (`*-audit-screen.png`) too, so every
+          # contrast issue can be measured from its own pixels without a device.
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' ! -iname '*audit*.png' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

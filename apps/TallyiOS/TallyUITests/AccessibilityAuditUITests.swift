@@ -393,10 +393,21 @@ extension TallyUITestCase {
     /// authoritative detail this suite's JSON attachment and failure message both need (the whole
     /// point of "one test method per screen" is a failure that names its screen precisely, not
     /// "performAccessibilityAudit threw").
+    ///
+    /// MVP-2b: every issue is measurable from CI alone. Before the audit, the screen waits at rest
+    /// (the Audit tour's own two-identical-screenshots rule) and attaches a full-screen PNG,
+    /// `<screen>-<variant>-audit-screen`, in the same appearance, text size and contrast mode as
+    /// the audit; every issue records its element's frame (points, the app's own coordinate space;
+    /// the `<screen>-<variant>-audit-screen.window-audit` JSON beside the PNG gives its scale) and
+    /// element type. And `continueAfterFailure` stays
+    /// `true` through this method's own assertion, so a failing default-size audit no longer ends
+    /// the test before its AX5 audit runs (run 38313859274 audited AX5 on only the three screens
+    /// whose default-size audit passed).
     @MainActor
     func runA11yAudit(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, screen: String, variant: String,
                       file: StaticString = #filePath, line: UInt = #line) {
-        var issues: [[String: String]] = []
+        a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-screen")
+        var issues: [[String: Any]] = []
         var unwaived: [String] = []
         let previousContinueAfterFailure = continueAfterFailure
         continueAfterFailure = true
@@ -412,9 +423,8 @@ extension TallyUITestCase {
                 // when it is empty would silently become a blanket waiver by accident) gives the
                 // actual words to search the source for.
                 let elementLabel = issue.element?.label ?? ""
-                let waived = A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
-                issues.append(["type": typeName, "element": elementID, "elementLabel": elementLabel,
-                               "description": issue.compactDescription, "waived": waived ? "true" : "false"])
+                let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
+                issues.append(Self.a11yIssueRecord(issue, typeName: typeName, waived: waived))
                 if !waived {
                     let target = elementID.isEmpty
                         ? (elementLabel.isEmpty ? "(no identifier or label)" : "label '\(elementLabel)'")
@@ -428,11 +438,83 @@ extension TallyUITestCase {
                 unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
             }
         }
-        continueAfterFailure = previousContinueAfterFailure
         attachA11yJSON(issues, name: "\(screen)-\(variant)-audit")
         XCTAssertTrue(unwaived.isEmpty,
                      "\(screen) (\(variant)): \(unwaived.count) unwaived accessibility issue(s): " + unwaived.joined(separator: " | "),
                      file: file, line: line)
+        continueAfterFailure = previousContinueAfterFailure
+    }
+
+    /// MVP-2b: `FamilyUITests`' switcher audits keep their scope filter's exact behaviour (an issue
+    /// `shouldIgnore` accepts is ignored, any other fails the test), and attach every issue the
+    /// filter ignored as `<name>-ignored-audit`, so `docs/pmo/a11y-waivers.md` can say what the
+    /// filter actually suppresses instead of guessing.
+    @MainActor
+    func a11yAuditRecordingIgnored(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, name: String,
+                                   ignoring shouldIgnore: @escaping (XCUIAccessibilityAuditIssue) -> Bool) throws {
+        a11yAttachScreen(app, name: "\(name)-audit-screen")
+        var ignored: [[String: Any]] = []
+        var thrown: Error?
+        let previousContinueAfterFailure = continueAfterFailure
+        continueAfterFailure = true
+        do {
+            try app.performAccessibilityAudit(for: types) { issue in
+                let ignore = shouldIgnore(issue)
+                if ignore {
+                    ignored.append(Self.a11yIssueRecord(issue, typeName: Self.a11yAuditTypeName(issue.auditType), waived: true))
+                }
+                return ignore
+            }
+        } catch {
+            thrown = error
+        }
+        continueAfterFailure = previousContinueAfterFailure
+        attachA11yJSON(ignored, name: "\(name)-ignored-audit")
+        if let thrown { throw thrown }
+    }
+
+    /// One issue as the JSON evidence records it. The frame is the element's own, in points; a
+    /// missing or non-finite frame is recorded as zero (JSONSerialization rejects infinity, and
+    /// one bad number would drop the whole attachment).
+    @MainActor
+    static func a11yIssueRecord(_ issue: XCUIAccessibilityAuditIssue, typeName: String, waived: Bool) -> [String: Any] {
+        let element = issue.element
+        let rawFrame = element?.frame ?? .zero
+        let finite = !rawFrame.isNull && !rawFrame.isInfinite
+            && [rawFrame.minX, rawFrame.minY, rawFrame.width, rawFrame.height].allSatisfy { $0.isFinite }
+        let frame = finite ? rawFrame : .zero
+        return [
+            "type": typeName,
+            "element": element?.identifier ?? "",
+            "elementLabel": element?.label ?? "",
+            "elementType": Int(element?.elementType.rawValue ?? 0),
+            "frame": ["x": Double(frame.minX), "y": Double(frame.minY), "width": Double(frame.width), "height": Double(frame.height)],
+            "description": issue.compactDescription,
+            "detailedDescription": issue.detailedDescription,
+            "waived": waived ? "true" : "false",
+        ]
+    }
+
+    /// Waits for the screen to settle (two screenshots 0.4 s apart pixel-identical, at most 6 s:
+    /// `AuditTourUITests.waitUntilAtRest`'s rule), then attaches it as a PNG with the app's
+    /// window frame (points) beside it, `<name>.window-audit`.
+    @MainActor
+    private func a11yAttachScreen(_ app: XCUIApplication, name: String) {
+        let deadline = Date().addingTimeInterval(6)
+        var previous = app.screenshot().pngRepresentation
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.4)
+            let next = app.screenshot().pngRepresentation
+            if next == previous { break }
+            previous = next
+        }
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+        let window = app.frame
+        attachA11yJSON(["x": Double(window.minX), "y": Double(window.minY), "width": Double(window.width),
+                        "height": Double(window.height)], name: "\(name).window-audit")
     }
 
     @MainActor

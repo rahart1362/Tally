@@ -68,7 +68,8 @@ final class FamilyUITests: TallyUITestCase {
     func testSwitcherPassesTheAccessibilityAudit() throws {
         let app = launchSample()
         enterParentMode(app)
-        try app.performAccessibilityAudit { issue in
+        // MVP-2b: same filter, now logged (`family-switcher-std-ignored-audit`).
+        try a11yAuditRecordingIgnored(app, name: "family-switcher-std") { issue in
             !Self.isFamilyElement(issue.element)
         }
     }
@@ -85,7 +86,8 @@ final class FamilyUITests: TallyUITestCase {
         // Initials (a 28-point circle) and the chevron only; with the first name it was 104 points
         // wide at the default size (CI run 37065562136).
         XCTAssertLessThan(switcher.frame.width, Self.initialsOnlyMaxWidth, "the first name shows at AX5: \(switcher.frame)")
-        try app.performAccessibilityAudit { issue in
+        // MVP-2b: same filter, now logged (`family-switcher-ax5-ignored-audit`).
+        try a11yAuditRecordingIgnored(app, name: "family-switcher-ax5") { issue in
             !Self.isFamilyElement(issue.element)
         }
     }

@@ -337,7 +337,8 @@ jobs:
                       if os.path.exists(src) and not os.path.exists(dst):
                           os.rename(src, dst)
           PY
-          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          # MVP-2b: keep the audit-moment screenshots (`*-audit-screen.png`) too.
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' ! -iname '*audit*.png' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
