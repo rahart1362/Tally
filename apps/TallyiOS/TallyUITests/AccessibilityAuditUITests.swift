@@ -687,8 +687,26 @@ extension TallyUITestCase {
     func a11yReachCalendar(extra: [String] = []) -> XCUIApplication {
         let app = launchSample(arguments: extra)
         openTab("Calendar", in: app)
-        XCTAssertTrue(elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15),
-                      "Hierarchy: \(app.debugDescription)")
+        let firstDay = elements("calendar.day", in: app).firstMatch
+        XCTAssertTrue(firstDay.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        // MVP-2b: audited at the agenda's first day, as a student gets it by tapping the week's first
+        // day in the strip. Calendar opens scrolled to today, the one list that does: the agenda rows
+        // above today then sit hidden behind the SAMPLE DATA banner, the navigation bar and the week
+        // strip (scope=a11y run 38370696712's snapshot: "Mon, Oct 12" at y = 87–127 and "Nothing
+        // scheduled" at 128–180 pt; at AX5 "Nothing scheduled" at 23–170 and "Today · Tue, Oct 13"
+        // at 187–332, under the strip). Here the audit's clipping check returned a "may be clipped" it
+        // could not attach to any element: one to four per variant in all five scope=a11y runs, and the
+        // only finding left in the last. With the agenda at its first day nothing is hidden above it;
+        // the same rows, chips and strip are on screen. From AX1 up the strip scrolls, centred on
+        // today, so it is swiped back until the first day can be tapped.
+        let header = element("calendar.pinnedHeader", in: app)
+        var swipes = 0
+        while !firstDay.isHittable, swipes < 6 {
+            header.swipeRight()
+            swipes += 1
+        }
+        tapWhenHittable(firstDay, in: app)
+        XCTAssertTrue(eventually(timeout: 5, { firstDay.isSelected }), "The first day was not selected: \(firstDay.debugDescription)")
         return app
     }
 

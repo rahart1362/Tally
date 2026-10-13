@@ -41,6 +41,15 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   `elementDetection` at the medium height in Light and in Dark, none on the same rows, chips and
   summary pulled up (`whatIf-light-std-large`, every type). The Audit tour captures the sheet
   pulled up too.
+- **Calendar is audited at the agenda's first day** (the reach taps the week's first day in the
+  strip, as a student would). It opens scrolled to today, the only list that does, so the rows above
+  today sit hidden behind the SAMPLE DATA banner, the navigation bar and the week strip (run
+  38370696712's snapshot: "Mon, Oct 12" at y = 87–127 pt and "Nothing scheduled" at 128–180; at AX5
+  "Nothing scheduled" at 23–170 and "Today · Tue, Oct 13" at 187–332). There the clipping check
+  returned a "may be clipped" it could not attach to any element, one to four per variant in all
+  five scope=a11y runs, and the only finding left in the last. At the first day nothing is hidden
+  above the agenda; the same rows, chips and strip are on screen. (The contrast of the hidden rows
+  was already held by the audit-position rule; this element-less finding can be held by nothing.)
 
 ## The audit-position rule (`A11yScene.heldReason`; not a waiver)
 
