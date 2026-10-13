@@ -95,6 +95,19 @@ PMO had this suite moved to a dedicated dispatch scope in the first place (a pla
 bundling it with the rest of `TallyUITests` hit CI's 110-minute job cap twice, runs 38280762497
 and 38294121268).
 
+## Release gate run (end-to-end confirmation)
+
+Dispatched the release gate directly rather than a third `scope=a11y` run (the gate's own
+`ios-gate` job runs the same three classes plus everything else, so one dispatch answers both
+"do the waivers work" and "did anything else break"). Run
+[38321522188](https://github.com/rahart1362/Tally/actions/runs/38321522188):
+**86 PASS, 16 PENDING, 1 FAIL** (`compliance.json`, read directly). The one FAIL is
+`REL.a11y.audit` — "48 audit test(s) ran, 8 waiver(s) ..." — and nothing else in the whole gate
+broke: `ios-gate` completed as a job in 1h58m14s, `ios-gate-27` (report-only) passed,
+`static-linux` passed. The `compliance-report` job's "Merge and decide" step correctly failed
+(exit 1, by design, no tolerance there) because one check due now fails — the gate working
+correctly, not a bug in this work package's wiring.
+
 ## Open items
 
 - **`REL.a11y.audit` is not at 0 FAIL.** 226 unwaived issues remain after this round's 8 waivers.
