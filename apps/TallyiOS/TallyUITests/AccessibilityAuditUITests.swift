@@ -323,7 +323,6 @@ enum A11yWaivers {
         Key(elementIdentifier: "whatif.summary.simulationText", auditType: "dynamicType"),
         Key(elementIdentifier: "whatif.summary.projectedLabel", auditType: "dynamicType"),
         Key(elementIdentifier: "whatif.summary.projectedValue", auditType: "dynamicType"),
-        Key(elementIdentifier: "whatif.summary.change", auditType: "dynamicType"),
         // Measured false positive: #1D4E9E on #CCD6E8 is 5.44:1 (Light) and #123C80 on #CAD3E2 7.02:1
         // (Increase Contrast) on the audit's own screenshot, against 3:1 for 17 pt semibold text.
         Key(elementIdentifier: "account.exploreWithSampleData", auditType: "contrast"),
