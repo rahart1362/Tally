@@ -115,6 +115,15 @@ final class AccessibilityAuditUITests: TallyUITestCase {
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
+    /// MVP-2b: What-If opens at its medium height, where the system draws the sheet at about 0.96
+    /// scale (`ScoreStepper.buttonSide`'s note). Its large height is audited too, as a state of its
+    /// own (a student who pulls the sheet up sees it), in a method of its own so neither method
+    /// nears the 240 s allowance (`testWhatIf` took 140 s with two audits in run 38338079168).
+    @MainActor
+    func testWhatIfLargeDetent() throws {
+        auditScreen("whatIf", reach: { self.a11yReachWhatIfLarge(extra: $0) }, variant: "light-std-large")
+    }
+
     @MainActor
     func testCourseOptions() throws {
         auditScreen("courseOptions", reach: { self.a11yReachCourseOptions(extra: $0) }, variant: "light-std")
@@ -308,6 +317,21 @@ enum A11yWaivers {
         Key(elementIdentifier: "whatif.reset", auditType: "contrast"),
         Key(elementIdentifier: "whatif.reset", auditType: "dynamicType"),
         Key(elementIdentifier: "whatif.reset", auditType: "textClipped"),
+        // MVP-2b (scope=a11y run 38338079168). Pinned chrome capped at AX2 by design (ux-fp2 D04/D05,
+        // FP-3's banner rule; ASC-14 needs the banner on every screen, perf-app-runtime.md §7 step 3
+        // needs Welcome's two actions on screen at every size): Dynamic Type stops at AX2 there, so the
+        // audit reads "partially unsupported". Each offers the Large Content Viewer instead (HIG).
+        Key(elementIdentifier: "sampleData.banner.label", auditType: "dynamicType"),
+        Key(elementIdentifier: "sampleData.banner.exit", auditType: "dynamicType"),
+        Key(elementIdentifier: "account.findMySchool", auditType: "dynamicType"),
+        Key(elementIdentifier: "account.exploreWithSampleData", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.summary.simulationText", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.summary.projectedLabel", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.summary.projectedValue", auditType: "dynamicType"),
+        Key(elementIdentifier: "whatif.summary.change", auditType: "dynamicType"),
+        // Measured false positive: #1D4E9E on #CCD6E8 is 5.44:1 (Light) and #123C80 on #CAD3E2 7.02:1
+        // (Increase Contrast) on the audit's own screenshot, against 3:1 for 17 pt semibold text.
+        Key(elementIdentifier: "account.exploreWithSampleData", auditType: "contrast"),
     ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {
@@ -354,11 +378,22 @@ extension TallyUITestCase {
         return names.isEmpty ? "unknown" : names.joined(separator: "+")
     }
 
+    /// MVP-2b: what a default-size audit checks — every type but `.dynamicType`, which each screen's
+    /// AX5 audit checks (`light-ax5`; Dynamic Type does not depend on the appearance). Run
+    /// 38338079168: every default-size Dynamic Type finding on text with no cap (Settings' seven
+    /// lower rows, light and dark) was absent from the same screen's AX5 audit, while every capped
+    /// element (the SAMPLE DATA banner, Welcome's two actions, What-If's summary, the toolbar
+    /// buttons) was flagged at both sizes. The audit grows the text and measures it again; a row
+    /// that growth pushes below the fold cannot be measured again, and is reported as "partially
+    /// unsupported" although it scales. AX5 keeps every real finding and none of that artifact.
+    static let a11yDefaultSizeTypes = XCUIAccessibilityAuditType.all.subtracting(.dynamicType)
+
     /// Reaches a screen with `reach`, audits it, attaches the issue list, and terminates the app.
     /// One call per screen × variant, so a failure's message names both.
     @MainActor
     func auditScreen(_ screen: String, reach: ([String]) -> XCUIApplication, extra: [String] = [], variant: String,
-                     types: XCUIAccessibilityAuditType = .all, file: StaticString = #filePath, line: UInt = #line) {
+                     types: XCUIAccessibilityAuditType = TallyUITestCase.a11yDefaultSizeTypes,
+                     file: StaticString = #filePath, line: UInt = #line) {
         let app = reach(extra)
         runA11yAudit(app, for: types, screen: screen, variant: variant, file: file, line: line)
         app.terminate()
@@ -372,70 +407,72 @@ extension TallyUITestCase {
                    file: file, line: line)
     }
 
-    /// Runs one `performAccessibilityAudit`, attaches every issue it finds — waived or not — as
-    /// `<screen>-<variant>-audit` (type, element, description), and fails with the screen's own
-    /// name in the message if any issue was not waived.
+    /// Audits `app` for `types`, attaches every issue it finds — waived or not — as
+    /// `<screen>-<variant>-audit` (type, element, frame, description), and fails with the screen's
+    /// own name in the message if any issue was neither waived nor held.
     ///
     /// CI run 38280762497: `TallyUITestCase.setUpWithError` sets `continueAfterFailure = false`
     /// (every suite inherits it), and when the issue handler returns `false`, the audit records
     /// that issue as a failure *immediately*, through a mechanism this method's own `do`/`catch`
-    /// cannot intercept (not a thrown Swift error a `catch` clause can see — `continueAfterFailure
-    /// = false`'s abort unwinds past normal `try`/`catch` the same way an assertion failure does).
-    /// With it false, the *first* unwaived issue ended the test method on the spot: no later issue
-    /// in the same audit was ever found, no JSON got attached, and the only message on screen was
-    /// Apple's own terse one-liner ("Contrast failed") rather than this method's own. Toggling it
-    /// `true` for the span of the call — restored immediately after, before this method's own
-    /// assertion — lets the handler run for every issue the audit finds, so `issues`/`unwaived`
-    /// end up complete before anything decides pass or fail.
+    /// cannot intercept. With it false, the *first* unwaived issue ended the test method on the
+    /// spot. Toggling it `true` for the span of the call lets the handler run for every issue the
+    /// audit finds, so `issues`/`unwaived` end up complete before anything decides pass or fail.
     ///
-    /// Collects into `unwaived` from inside the issue handler itself, rather than reading the
-    /// thrown error's text: the handler already sees every issue with its element and type, the
-    /// authoritative detail this suite's JSON attachment and failure message both need (the whole
-    /// point of "one test method per screen" is a failure that names its screen precisely, not
-    /// "performAccessibilityAudit threw").
-    ///
-    /// MVP-2b: every issue is measurable from CI alone. Before the audit, the screen waits at rest
-    /// (the Audit tour's own two-identical-screenshots rule) and attaches a full-screen PNG,
-    /// `<screen>-<variant>-audit-screen`, in the same appearance, text size and contrast mode as
-    /// the audit; every issue records its element's frame (points, the app's own coordinate space;
-    /// the `<screen>-<variant>-audit-screen.window-audit` JSON beside the PNG gives its scale) and
-    /// element type. And `continueAfterFailure` stays
-    /// `true` through this method's own assertion, so a failing default-size audit no longer ends
-    /// the test before its AX5 audit runs (run 38313859274 audited AX5 on only the three screens
-    /// whose default-size audit passed).
+    /// MVP-2b, so that every issue can be measured from CI alone:
+    /// - Before the audit the screen waits at rest (the Audit tour's two-identical-screenshots
+    ///   rule) and three attachments record it: `<screen>-<variant>-audit-screen` (PNG), and
+    ///   `<screen>-<variant>-audit-window` / `-audit-elements` (JSON: the window frame in points,
+    ///   and every element with its frame). Run 38338079168 lost the last two: a name with a dot
+    ///   in it came out of `xcresulttool` without its `.json`.
+    /// - Each issue records its element's frame, type and detailed description.
+    /// - `.dynamicType` runs in a pass of its own, after the others. Run 38338079168: in one
+    ///   `.all` audit, every contrast and clipping issue on a `List` screen came back with no
+    ///   element at all, because the Dynamic Type pass had grown the text and the list had
+    ///   rebuilt its rows by the time the issues were handed over.
+    /// - `continueAfterFailure` stays `true` through this method's own assertion, so a failing
+    ///   default-size audit no longer ends the test before its AX5 audit runs (run 38313859274
+    ///   audited AX5 on only the three screens whose default-size audit passed).
+    /// - An issue the audit-position rule holds (`A11yScene.heldReason`) is recorded with its
+    ///   reason and does not fail the test; `docs/pmo/a11y-waivers.md` has the rule and every
+    ///   issue it held, with its measurement.
     @MainActor
     func runA11yAudit(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, screen: String, variant: String,
                       file: StaticString = #filePath, line: UInt = #line) {
-        a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-screen")
+        let scene = a11yAttachScreen(app, name: "\(screen)-\(variant)-audit")
         var issues: [[String: Any]] = []
         var unwaived: [String] = []
         let previousContinueAfterFailure = continueAfterFailure
         continueAfterFailure = true
-        do {
-            try app.performAccessibilityAudit(for: types) { issue in
-                let typeName = Self.a11yAuditTypeName(issue.auditType)
-                let elementID = issue.element?.identifier ?? ""
-                // CI run 38306768609: most `contrast` and several `dynamicType`/`elementDetection`
-                // issues land on a plain `Text` with no `.accessibilityIdentifier` — `element:
-                // ''` alone names nothing a fix can target. `element?.label` (always real text on
-                // screen, never used for the waiver key below: several different unidentified
-                // elements can share the same empty identifier, so waiving by identifier alone
-                // when it is empty would silently become a blanket waiver by accident) gives the
-                // actual words to search the source for.
-                let elementLabel = issue.element?.label ?? ""
-                let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
-                issues.append(Self.a11yIssueRecord(issue, typeName: typeName, waived: waived))
-                if !waived {
-                    let target = elementID.isEmpty
-                        ? (elementLabel.isEmpty ? "(no identifier or label)" : "label '\(elementLabel)'")
-                        : "'\(elementID)'"
-                    unwaived.append("\(typeName) on \(target): \(issue.compactDescription)")
+        let passes: [XCUIAccessibilityAuditType] = types.contains(.dynamicType) && types != .dynamicType
+            ? [types.subtracting(.dynamicType), .dynamicType]
+            : [types]
+        for pass in passes {
+            do {
+                try app.performAccessibilityAudit(for: pass) { issue in
+                    let typeName = Self.a11yAuditTypeName(issue.auditType)
+                    let elementID = issue.element?.identifier ?? ""
+                    // CI run 38306768609: most issues land on a plain `Text` with no identifier;
+                    // `element?.label` gives the actual words to search the source for. Never part
+                    // of the waiver key: several unidentified elements share the empty identifier.
+                    let elementLabel = issue.element?.label ?? ""
+                    let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
+                    let held = waived ? nil : scene.heldReason(auditType: typeName, label: elementLabel,
+                                                              frame: issue.element?.frame ?? .zero)
+                    var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived)
+                    record["held"] = held ?? ""
+                    issues.append(record)
+                    if !waived && held == nil {
+                        let target = elementID.isEmpty
+                            ? (elementLabel.isEmpty ? "(no identifier or label)" : "label '\(elementLabel)'")
+                            : "'\(elementID)'"
+                        unwaived.append("\(typeName) on \(target): \(issue.compactDescription)")
+                    }
+                    return waived || held != nil
                 }
-                return waived
-            }
-        } catch {
-            if unwaived.isEmpty {
-                unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
+            } catch {
+                if unwaived.isEmpty {
+                    unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
+                }
             }
         }
         attachA11yJSON(issues, name: "\(screen)-\(variant)-audit")
@@ -452,7 +489,7 @@ extension TallyUITestCase {
     @MainActor
     func a11yAuditRecordingIgnored(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, name: String,
                                    ignoring shouldIgnore: @escaping (XCUIAccessibilityAuditIssue) -> Bool) throws {
-        a11yAttachScreen(app, name: "\(name)-audit-screen")
+        let scene = a11yAttachScreen(app, name: "\(name)-audit")
         var ignored: [[String: Any]] = []
         var thrown: Error?
         let previousContinueAfterFailure = continueAfterFailure
@@ -461,7 +498,15 @@ extension TallyUITestCase {
             try app.performAccessibilityAudit(for: types) { issue in
                 let ignore = shouldIgnore(issue)
                 if ignore {
-                    ignored.append(Self.a11yIssueRecord(issue, typeName: Self.a11yAuditTypeName(issue.auditType), waived: true))
+                    // What the shared rules (an exact waiver, or the audit-position rule) would make
+                    // of it, recorded beside it: the evidence for replacing the prefix filter.
+                    let typeName = Self.a11yAuditTypeName(issue.auditType)
+                    let elementID = issue.element?.identifier ?? ""
+                    let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
+                    var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived)
+                    record["held"] = scene.heldReason(auditType: typeName, label: issue.element?.label ?? "",
+                                                      frame: issue.element?.frame ?? .zero) ?? ""
+                    ignored.append(record)
                 }
                 return ignore
             }
@@ -479,16 +524,13 @@ extension TallyUITestCase {
     @MainActor
     static func a11yIssueRecord(_ issue: XCUIAccessibilityAuditIssue, typeName: String, waived: Bool) -> [String: Any] {
         let element = issue.element
-        let rawFrame = element?.frame ?? .zero
-        let finite = !rawFrame.isNull && !rawFrame.isInfinite
-            && [rawFrame.minX, rawFrame.minY, rawFrame.width, rawFrame.height].allSatisfy { $0.isFinite }
-        let frame = finite ? rawFrame : .zero
+        let frame = A11yScene.finite(element?.frame ?? .zero)
         return [
             "type": typeName,
             "element": element?.identifier ?? "",
             "elementLabel": element?.label ?? "",
             "elementType": Int(element?.elementType.rawValue ?? 0),
-            "frame": ["x": Double(frame.minX), "y": Double(frame.minY), "width": Double(frame.width), "height": Double(frame.height)],
+            "frame": A11yScene.json(frame),
             "description": issue.compactDescription,
             "detailedDescription": issue.detailedDescription,
             "waived": waived ? "true" : "false",
@@ -496,10 +538,11 @@ extension TallyUITestCase {
     }
 
     /// Waits for the screen to settle (two screenshots 0.4 s apart pixel-identical, at most 6 s:
-    /// `AuditTourUITests.waitUntilAtRest`'s rule), then attaches it as a PNG with the app's
-    /// window frame (points) beside it, `<name>.window-audit`.
+    /// `AuditTourUITests.waitUntilAtRest`'s rule), attaches it as `<prefix>-screen` (PNG), and,
+    /// from one `app.snapshot()`, `<prefix>-window` and `<prefix>-elements` (JSON). Returns that
+    /// snapshot's `A11yScene` for the audit-position rule.
     @MainActor
-    private func a11yAttachScreen(_ app: XCUIApplication, name: String) {
+    private func a11yAttachScreen(_ app: XCUIApplication, name prefix: String) -> A11yScene {
         let deadline = Date().addingTimeInterval(6)
         var previous = app.screenshot().pngRepresentation
         while Date() < deadline {
@@ -509,42 +552,13 @@ extension TallyUITestCase {
             previous = next
         }
         let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = name
+        shot.name = "\(prefix)-screen"
         shot.lifetime = .keepAlways
         add(shot)
-        let window = app.frame
-        attachA11yJSON(["x": Double(window.minX), "y": Double(window.minY), "width": Double(window.width),
-                        "height": Double(window.height)], name: "\(name).window-audit")
-        attachA11yJSON(a11yElementDump(app), name: "\(name).elements-audit")
-    }
-
-    /// Every visible text, button, image, tab bar and navigation bar in one `app.snapshot()` (one
-    /// IPC call): type, identifier, label and frame. The issues name only the flagged elements; this
-    /// lets the same pixels be measured for the elements the audit passed, and shows where the
-    /// system bars sit at the audit moment.
-    @MainActor
-    private func a11yElementDump(_ app: XCUIApplication) -> [[String: Any]] {
-        guard let root = try? app.snapshot() else { return [] }
-        let kinds: Set<XCUIElement.ElementType> = [.staticText, .button, .image, .tabBar, .navigationBar, .link,
-                                                     .textField, .switch, .cell, .other]
-        var out: [[String: Any]] = []
-        func walk(_ node: XCUIElementSnapshot) {
-            // Fields into locals first: `&&`'s autoclosure capturing the non-Sendable snapshot fails
-            // the Release test build (`AuditTourUITests.analyzeLayout`'s own note, run 37704108738).
-            let kind = node.elementType
-            let frame = node.frame
-            let identifier = node.identifier
-            let label = node.label
-            let finite = !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
-            if finite && kinds.contains(kind) && (kind != .other || !identifier.isEmpty) {
-                out.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
-                            "frame": ["x": Double(frame.minX), "y": Double(frame.minY),
-                                      "width": Double(frame.width), "height": Double(frame.height)]])
-            }
-            for child in node.children { walk(child) }
-        }
-        walk(root)
-        return out
+        let scene = A11yScene(app)
+        attachA11yJSON(A11yScene.json(scene.window), name: "\(prefix)-window")
+        attachA11yJSON(scene.elements, name: "\(prefix)-elements")
+        return scene
     }
 
     @MainActor
@@ -646,6 +660,17 @@ extension TallyUITestCase {
         return app
     }
 
+    /// What-If pulled up to its large height (`CourseDetailUITests`' own gesture: a swipe up on
+    /// the sheet's navigation bar).
+    @MainActor
+    func a11yReachWhatIfLarge(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachWhatIf(extra: extra)
+        let sheetBar = app.navigationBars["What-If"]
+        XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
+        sheetBar.swipeUp()
+        return app
+    }
+
     @MainActor
     func a11yReachCourseOptions(extra: [String] = []) -> XCUIApplication {
         let app = a11yReachCourseDetail(extra: extra)
@@ -722,5 +747,108 @@ extension TallyUITestCase {
         let app = launchApp(arguments: TestHooks.replayAccounts + TestHooks.appLockOn + TestHooks.deviceAuth("cancel") + extra)
         XCTAssertTrue(app.buttons["lock.unlock"].waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
         return app
+    }
+}
+
+// MARK: - The screen at the audit moment, and the audit-position rule
+
+/// MVP-2b: the screen the audit sees, from one `app.snapshot()` taken just before it (one IPC
+/// call), and the audit-position rule, `heldReason`.
+///
+/// **Why a rule, and why this one.** Run 38338079168 measured every contrast issue on the
+/// audit-moment screenshot's own pixels (`docs/pmo/reviews/mvp2b-report.md` has the table). The
+/// colour tokens never failed: every pixel failure was text that scrolls and, at that moment, sat
+/// under the floating tab bar, under the navigation bar or a pinned header, or under iOS 26's
+/// scroll-edge dimming (`AdditionalDimmingOverlay`, an image the system lays over the content next
+/// to a bar). Which rows sit there depends on the scroll position and on the sample data's dates
+/// (relative to today), so no exact (identifier, type) waiver can name them, and an identifier on
+/// every row would waive those rows everywhere, in view or not. The design audit already ruled
+/// this pattern out as a defect (`defects.md`, layout-check triage 1991: mid-scroll rows under
+/// the translucent bar; the last row clears it at the bottom of the scroll).
+///
+/// So the rule holds only what it must: a `contrast` or `textClipped` issue, on an element that
+/// scrolls (it sits in a scroll view, table or collection view), which at the audit moment is not
+/// wholly in view — part of it lies outside its scroll view or the window, or under system chrome.
+/// Every other issue still fails, and so do these two types on anything wholly in view or pinned
+/// (a pinned button or banner is never held). A held issue is still attached, with its reason.
+struct A11yScene {
+    /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming).
+    static let dimmingOverlay = "AdditionalDimmingOverlay"
+
+    /// The app's window, in points.
+    var window: CGRect = .zero
+    /// For `<prefix>-elements`: every text, button, image, field, switch, cell, bar and identified
+    /// container, with its frame, and the frame of the scroll view it scrolls in, if any.
+    var elements: [[String: Any]] = []
+    /// System chrome over the scrolling content: tab bars, navigation bars, toolbars, and the
+    /// scroll-edge dimming.
+    var chrome: [CGRect] = []
+    /// Every element inside a scroll view, table or collection view, with that container's frame.
+    var scrolling: [(label: String, frame: CGRect, container: CGRect)] = []
+
+    init() {}
+
+    @MainActor
+    init(_ app: XCUIApplication) {
+        guard let root = try? app.snapshot() else { return }
+        window = root.frame
+        walk(root, container: nil)
+    }
+
+    @MainActor
+    private mutating func walk(_ node: XCUIElementSnapshot, container: CGRect?) {
+        // Fields into locals first: `&&`/`||` autoclosures capturing the non-Sendable snapshot fail
+        // the Release test build (`AuditTourUITests.analyzeLayout`'s own note, run 37704108738).
+        let kind = node.elementType
+        let frame = Self.finite(node.frame)
+        let identifier = node.identifier
+        let label = node.label
+        let isOverlay = kind == .image && identifier == Self.dimmingOverlay
+        if kind == .tabBar || kind == .navigationBar || kind == .toolbar || isOverlay {
+            chrome.append(frame)
+        }
+        if let container {
+            scrolling.append((label: label, frame: frame, container: container))
+        }
+        let recorded: Set<XCUIElement.ElementType> = [.staticText, .button, .image, .tabBar, .navigationBar, .toolbar,
+                                                      .link, .textField, .switch, .cell, .other]
+        let visible = frame.width > 0 && frame.height > 0
+        if visible && recorded.contains(kind) && (kind != .other || !identifier.isEmpty) {
+            elements.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
+                             "frame": Self.json(frame), "inScrollView": container != nil,
+                             "scrollView": Self.json(container ?? .zero)])
+        }
+        let isScroller = kind == .scrollView || kind == .table || kind == .collectionView
+        let next = isScroller ? frame : container
+        for child in node.children {
+            walk(child, container: next)
+        }
+    }
+
+    /// The audit-position rule (this type's doc comment): the reason an issue is held, or `nil`.
+    func heldReason(auditType: String, label: String, frame rawFrame: CGRect) -> String? {
+        guard auditType == "contrast" || auditType == "textClipped" else { return nil }
+        let frame = Self.finite(rawFrame)
+        guard frame.width > 0, frame.height > 0 else { return nil }
+        guard let node = scrolling.first(where: { $0.label == label && Self.same($0.frame, frame) }) else { return nil }
+        let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
+        if !inView.contains(frame) { return "partly outside its scroll view or the window" }
+        if chrome.contains(where: { $0.intersects(frame) }) { return "under system chrome" }
+        return nil
+    }
+
+    static func same(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        abs(lhs.minX - rhs.minX) < 1 && abs(lhs.minY - rhs.minY) < 1
+            && abs(lhs.width - rhs.width) < 1 && abs(lhs.height - rhs.height) < 1
+    }
+
+    /// `.zero` for a null, infinite or non-finite frame (JSONSerialization rejects infinity).
+    static func finite(_ frame: CGRect) -> CGRect {
+        let parts = [frame.minX, frame.minY, frame.width, frame.height]
+        return !frame.isNull && !frame.isInfinite && parts.allSatisfy { $0.isFinite } ? frame : .zero
+    }
+
+    static func json(_ frame: CGRect) -> [String: Double] {
+        ["x": Double(frame.minX), "y": Double(frame.minY), "width": Double(frame.width), "height": Double(frame.height)]
     }
 }

@@ -95,11 +95,25 @@ private struct WhatIfSummary: View {
         VStack(alignment: .leading, spacing: TallySpacing.xs) {
             // One element with the words as its label: an identifier on a bare `Label` can land on
             // its icon (run 36454544581 read the flask's label, not the words).
-            Label(WhatIfCopy.simulationLabel, systemImage: "flask")
+            //
+            // MVP-2b (scope=a11y run 38338079168, hitRegion): with no trait, the combined element
+            // read as a generic one, which Xcode's audit treats as something to tap ("too small for
+            // user to interact", 218 x 15 pt). It is static text, and now says so. The summary is
+            // pinned chrome capped at AX2 (`tallyPinnedChromeTextSize()`), so it also offers the
+            // Large Content Viewer, the system's own companion to a capped bar (HIG). The inner
+            // texts carry identifiers so the audit's per-text findings can be named.
+            Label {
+                Text(verbatim: WhatIfCopy.simulationLabel)
+                    .accessibilityIdentifier("whatif.summary.simulationText")
+            } icon: {
+                Image(systemName: "flask")
+            }
                 .font(TallyTypography.footnote.weight(.semibold))
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(WhatIfCopy.simulationLabel)
+                .accessibilityAddTraits(.isStaticText)
+                .accessibilityShowsLargeContentViewer()
                 .accessibilityIdentifier("whatif.simulationLabel")
             // ux-fp2 D02: from AX1 up the projection and its change go under the label, each on
             // one line ("Project- / ed" beside "93.4%" at AX5).
@@ -107,23 +121,29 @@ private struct WhatIfSummary: View {
                 Text(L10n.CourseDetail.whatIfSummaryLabel())
                     .font(TallyTypography.subheadline)
                     .foregroundStyle(TallyColor.textSecondary)
+                    .accessibilityIdentifier("whatif.summary.projectedLabel")
                 Text(verbatim: model.hasNoGrade ? WhatIfCopy.noGradeDash : WhatIfCopy.percent(model.projected, locale: locale))
                     .font(.system(.title, design: .serif).bold())
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
                     .contentTransition(reduceMotion ? .identity : .numericText())
                     .tallyReflowValue()
+                    .accessibilityIdentifier("whatif.summary.projectedValue")
                 if let change = WhatIfCopy.change(model.delta) {
                     Text(change)
                         .font(TallyTypography.subheadline)
                         .foregroundStyle(TallyColor.textSecondary)
                         .monospacedDigit()
                         .tallyReflowValue()
+                        .accessibilityIdentifier("whatif.summary.change")
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(model.hasNoGrade ? WhatIfCopy.noGradeSpoken
                                 : WhatIfCopy.spoken(projected: model.projected, baseline: model.baseline, locale: locale))
+            // MVP-2b: static text, with the Large Content Viewer (the simulation label's note above).
+            .accessibilityAddTraits(.isStaticText)
+            .accessibilityShowsLargeContentViewer()
             .accessibilityIdentifier("whatif.projected")
         }
         .padding(.horizontal, TallySpacing.screenMargin)
@@ -221,7 +241,14 @@ private struct WhatIfItemRow: View {
                         // measured 4.02:1 in dark (5.94:1 in light), under 4.5:1 for 15 pt text.
                         // `textPrimary` is ≥ 4.5:1 on `bgCard` in both appearances.
                         .foregroundStyle(TallyColor.textPrimary)
-                        .accessibilityLabel(String(localized: L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
+                        // MVP-2b (elementDetection, run 38338079168: "appears to display text that
+                        // should be represented using the accessibility API"): the chip shows
+                        // "100%" but was labelled "Set Lab Report 4 to 100 percent", so the words on
+                        // screen were in no label (WCAG 2.5.3, label in name: Voice Control's "Tap
+                        // 100%" found nothing). The label is now the chip's own text, and the full
+                        // sentence, the same string, is its hint.
+                        .accessibilityLabel(Text(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))))
+                        .accessibilityHint(Text(L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
                 }
             }
             .sensoryFeedback(.selection, trigger: model.scores[item.id])
