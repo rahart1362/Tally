@@ -578,8 +578,8 @@ jobs:
       # MVP-2b: `IOS_RETRY=` (no retry) in this dispatch-only measurement scope. An audit finding
       # is deterministic, so a retry re-reports the same issues and doubles a failing class's time
       # (run 38313859274: 72 min of a 90-min cap); the release gate keeps its own retry. The Light
-      # step also runs FamilyUITests' two switcher audits, whose scope filter now logs what it
-      # ignores (docs/pmo/a11y-waivers.md's open item).
+      # step also runs FamilyUITests' two switcher audits, which judge the parent-mode screen by the
+      # suite's shared rules since MVP-2b (they used a prefix filter; docs/pmo/a11y-waivers.md).
       - name: "Accessibility audit: Light (default size, all types; AX5, dynamicType+textClipped)"
         env:
           TEST_RUNNER_TALLY_A11Y_AUDIT: "1"

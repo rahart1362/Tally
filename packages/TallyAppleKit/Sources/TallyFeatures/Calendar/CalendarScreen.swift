@@ -83,6 +83,11 @@ struct CalendarScreen: View {
                         .background(TallyColor.bgCanvas)
                     }
                 }
+                // MVP-2b: a container (its children stay their own elements) with an identifier, so
+                // the accessibility audit knows where this opaque pinned bar is: agenda rows above
+                // today pass under it by design (`A11yScene.pinnedBars`, AccessibilityAuditUITests).
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("calendar.pinnedHeader")
             }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).

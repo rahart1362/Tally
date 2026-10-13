@@ -173,10 +173,7 @@ private struct PaywallOffer: View {
                 .buttonStyle(.tallySecondary)
                 .accessibilityIdentifier("paywall.tryAgain")
             case .ready(let offer):
-                // MVP-2b: "$9.99/year" is one word, so a larger text size could only clip it or break
-                // it mid-word (Xcode's audit: "may be clipped at larger Dynamic Type sizes", run
-                // 38338079168); it now wraps after its slash ("$9.99/" / "year") if it must.
-                Text(verbatim: TallyTokenBreaks.breakable(SubscriptionOfferText.price(offer)))
+                Text(verbatim: SubscriptionOfferText.price(offer))
                     .font(TallyTypography.screenTitle)
                     .foregroundStyle(TallyColor.textPrimary)
                     .accessibilityLabel(Text(verbatim: SubscriptionOfferText.spokenPrice(offer)))

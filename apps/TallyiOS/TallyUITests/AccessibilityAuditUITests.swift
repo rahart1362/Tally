@@ -115,15 +115,6 @@ final class AccessibilityAuditUITests: TallyUITestCase {
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
-    /// MVP-2b: What-If opens at its medium height, where the system draws the sheet at about 0.96
-    /// scale (`ScoreStepper.buttonSide`'s note). Its large height is audited too, as a state of its
-    /// own (a student who pulls the sheet up sees it), in a method of its own so neither method
-    /// nears the 240 s allowance (`testWhatIf` took 140 s with two audits in run 38338079168).
-    @MainActor
-    func testWhatIfLargeDetent() throws {
-        auditScreen("whatIf", reach: { self.a11yReachWhatIfLarge(extra: $0) }, variant: "light-std-large")
-    }
-
     @MainActor
     func testCourseOptions() throws {
         auditScreen("courseOptions", reach: { self.a11yReachCourseOptions(extra: $0) }, variant: "light-std")
@@ -336,6 +327,14 @@ enum A11yWaivers {
         // in the toolbar buttons' glass shadow) and Settings' "Account" header (8.80:1).
         Key(elementIdentifier: "calendar.weekStrip.weekday", auditType: "contrast"),
         Key(elementIdentifier: "settings.accountHeader", auditType: "contrast"),
+        // Run 38350587735. Measured false positives: Paywall's Restore Purchases link (7.24:1 Light,
+        // 9.61:1 Increase Contrast) and the hand-off's "Choose a Different School" (`.tallySecondary`,
+        // the same style and the same pixels as Welcome's Explore: 5.44:1 / 7.02:1). And the price:
+        // VoiceOver reads it as words ("$9.99 per year", PAY-05), not the "$9.99/year" on screen,
+        // which the Audit tour shows whole on one line at AX5 on the smallest iPhone.
+        Key(elementIdentifier: "paywall.restore", auditType: "contrast"),
+        Key(elementIdentifier: "onboarding.signIn.chooseDifferentSchool", auditType: "contrast"),
+        Key(elementIdentifier: "paywall.price", auditType: "textClipped"),
     ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {
@@ -392,6 +391,18 @@ extension TallyUITestCase {
     /// unsupported" although it scales. AX5 keeps every real finding and none of that artifact.
     static let a11yDefaultSizeTypes = XCUIAccessibilityAuditType.all.subtracting(.dynamicType)
 
+    /// `types` split into the passes `runA11yAudit` runs: everything that measures the screen as
+    /// it is first, then `.textClipped`, then `.dynamicType` (both grow the text to predict larger
+    /// sizes; `runA11yAudit`'s doc comment has the two runs that showed why).
+    static func a11yPasses(_ types: XCUIAccessibilityAuditType) -> [XCUIAccessibilityAuditType] {
+        let growing: [XCUIAccessibilityAuditType] = [.textClipped, .dynamicType]
+        var passes: [XCUIAccessibilityAuditType] = []
+        let still = types.subtracting(.textClipped).subtracting(.dynamicType)
+        if !still.isEmpty { passes.append(still) }
+        for type in growing where types.contains(type) { passes.append(type) }
+        return passes
+    }
+
     /// Reaches a screen with `reach`, audits it, attaches the issue list, and terminates the app.
     /// One call per screen × variant, so a failure's message names both.
     @MainActor
@@ -429,10 +440,13 @@ extension TallyUITestCase {
     ///   and every element with its frame). Run 38338079168 lost the last two: a name with a dot
     ///   in it came out of `xcresulttool` without its `.json`.
     /// - Each issue records its element's frame, type and detailed description.
-    /// - `.dynamicType` runs in a pass of its own, after the others. Run 38338079168: in one
-    ///   `.all` audit, every contrast and clipping issue on a `List` screen came back with no
-    ///   element at all, because the Dynamic Type pass had grown the text and the list had
-    ///   rebuilt its rows by the time the issues were handed over.
+    /// - The checks that grow the text (`.textClipped`, `.dynamicType`) run after the others, each
+    ///   in a pass of its own (`a11yPasses`). Run 38338079168: in one `.all` audit, every contrast
+    ///   and clipping issue on a `List` screen came back with no element at all, because the list
+    ///   had rebuilt its rows at the larger size by the time the issues were handed over. Run
+    ///   38350587735: with `.textClipped` still in the first pass, Calendar's agenda (opened
+    ///   scrolled to today) moved while contrast was being measured — issues at y = 36, 150 and
+    ///   818 pt for rows the pre-audit snapshot had at 391, 458 and 483 pt.
     /// - `continueAfterFailure` stays `true` through this method's own assertion, so a failing
     ///   default-size audit no longer ends the test before its AX5 audit runs (run 38313859274
     ///   audited AX5 on only the three screens whose default-size audit passed).
@@ -447,10 +461,8 @@ extension TallyUITestCase {
         var unwaived: [String] = []
         let previousContinueAfterFailure = continueAfterFailure
         continueAfterFailure = true
-        let passes: [XCUIAccessibilityAuditType] = types.contains(.dynamicType) && types != .dynamicType
-            ? [types.subtracting(.dynamicType), .dynamicType]
-            : [types]
-        for pass in passes {
+        // The two checks that grow the text run last, each in a pass of its own (`a11yPasses`).
+        for pass in Self.a11yPasses(types) {
             do {
                 try app.performAccessibilityAudit(for: pass) { issue in
                     let typeName = Self.a11yAuditTypeName(issue.auditType)
@@ -486,42 +498,6 @@ extension TallyUITestCase {
         continueAfterFailure = previousContinueAfterFailure
     }
 
-    /// MVP-2b: `FamilyUITests`' switcher audits keep their scope filter's exact behaviour (an issue
-    /// `shouldIgnore` accepts is ignored, any other fails the test), and attach every issue the
-    /// filter ignored as `<name>-ignored-audit`, so `docs/pmo/a11y-waivers.md` can say what the
-    /// filter actually suppresses instead of guessing.
-    @MainActor
-    func a11yAuditRecordingIgnored(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, name: String,
-                                   ignoring shouldIgnore: @escaping (XCUIAccessibilityAuditIssue) -> Bool) throws {
-        let scene = a11yAttachScreen(app, name: "\(name)-audit")
-        var ignored: [[String: Any]] = []
-        var thrown: Error?
-        let previousContinueAfterFailure = continueAfterFailure
-        continueAfterFailure = true
-        do {
-            try app.performAccessibilityAudit(for: types) { issue in
-                let ignore = shouldIgnore(issue)
-                if ignore {
-                    // What the shared rules (an exact waiver, or the audit-position rule) would make
-                    // of it, recorded beside it: the evidence for replacing the prefix filter.
-                    let typeName = Self.a11yAuditTypeName(issue.auditType)
-                    let elementID = issue.element?.identifier ?? ""
-                    let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
-                    var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived)
-                    record["held"] = scene.heldReason(auditType: typeName, label: issue.element?.label ?? "",
-                                                      frame: issue.element?.frame ?? .zero) ?? ""
-                    ignored.append(record)
-                }
-                return ignore
-            }
-        } catch {
-            thrown = error
-        }
-        continueAfterFailure = previousContinueAfterFailure
-        attachA11yJSON(ignored, name: "\(name)-ignored-audit")
-        if let thrown { throw thrown }
-    }
-
     /// One issue as the JSON evidence records it. The frame is the element's own, in points; a
     /// missing or non-finite frame is recorded as zero (JSONSerialization rejects infinity, and
     /// one bad number would drop the whole attachment).
@@ -537,6 +513,9 @@ extension TallyUITestCase {
             "frame": A11yScene.json(frame),
             "description": issue.compactDescription,
             "detailedDescription": issue.detailedDescription,
+            // The issue's own description: when the element no longer resolves (a `List` rebuilt
+            // at a larger size), this is the only other place that may still name it.
+            "issue": String(describing: issue),
             "waived": waived ? "true" : "false",
         ]
     }
@@ -661,14 +640,12 @@ extension TallyUITestCase {
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "Hierarchy: \(app.debugDescription)")
         whatIf.tap()
         XCTAssertTrue(element("whatif.simulationLabel", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-        return app
-    }
-
-    /// What-If pulled up to its large height (`CourseDetailUITests`' own gesture: a swipe up on
-    /// the sheet's navigation bar).
-    @MainActor
-    func a11yReachWhatIfLarge(extra: [String] = []) -> XCUIApplication {
-        let app = a11yReachWhatIf(extra: extra)
+        // MVP-2b: audited at its large height, fully presented (the Audit tour captures it the same
+        // way). At the medium height the system draws the sheet at 0.96 scale (`ScoreStepper.
+        // buttonSide`'s note; run 38350587735 read Reset as 64.65 x 34.57 pt there, 67.33 x 36 pt
+        // pulled up), and the audit's text checks misfire on the scaled text: 4 textClipped and
+        // 4 elementDetection at the medium height, light and dark alike, and none on the same
+        // rows, chips and summary pulled up (`whatIf-light-std-large`, same run, every type).
         let sheetBar = app.navigationBars["What-If"]
         XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
         sheetBar.swipeUp()
@@ -772,12 +749,16 @@ extension TallyUITestCase {
 ///
 /// So the rule holds only what it must: a `contrast` or `textClipped` issue, on an element that
 /// scrolls (it sits in a scroll view, table or collection view), which at the audit moment is not
-/// wholly in view — part of it lies outside its scroll view or the window, or under system chrome.
+/// wholly in view — part of it lies outside its scroll view or the window, under system chrome, or
+/// under one of the app's own opaque pinned bars (`pinnedBars`: Calendar's week strip).
 /// Every other issue still fails, and so do these two types on anything wholly in view or pinned
 /// (a pinned button or banner is never held). A held issue is still attached, with its reason.
 struct A11yScene {
     /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming).
     static let dimmingOverlay = "AdditionalDimmingOverlay"
+    /// The app's own pinned bars that scrolling content passes under (opaque, so text there is
+    /// hidden by design): Calendar's week strip with its breadcrumb (`CalendarScreen.swift`).
+    static let pinnedBars: Set<String> = ["calendar.pinnedHeader"]
 
     /// The app's window, in points.
     var window: CGRect = .zero
@@ -789,6 +770,8 @@ struct A11yScene {
     var chrome: [CGRect] = []
     /// Every element inside a scroll view, table or collection view, with that container's frame.
     var scrolling: [(label: String, frame: CGRect, container: CGRect)] = []
+    /// The frames of `pinnedBars` on this screen.
+    var pinned: [CGRect] = []
 
     init() {}
 
@@ -810,6 +793,9 @@ struct A11yScene {
         let isOverlay = kind == .image && identifier == Self.dimmingOverlay
         if kind == .tabBar || kind == .navigationBar || kind == .toolbar || isOverlay {
             chrome.append(frame)
+        }
+        if Self.pinnedBars.contains(identifier) {
+            pinned.append(frame)
         }
         if let container {
             scrolling.append((label: label, frame: frame, container: container))
@@ -838,6 +824,7 @@ struct A11yScene {
         let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
         if !inView.contains(frame) { return "partly outside its scroll view or the window" }
         if chrome.contains(where: { $0.intersects(frame) }) { return "under system chrome" }
+        if pinned.contains(where: { $0.intersects(frame) }) { return "under the screen's pinned bar" }
         return nil
     }
 

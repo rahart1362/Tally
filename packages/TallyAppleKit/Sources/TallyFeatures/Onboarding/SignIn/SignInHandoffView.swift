@@ -80,7 +80,8 @@ struct SignInHandoffView: View {
             ExpectationRow(
                 symbol: "bubble.left.fill",
                 title: L10n.Onboarding.SignIn.expectation2Title(),
-                detail: L10n.Onboarding.SignIn.expectation2Detail(TallyTokenBreaks.breakable(viewModel.host))
+                detail: L10n.Onboarding.SignIn.expectation2Detail(TallyTokenBreaks.breakable(viewModel.host)),
+                spokenDetail: L10n.Onboarding.SignIn.expectation2Detail(viewModel.host)
             )
             Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
             ExpectationRow(
@@ -123,6 +124,8 @@ struct SignInHandoffView: View {
                 .buttonStyle(.tallySecondary)
                 .frame(maxWidth: .infinity)
                 .disabled(viewModel.phase == .presenting)
+                // MVP-2b: names it for its measured contrast waiver (`docs/pmo/a11y-waivers.md`).
+                .accessibilityIdentifier("onboarding.signIn.chooseDifferentSchool")
         }
     }
 }
@@ -134,7 +137,8 @@ struct SignInHandoffView: View {
 /// label is now "School" with the address as its value (VoiceOver: "School, canvas.northfield.
 /// example"; "School" is Settings' existing row title), the address wraps only at its dots
 /// (`TallyTokenBreaks`), and from AX1 up the tag is a rounded rectangle, which keeps its shape
-/// around several lines.
+/// around several lines, with the icon above the address so the address has the tag's full width
+/// (run 38350587735: beside the icon, "northfield." filled the AX5 tag to its edge).
 private struct SchoolAddressTag: View {
     let host: String
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -143,7 +147,7 @@ private struct SchoolAddressTag: View {
         let shape = typeSize.isAccessibilitySize
             ? AnyShape(RoundedRectangle(cornerRadius: TallyRadius.tile, style: .continuous))
             : AnyShape(Capsule())
-        Label(TallyTokenBreaks.breakable(host), systemImage: "building.columns")
+        content
             .font(TallyTypography.subheadline)
             .foregroundStyle(TallyColor.textSecondary)
             .padding(.horizontal, TallySpacing.md)
@@ -155,12 +159,40 @@ private struct SchoolAddressTag: View {
             .accessibilityAddTraits(.isStaticText)
             .accessibilityIdentifier("onboarding.signIn.school")
     }
+
+    @ViewBuilder
+    private var content: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                icon
+                address
+            }
+        } else {
+            Label { address } icon: { icon }
+        }
+    }
+
+    private var icon: some View {
+        Image(systemName: "building.columns")
+    }
+
+    /// Shown with its break opportunities; its own label is the plain address (run 38350587735:
+    /// the title and the button, whose labels are plain, cleared the audit's clipping check; this
+    /// text and the expectation line, whose labels carried the invisible breaks, did not).
+    private var address: some View {
+        Text(verbatim: TallyTokenBreaks.breakable(host))
+            .accessibilityLabel(Text(verbatim: host))
+            .accessibilityIdentifier("onboarding.signIn.schoolText")
+    }
 }
 
 private struct ExpectationRow: View {
     let symbol: String
     let title: LocalizedStringResource
     let detail: LocalizedStringResource
+    /// MVP-2b: what VoiceOver reads for `detail` when it differs from what is drawn (the school
+    /// address drawn with break opportunities, `TallyTokenBreaks`; read plain).
+    var spokenDetail: LocalizedStringResource?
 
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
@@ -175,6 +207,7 @@ private struct ExpectationRow: View {
                 Text(detail)
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
+                    .accessibilityLabel(Text(spokenDetail ?? detail))
             }
         }
         .padding(TallySpacing.md)
