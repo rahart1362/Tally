@@ -215,6 +215,138 @@ jobs:
           python3 scripts/ci/check_release.py \
             --flows "Release=$RUNNER_TEMP/flows-release-tests.json" "Debug=$RUNNER_TEMP/flows-debug-tests.json" \
             --json "$RUNNER_TEMP/compliance/flows.json" || [ $? -eq 1 ]
+      # MVP-2 (UX-WP-22): REL.a11y.audit, due MVP. Three invocations, not one, because the
+      # simulator's own appearance has to be set with `xcrun simctl ui <udid> appearance light|dark`
+      # *before* `xcodebuild test` runs (`XCUIDevice.shared.appearance` alone does not reliably
+      # repaint it — AuditTourUITests.swift's own doc comment, run 37649050231) — so a Light test
+      # and a Dark test cannot share one xcodebuild run. AccessibilityAuditUITests.swift's own top
+      # doc comment has the full rationale for all three classes.
+      - name: "Accessibility audit (MVP-2): Light, Dark, Increase Contrast"
+        env:
+          # AccessibilityAuditUITests.swift's own gate (XCTSkipUnless, same mechanism
+          # AuditTourUITests uses for AUDIT_APPEARANCE): every method in all three classes skips
+          # unless this is set. PMO direction after run 38280762497 (a plain scope=quick dispatch
+          # hit CI's own 110-minute cap bundling them with the rest of TallyUITests).
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
+        run: |
+          set +e -o pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          # The suite's own waiver registry is the source of truth (AccessibilityAuditUITests.swift's
+          # `A11yWaivers.waived` doc comment has the exact format this counts: `Key(elementIdentifier:`
+          # at the start of its own line, one entry per line).
+          waivers="$(grep -cE '^[[:space:]]*Key\(elementIdentifier:' apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swift)"
+          echo "RELEASE | a11y-audit | $waivers waiver(s) in A11yWaivers.waived"
+
+          echo "RELEASE | a11y-audit | appearance: $(xcrun simctl ui "$udid" appearance light; xcrun simctl ui "$udid" appearance)"
+          # shellcheck disable=SC2086
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Debug \
+            -destination "platform=iOS Simulator,id=$udid" -derivedDataPath "$RUNNER_TEMP/dd-a11y-light" \
+            -only-testing:TallyUITests/AccessibilityAuditUITests \
+            -resultBundlePath "$RUNNER_TEMP/A11y-light.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/a11y-light.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/A11y-light.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/A11y-light.xcresult" --compact \
+              > "$RUNNER_TEMP/a11y-light-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/A11y-light.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/a11y-light-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/a11y-light-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/a11y-light-tests.json"
+          fi
+
+          echo "RELEASE | a11y-audit | appearance: $(xcrun simctl ui "$udid" appearance dark; xcrun simctl ui "$udid" appearance)"
+          # shellcheck disable=SC2086
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Debug \
+            -destination "platform=iOS Simulator,id=$udid" -derivedDataPath "$RUNNER_TEMP/dd-a11y-dark" \
+            -only-testing:TallyUITests/AccessibilityAuditDarkUITests \
+            -resultBundlePath "$RUNNER_TEMP/A11y-dark.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/a11y-dark.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/A11y-dark.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/A11y-dark.xcresult" --compact \
+              > "$RUNNER_TEMP/a11y-dark-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/A11y-dark.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/a11y-dark-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/a11y-dark-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/a11y-dark-tests.json"
+          fi
+
+          # Back to Light (every other screen's own colours assume it), then Increase Contrast.
+          # ux-ui.md §3.9's own "Harness" note: `simctl ui`'s `increase_contrast` subcommand is
+          # UNVERIFIED on the CI simulator — a failing command here is not fatal, since the suite's
+          # launch argument fallback (AccessibilityAuditUITests.swift's top doc comment) still runs
+          # regardless.
+          xcrun simctl ui "$udid" appearance light
+          xcrun simctl ui "$udid" increase_contrast enabled \
+            || echo "RELEASE | a11y-audit | simctl ui increase_contrast not available on this runner; relying on the suite's own launch-argument fallback"
+          echo "RELEASE | a11y-audit | increase_contrast: $(xcrun simctl ui "$udid" increase_contrast 2>&1)"
+          # shellcheck disable=SC2086
+          xcodebuild test -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration Debug \
+            -destination "platform=iOS Simulator,id=$udid" -derivedDataPath "$RUNNER_TEMP/dd-a11y-contrast" \
+            -only-testing:TallyUITests/AccessibilityAuditContrastUITests \
+            -resultBundlePath "$RUNNER_TEMP/A11y-contrast.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/a11y-contrast.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/A11y-contrast.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/A11y-contrast.xcresult" --compact \
+              > "$RUNNER_TEMP/a11y-contrast-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/A11y-contrast.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/a11y-contrast-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/a11y-contrast-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/a11y-contrast-tests.json"
+          fi
+          xcrun simctl ui "$udid" increase_contrast disabled 2>/dev/null || true
+
+          python3 scripts/ci/check_release.py --a11y-audit \
+            "$RUNNER_TEMP/a11y-light-tests.json" "$RUNNER_TEMP/a11y-dark-tests.json" "$RUNNER_TEMP/a11y-contrast-tests.json" \
+            --waivers "$waivers" --json "$RUNNER_TEMP/compliance/a11y-audit.json" || [ $? -eq 1 ]
+      - name: Export the accessibility audit's issue JSON (evidence, not just a pass/fail count)
+        # `runA11yAudit` (AccessibilityAuditUITests.swift) attaches one `<screen>-<variant>-audit`
+        # JSON per audit call, every issue it found whether waived or not (type, element,
+        # description) — the detail this host cannot read any other way (no Xcode, no
+        # xcresulttool). `xcresulttool export attachments` only runs on this macOS runner; keep
+        # just the JSON (not the xcresult's own screenshots), named for the Opus review (gate 2).
+        #
+        # Run 38306768609 (ci.yml's scope=a11y, the same export logic): the exported filename on
+        # disk is an opaque UUID, not the readable `suggestedHumanReadableName` — filtering by
+        # `*audit*.json` on the raw filenames matched nothing and deleted every file. Renames from
+        # each bundle's own `manifest.json` first, the way `audit-tour.yml` already does it.
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/a11y-evidence"
+          for bundle in A11y-light A11y-dark A11y-contrast; do
+            if [ -d "$RUNNER_TEMP/$bundle.xcresult" ]; then
+              mkdir -p "$RUNNER_TEMP/a11y-evidence/$bundle"
+              xcrun xcresulttool export attachments --path "$RUNNER_TEMP/$bundle.xcresult" \
+                --output-path "$RUNNER_TEMP/a11y-evidence/$bundle" || true
+            fi
+          done
+          python3 - "$RUNNER_TEMP/a11y-evidence" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          for sub in os.listdir(root):
+              manifest_path = os.path.join(root, sub, "manifest.json")
+              if not os.path.isfile(manifest_path):
+                  continue
+              for test in json.load(open(manifest_path)):
+                  for a in test.get("attachments", []):
+                      name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                      name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+                      src = os.path.join(root, sub, a["exportedFileName"])
+                      dst = os.path.join(root, sub, name)
+                      if os.path.exists(src) and not os.path.exists(dst):
+                          os.rename(src, dst)
+          PY
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
+          find "$RUNNER_TEMP/a11y-evidence" -type f | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: a11y-audit-evidence
+          path: ${{ runner.temp }}/a11y-evidence
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Device archive (Release, unsigned)
         id: archive
         run: |
@@ -337,21 +469,20 @@ jobs:
           retention-days: 30
 
   a11y-perf-shots:
-    name: Accessibility audit, launch metric and screenshots (stub, M5)
+    name: Launch metric and screenshots (stub, M5)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # M5 (ASC-12, R12, R14): performAccessibilityAudit() per screen with AX5 text, Dark, Reduce Motion
-    # and Increase Contrast; XCTApplicationLaunchMetric against a stored baseline (fail on > 20%);
+    # M5 (ASC-12, R14): XCTApplicationLaunchMetric against a stored baseline (fail on > 20%);
     # screenshot scenes at 1320x2868 (and 2064x2752 if iPad ships), status bar overridden, RGB, no
     # alpha. Until then this job records each as PENDING, so the report shows what M5 still owes.
+    # MVP-2 (UX-WP-22): the accessibility-audit line this job used to stub (REL.m5.accessibility-audit)
+    # is REL.a11y.audit now, due MVP, a real check from `ios-gate`'s own "Accessibility audit" step —
+    # not pending, not here.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Record the M5 checks as pending
         run: |
           mkdir -p "$RUNNER_TEMP/compliance"
-          python3 scripts/ci/check_release.py --pending REL.m5.accessibility-audit M5 "M5 (UX accessibility; R12)" \
-            "not implemented: performAccessibilityAudit() on each screen, at AX5, Dark, Reduce Motion and Increase Contrast" \
-            --title "Accessibility audit: 0 unwaived issues" --json "$RUNNER_TEMP/compliance/m5-a11y.json" || [ $? -eq 1 ]
           python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
             "not implemented: XCTApplicationLaunchMetric against a stored baseline, failing on a regression over 20%" \
             --title "Launch time within 20% of the baseline" --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
@@ -403,7 +534,7 @@ jobs:
               "job result: $result" --title "The $job job ran to completion" $extra --json "$dir/job-$job.json" > /dev/null || true
           done
           for report in source widget-sources toolchain build-release-simulator flows build-device-archive \
-                        m5-a11y m5-launch m5-screenshots; do
+                        a11y-audit m5-launch m5-screenshots; do
             [ -f "$dir/$report.json" ] && continue
             python3 scripts/ci/check_release.py --result "REL.report.$report" fail "no $report.json was produced" \
               --title "The $report report exists" --json "$dir/missing-$report.json" > /dev/null || true

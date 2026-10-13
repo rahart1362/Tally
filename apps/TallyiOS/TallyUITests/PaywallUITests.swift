@@ -92,6 +92,15 @@ final class PaywallUITests: TallyUITestCase {
     /// REL.flow.12-privacy-policy-link (release-gate.yml, M3): tapping it leaves Tally — the system
     /// opens the page, the same "leaves the app" signal `AppLockUITests` uses for Face ID handing off
     /// to the system — rather than doing nothing or opening an in-app sheet.
+    ///
+    /// MVP-2 (release-gate run 38264351524, this method at its old line 103: "tapping Privacy
+    /// Policy did not leave Tally", passed on CI's automatic retry): `scrollUntilHittable` only
+    /// proves the row is hittable the instant the swipe loop stops, not that the sheet has finished
+    /// decelerating — a tap that lands while it is still settling can miss. `waitUntilRowAtRest`
+    /// (`ScreenUITestSupport.swift`, written for exactly this) waits for the row's frame to stop
+    /// moving before the tap. The leave-foreground wait is longer, and now also accepts Safari
+    /// itself reaching `.runningForeground`: a cold Safari launch on a loaded CI simulator can take
+    /// longer to register than Tally's own transition out of the foreground.
     @MainActor
     func testPrivacyPolicyLinkOpens() throws {
         let app = launchSample(arguments: TestHooks.entitlement("none"))
@@ -99,9 +108,13 @@ final class PaywallUITests: TallyUITestCase {
         openPaywallThroughTheInterstitial(app)
         let privacy = element("paywall.privacy", in: app)
         XCTAssertTrue(scrollUntilHittable(privacy, in: app), "Privacy Policy is out of reach. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(waitUntilRowAtRest(privacy, in: app), "the Privacy Policy row never settled. Hierarchy: \(app.debugDescription)")
         privacy.tap()
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10) || app.wait(for: .runningBackgroundSuspended, timeout: 5),
-                     "tapping Privacy Policy did not leave Tally. Hierarchy: \(app.debugDescription)")
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        XCTAssertTrue(
+            app.wait(for: .runningBackground, timeout: scaled(20)) || app.wait(for: .runningBackgroundSuspended, timeout: scaled(10))
+                || safari.wait(for: .runningForeground, timeout: scaled(20)),
+            "tapping Privacy Policy did not leave Tally, and Safari never came to the foreground. Hierarchy: \(app.debugDescription)")
     }
 
     // MARK: - PAY-06: placement
@@ -231,31 +244,6 @@ final class PaywallUITests: TallyUITestCase {
         tapWhenHittable(app.buttons["Continue to \(Self.demoHost)"], in: app, timeout: LifecycleUITest.tapTimeout)
     }
 
-    /// Settings → Subscription.
-    @MainActor
-    private func openSubscriptionSettings(_ app: XCUIApplication) {
-        openSettings(app)
-        let row = app.buttons["settings.subscription"]
-        XCTAssertTrue(scrollUntilHittable(row, in: app), "no Subscription row in Settings. Hierarchy: \(app.debugDescription)")
-        row.tap()
-        XCTAssertTrue(app.navigationBars["Subscription"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
-    }
-
-    /// PAY-09: See Plans → "[Check My School] [Continue]" → Continue.
-    @MainActor
-    private func openPaywallThroughTheInterstitial(_ app: XCUIApplication) {
-        let seePlans = app.buttons["subscription.seePlans"]
-        XCTAssertTrue(scrollUntilHittable(seePlans, in: app), "no See Plans. Hierarchy: \(app.debugDescription)")
-        seePlans.tap()
-        let interstitial = app.alerts.firstMatch
-        XCTAssertTrue(interstitial.waitForExistence(timeout: scaled(10)),
-                      "sample mode went to the paywall with no interstitial. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(interstitial.buttons["Check My School"].exists, "Hierarchy: \(app.debugDescription)")
-        tapWhenHittable(interstitial.buttons["Continue"], in: app)
-        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
-                      "Continue did not open the paywall. Hierarchy: \(app.debugDescription)")
-    }
-
     /// PAY-05: every element, by identifier. The test App Store's offer: a year at "$9.99", with the
     /// one-month free trial when eligible.
     @MainActor
@@ -286,5 +274,35 @@ final class PaywallUITests: TallyUITestCase {
         let labels = ["Start Free Trial", "Subscribe", "See Plans"]
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label IN %@", labels)).count, 0,
                        "a purchase button at \(place). Hierarchy: \(app.debugDescription)", file: file, line: line)
+    }
+}
+
+/// Shared with `AccessibilityAuditUITests` (MVP-2, same target): an `extension TallyUITestCase`,
+/// not members of `PaywallUITests`, so a `TallyUITestCase` subclass other than this one can also
+/// reach the paywall through the same Sample Data path, rather than duplicating the steps.
+extension TallyUITestCase {
+    /// Settings → Subscription.
+    @MainActor
+    func openSubscriptionSettings(_ app: XCUIApplication) {
+        openSettings(app)
+        let row = app.buttons["settings.subscription"]
+        XCTAssertTrue(scrollUntilHittable(row, in: app), "no Subscription row in Settings. Hierarchy: \(app.debugDescription)")
+        row.tap()
+        XCTAssertTrue(app.navigationBars["Subscription"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+    }
+
+    /// PAY-09: See Plans → "[Check My School] [Continue]" → Continue.
+    @MainActor
+    func openPaywallThroughTheInterstitial(_ app: XCUIApplication) {
+        let seePlans = app.buttons["subscription.seePlans"]
+        XCTAssertTrue(scrollUntilHittable(seePlans, in: app), "no See Plans. Hierarchy: \(app.debugDescription)")
+        seePlans.tap()
+        let interstitial = app.alerts.firstMatch
+        XCTAssertTrue(interstitial.waitForExistence(timeout: scaled(10)),
+                      "sample mode went to the paywall with no interstitial. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(interstitial.buttons["Check My School"].exists, "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(interstitial.buttons["Continue"], in: app)
+        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "Continue did not open the paywall. Hierarchy: \(app.debugDescription)")
     }
 }

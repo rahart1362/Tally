@@ -29,6 +29,10 @@ struct SchoolNotEnabledView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.tallyPrimary)
+                // MVP-2: no UI test could reach this screen by identifier before (only by its
+                // English label, which Spanish changes); AccessibilityAuditUITests needs a
+                // locale-safe waypoint like every other screen in this flow.
+                .accessibilityIdentifier("schoolSearch.askMySchool")
 
                 Button(String(localized: L10n.Account.exploreWithSampleData()), action: onExploreSampleData)
                     .buttonStyle(.tallySecondary)
