@@ -515,6 +515,36 @@ extension TallyUITestCase {
         let window = app.frame
         attachA11yJSON(["x": Double(window.minX), "y": Double(window.minY), "width": Double(window.width),
                         "height": Double(window.height)], name: "\(name).window-audit")
+        attachA11yJSON(a11yElementDump(app), name: "\(name).elements-audit")
+    }
+
+    /// Every visible text, button, image, tab bar and navigation bar in one `app.snapshot()` (one
+    /// IPC call): type, identifier, label and frame. The issues name only the flagged elements; this
+    /// lets the same pixels be measured for the elements the audit passed, and shows where the
+    /// system bars sit at the audit moment.
+    @MainActor
+    private func a11yElementDump(_ app: XCUIApplication) -> [[String: Any]] {
+        guard let root = try? app.snapshot() else { return [] }
+        let kinds: Set<XCUIElement.ElementType> = [.staticText, .button, .image, .tabBar, .navigationBar, .link,
+                                                     .textField, .switch, .cell, .other]
+        var out: [[String: Any]] = []
+        func walk(_ node: XCUIElementSnapshot) {
+            // Fields into locals first: `&&`'s autoclosure capturing the non-Sendable snapshot fails
+            // the Release test build (`AuditTourUITests.analyzeLayout`'s own note, run 37704108738).
+            let kind = node.elementType
+            let frame = node.frame
+            let identifier = node.identifier
+            let label = node.label
+            let finite = !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+            if finite && kinds.contains(kind) && (kind != .other || !identifier.isEmpty) {
+                out.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
+                            "frame": ["x": Double(frame.minX), "y": Double(frame.minY),
+                                      "width": Double(frame.width), "height": Double(frame.height)]])
+            }
+            for child in node.children { walk(child) }
+        }
+        walk(root)
+        return out
     }
 
     @MainActor
