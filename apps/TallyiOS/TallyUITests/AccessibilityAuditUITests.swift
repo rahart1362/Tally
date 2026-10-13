@@ -659,15 +659,31 @@ extension TallyUITestCase {
         // rows, chips and summary pulled up (`whatIf-light-std-large`, same run, every type).
         let sheetBar = app.navigationBars["What-If"]
         XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
-        // Run 38357314250: one swipe left the Dark sheet at its medium height. Pulled up means the
-        // bar sits in the top quarter of the screen; a second, slower drag if the first missed.
+        // Pulled up means the bar sits in the top quarter of the screen. Run 38357314250: a swipe
+        // on the bar left the Dark sheet at its medium height; release gate 38381878113: at AX5 a
+        // swipe on the bar and a slow drag from it both did. The Audit tour's own gesture,
+        // `app.swipeUp()`, pulled the sheet up on all 8 of its AX5 captures (runs 38339844918 and
+        // 38372167047), so it goes first, once the sheet has finished presenting; the other two
+        // are fallbacks.
         let pulledUp = { sheetBar.frame.minY < app.frame.height / 4 }
-        sheetBar.swipeUp()
-        if !eventually(timeout: 3, { pulledUp() }) {
-            sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                .press(forDuration: 0.2, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+        _ = eventually(timeout: 3, {
+            let before = sheetBar.frame
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            return before == sheetBar.frame
+        })
+        let gestures: [@MainActor () -> Void] = [
+            { app.swipeUp() },
+            { sheetBar.swipeUp() },
+            {
+                sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    .press(forDuration: 0.2, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+            },
+        ]
+        for gesture in gestures where !pulledUp() {
+            gesture()
+            _ = eventually(timeout: 3, { pulledUp() })
         }
-        XCTAssertTrue(eventually(timeout: 3, { pulledUp() }), "What-If did not reach its large height: \(sheetBar.frame)")
+        XCTAssertTrue(pulledUp(), "What-If did not reach its large height: \(sheetBar.frame)")
         return app
     }
 
