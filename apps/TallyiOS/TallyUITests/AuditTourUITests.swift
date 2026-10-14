@@ -851,6 +851,13 @@ final class AuditTourUITests: TallyUITestCase {
         searchField.typeText(Self.demoHost)
         guard go(element("schoolSearch.useAddress", in: app), app, screen: "demoSignIn", state: "useSchool",
                  reachedVia: "typed \(Self.demoHost)") else { return }
+        // MVP-2b gate-2 round 2 (item 16): `go`/`goScrolling` only screenshot on *failure*
+        // ("missing-<state>"), so the hand-off screen's own look (the school tag, "Choose a
+        // Different School") had never been captured by this tour on any device — only by the
+        // a11y audit suite's one fixed device (402 pt, `AccessibilityAuditUITests.a11yReachHandoff`).
+        // Captured here, before the tap below, so it is on screen regardless of whether
+        // `continueTo` itself needs a scroll to reach (AX5).
+        snap(app, screen: "demoSignIn", state: "handoff", reachedVia: "typed \(Self.demoHost)")
         // CI run 37639511433: `go` alone missed this at AX5 on every leg (the confirmation screen's
         // button is below the fold at that text size) — `goScrolling` degrades to the same
         // "missing" recording if it still can't be found, so this can only help, never regress.
