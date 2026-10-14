@@ -76,7 +76,7 @@ struct CalendarScreen: View {
                     if !calendar.week.isEmpty {
                         WeekStrip(days: calendar.week, selected: selectedDay ?? calendar.todayID) { day in
                             selectedDay = day
-                            withAnimation { proxy.scrollTo(day, anchor: .top) }
+                            scrollBelowPinnedStrip(day, with: proxy, animated: true)
                         }
                         .padding(.horizontal, TallySpacing.sm)
                         .padding(.vertical, TallySpacing.xs)
@@ -91,7 +91,9 @@ struct CalendarScreen: View {
             }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).
-                if let today = calendar.todayID, selectedDay == nil { proxy.scrollTo(today, anchor: .top) }
+                if let today = calendar.todayID, selectedDay == nil {
+                    scrollBelowPinnedStrip(today, with: proxy, animated: false)
+                }
             }
         }
         .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
@@ -155,6 +157,26 @@ struct CalendarScreen: View {
             return
         }
         openURL(url)
+    }
+
+    /// MVP-2b gate-2 round 2 (verdict item 8): `ScrollViewReader.scrollTo(_:anchor:.top)` measures
+    /// a `List` row's position against this screen's own `safeAreaInset` strip above (D01), but a
+    /// `List`'s rows are not all measured up front, so a row further down the agenda can be
+    /// positioned before the strip's reserved height is fully settled — the selected day's heading,
+    /// and the first row under it, came to rest partly or fully hidden beneath the strip
+    /// (gate-2 review, `calendar-first-day-hidden-under-strip.jpg`: the heading's own frame
+    /// overlapping the pinned header's by up to its full height). A second call, one run loop turn
+    /// later, re-measures against the now-settled layout and corrects it; the first call keeps the
+    /// screen from sitting at the wrong offset for that one turn.
+    private func scrollBelowPinnedStrip(_ day: Date, with proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation { proxy.scrollTo(day, anchor: .top) }
+        } else {
+            proxy.scrollTo(day, anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            proxy.scrollTo(day, anchor: .top)
+        }
     }
 }
 
