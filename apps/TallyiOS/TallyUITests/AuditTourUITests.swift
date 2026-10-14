@@ -492,8 +492,27 @@ final class AuditTourUITests: TallyUITestCase {
         stepNumber = 120
         resetAppState()
 
-        let app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
-        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
+        var app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
+        // MVP-2b gate-2 round 3 (verdict item 7): round 2's `xxxLarge` leg on the smallest iPhone
+        // reached the Dashboard directly, bypassing Welcome. `resetAppState()` above asserts it
+        // reached Welcome (`LifecycleUITestSupport`), but with `continueAfterFailure = true` already
+        // set, that assertion failing would not stop this method — it would fall straight into
+        // `signInToDemoSchool`'s own cascade of "missing-<state>" screenshots, each one actually
+        // showing the Dashboard, which is how the review could tell where this had landed without
+        // this method naming it itself. One extra reset-and-relaunch, only when Welcome is not
+        // there, is cheap and self-healing; if it still is not there, a dedicated screenshot names
+        // the real state once, instead of that cascade.
+        if !element("account.findMySchool", in: app).waitForExistence(timeout: 30) {
+            app.terminate()
+            resetAppState()
+            app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
+            if !element("account.findMySchool", in: app).waitForExistence(timeout: 30) {
+                snap(app, screen: "demoSignIn", state: "missing-welcome", reachedVia: "reset twice, Welcome still did not appear")
+                app.terminate()
+                finish("I")
+                return
+            }
+        }
         signInToDemoSchool(app)
 
         // First sync progress, once its content is stable — racing the root switch to Home, so this
@@ -846,7 +865,14 @@ final class AuditTourUITests: TallyUITestCase {
         guard go(element("account.findMySchool", in: app), app, screen: "demoSignIn", state: "schoolSearch", reachedVia: "Find My School")
         else { return }
         let searchField = schoolSearchField(app)
-        guard go(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field", timeout: 5)
+        // MVP-2b gate-2 round 3 (verdict item 7): round 2's xxxLarge leg recorded
+        // "missing-searchField" on Pro Max — the plain system `.searchable` field this size still
+        // uses (below AX1, `SchoolSearchView.swift`'s own `isAccessibilitySize` gate), under a
+        // large navigation title with xxxLarge's own large text, did not become hittable inside
+        // `go`'s plain 5 s wait. `goScrolling` degrades to the same "missing" recording if it still
+        // cannot be found, so raising the timeout and allowing a scroll (the same reasoning already
+        // applied to `continueTo` below) can only help, never regress.
+        guard goScrolling(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field")
         else { return }
         searchField.typeText(Self.demoHost)
         guard go(element("schoolSearch.useAddress", in: app), app, screen: "demoSignIn", state: "useSchool",
