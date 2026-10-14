@@ -24,6 +24,11 @@ struct CalendarScreen: View {
     @State private var selectedDay: Date?
     @State private var draft: CalendarEventDraft?
     @State private var showsSampleFeedNote = false
+    /// MVP-2b gate-2 round 3 (verdict item 1, PMO note). The strip's own measured height (never a
+    /// fixed number: it scales with Dynamic Type and changes shape from AX1 up, D18), fed to
+    /// `.contentMargins(.top:)` below so `scrollTo` reserves exactly as much room as the strip
+    /// actually draws.
+    @State private var pinnedStripHeight: CGFloat = 0
 
     var body: some View {
         let calendar = model.calendarScreen
@@ -92,9 +97,23 @@ struct CalendarScreen: View {
             // collapsed into the bar, but on a day whose row is first it opens at the scroll edge,
             // where a `.visible` fill would paint over the large title as on the other four roots.
             .tallyLargeTitleScreenChrome()
-            // The week strip stays in place above the agenda (it is how the student moves through
-            // the week), under the breadcrumb when one shows.
-            .safeAreaInset(edge: .top, spacing: 0) {
+            // MVP-2b gate-2 round 3 (verdict item 1, PMO note). `.safeAreaInset(edge: .top)`
+            // (round 1 onward) places the strip correctly, but `List`'s `ScrollViewProxy.scrollTo`
+            // does not read that inset when computing an anchor's target offset — a documented
+            // `List`/`ScrollViewReader` gap, confirmed empirically (CI runs 38608671835,
+            // 38623450627: the heading landed near the navigation bar's own height, short of the
+            // strip's extra reservation, however the anchor or the timing was adjusted).
+            // `.contentMargins(.top:, for: .scrollContent)` IS read by `scrollTo` (it is the same
+            // mechanism `tallyList()` already uses for the horizontal margins), so the strip's own
+            // measured height now drives that margin instead. The strip itself moves to an
+            // `.overlay` so the two mechanisms never double-reserve the same space — only
+            // `contentMargins` reserves scroll room; the overlay only draws, inside the safe area
+            // (unchanged: no `.ignoresSafeArea()`), so it still starts right below the navigation
+            // bar exactly where the inset view used to.
+            .contentMargins(.top, pinnedStripHeight, for: .scrollContent)
+            .overlay(alignment: .top) {
+                // The week strip stays in place above the agenda (it is how the student moves
+                // through the week), under the breadcrumb when one shows.
                 VStack(spacing: 0) {
                     FreshnessBreadcrumb()
                     if !calendar.week.isEmpty {
@@ -112,6 +131,9 @@ struct CalendarScreen: View {
                 // today pass under it by design (`A11yScene.pinnedBars`, AccessibilityAuditUITests).
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("calendar.pinnedHeader")
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
+                    pinnedStripHeight = height
+                }
             }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).
