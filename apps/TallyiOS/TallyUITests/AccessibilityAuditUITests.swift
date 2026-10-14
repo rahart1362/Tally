@@ -1259,10 +1259,15 @@ struct A11yScene {
     /// own modal colour covered only 16% of the frame. This rewrite:
     /// - Excludes any row inside an opaque `chrome` bar (the fade band is the translucent strip
     ///   above the bar, not the bar's own opaque rows).
-    /// - Returns `nil` — no hold possible — when the WHOLE crop's own dominant colour covers
-    ///   under half of it: the same gradient signal that produced the false pass, caught before
-    ///   any row is measured, so an issue this unreliable to measure fails like any other
-    ///   (HIST 210 must then fail or be fixed).
+    /// - Skips a ROW whose own modal colour covers under half of it — not reliable enough to
+    ///   measure — rather than rejecting the whole frame: the scroll-edge dimming is itself a
+    ///   vertical gradient by design, so a multi-row crop's rows legitimately differ from each
+    ///   other (an earlier version of this gate compared the WHOLE crop's dominant colour, which
+    ///   rejected exactly that normal row-to-row gradient variation and regressed 7 previously
+    ///   held Dashboard rows, `FamilyUITests.testSwitcherPassesTheAccessibilityAudit`, CI run
+    ///   38608671835). Row-by-row, each row's OWN pixels are still near-uniform even inside a
+    ///   gradient; only a genuinely unreliable row (little majority colour at all, as HIST 210's
+    ///   chrome-straddling frame had before the chrome-row exclusion above) is skipped.
     /// - Otherwise measures every remaining row (background = that row's modal colour; glyph core
     ///   = the most common colour among that row's pixels at least half as far, in contrast, from
     ///   the background as the row's farthest pixel — the same two-step `a11ylib.measure`
@@ -1271,7 +1276,8 @@ struct A11yScene {
     ///   `heldReason` now always compares against 4.5:1.
     ///
     /// WCAG 2.x relative luminance throughout. `nil` when there is no screenshot, the frame is off
-    /// the image, every row falls inside chrome, or no row yields a measurable core.
+    /// the image, or no row yields a measurable core (every row falls inside chrome, or every
+    /// row's own colour is too mixed to trust).
     func measureFadeBandContrast(frame: CGRect) -> Double? {
         guard !pixels.isEmpty else { return nil }
         let x0 = max(0, Int((frame.minX * pixelScale).rounded()))
@@ -1280,7 +1286,7 @@ struct A11yScene {
         let y1 = min(pixelHeight, Int(((frame.minY + frame.height) * pixelScale).rounded()))
         guard x1 > x0, y1 > y0 else { return nil }
         // Rows inside an opaque chrome bar (e.g. the false pass's frame straddling the tab bar's
-        // top edge) are excluded from both the overall gate and the per-row measurement below.
+        // top edge) are excluded from the per-row measurement below.
         let chromeRows: Set<Int> = Set(chrome.flatMap { bar -> [Int] in
             let barX0 = Int((bar.frame.minX * pixelScale).rounded())
             let barX1 = Int(((bar.frame.minX + bar.frame.width) * pixelScale).rounded())
@@ -1289,26 +1295,6 @@ struct A11yScene {
             let barY1 = min(pixelHeight, Int(((bar.frame.minY + bar.frame.height) * pixelScale).rounded()))
             return barY0 < barY1 ? Array(barY0..<barY1) : []
         })
-        var overallCounts: [UInt32: Int] = [:]
-        var rows: [[UInt32: Int]] = []
-        pixels.withUnsafeBufferPointer { buffer in
-            for y in y0..<y1 where !chromeRows.contains(y) {
-                var rowCounts: [UInt32: Int] = [:]
-                let rowStart = y * pixelWidth * 4
-                for x in x0..<x1 {
-                    let offset = rowStart + x * 4
-                    let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
-                    rowCounts[key, default: 0] += 1
-                    overallCounts[key, default: 0] += 1
-                }
-                if !rowCounts.isEmpty { rows.append(rowCounts) }
-            }
-        }
-        guard !rows.isEmpty else { return nil }
-        let overallTotal = overallCounts.values.reduce(0, +)
-        guard overallTotal > 0, let overallMode = overallCounts.max(by: { $0.value < $1.value }) else { return nil }
-        // Item 4's gate against a gradient or other backdrop with no one background.
-        guard Double(overallMode.value) / Double(overallTotal) >= 0.5 else { return nil }
         func luminance(_ key: UInt32) -> Double {
             func channel(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
             let r = channel(Double((key >> 16) & 0xFF) / 255)
@@ -1322,15 +1308,28 @@ struct A11yScene {
             return (hi + 0.05) / (lo + 0.05)
         }
         var rowRatios: [Double] = []
-        for rowCounts in rows {
-            guard let bg = rowCounts.max(by: { $0.value < $1.value })?.key else { continue }
-            let extreme = rowCounts.keys.map { contrastRatio($0, bg) }.max() ?? 1.0
-            guard extreme >= 1.05 else { continue }
-            let cut = 1 + (extreme - 1) * 0.5
-            var core: [UInt32: Int] = [:]
-            for (key, count) in rowCounts where contrastRatio(key, bg) >= cut { core[key] = count }
-            guard let fg = core.max(by: { $0.value < $1.value })?.key else { continue }
-            rowRatios.append(contrastRatio(fg, bg))
+        pixels.withUnsafeBufferPointer { buffer in
+            for y in y0..<y1 where !chromeRows.contains(y) {
+                var rowCounts: [UInt32: Int] = [:]
+                let rowStart = y * pixelWidth * 4
+                for x in x0..<x1 {
+                    let offset = rowStart + x * 4
+                    let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
+                    rowCounts[key, default: 0] += 1
+                }
+                let total = rowCounts.values.reduce(0, +)
+                guard total > 0, let bg = rowCounts.max(by: { $0.value < $1.value }) else { continue }
+                // Item 4's row-level gate: skip a row with no reliable single background.
+                guard Double(bg.value) / Double(total) >= 0.5 else { continue }
+                let bgKey = bg.key
+                let extreme = rowCounts.keys.map { contrastRatio($0, bgKey) }.max() ?? 1.0
+                guard extreme >= 1.05 else { continue }
+                let cut = 1 + (extreme - 1) * 0.5
+                var core: [UInt32: Int] = [:]
+                for (key, count) in rowCounts where contrastRatio(key, bgKey) >= cut { core[key] = count }
+                guard let fg = core.max(by: { $0.value < $1.value })?.key else { continue }
+                rowRatios.append(contrastRatio(fg, bgKey))
+            }
         }
         guard !rowRatios.isEmpty else { return nil }
         rowRatios.sort()
