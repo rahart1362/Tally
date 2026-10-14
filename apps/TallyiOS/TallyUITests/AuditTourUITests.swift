@@ -43,10 +43,17 @@ final class AuditTourUITests: TallyUITestCase {
         ProcessInfo.processInfo.environment["AUDIT_APPEARANCE"] == "dark" ? .dark : .light
     }
 
+    /// MVP-2b gate-2 round 2 (item 16): `xxxLarge` is the largest *standard* size, one step below
+    /// the accessibility sizes — where the week strip and day marks first switch their scrolling
+    /// layout (D18, `CalendarScreen.swift`) and the hand-off tag changes shape (ux-fp1 round 3),
+    /// but below AX1 the audit tests of this target need no AX5-only launch hook. The workflow
+    /// (`audit-tour.yml`) scopes this size's own leg to Courses, Calendar and the hand-off only.
     private static var textSizeArguments: [String] {
-        ProcessInfo.processInfo.environment["AUDIT_TEXT_SIZE"] == "ax5"
-            ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-            : []
+        switch ProcessInfo.processInfo.environment["AUDIT_TEXT_SIZE"] {
+        case "ax5": return ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        case "xxxLarge": return ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"]
+        default: return []
+        }
     }
 
     /// Plan 08 L10N-04: the leg's language, from the `Audit tour` workflow's own `language` input
