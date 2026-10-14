@@ -129,7 +129,12 @@ private struct WhatIfSummary: View {
                     .foregroundStyle(TallyColor.textPrimary)
                     .monospacedDigit()
                     .contentTransition(reduceMotion ? .identity : .numericText())
-                    .tallyReflowValue()
+                    // MVP-2b gate-2 round 2 (item 10): this summary is already capped at AX2
+                    // (`.tallyPinnedChromeTextSize()` on `WhatIfSummary` below); `tallyReflowValue()`'s
+                    // shrink, tuned for the uncapped AX5 case, was the thing keeping this value small
+                    // (x1.17 ink growth measured, not the x2 the cap's own other elements reach —
+                    // `AccessibilityReflow.swift`'s `TallyReflowPinnedValue` doc comment).
+                    .tallyReflowPinnedValue()
                     .accessibilityIdentifier("whatif.summary.projectedValue")
                 if let change = WhatIfCopy.change(model.delta) {
                     Text(change)
@@ -247,9 +252,15 @@ private struct WhatIfItemRow: View {
                         // should be represented using the accessibility API"): the chip shows
                         // "100%" but was labelled "Set Lab Report 4 to 100 percent", so the words on
                         // screen were in no label (WCAG 2.5.3, label in name: Voice Control's "Tap
-                        // 100%" found nothing). The label is now the chip's own text, and the full
-                        // sentence, the same string, is its hint.
-                        .accessibilityLabel(Text(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))))
+                        // 100%" found nothing). The label is the chip's own visible text, first,
+                        // then the item it fills — "100%, Lab Report 4" — so a VoiceOver user who
+                        // has turned hints off (gate-2 round 2, verdict section 5) still hears which
+                        // item the chip belongs to; the full sentence, the same string as before,
+                        // stays the hint. Composed from values already on screen, no new string.
+                        .accessibilityLabel(
+                            Text(percent.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale)))
+                                + Text(verbatim: ", ") + Text(verbatim: item.title)
+                        )
                         .accessibilityHint(Text(L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
                 }
             }

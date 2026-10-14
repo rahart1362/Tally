@@ -1880,7 +1880,7 @@
       }
     },
     "courseDetail.whatIf.quickFillAccessibility" : {
-      "comment" : "The what-if sheet's quick-fill chip, accessibility label. 1: the item's title from Canvas. 2: the percent it fills to, as a plain number (read as '… percent').",
+      "comment" : "The what-if sheet's quick-fill chip, accessibility hint (MVP-2b gate-2 round 2: the label is now the chip's own text plus the item title, composed in code with no string of its own). 1: the item's title from Canvas. 2: the percent it fills to, as a plain number (read as '… percent').",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
