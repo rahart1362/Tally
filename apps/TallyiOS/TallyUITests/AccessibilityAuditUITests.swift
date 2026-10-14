@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// MVP-2 (UX-WP-22, ux-ui.md §3.9, A11Y-01/02/04/09): `performAccessibilityAudit()` over screen set
@@ -95,26 +96,35 @@ final class AccessibilityAuditUITests: TallyUITestCase {
     func testDashboard() throws {
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, variant: "light-std")
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testCourses() throws {
         auditScreen("courses", reach: { self.a11yReachCourses(extra: $0) }, variant: "light-std")
         auditScreen("courses", reach: { self.a11yReachCourses(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testCourseDetail() throws {
         auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, variant: "light-std")
         auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
+    /// MVP-2b gate-2 round 2 (item 12): the medium height is the state every user opens the sheet
+    /// in, and was never audited (verdict section 3, "not even for contrast or hit regions"). It
+    /// gets the types whose misfire was only ever seen pulled up, at 0.96 scale (run 38350587735:
+    /// 4 `textClipped` and 4 `elementDetection` at the medium height, none on the same rows pulled
+    /// up) — `contrast`, `hitRegion`, `sufficientElementDescription` and `trait`. The large height
+    /// (pulled up) keeps only the two types that genuinely need the sheet fully presented.
     @MainActor
     func testWhatIf() throws {
-        auditScreen("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }, variant: "light-std")
+        auditScreen("whatIf", reach: { self.a11yReachWhatIfMedium(extra: $0) }, variant: "medium-std",
+                    types: [.contrast, .hitRegion, .sufficientElementDescription, .trait])
+        auditScreen("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }, variant: "light-std",
+                    types: [.textClipped, .elementDetection])
         auditScreen("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
@@ -137,35 +147,35 @@ final class AccessibilityAuditUITests: TallyUITestCase {
     func testToDo() throws {
         auditScreen("toDo", reach: { self.a11yReachToDo(extra: $0) }, variant: "light-std")
         auditScreen("toDo", reach: { self.a11yReachToDo(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testInsights() throws {
         auditScreen("insights", reach: { self.a11yReachInsights(extra: $0) }, variant: "light-std")
         auditScreen("insights", reach: { self.a11yReachInsights(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testSettings() throws {
         auditScreen("settings", reach: { self.a11yReachSettings(extra: $0) }, variant: "light-std")
         auditScreen("settings", reach: { self.a11yReachSettings(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testPaywall() throws {
         auditScreen("paywall", reach: { self.a11yReachPaywall(extra: $0) }, variant: "light-std")
         auditScreen("paywall", reach: { self.a11yReachPaywall(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
     func testParentMode() throws {
         auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, variant: "light-std")
         auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+                    variant: "light-ax5", types: [.dynamicType, .textClipped], page: { Self.a11yPageToEnd($0) })
     }
 
     @MainActor
@@ -209,7 +219,13 @@ final class AccessibilityAuditDarkUITests: TallyUITestCase {
     @MainActor
     func testCourseDetail() throws { auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, variant: "dark-std") }
     @MainActor
-    func testWhatIf() throws { auditScreen("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }, variant: "dark-std") }
+    // MVP-2b gate-2 round 2 (item 12): the same medium/large split as the Light class's testWhatIf.
+    func testWhatIf() throws {
+        auditScreen("whatIf", reach: { self.a11yReachWhatIfMedium(extra: $0) }, variant: "medium-dark",
+                    types: [.contrast, .hitRegion, .sufficientElementDescription, .trait])
+        auditScreen("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }, variant: "dark-std",
+                    types: [.textClipped, .elementDetection])
+    }
     @MainActor
     func testCourseOptions() throws { auditScreen("courseOptions", reach: { self.a11yReachCourseOptions(extra: $0) }, variant: "dark-std") }
     @MainActor
@@ -259,7 +275,11 @@ final class AccessibilityAuditContrastUITests: TallyUITestCase {
     @MainActor
     func testCourseDetail() throws { auditContrast("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }) }
     @MainActor
-    func testWhatIf() throws { auditContrast("whatIf", reach: { self.a11yReachWhatIf(extra: $0) }) }
+    // MVP-2b gate-2 round 2 (item 12): contrast now belongs to the medium height, not pulled up.
+    func testWhatIf() throws {
+        auditScreen("whatIf", reach: { self.a11yReachWhatIfMedium(extra: $0) }, extra: Self.a11yIncreaseContrast,
+                    variant: "medium-contrast", types: [.contrast])
+    }
     @MainActor
     func testCourseOptions() throws { auditContrast("courseOptions", reach: { self.a11yReachCourseOptions(extra: $0) }) }
     @MainActor
@@ -416,13 +436,34 @@ extension TallyUITestCase {
 
     /// Reaches a screen with `reach`, audits it, attaches the issue list, and terminates the app.
     /// One call per screen × variant, so a failure's message names both.
+    ///
+    /// MVP-2b gate-2 round 2 (item 11): `page`, when given, scrolls the reached screen after the
+    /// first audit and runs a second pass (`<variant>-paged`) with the same `types` — the AX5 audit
+    /// grows every row's text but can only measure what is already on screen, so a row the growth
+    /// pushes below the fold (Settings' seven lower rows, run 38338079168) was never re-measured.
+    /// Paging after the first pass, rather than scrolling before it, keeps the first pass's own
+    /// at-rest reading of the screen as it opens.
     @MainActor
     func auditScreen(_ screen: String, reach: ([String]) -> XCUIApplication, extra: [String] = [], variant: String,
                      types: XCUIAccessibilityAuditType = TallyUITestCase.a11yDefaultSizeTypes,
+                     page: ((XCUIApplication) -> Void)? = nil,
                      file: StaticString = #filePath, line: UInt = #line) {
         let app = reach(extra)
         runA11yAudit(app, for: types, screen: screen, variant: variant, file: file, line: line)
+        if let page {
+            page(app)
+            runA11yAudit(app, for: types, screen: screen, variant: "\(variant)-paged", file: file, line: line)
+        }
         app.terminate()
+    }
+
+    /// MVP-2b gate-2 round 2 (item 11): scrolls the frontmost list toward its end so a second audit
+    /// pass can measure the rows the first pass's fold left unmeasured. A screen shorter than the
+    /// screen (nothing left to scroll) is unaffected — `swipeUp()` on a settled list is a no-op.
+    @MainActor
+    static func a11yPageToEnd(_ app: XCUIApplication) {
+        app.swipeUp()
+        app.swipeUp()
     }
 
     /// `AccessibilityAuditContrastUITests`: Increase Contrast's two mechanisms (this file's top doc
@@ -545,11 +586,14 @@ extension TallyUITestCase {
             if next == previous { break }
             previous = next
         }
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        // MVP-2b gate-2 round 2 (item 3): the same screenshot, reused for `A11yScene`'s in-test
+        // fade-band pixel measurement, so what is measured is exactly what was attached.
+        let finalScreenshot = app.screenshot()
+        let shot = XCTAttachment(screenshot: finalScreenshot)
         shot.name = "\(prefix)-screen"
         shot.lifetime = .keepAlways
         add(shot)
-        let scene = A11yScene(app)
+        let scene = A11yScene(app, screenshot: finalScreenshot.image)
         attachA11yJSON(A11yScene.json(scene.window), name: "\(prefix)-window")
         attachA11yJSON(scene.elements, name: "\(prefix)-elements")
         return scene
@@ -644,13 +688,35 @@ extension TallyUITestCase {
         return app
     }
 
+    /// Opens What-If and waits for it to finish presenting, at whichever height the system gives
+    /// it first (the medium detent: `.presentationDetents([.medium, .large])`'s first member).
     @MainActor
-    func a11yReachWhatIf(extra: [String] = []) -> XCUIApplication {
+    private func a11yReachWhatIfPresented(extra: [String] = []) -> XCUIApplication {
         let app = a11yReachCourseDetail(extra: extra)
         let whatIf = element("courseDetail.whatIf", in: app)
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "Hierarchy: \(app.debugDescription)")
         whatIf.tap()
         XCTAssertTrue(element("whatif.simulationLabel", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
+        let sheetBar = app.navigationBars["What-If"]
+        XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
+        _ = eventually(timeout: 3, {
+            let before = sheetBar.frame
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            return before == sheetBar.frame
+        })
+        return app
+    }
+
+    /// MVP-2b gate-2 round 2 (item 12): the medium height, the state every user opens the sheet
+    /// in — no pull-up gesture, so the sheet stays at its initial detent.
+    @MainActor
+    func a11yReachWhatIfMedium(extra: [String] = []) -> XCUIApplication {
+        a11yReachWhatIfPresented(extra: extra)
+    }
+
+    @MainActor
+    func a11yReachWhatIf(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachWhatIfPresented(extra: extra)
         // MVP-2b: audited at its large height, fully presented (the Audit tour captures it the same
         // way). At the medium height the system draws the sheet at 0.96 scale (`ScoreStepper.
         // buttonSide`'s note; run 38350587735 read Reset as 64.65 x 34.57 pt there, 67.33 x 36 pt
@@ -658,7 +724,6 @@ extension TallyUITestCase {
         // 4 elementDetection at the medium height, light and dark alike, and none on the same
         // rows, chips and summary pulled up (`whatIf-light-std-large`, same run, every type).
         let sheetBar = app.navigationBars["What-If"]
-        XCTAssertTrue(sheetBar.waitForExistence(timeout: 5), "Hierarchy: \(app.debugDescription)")
         // Pulled up means the bar sits in the top quarter of the screen. Run 38357314250: a swipe
         // on the bar left the Dark sheet at its medium height; release gate 38381878113: at AX5 a
         // swipe on the bar and a slow drag from it both did. The Audit tour's own gesture,
@@ -666,11 +731,6 @@ extension TallyUITestCase {
         // 38372167047), so it goes first, once the sheet has finished presenting; the other two
         // are fallbacks.
         let pulledUp = { sheetBar.frame.minY < app.frame.height / 4 }
-        _ = eventually(timeout: 3, {
-            let before = sheetBar.frame
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            return before == sheetBar.frame
-        })
         let gestures: [@MainActor () -> Void] = [
             { app.swipeUp() },
             { sheetBar.swipeUp() },
@@ -711,9 +771,11 @@ extension TallyUITestCase {
         // scheduled" at 128–180 pt; at AX5 "Nothing scheduled" at 23–170 and "Today · Tue, Oct 13"
         // at 187–332, under the strip). Here the audit's clipping check returned a "may be clipped" it
         // could not attach to any element: one to four per variant in all five scope=a11y runs, and the
-        // only finding left in the last. With the agenda at its first day nothing is hidden above it;
-        // the same rows, chips and strip are on screen. From AX1 up the strip scrolls, centred on
-        // today, so it is swiped back until the first day can be tapped.
+        // only finding left in the last. Gate-2 round 2 (items 8–9): tapping the first day used to
+        // leave its own heading under the strip too, a real defect, not this audit-position artifact —
+        // fixed in `CalendarScreen.scrollBelowPinnedStrip`; `docs/pmo/a11y-waivers.md` no longer
+        // claims nothing is hidden above the agenda at this state. From AX1 up the strip scrolls,
+        // centred on today, so it is swiped back until the first day can be tapped.
         let header = element("calendar.pinnedHeader", in: app)
         var swipes = 0
         while !firstDay.isHittable, swipes < 6 {
@@ -800,15 +862,59 @@ extension TallyUITestCase {
 /// this pattern out as a defect (`defects.md`, layout-check triage 1991: mid-scroll rows under
 /// the translucent bar; the last row clears it at the bottom of the scroll).
 ///
+/// **Narrowed, gate-2 round 2 (verdict items 1–7).** The PMO's gate-2 review measured 104 held
+/// contrast issues on gate2's own screenshots and found the rule too broad in four ways, each
+/// fixed below:
+/// 1. The scroll-edge dimming image is translucent, not opaque chrome: it was treated as a bar
+///    over its *whole* frame (60 pt of plain, at-rest content above the tab bar), so 43 of 104
+///    held issues sat in clear view. It is no longer `chrome`; a `contrast` issue it only
+///    intersects is held only when an in-test pixel measurement of its own frame, on the audit
+///    screenshot, passes the threshold (`measureFadeBandContrast`) — the ratio is recorded in the
+///    held reason.
+/// 2. "Under system chrome" needed only `intersects`, with no minimum overlap (three issues held
+///    for a 2.3 pt overlap). It now needs the frame's own height overlapped by at least a third.
+/// 3. The pinned-bar case held the pinned bar's *own* content too (since 52c5876 the week strip's
+///    day letters sit in a horizontal `ScrollView`, so they are "scrolling" by the same test this
+///    rule uses) — contradicting the waivers doc's "a pinned element is never held". An element
+///    structurally inside a `pinnedBars` subtree (`insidePinned`, set while walking the tree, not
+///    by frame intersection) is never held by any reason.
+/// 4. "Partly outside" checked all four edges, so a vertical list's real left/right clipping would
+///    have been held as if it were the normal bottom-of-scroll case. It now checks only the
+///    container's own scroll axis (`ScrollAxis`, inferred from the container's element kind and
+///    aspect ratio: `.table`/`.collectionView` are vertical; a `.scrollView` wider than it is tall
+///    is horizontal, matching the week strip, the only horizontal scroller in this app).
+/// 5. `textClipped` could be held "under system chrome" or "under the screen's pinned bar", which
+///    makes no sense for a clipping *prediction* (nothing was measured there); it is now held only
+///    in the partly-outside case, the same one `contrast` and `textClipped` share.
+/// 6. Top chrome (the navigation bar) no longer counts toward "under system chrome": an element
+///    sitting under the navigation bar or the pinned header at the screen's resting position is
+///    not a mid-scroll artifact, it is a real defect at rest (item 8's Calendar fix).
+///
 /// So the rule holds only what it must: a `contrast` or `textClipped` issue, on an element that
-/// scrolls (it sits in a scroll view, table or collection view), which at the audit moment is not
-/// wholly in view — part of it lies outside its scroll view or the window, under system chrome, or
-/// under one of the app's own opaque pinned bars (`pinnedBars`: Calendar's week strip).
-/// Every other issue still fails, and so do these two types on anything wholly in view or pinned
-/// (a pinned button or banner is never held). A held issue is still attached, with its reason.
+/// scrolls (it sits in a scroll view, table or collection view, and is not itself inside a pinned
+/// subtree), which at the audit moment is not wholly in view along its own scroll axis; and, for
+/// `contrast` only, one under a tab bar or toolbar by at least a third of its own height, under one
+/// of the app's own opaque pinned bars, or in the translucent fade band with a passing in-test
+/// measurement. Every other issue still fails, and so does anything wholly in view, inside a
+/// pinned subtree, or under the navigation bar. A held issue is still attached, with its reason.
 /// The rule's one other case: an issue on the system keyboard's own elements (`heldReason`).
 struct A11yScene {
-    /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming).
+    /// A scroll container's axis, inferred in `walk` from its element kind and aspect (this app's
+    /// only horizontal scroller is Calendar's week strip; everything else is a vertical `List`,
+    /// which XCUITest reports as `.table` or `.collectionView`).
+    enum ScrollAxis {
+        case vertical, horizontal
+    }
+
+    /// One piece of system chrome `walk` recorded, with the bar kind (item 6: the navigation bar
+    /// never counts toward "under system chrome").
+    enum ChromeKind: Equatable {
+        case tabBar, navigationBar, toolbar
+        var canHoldContrast: Bool { self != .navigationBar }
+    }
+
+    /// The image iOS 26 adds over content beside a bar (the scroll-edge dimming) — translucent,
+    /// never counted as opaque chrome (item 1); see `measureFadeBandContrast`.
     static let dimmingOverlay = "AdditionalDimmingOverlay"
     /// The system keyboard's own container, as the snapshot names it.
     static let keyboardInputView = "inputView"
@@ -821,27 +927,52 @@ struct A11yScene {
     /// For `<prefix>-elements`: every text, button, image, field, switch, cell, bar and identified
     /// container, with its frame, and the frame of the scroll view it scrolls in, if any.
     var elements: [[String: Any]] = []
-    /// System chrome over the scrolling content: tab bars, navigation bars, toolbars, and the
-    /// scroll-edge dimming.
-    var chrome: [CGRect] = []
-    /// Every element inside a scroll view, table or collection view, with that container's frame.
-    var scrolling: [(label: String, frame: CGRect, container: CGRect)] = []
+    /// Opaque system chrome over the scrolling content: tab bars, navigation bars and toolbars
+    /// (never the translucent scroll-edge dimming — item 1; `dimming` below).
+    var chrome: [(frame: CGRect, kind: ChromeKind)] = []
+    /// The scroll-edge dimming image's frame(s) (item 1): a `contrast` issue only intersecting one
+    /// of these is held only on a passing in-test measurement (`measureFadeBandContrast`).
+    var dimming: [CGRect] = []
+    /// Every element inside a scroll view, table or collection view, with that container's frame
+    /// and axis, and whether the element itself sits inside a pinned bar's own subtree (item 3).
+    var scrolling: [(label: String, frame: CGRect, container: CGRect, axis: ScrollAxis, insidePinned: Bool)] = []
     /// The frames of `pinnedBars` on this screen.
     var pinned: [CGRect] = []
     /// The system keyboard, when it is up (Find School opens with its search field focused).
     var keyboards: [CGRect] = []
 
+    /// A pixel buffer of the audit screenshot (RGBA8, one draw at init), for
+    /// `measureFadeBandContrast`'s in-test measurement (item 3). Empty when no screenshot was
+    /// given (`init()`, used only by tests of this type itself) or it could not be decoded.
+    private var pixels: [UInt8] = []
+    private var pixelWidth = 0
+    private var pixelHeight = 0
+    private var pixelScale: CGFloat = 1
+
     init() {}
 
     @MainActor
-    init(_ app: XCUIApplication) {
+    init(_ app: XCUIApplication, screenshot: UIImage? = nil) {
         guard let root = try? app.snapshot() else { return }
         window = root.frame
-        walk(root, container: nil)
+        walk(root, container: nil, insidePinned: false)
+        guard let screenshot, let cgImage = screenshot.cgImage, window.width > 0 else { return }
+        pixelWidth = cgImage.width
+        pixelHeight = cgImage.height
+        pixelScale = CGFloat(pixelWidth) / window.width
+        // CoreGraphics allocates and owns this buffer (`data: nil`); `context.data` stays valid for
+        // the context's own lifetime, so it is copied out rather than handed a pointer that would
+        // outlive the scope that produced it.
+        guard let context = CGContext(data: nil, width: pixelWidth, height: pixelHeight, bitsPerComponent: 8,
+                                      bytesPerRow: pixelWidth * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let data = context.data else { return }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+        pixels = Array(UnsafeRawBufferPointer(start: data, count: pixelWidth * pixelHeight * 4))
     }
 
     @MainActor
-    private mutating func walk(_ node: XCUIElementSnapshot, container: CGRect?) {
+    private mutating func walk(_ node: XCUIElementSnapshot, container: (frame: CGRect, axis: ScrollAxis)?, insidePinned: Bool) {
         // Fields into locals first: `&&`/`||` autoclosures capturing the non-Sendable snapshot fail
         // the Release test build (`AuditTourUITests.analyzeLayout`'s own note, run 37704108738).
         let kind = node.elementType
@@ -849,9 +980,19 @@ struct A11yScene {
         let identifier = node.identifier
         let label = node.label
         let isOverlay = kind == .image && identifier == Self.dimmingOverlay
-        if kind == .tabBar || kind == .navigationBar || kind == .toolbar || isOverlay {
-            chrome.append(frame)
+        if isOverlay {
+            dimming.append(frame)
+        } else if kind == .tabBar {
+            chrome.append((frame: frame, kind: .tabBar))
+        } else if kind == .navigationBar {
+            chrome.append((frame: frame, kind: .navigationBar))
+        } else if kind == .toolbar {
+            chrome.append((frame: frame, kind: .toolbar))
         }
+        // Item 3 (gate-2 round 2): true for this node and every descendant once a `pinnedBars`
+        // identifier is seen, not only when a frame happens to intersect it — the pinned bar's own
+        // content (the week strip's day letters, in a `ScrollView` since 52c5876) is never held.
+        let nowInsidePinned = insidePinned || Self.pinnedBars.contains(identifier)
         if Self.pinnedBars.contains(identifier) {
             pinned.append(frame)
         }
@@ -861,7 +1002,8 @@ struct A11yScene {
             keyboards.append(frame)
         }
         if let container {
-            scrolling.append((label: label, frame: frame, container: container))
+            scrolling.append((label: label, frame: frame, container: container.frame, axis: container.axis,
+                             insidePinned: nowInsidePinned))
         }
         let recorded: Set<XCUIElement.ElementType> = [.staticText, .button, .image, .tabBar, .navigationBar, .toolbar,
                                                       .link, .textField, .switch, .cell, .other]
@@ -869,12 +1011,22 @@ struct A11yScene {
         if visible && recorded.contains(kind) && (kind != .other || !identifier.isEmpty) {
             elements.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
                              "frame": Self.json(frame), "inScrollView": container != nil,
-                             "scrollView": Self.json(container ?? .zero)])
+                             "scrollView": Self.json(container?.frame ?? .zero)])
         }
-        let isScroller = kind == .scrollView || kind == .table || kind == .collectionView
-        let next = isScroller ? frame : container
+        let next: (frame: CGRect, axis: ScrollAxis)?
+        switch kind {
+        case .table, .collectionView:
+            next = (frame: frame, axis: .vertical)
+        case .scrollView:
+            // Item 4 (gate-2 round 2): this app's one horizontal scroller, the week strip, is wide
+            // and short; every other scroller (a `List`'s own backing, where it reports as
+            // `.scrollView` rather than `.table`) is the usual tall, narrow shape.
+            next = (frame: frame, axis: frame.width > frame.height ? .horizontal : .vertical)
+        default:
+            next = container
+        }
         for child in node.children {
-            walk(child, container: next)
+            walk(child, container: next, insidePinned: nowInsidePinned)
         }
     }
 
@@ -891,11 +1043,99 @@ struct A11yScene {
         }
         guard auditType == "contrast" || auditType == "textClipped" else { return nil }
         guard let node = scrolling.first(where: { $0.label == label && Self.same($0.frame, frame) }) else { return nil }
+        // Item 3: never hold anything structurally inside a pinned bar's own subtree.
+        if node.insidePinned { return nil }
         let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
-        if !inView.contains(frame) { return "partly outside its scroll view or the window" }
-        if chrome.contains(where: { $0.intersects(frame) }) { return "under system chrome" }
-        if pinned.contains(where: { $0.intersects(frame) }) { return "under the screen's pinned bar" }
+        if Self.isPartlyOutside(frame, inView, axis: node.axis) {
+            return "partly outside its scroll view or the window"
+        }
+        // Item 5: textClipped is held only in the partly-outside case above, never for chrome or a
+        // pinned bar (occlusion does not explain a clipping prediction).
+        guard auditType == "contrast" else { return nil }
+        if chrome.contains(where: { $0.kind.canHoldContrast && Self.overlapsByAtLeastAThird($0.frame, frame) }) {
+            return "under system chrome"
+        }
+        if pinned.contains(where: { $0.intersects(frame) }) {
+            return "under the screen's pinned bar"
+        }
+        if dimming.contains(where: { $0.intersects(frame) }), let measured = measureFadeBandContrast(frame: frame) {
+            let threshold = Self.isLargeText(frame) ? 3.0 : 4.5
+            if measured >= threshold {
+                return "in the fade band, measured \(String(format: "%.2f", measured)):1 on the audit screenshot"
+            }
+        }
         return nil
+    }
+
+    /// Item 2: at least a third of the issue's own frame height overlapped by the bar.
+    static func overlapsByAtLeastAThird(_ bar: CGRect, _ frame: CGRect) -> Bool {
+        let overlap = bar.intersection(frame)
+        guard !overlap.isNull, frame.height > 0 else { return false }
+        return overlap.height / frame.height >= 1.0 / 3.0
+    }
+
+    /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
+    /// list's left/right edges, or a horizontal strip's top/bottom edges, are never scroll clipping).
+    static func isPartlyOutside(_ frame: CGRect, _ inView: CGRect, axis: ScrollAxis) -> Bool {
+        switch axis {
+        case .vertical: return frame.minY < inView.minY || frame.maxY > inView.maxY
+        case .horizontal: return frame.minX < inView.minX || frame.maxX > inView.maxX
+        }
+    }
+
+    /// WCAG's large-text exception (3:1) needs 18 pt or more (SF's line height is about 1.2x the
+    /// point size, so a one-line frame's height / 1.2 approximates it); everything else is normal
+    /// text (4.5:1). Gate-2 round 2, item 13: a semibold weight does not extend this to 14 pt, so
+    /// this frame-height approximation (which cannot see weight at all) never over-grants it either.
+    static func isLargeText(_ frame: CGRect) -> Bool {
+        frame.height / 1.2 >= 18
+    }
+
+    /// Item 3: an in-test measurement of `frame`'s own pixels on the audit screenshot, the same
+    /// algorithm as the evidence's `a11ylib.measure` (`pmo-audit/.build-audit/mvp2b/a11ylib.py`):
+    /// background = the crop's most common colour; text = the most common colour among pixels at
+    /// least half as far (in contrast) from the background as the farthest pixel (the glyph cores,
+    /// not their anti-aliased edges). WCAG 2.x relative luminance. `nil` when there is no
+    /// screenshot, the frame is off the image, or the crop is one solid colour with nothing to
+    /// contrast against.
+    func measureFadeBandContrast(frame: CGRect) -> Double? {
+        guard !pixels.isEmpty else { return nil }
+        let x0 = max(0, Int((frame.minX * pixelScale).rounded()))
+        let y0 = max(0, Int((frame.minY * pixelScale).rounded()))
+        let x1 = min(pixelWidth, Int(((frame.minX + frame.width) * pixelScale).rounded()))
+        let y1 = min(pixelHeight, Int(((frame.minY + frame.height) * pixelScale).rounded()))
+        guard x1 > x0, y1 > y0 else { return nil }
+        var counts: [UInt32: Int] = [:]
+        pixels.withUnsafeBufferPointer { buffer in
+            for y in y0..<y1 {
+                let rowStart = y * pixelWidth * 4
+                for x in x0..<x1 {
+                    let offset = rowStart + x * 4
+                    let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
+                    counts[key, default: 0] += 1
+                }
+            }
+        }
+        guard let bg = counts.max(by: { $0.value < $1.value })?.key else { return nil }
+        func luminance(_ key: UInt32) -> Double {
+            func channel(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            let r = channel(Double((key >> 16) & 0xFF) / 255)
+            let g = channel(Double((key >> 8) & 0xFF) / 255)
+            let b = channel(Double(key & 0xFF) / 255)
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+        func contrastRatio(_ a: UInt32, _ b: UInt32) -> Double {
+            let la = luminance(a), lb = luminance(b)
+            let hi = max(la, lb), lo = min(la, lb)
+            return (hi + 0.05) / (lo + 0.05)
+        }
+        let extreme = counts.keys.map { contrastRatio($0, bg) }.max() ?? 1.0
+        if extreme < 1.05 { return 1.0 }
+        let cut = 1 + (extreme - 1) * 0.5
+        var core: [UInt32: Int] = [:]
+        for (key, count) in counts where contrastRatio(key, bg) >= cut { core[key] = count }
+        guard let fg = core.max(by: { $0.value < $1.value })?.key else { return nil }
+        return contrastRatio(fg, bg)
     }
 
     static func same(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
