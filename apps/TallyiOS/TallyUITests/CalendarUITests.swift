@@ -54,4 +54,79 @@ final class CalendarUITests: TallyUITestCase {
         snapshot.lifetime = .keepAlways
         add(snapshot)
     }
+
+    /// MVP-2b gate-2 round 3 (verdict item 1): the selected day's heading must rest fully below
+    /// `calendar.pinnedHeader`, not merely mostly clear of it — round 2's own fix did not hold
+    /// (gate-2 review, section 3: the heading rested under the strip at every variant checked, on
+    /// open and after a tap). `CalendarScreen.scrollBelowPinnedStrip` now puts the scroll target's
+    /// `id` on the header itself, not the enclosing `Section`. Checked on open, after tapping the
+    /// first day and after tapping a mid-week day, at std and AX5 (D18: AX5 scrolls the strip).
+    @MainActor
+    func testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping() throws {
+        let extras: [[String]] = [[], TallyUITestCase.a11yAccessibilityXXXL]
+        for extra in extras {
+            let app = launchSample(arguments: extra)
+            openTab("Calendar", in: app)
+            let header = element("calendar.pinnedHeader", in: app)
+            XCTAssertTrue(header.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+            let days = app.buttons.matching(identifier: "calendar.day")
+            XCTAssertTrue(days.firstMatch.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+            let dayCount = days.count
+
+            assertSelectedDayHeadingClearsThePinnedStrip(app, header: header, after: "open (\(extra))")
+            tapDay(at: 0, of: days, strip: header, in: app)
+            assertSelectedDayHeadingClearsThePinnedStrip(app, header: header, after: "the first day (\(extra))")
+            tapDay(at: dayCount / 2, of: days, strip: header, in: app)
+            assertSelectedDayHeadingClearsThePinnedStrip(app, header: header, after: "a mid-week day (\(extra))")
+
+            app.terminate()
+        }
+    }
+
+    /// Swipes the week strip (AX5 scrolls it, D18; below that it is disabled and every day is
+    /// already hittable, so this is a no-op) until day `index` can be reached, then taps it. Which
+    /// direction reveals it depends on where today falls in the week relative to `index`, so this
+    /// tries right (the direction that reaches an earlier day; the existing reach helpers' own
+    /// precedent) before trying left.
+    @MainActor
+    private func tapDay(at index: Int, of days: XCUIElementQuery, strip: XCUIElement, in app: XCUIApplication) {
+        let day = days.element(boundBy: index)
+        let swipes: [() -> Void] = [{ strip.swipeRight() }, { strip.swipeLeft() }]
+        for swipe in swipes {
+            var count = 0
+            while !day.isHittable, count < 6 {
+                swipe()
+                count += 1
+            }
+        }
+        tapWhenHittable(day, in: app)
+    }
+
+    /// Asserts the topmost on-screen `calendar.dayHeading` — the one `scrollTo` just placed — rests
+    /// at or below `header`'s own bottom edge, and that its first row (an agenda item, or "Nothing
+    /// scheduled") is hittable.
+    @MainActor
+    private func assertSelectedDayHeadingClearsThePinnedStrip(_ app: XCUIApplication, header: XCUIElement, after: String) {
+        let headings = elements("calendar.dayHeading", in: app)
+        var topmost: CGRect?
+        for index in 0..<headings.count {
+            let candidate = headings.element(boundBy: index)
+            guard candidate.exists else { continue }
+            let frame = candidate.frame
+            guard frame.width > 0, frame.height > 0 else { continue }
+            if topmost == nil || frame.minY < topmost!.minY { topmost = frame }
+        }
+        guard let heading = topmost else {
+            XCTFail("no calendar.dayHeading on screen after \(after). Hierarchy: \(app.debugDescription)")
+            return
+        }
+        XCTAssertGreaterThanOrEqual(heading.minY, header.frame.maxY - 0.5,
+            "the heading rested under the pinned strip after \(after): heading.minY=\(heading.minY), " +
+            "pinnedHeader.maxY=\(header.frame.maxY). Hierarchy: \(app.debugDescription)")
+        let firstRow = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR identifier == %@", "calendar.item", "calendar.nothingScheduled"
+        )).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 5) && firstRow.isHittable,
+                      "the heading's first row was not hittable after \(after). Hierarchy: \(app.debugDescription)")
+    }
 }

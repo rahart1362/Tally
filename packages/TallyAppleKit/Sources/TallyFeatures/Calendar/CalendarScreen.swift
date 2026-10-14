@@ -45,16 +45,29 @@ struct CalendarScreen: View {
                                 Text(L10n.Calendar.nothingScheduled())
                                     .font(TallyTypography.subheadline)
                                     .foregroundStyle(TallyColor.textSecondary)
+                                    // MVP-2b gate-2 round 3: lets a UI test find the row under a
+                                    // heading even on a day with nothing scheduled (item 1's own
+                                    // assertion needs the heading's first row, whichever it is).
+                                    .accessibilityIdentifier("calendar.nothingScheduled")
                             }
                             ForEach(day.items) { item in
                                 AgendaRow(item: item) { draft = item.draft }
                             }
                         } header: {
+                            // MVP-2b gate-2 round 3 (verdict item 1): the scroll target moved onto
+                            // the header itself. `.id()` used to sit on the Section (below), which
+                            // made `scrollTo(day.id, anchor: .top)` land on the Section's first
+                            // *row*, not its header — the header then rested under the strip at
+                            // every variant the round-2 review checked (open, first day, mid-week
+                            // day; verdict section 3). Tagging the header view directly fixes the
+                            // anchor SwiftUI measures against; `calendar.dayHeading` lets the audit
+                            // and the UI test find whichever heading is at rest below the strip.
                             Text(day.heading)
                                 .tallySectionText()
+                                .id(day.id)
+                                .accessibilityIdentifier("calendar.dayHeading")
                         }
                         .tallyRow()
-                        .id(day.id)
                     }
                 }
             }
@@ -159,22 +172,23 @@ struct CalendarScreen: View {
         openURL(url)
     }
 
-    /// MVP-2b gate-2 round 2 (verdict item 8): `ScrollViewReader.scrollTo(_:anchor:.top)` measures
-    /// a `List` row's position against this screen's own `safeAreaInset` strip above (D01), but a
-    /// `List`'s rows are not all measured up front, so a row further down the agenda can be
-    /// positioned before the strip's reserved height is fully settled — the selected day's heading,
-    /// and the first row under it, came to rest partly or fully hidden beneath the strip
-    /// (gate-2 review, `calendar-first-day-hidden-under-strip.jpg`: the heading's own frame
-    /// overlapping the pinned header's by up to its full height). A second call, one run loop turn
-    /// later, re-measures against the now-settled layout and corrects it; the first call keeps the
-    /// screen from sitting at the wrong offset for that one turn.
+    /// MVP-2b gate-2 round 3 (verdict item 1; round 2's own fix did not hold — section 3). Round
+    /// 2's `.id(day.id)` sat on the `Section`, and `List`'s `ScrollViewProxy.scrollTo(_:anchor:)`
+    /// resolved that identity to the Section's first *row*, not its header: the heading rested
+    /// under `calendar.pinnedHeader` at every variant the review checked (on open, after tapping
+    /// the first day, after tapping a mid-week day), and the delayed second call landed on the
+    /// same row, so it never corrected anything — only a visible snap, 50 ms into the animated
+    /// case's own transaction (verdict section 3's "tap snap", S3).
+    ///
+    /// The id now sits on the header view itself (`CalendarScreen.body`), so `scrollTo` measures
+    /// the header's own anchor. With the scroll target fixed, the second call is no longer needed
+    /// and is removed; `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping`
+    /// asserts `heading.frame.minY >= pinnedHeader.frame.maxY` on open, after the first day and
+    /// after a mid-week day, at std and AX5.
     private func scrollBelowPinnedStrip(_ day: Date, with proxy: ScrollViewProxy, animated: Bool) {
         if animated {
             withAnimation { proxy.scrollTo(day, anchor: .top) }
         } else {
-            proxy.scrollTo(day, anchor: .top)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             proxy.scrollTo(day, anchor: .top)
         }
     }
