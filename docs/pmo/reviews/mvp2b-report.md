@@ -153,13 +153,13 @@ Author: Accessibility Engineer, round 2, Claude Sonnet 5. Same branch, from `bba
 | 5. "Partly outside" on the scroll axis only | `ScrollAxis`, inferred per container in `walk`; `isPartlyOutside` checks only that axis | `AccessibilityAuditUITests.swift:902-905`, `1021-1027`, `1092-1096` | 11 "partly outside" holds, all past the bottom edge of a vertical list (none on a left/right edge) |
 | 6. `textClipped` held only in the partly-outside case | `heldReason` returns before the chrome/pinned/dimming checks unless `auditType == "contrast"` | `AccessibilityAuditUITests.swift:1067-1069` | no `textClipped` issue held for chrome or a pinned bar in any run |
 | 7. No hold for navigation-bar overlap | `ChromeKind.canHoldContrast` excludes `.navigationBar` | `AccessibilityAuditUITests.swift:910-912` | 0 "under system chrome" holds attributed to a navigation bar |
-| 8. Calendar: scroll below the pinned strip | `scrollBelowPinnedStrip`: the existing `scrollTo` call, then a second one after the run loop turns, correcting a `List`'s own imprecise initial offset | `CalendarScreen.swift:79, 94, 162-179` | run 38550012702, `calendar-light-std-audit-elements.json`: the selected day's heading ("Mon, Oct 12") at y = 494, clear of the pinned strip; only days scrolled *before* it (e.g. "Sun, Oct 11") are still held |
+| 8. Calendar: scroll below the pinned strip | `scrollBelowPinnedStrip`: the existing `scrollTo` call, then a second one after the run loop turns, correcting a `List`'s own imprecise initial offset | `CalendarScreen.swift:79, 94, 162-179` | **Correction (gate-2 round 2 verdict section 3, confirmed by this round's own file read): wrong.** This row named "Mon, Oct 12" at y = 494 as the selected day's heading; the test taps and selects the week's *first* day, which is **Sun, Oct 11**, not Monday — that heading in fact rested under the pinned strip at this state (`a11yReachCalendar`, `AccessibilityAuditUITests.swift:787`: `firstDay.isSelected`). This fix did not hold. The real fix, and its evidence, is in the Round 3 section's item 1. |
 | 9. Fix the waivers doc's Calendar claim | Removed "at the first day nothing is hidden above the agenda" | `docs/pmo/a11y-waivers.md` | — |
 | 10. `whatif.summary.projectedValue` | Tried the fix first: `tallyReflowPinnedValue()` (no `minimumScaleFactor`) in place of `tallyReflowValue()`, since the element is already capped to AX2 and has a full line to itself from AX1 up | `AccessibilityReflow.swift:126-133, 154-157`; `WhatIfSheet.swift:132` | **Outcome below** |
 | 11. Page AX5 for rows below the fold | `auditScreen(page:)` runs a second `-paged` audit after scrolling; applied to Dashboard, Courses, Course Detail, To-Do, Insights, Settings, Parent Mode, Paywall | `AccessibilityAuditUITests.swift:440-467` | run 38550012702: every paged variant present, 0 unwaived/unheld after the follow-up fix below |
 | 12. What-If: medium height too | Split into `medium-std`/`medium-dark`/`medium-contrast` (contrast, hitRegion, sufficientElementDescription, trait, via `a11yReachWhatIfMedium`) and the pulled-up large height (textClipped, elementDetection only) | `AccessibilityAuditUITests.swift:116-130, 222-228, 278-282, 691-715` | all 3 medium-height audits passed in run 38550012702 |
 | 13. Fix the measurement docs | 17 pt semibold is normal text (4.5:1, not 3:1); added the Light values (weekday 6.97:1, Account 6.89:1) and Reset's pulled-up values (1.87/2.67/1.87) | `docs/pmo/a11y-waivers.md`; `pmo-audit/.build-audit/mvp2b/contrast-measurements.md` (evidence, not this repo) | — |
-| 14. Settings' School value | `TallyTokenBreaks.breakable()` through a `LabeledContent` content closure | `SettingsView.swift:247-258` | run 38563159933 tour, `smallest-light-xxxLarge/91-settings-top.png`: "canvas." / "northfield." / "example", each whole, no mid-word break |
+| 14. Settings' School value | `TallyTokenBreaks.breakable()` through a `LabeledContent` content closure | `SettingsView.swift:247-258` | **Correction (gate-2 round 2 verdict §1 row 14): wrong path.** `smallest-light-xxxLarge/91-settings-top.png` does not exist — that leg's own scope is Courses/Calendar/the hand-off only (`audit-tour.yml`'s `xxxLarge` leg). The real capture is `smallest-light-ax5/91-settings-top.png`, tour run 38563159933: "canvas." / "northfield." / "example", each whole, no mid-word break |
 | 15. What-If chip label | "`<percent>`, `<item title>`", composed from the chip's own text plus `item.title` (`Text` concatenation), no new key; hint unchanged | `WhatIfSheet.swift:255-267` | translator comment corrected in `L10n+GradeScreensSweep.swift:544-549` and the xcstrings catalog |
 | 16. Audit tour additions | `xxxLarge` text-size leg (one step below AX1), scoped to Courses/Calendar/the hand-off; `signInToDemoSchool` now snaps the hand-off screen itself (previously only "missing-X" on failure, never a success capture) | `AuditTourUITests.swift:46-57, 845-864`; `audit-tour.yml:25-30, 128-144` | tour run 38563159933: all 12 legs (8 + 4 `xxxLarge`) green; `tourdiff`/200% spot checks below |
 
@@ -222,14 +222,18 @@ hand-off only). One leg failed its first attempt (`smallest-dark-ax5`:
 `testK_paywallAfterFirstSync` exceeded its 5-minute allowance) and passed clean on
 `gh run rerun --failed` with no code change — a timeout flake, not a regression.
 
-- **Settings** (item 14): `smallest-light-xxxLarge/91-settings-top.png` — "canvas." / "northfield."
-  / "example" each on its own line, no mid-word break, 200%-checked.
+- **Settings** (item 14): **Correction** — the path below was `smallest-light-xxxLarge/91-settings-
+  top.png` (does not exist; see the corrected row 14 above). The real capture is
+  `smallest-light-ax5/91-settings-top.png` — "canvas." / "northfield." / "example" each on its own
+  line, no mid-word break, 200%-checked.
 - **Calendar** (item 8): `smallest-light-ax5/46-calendar-weekStripAndAgenda.png` is pixel-identical
   to round 1's after-tour capture (`tour-after-38372167047`) apart from the date (13→14, the
   date-relative sample data); the tour's own `testD_calendar` opens on today via the same
   `scrollBelowPinnedStrip` the fix added, not the explicit day-tap `a11yReachCalendar` uses, so this
-  capture is a no-regression check rather than fresh evidence of item 8 itself (that evidence is the
-  scope=a11y frame data above).
+  capture is a no-regression check rather than fresh evidence of item 8 itself. **Correction
+  (gate-2 round 2 verdict section 3): item 8 was not, in fact, fixed** — the tour's own 10/10 legs
+  opened on today with the heading hidden under the strip, pixel-identical to round 1. See the
+  Round 3 section for the real fix.
 - **What-If** (item 10): `smallest-light-ax5/303-course1-whatIf.png` — "93.4%" renders on one line,
   no clipping, no overlap with "Projected" above it.
 - `xxxLarge/16-courses-top.png` and `xxxLarge/46-calendar-weekStripAndAgenda.png` exist on both

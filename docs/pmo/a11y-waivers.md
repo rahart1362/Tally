@@ -35,39 +35,83 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   one `.all` audit, contrast and clipping issues on `List` screens came back with no element (the
   list had rebuilt its rows at the larger size). Run 38350587735: with `textClipped` in the first
   pass, Calendar's agenda moved while contrast was being measured.
+- **AX5 pages to the end of the list, auditing each page** (gate-2 round 3, verdict item 6,
+  replacing round 2's single extra swipe — `AccessibilityAuditUITests.a11yPageToEnd`). Dashboard,
+  Courses, Course Detail, To-Do, Insights, Settings, Paywall and Parent Mode each run one
+  `-paged-<N>` audit per screenful, to the bottom (capped at 20), so a row the first pass's fold
+  left unmeasured is still reached — Settings alone is up to 16 screenfuls at AX5 on the smallest
+  iPhone (the Audit tour's own `captureScreenfuls`), and round 2's one extra pass reached only one
+  of them.
 - **What-If is audited pulled up to its large height.** At the medium height the system draws
   the sheet at 0.96 scale (Reset measured 64.65 × 34.57 pt there, 67.33 × 36 pt pulled up, run
   38350587735), and the text checks misfire on the scaled text: 4 `textClipped` and 4
   `elementDetection` at the medium height in Light and in Dark, none on the same rows, chips and
   summary pulled up (`whatIf-light-std-large`, every type). The Audit tour captures the sheet
   pulled up too.
-- **Calendar is audited at the agenda's first day** (the reach taps the week's first day in the
-  strip, as a student would). It opens scrolled to today, the only list that does, so the rows above
-  today sit hidden behind the SAMPLE DATA banner, the navigation bar and the week strip (run
-  38370696712's snapshot: "Mon, Oct 12" at y = 87–127 pt and "Nothing scheduled" at 128–180; at AX5
-  "Nothing scheduled" at 23–170 and "Today · Tue, Oct 13" at 187–332). There the clipping check
-  returned a "may be clipped" it could not attach to any element, one to four per variant in all
-  five scope=a11y runs, and the only finding left in the last. (The contrast of the hidden rows
-  was already held by the audit-position rule; this element-less finding can be held by nothing.)
-  **MVP-2b gate-2 round 2 (item 9):** gate2's four Calendar screenshots contradicted this document's
-  former claim that "at the first day nothing is hidden above the agenda" — the tapped day's own
-  heading, and the first row under it, sat partly or fully behind the strip
-  (`calendar-first-day-hidden-under-strip.jpg`), a real defect, not an audit-position artifact: the
-  app's own `scrollTo(day, anchor: .top)` came to rest short of clearing the strip
-  (`CalendarScreen.swift:79,94`, now `scrollBelowPinnedStrip`, fixed in round 2).
+- **Calendar is audited both as opened on today and at the agenda's first day** (gate-2 round 3,
+  verdict item 2 — the "opened on today" state was, until this round, only ever walked by the
+  Audit tour, never by this scope=a11y suite itself; `a11yReachCalendarToday` /
+  `a11yReachCalendar`, `AccessibilityAuditUITests.swift`). The first-day tap is a student's own
+  path through the week strip. There the clipping check returned a "may be clipped" it could not
+  attach to any element, one to four per variant across several scope=a11y runs — the no-element
+  case above, and only in a `-paged` pass; an unpaged first/top pass with such a finding fails.
+- **The selected day's heading and the row under it** (gate-2 round 2 verdict, item 8/9; gate-2
+  round 2's own fix did not hold — round-2 review section 3). **Correction:** the round-2 report's
+  evidence named "Mon, Oct 12" as the selected day; the test taps the week's *first* day, which the
+  review's own screenshot shows selected (filled) — Sunday, Oct 11 (gate-2 round 2 verdict section
+  2.3 and section 3). **Gate-2 round 3 (item 1):** `.id(day.id)` used to sit on the `Section`
+  (`CalendarScreen.swift`), which made `List`'s `ScrollViewProxy.scrollTo(_:anchor:)` land on the
+  Section's first *row*, not its header. The id now sits on the header view itself
+  (`CalendarScreen.swift:65-68`), and the delayed second `scrollTo` (which could not have helped,
+  landing on the same row) is removed (`CalendarScreen.swift:188`, `scrollBelowPinnedStrip`).
+  `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` asserts
+  `heading.frame.minY >= pinnedHeader.frame.maxY` and that the heading's first row is hittable, on
+  open, after tapping the first day and after tapping a mid-week day, at std and AX5 — this is the
+  round-3 evidence that the fix holds, not a repeat of round 2's own unverified claim.
 
 ## The audit-position rule (`A11yScene.heldReason`; not a waiver)
 
-**What it holds.** A `contrast` or `textClipped` issue on an element that **scrolls** (it sits in
-a scroll view, table or collection view in the snapshot taken just before the audit, matched by
-its label and frame), which at the audit moment is **not wholly in view**: part of it lies
-outside its scroll view or the window, under system chrome (a tab bar, navigation bar or toolbar,
-or iOS 26's scroll-edge dimming `AdditionalDimmingOverlay`, the image the system lays over the
-content beside a bar), or under one of the app's own opaque pinned bars (`A11yScene.pinnedBars`:
-Calendar's week strip and breadcrumb, `calendar.pinnedHeader`). A pinned element is never held.
-One more case, of any audit type: an element wholly inside the **system keyboard** is the
-keyboard's own, not the app's (run 38357314250: Find School in Dark, three empty
-`TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").
+**What it holds, as of gate-2 round 3 (verdict items 3–5; this replaces the round-2 wording,
+which the round-2 review found too broad in exactly these ways — section 2 of
+`pmo-audit/.build-audit/mvp2b/review-r2/verdict.md`).**
+
+- A `contrast` issue **under system chrome**: a tab bar or toolbar overlapping the element's own
+  frame by at least a third of its height (`A11yScene.overlapsByAtLeastAThird`). **The navigation
+  bar never counts as chrome here** (`ChromeKind.canHoldContrast`,
+  `AccessibilityAuditUITests.swift:1030`) — an element under the nav bar or a pinned header at
+  rest is a real at-rest defect (item 1's Calendar fix), not mid-scroll occlusion.
+- A `contrast` issue in iOS 26's translucent scroll-edge dimming (`AdditionalDimmingOverlay`),
+  held **only on a passing in-test pixel measurement**
+  (`A11yScene.measureFadeBandContrast`, `AccessibilityAuditUITests.swift:1261`): the glyph core
+  against each pixel ROW's own modal background (not one colour for the whole frame), excluding
+  any row inside an opaque chrome bar, with the whole crop's own dominant colour required to
+  cover at least half of it (otherwise there is no reliable background to measure against, and
+  the issue is not held — it fails or must be fixed). Always **4.5:1**; there is no large-text
+  exception here (gate-2 round 2 item 13's own correction: 17 pt semibold is normal text, and a
+  frame-height approximation cannot see weight at all, so it never over-granted 3:1 either — the
+  exception is dropped rather than left to over-grant something else).
+- A `contrast` issue under one of the app's own opaque pinned bars (`A11yScene.pinnedBars`:
+  Calendar's week strip and breadcrumb, `calendar.pinnedHeader`), **by at least a third of its own
+  height, and only when the element ends above the selected day's own heading**
+  (`dayHeadings`/`A11yScene.dayHeadingIdentifier`, `calendar.dayHeading` —
+  `AccessibilityAuditUITests.swift:1040,1044,1209-1211`): content genuinely scrolled past and now
+  under the strip. The heading itself, and its own rows, start at or after the heading and can
+  never satisfy that — they are never held this way (gate-2 round 2 verdict section 2.3 found the
+  rule's only 2 holds were exactly that heading, a real defect, now item 1's fix). An element
+  structurally inside a pinned bar's own subtree (`insidePinned`) is never held by any reason,
+  regardless of overlap.
+- A `contrast` or `textClipped` issue **partly outside its own scroll view or the window**, along
+  that container's own scroll axis only.
+- A `dynamicType` or `textClipped` issue with **no element at all** (frame zero, empty label,
+  *and* empty identifier), **only in a `-paged` variant** (`auditScreen`'s own paging, item 6),
+  **capped at 3 per pass**, and **confirmed by one retry** of the same pass, after the list
+  settles, that shows no elementless issue of the same type — otherwise it is a real, recurring
+  problem, not the audit's own list-rebuild instability, and fails like any other issue
+  (`runA11yAudit`, `AccessibilityAuditUITests.swift:547-634`).
+- Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
+  own, not the app's (run 38357314250: Find School in Dark, three empty
+  `TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").
+
 Nothing else is held.
 
 **Why.** Run 38338079168 measured every contrast issue on its own pixels: no colour token failed.
