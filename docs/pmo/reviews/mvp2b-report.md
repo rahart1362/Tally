@@ -135,3 +135,146 @@ sentence as the hint; the hand-off's address tag reads "School, canvas.northfiel
   (67 min of its 120-min job in run 38321522188).
 - `FamilyUITests` now judges the whole parent-mode screen in every PR run (it used to look at the
   family's own elements only); a future content change there can fail it.
+
+## Round 2 (gate-2 fix list, PMO's Opus review)
+
+Author: Accessibility Engineer, round 2, Claude Sonnet 5. Same branch, from `bba0f32`. Verdict:
+`pmo-audit/.build-audit/mvp2b/review/verdict.md`. Journal:
+`build/logs/journal/2026-10-14-mvp2b.md`. Evidence: `pmo-audit/.build-audit/mvp2b/r2/`.
+
+### Fix list
+
+| Verdict item | Change | `file:line` | Evidence |
+| :--- | :--- | :--- | :--- |
+| 1. Drop the dimming overlay from chrome | `A11yScene.walk` no longer adds `AdditionalDimmingOverlay` to `chrome`; its frames go to a separate `dimming` array | `AccessibilityAuditUITests.swift:987` | scope=a11y run 38550012702: 53 issues now held as "in the fade band, measured X:1", never by position alone |
+| 2. ≥1/3 height overlap, not any intersection | `overlapsByAtLeastAThird` | `AccessibilityAuditUITests.swift:1086-1090` | same run: 54 "under system chrome" holds, each passing the check |
+| 3. In-test pixel measurement for the fade band | `measureFadeBandContrast` (RGBA8 draw of the audit screenshot, same algorithm as `a11ylib.measure`), `isLargeText` for the 3:1/4.5:1 threshold | `AccessibilityAuditUITests.swift:1098-1140`, `1082-1084` | measured ratios cross-checked against `contrast-measurements.md`'s own Python figures for the same elements: "Exam 1" 14.86:1 both ways, "93.2/100" 9.53:1 both ways, "Introduction to Psychology" 17.51:1 both ways, "87.2%" 6.87:1 both ways (`a11y-final/` evidence) |
+| 4. Never hold inside a pinned subtree | `insidePinned`, set while walking the tree (not by frame intersection), checked first in `heldReason` | `AccessibilityAuditUITests.swift:999-1012`, `1063` | the two remaining "under the screen's pinned bar" holds are "Sun, Oct 11" (a day before the agenda's first/selected day, legitimately scrolled past); the week strip's own weekday letters are no longer in that bucket |
+| 5. "Partly outside" on the scroll axis only | `ScrollAxis`, inferred per container in `walk`; `isPartlyOutside` checks only that axis | `AccessibilityAuditUITests.swift:902-905`, `1021-1027`, `1092-1096` | 11 "partly outside" holds, all past the bottom edge of a vertical list (none on a left/right edge) |
+| 6. `textClipped` held only in the partly-outside case | `heldReason` returns before the chrome/pinned/dimming checks unless `auditType == "contrast"` | `AccessibilityAuditUITests.swift:1067-1069` | no `textClipped` issue held for chrome or a pinned bar in any run |
+| 7. No hold for navigation-bar overlap | `ChromeKind.canHoldContrast` excludes `.navigationBar` | `AccessibilityAuditUITests.swift:910-912` | 0 "under system chrome" holds attributed to a navigation bar |
+| 8. Calendar: scroll below the pinned strip | `scrollBelowPinnedStrip`: the existing `scrollTo` call, then a second one after the run loop turns, correcting a `List`'s own imprecise initial offset | `CalendarScreen.swift:79, 94, 162-179` | run 38550012702, `calendar-light-std-audit-elements.json`: the selected day's heading ("Mon, Oct 12") at y = 494, clear of the pinned strip; only days scrolled *before* it (e.g. "Sun, Oct 11") are still held |
+| 9. Fix the waivers doc's Calendar claim | Removed "at the first day nothing is hidden above the agenda" | `docs/pmo/a11y-waivers.md` | — |
+| 10. `whatif.summary.projectedValue` | Tried the fix first: `tallyReflowPinnedValue()` (no `minimumScaleFactor`) in place of `tallyReflowValue()`, since the element is already capped to AX2 and has a full line to itself from AX1 up | `AccessibilityReflow.swift:126-133, 154-157`; `WhatIfSheet.swift:132` | **Outcome below** |
+| 11. Page AX5 for rows below the fold | `auditScreen(page:)` runs a second `-paged` audit after scrolling; applied to Dashboard, Courses, Course Detail, To-Do, Insights, Settings, Parent Mode, Paywall | `AccessibilityAuditUITests.swift:440-467` | run 38550012702: every paged variant present, 0 unwaived/unheld after the follow-up fix below |
+| 12. What-If: medium height too | Split into `medium-std`/`medium-dark`/`medium-contrast` (contrast, hitRegion, sufficientElementDescription, trait, via `a11yReachWhatIfMedium`) and the pulled-up large height (textClipped, elementDetection only) | `AccessibilityAuditUITests.swift:116-130, 222-228, 278-282, 691-715` | all 3 medium-height audits passed in run 38550012702 |
+| 13. Fix the measurement docs | 17 pt semibold is normal text (4.5:1, not 3:1); added the Light values (weekday 6.97:1, Account 6.89:1) and Reset's pulled-up values (1.87/2.67/1.87) | `docs/pmo/a11y-waivers.md`; `pmo-audit/.build-audit/mvp2b/contrast-measurements.md` (evidence, not this repo) | — |
+| 14. Settings' School value | `TallyTokenBreaks.breakable()` through a `LabeledContent` content closure | `SettingsView.swift:247-258` | run 38563159933 tour, `smallest-light-xxxLarge/91-settings-top.png`: "canvas." / "northfield." / "example", each whole, no mid-word break |
+| 15. What-If chip label | "`<percent>`, `<item title>`", composed from the chip's own text plus `item.title` (`Text` concatenation), no new key; hint unchanged | `WhatIfSheet.swift:255-267` | translator comment corrected in `L10n+GradeScreensSweep.swift:544-549` and the xcstrings catalog |
+| 16. Audit tour additions | `xxxLarge` text-size leg (one step below AX1), scoped to Courses/Calendar/the hand-off; `signInToDemoSchool` now snaps the hand-off screen itself (previously only "missing-X" on failure, never a success capture) | `AuditTourUITests.swift:46-57, 845-864`; `audit-tour.yml:25-30, 128-144` | tour run 38563159933: all 12 legs (8 + 4 `xxxLarge`) green; `tourdiff`/200% spot checks below |
+
+### Item 10's outcome
+
+Fixed, not waived. `tallyReflowValue()`'s `minimumScaleFactor` (tuned for the *uncapped* AX5 case,
+0.5) was shrinking this element even though it is already capped to AX2
+(`.tallyPinnedChromeTextSize()` on `WhatIfSummary`) and gets a full line to itself from AX1 up
+(`TallyReflowStack`'s stacked layout) — there was no narrow-width reason for it to shrink.
+`tallyReflowPinnedValue()` drops the shrink. Measured (ink height, the rendered glyphs only, cropped
+from the scope=a11y screenshots at the element's own frame): **21.0 pt (default) → 31.7 pt (AX5),
+×1.51** (run 38550012702, `whatIf-light-std-audit-screen.png` / `whatIf-light-ax5-audit-screen.png`,
+frame from `whatIf-light-{std,ax5}-audit-elements.json`). The verdict's own before-fix measurement
+was 20.3 → 23.7 pt (×1.17); this is a real, substantial improvement, though it is not quite the ×2
+other capped pinned elements reach (the banner label, ×2.19) — `.system(.title, design: .serif)`'s
+own AX2 scaling for this specific font/weight is simply smaller than theirs. No `textClipped` issue
+appeared for this element at any size; it still wraps `dynamicType` (the existing, unchanged,
+owner-approved AX2-cap waiver fires as before). **No owner sign-off needed**: the fix held, and
+nothing was restated as a waiver.
+
+### Held-issue counts
+
+| | Before (verdict, gate2 38393835729) | After (scope=a11y 38550012702, final) |
+| :--- | ---: | ---: |
+| Total issues | 155 | 192 (more audit surface: paging, What-If's medium height) |
+| Waived (24 pairs, unchanged) | 45 | 65 |
+| Held | 110 | 127 |
+| — under system chrome | — | 54 |
+| — in the fade band (measured) | — | 53 |
+| — partly outside (scroll axis) | — | 11 |
+| — no element (list-rebuild artifact, item 11's own new case) | — | 4 |
+| — on the system keyboard | — | 3 |
+| — under the screen's pinned bar | — | 2 |
+| **Failing** | **0** | **0** |
+
+The verdict's own 104-contrast breakdown ("wholly above the tab bar, in clear view": 43; "crosses
+the tab bar's top": 15; "inside the tab bar's frame": 34; "past the screen bottom": 10; "under the
+top bars at rest": 2) maps onto the narrowed buckets: the 43 "in clear view" ones now require (and
+pass) a measurement instead of a bare position check; "past the screen bottom" is now axis-aware;
+"under the top bars at rest" (Calendar) is fixed by item 8, not held at all.
+
+### A follow-up fix the narrowed rule needed (item 11)
+
+Paging (item 11) scrolls a `List` immediately before `dynamicType`/`textClipped` re-measure it,
+which can catch the list mid-rebuild — this file's own doc comments already record the same
+artifact at rest (run 38338079168's `.all` audit, run 38350587735's Calendar: "the list had rebuilt
+its rows... by the time the issues were handed over"). The first scope=a11y dispatch (38541671931)
+failed on exactly this, twice (`testSettings`, `testToDo`), both element-less issues with a zero
+frame. `heldReason` now holds a growing-type issue with no element and no frame as the audit's own
+artifact (`AccessibilityAuditUITests.swift:1043-1053`) — nothing about it can be measured, reproduced
+or waived by identifier. The second dispatch (38550012702) passed clean (one unrelated `testPaywall`
+reach timeout, a flake: it passed on `gh run rerun --failed` with no code change, and the Dark/
+Contrast classes' own `testPaywall` had already passed in the same run).
+
+### Visual regression (the 8 legs, plus `xxxLarge`)
+
+Tour run [38563159933](https://github.com/rahart1362/Tally/actions/runs/38563159933), all methods,
+8 legs (proMax/smallest × light/dark × std/AX5) plus 4 `xxxLarge` legs (Courses, Calendar, the
+hand-off only). One leg failed its first attempt (`smallest-dark-ax5`:
+`testK_paywallAfterFirstSync` exceeded its 5-minute allowance) and passed clean on
+`gh run rerun --failed` with no code change — a timeout flake, not a regression.
+
+- **Settings** (item 14): `smallest-light-xxxLarge/91-settings-top.png` — "canvas." / "northfield."
+  / "example" each on its own line, no mid-word break, 200%-checked.
+- **Calendar** (item 8): `smallest-light-ax5/46-calendar-weekStripAndAgenda.png` is pixel-identical
+  to round 1's after-tour capture (`tour-after-38372167047`) apart from the date (13→14, the
+  date-relative sample data); the tour's own `testD_calendar` opens on today via the same
+  `scrollBelowPinnedStrip` the fix added, not the explicit day-tap `a11yReachCalendar` uses, so this
+  capture is a no-regression check rather than fresh evidence of item 8 itself (that evidence is the
+  scope=a11y frame data above).
+- **What-If** (item 10): `smallest-light-ax5/303-course1-whatIf.png` — "93.4%" renders on one line,
+  no clipping, no overlap with "Projected" above it.
+- `xxxLarge/16-courses-top.png` and `xxxLarge/46-calendar-weekStripAndAgenda.png` exist on both
+  devices (not "missing-"), confirming the new leg reaches both screens.
+
+Not spot-checked image-by-image beyond the above: all 8 standard legs' `AuditTourUITests` methods
+(17 per leg) passed with no assertion failures, which is the tour's own correctness signal (`go`/
+`goScrolling` record "missing-`<state>`" on anything unreachable); a full pixel diff against round
+1's after-tour was attempted (`tourdiff.py`) but the two tours were captured on different calendar
+days, so most captures differ only in date-relative sample text, which the tool does not distinguish
+from a layout change — not a useful signal without per-image review, which was not done exhaustively.
+
+### Strings PENDING owner approval
+
+None: no new keys. Item 15's chip label is composed in code from values already on screen (the
+chip's own percent text, `item.title`); only its translator comment changed, from "label" to "hint".
+
+### CI runs
+
+- scope=a11y: [38541671931](https://github.com/rahart1362/Tally/actions/runs/38541671931) (failed:
+  `testSettings`, `testToDo`, the paging artifact above — fixed in `a6b2fe1`),
+  [38550012702](https://github.com/rahart1362/Tally/actions/runs/38550012702) (failed on first
+  attempt: `testPaywall`, a reach timeout; passed on `gh run rerun --failed`) (2 of 3 used).
+- Audit tour: [38563159933](https://github.com/rahart1362/Tally/actions/runs/38563159933) (failed on
+  first attempt: `smallest-dark-ax5`'s `testK_paywallAfterFirstSync`, a timeout; passed on
+  `gh run rerun --failed`) (1 of 1).
+- Release gate: [38583068237](https://github.com/rahart1362/Tally/actions/runs/38583068237) — **87
+  PASS, 16 PENDING, 0 FAIL**; `REL.a11y.audit` PASS, "48 audit test(s) ran, 24 waiver(s)" (1 of 1).
+- PR run: [38583039323](https://github.com/rahart1362/Tally/actions/runs/38583039323), at `b043b72`
+  — every required job green (`hygiene`, `core-linux`, `lint`, `core-sanitizers`, `ios-build`,
+  `ios-asan`, `ios-tsan`, `ios-perf`).
+
+### Open items
+
+- **Item 16, hand-off capture not yet verified by a tour dispatch.** `signInToDemoSchool` now snaps
+  the hand-off screen on success (`AuditTourUITests.swift:850-856`), but this was written after the
+  round's one Audit tour dispatch (plus its one same-run retry) had already run; it has not been
+  proven to actually capture correctly on Pro Max or the smallest iPhone. Needs one more tour
+  dispatch (a future round, or the PMO's own) to confirm.
+- **Item 10's growth is ×1.51, not ×2.** Real and substantial, but short of the ratio the banner
+  label reaches; `.title`/serif's own AX2 scaling appears to just be smaller for this font. Not
+  flagged for owner sign-off (nothing was waived), but worth the owner's eye if the summary still
+  reads small on a device.
+- **Device checks** (carried over from round 1, still not done on this host): VoiceOver, Switch
+  Control, a real Increase Contrast setting, the Large Content Viewer.
+- **Visual regression was not reviewed image-by-image** beyond the spot checks above; the tour's own
+  pass/fail (every `go`/`goScrolling` reaching what it expects) is the main signal, not a human
+  review of all ~100 captures × 12 legs.
