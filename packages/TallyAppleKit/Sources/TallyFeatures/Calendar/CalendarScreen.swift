@@ -41,6 +41,30 @@ struct CalendarScreen: View {
                 } else {
                     ForEach(calendar.days) { day in
                         Section {
+                            // MVP-2b gate-2 round 3 (verdict item 1, the PMO's documented
+                            // fallback). The first attempt put `.id(day.id)` on the `header:`
+                            // closure's own `Text` instead of the `Section`, reasoning that
+                            // `scrollTo` landing on "the Section's first row" meant the anchor
+                            // needed to sit on the header view itself. CI proved that wrong
+                            // (run 38608671835: `heading.minY` of 87 against a target of 233, on
+                            // open — the scroll barely moved at all): a `List` `Section`'s
+                            // `header:`/`footer:` content does not publish the anchor preference
+                            // `ScrollViewProxy.scrollTo` reads; only its own rows do. The heading
+                            // is now the Section's own first row instead, carrying the id
+                            // `scrollTo` needs, and styled to read as the header did: this app's
+                            // own "meta text" role (`.footnote`, the same size role the freshness
+                            // breadcrumb and agenda times use) and `tallySectionText()`'s colour,
+                            // no cell background (`.tallyRow()` below sets the card colour for
+                            // every *other* row in this Section; a row's own `.listRowBackground`
+                            // overrides that), and the `.isHeader` trait a true header gets
+                            // automatically.
+                            Text(day.heading)
+                                .font(TallyTypography.footnote)
+                                .tallySectionText()
+                                .accessibilityAddTraits(.isHeader)
+                                .accessibilityIdentifier("calendar.dayHeading")
+                                .listRowBackground(Color.clear)
+                                .id(day.id)
                             if day.items.isEmpty {
                                 Text(L10n.Calendar.nothingScheduled())
                                     .font(TallyTypography.subheadline)
@@ -53,19 +77,6 @@ struct CalendarScreen: View {
                             ForEach(day.items) { item in
                                 AgendaRow(item: item) { draft = item.draft }
                             }
-                        } header: {
-                            // MVP-2b gate-2 round 3 (verdict item 1): the scroll target moved onto
-                            // the header itself. `.id()` used to sit on the Section (below), which
-                            // made `scrollTo(day.id, anchor: .top)` land on the Section's first
-                            // *row*, not its header — the header then rested under the strip at
-                            // every variant the round-2 review checked (open, first day, mid-week
-                            // day; verdict section 3). Tagging the header view directly fixes the
-                            // anchor SwiftUI measures against; `calendar.dayHeading` lets the audit
-                            // and the UI test find whichever heading is at rest below the strip.
-                            Text(day.heading)
-                                .tallySectionText()
-                                .id(day.id)
-                                .accessibilityIdentifier("calendar.dayHeading")
                         }
                         .tallyRow()
                     }
