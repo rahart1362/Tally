@@ -58,9 +58,12 @@ final class CalendarUITests: TallyUITestCase {
     /// MVP-2b gate-2 round 3 (verdict item 1): the selected day's heading must rest fully below
     /// `calendar.pinnedHeader`, not merely mostly clear of it — round 2's own fix did not hold
     /// (gate-2 review, section 3: the heading rested under the strip at every variant checked, on
-    /// open and after a tap). `CalendarScreen.scrollBelowPinnedStrip` now puts the scroll target's
-    /// `id` on the header itself, not the enclosing `Section`. Checked on open, after tapping the
-    /// first day and after tapping a mid-week day, at std and AX5 (D18: AX5 scrolls the strip).
+    /// open and after a tap). `CalendarScreen.scrollBelowPinnedStrip`'s own doc comment has the
+    /// two bugs this fixes: the scroll target is now the heading's own row (a `List` Section's
+    /// `header:` content never registered as a `scrollTo` anchor at all), and a couple of
+    /// deferred, re-corrective calls land it once the List's layout has actually settled. Checked
+    /// on open, after tapping the first day and after tapping a mid-week day, at std and AX5
+    /// (D18: AX5 scrolls the strip).
     @MainActor
     func testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping() throws {
         let extras: [[String]] = [[], TallyUITestCase.a11yAccessibilityXXXL]
@@ -102,11 +105,9 @@ final class CalendarUITests: TallyUITestCase {
         tapWhenHittable(day, in: app)
     }
 
-    /// Asserts the topmost on-screen `calendar.dayHeading` — the one `scrollTo` just placed — rests
-    /// at or below `header`'s own bottom edge, and that its first row (an agenda item, or "Nothing
-    /// scheduled") is hittable.
+    /// The topmost on-screen `calendar.dayHeading` — the one `scrollTo` just placed — or `nil`.
     @MainActor
-    private func assertSelectedDayHeadingClearsThePinnedStrip(_ app: XCUIApplication, header: XCUIElement, after: String) {
+    private func topmostDayHeading(_ app: XCUIApplication) -> CGRect? {
         let headings = elements("calendar.dayHeading", in: app)
         var topmost: CGRect?
         for index in 0..<headings.count {
@@ -116,13 +117,28 @@ final class CalendarUITests: TallyUITestCase {
             guard frame.width > 0, frame.height > 0 else { continue }
             if topmost == nil || frame.minY < topmost!.minY { topmost = frame }
         }
-        guard let heading = topmost else {
+        return topmost
+    }
+
+    /// Asserts the topmost on-screen `calendar.dayHeading` rests at or below `header`'s own bottom
+    /// edge, and that its first row (an agenda item, or "Nothing scheduled") is hittable.
+    /// `scrollBelowPinnedStrip` re-corrects the scroll position across a couple of deferred
+    /// run-loop turns, so this polls (`eventually` runs the run loop while it waits, letting those
+    /// deferred calls actually fire) rather than checking once, immediately.
+    @MainActor
+    private func assertSelectedDayHeadingClearsThePinnedStrip(_ app: XCUIApplication, header: XCUIElement, after: String) {
+        let pinnedMaxY = header.frame.maxY
+        _ = eventually(timeout: 3) {
+            guard let heading = self.topmostDayHeading(app) else { return false }
+            return heading.minY >= pinnedMaxY - 0.5
+        }
+        guard let heading = topmostDayHeading(app) else {
             XCTFail("no calendar.dayHeading on screen after \(after). Hierarchy: \(app.debugDescription)")
             return
         }
-        XCTAssertGreaterThanOrEqual(heading.minY, header.frame.maxY - 0.5,
+        XCTAssertGreaterThanOrEqual(heading.minY, pinnedMaxY - 0.5,
             "the heading rested under the pinned strip after \(after): heading.minY=\(heading.minY), " +
-            "pinnedHeader.maxY=\(header.frame.maxY). Hierarchy: \(app.debugDescription)")
+            "pinnedHeader.maxY=\(pinnedMaxY). Hierarchy: \(app.debugDescription)")
         let firstRow = app.descendants(matching: .any).matching(NSPredicate(
             format: "identifier == %@ OR identifier == %@", "calendar.item", "calendar.nothingScheduled"
         )).firstMatch

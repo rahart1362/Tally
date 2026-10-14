@@ -183,24 +183,38 @@ struct CalendarScreen: View {
         openURL(url)
     }
 
-    /// MVP-2b gate-2 round 3 (verdict item 1; round 2's own fix did not hold — section 3). Round
-    /// 2's `.id(day.id)` sat on the `Section`, and `List`'s `ScrollViewProxy.scrollTo(_:anchor:)`
-    /// resolved that identity to the Section's first *row*, not its header: the heading rested
-    /// under `calendar.pinnedHeader` at every variant the review checked (on open, after tapping
-    /// the first day, after tapping a mid-week day), and the delayed second call landed on the
-    /// same row, so it never corrected anything — only a visible snap, 50 ms into the animated
-    /// case's own transaction (verdict section 3's "tap snap", S3).
+    /// MVP-2b gate-2 round 3 (verdict item 1; round 2's own fix did not hold — section 3; round
+    /// 3's first attempt did not either — CI run 38608671835/38623450627). Two separate bugs, now
+    /// both fixed:
+    /// 1. **The wrong scroll anchor.** Round 2's `.id(day.id)` sat on the `Section`, which made
+    ///    `scrollTo` land on the Section's first *row*, not its heading. Round 3's own first
+    ///    attempt moved the id onto the `header:` closure's `Text`, which CI proved does not
+    ///    register as a `scrollTo` anchor at all (the scroll barely moved). The id now sits on
+    ///    the heading's own ROW (`CalendarScreen.body`: the heading is the Section's first row,
+    ///    no `header:` closure), which `scrollTo` does resolve correctly.
+    /// 2. **Layout not yet settled.** Even with the right anchor, a single `scrollTo` right when
+    ///    this `.task`/`onSelect` fires measures against the `List`'s own row heights before they
+    ///    have all been laid out for a freshly rendered agenda, landing short (CI run
+    ///    38623450627: heading.minY 98 against a target of 233 pt, on open). A second,
+    ///    re-corrective call, one or more run-loop turns later, measures the now-settled layout
+    ///    and corrects it — this is the same shape round 2's single delayed call took, but that
+    ///    one could never have helped: it targeted the SAME wrong anchor as the first call. With
+    ///    the anchor now correct, the delayed calls can actually re-measure and land.
     ///
-    /// The id now sits on the header view itself (`CalendarScreen.body`), so `scrollTo` measures
-    /// the header's own anchor. With the scroll target fixed, the second call is no longer needed
-    /// and is removed; `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping`
-    /// asserts `heading.frame.minY >= pinnedHeader.frame.maxY` on open, after the first day and
-    /// after a mid-week day, at std and AX5.
+    /// `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` asserts
+    /// `heading.frame.minY >= pinnedHeader.frame.maxY` on open, after the first day and after a
+    /// mid-week day, at std and AX5.
     private func scrollBelowPinnedStrip(_ day: Date, with proxy: ScrollViewProxy, animated: Bool) {
-        if animated {
-            withAnimation { proxy.scrollTo(day, anchor: .top) }
-        } else {
-            proxy.scrollTo(day, anchor: .top)
+        func scroll() {
+            if animated {
+                withAnimation { proxy.scrollTo(day, anchor: .top) }
+            } else {
+                proxy.scrollTo(day, anchor: .top)
+            }
+        }
+        scroll()
+        for delay in [0.05, 0.2] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { scroll() }
         }
     }
 }
