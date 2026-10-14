@@ -898,7 +898,11 @@ extension TallyUITestCase {
 /// of the app's own opaque pinned bars, or in the translucent fade band with a passing in-test
 /// measurement. Every other issue still fails, and so does anything wholly in view, inside a
 /// pinned subtree, or under the navigation bar. A held issue is still attached, with its reason.
-/// The rule's one other case: an issue on the system keyboard's own elements (`heldReason`).
+/// The rule's two other cases: an issue on the system keyboard's own elements, and a growing-type
+/// issue (`dynamicType`/`textClipped`) with no element and no frame at all — the audit's own
+/// list-rebuild artifact (paging, item 11, makes this common enough to need a rule, not a
+/// scroll-position workaround); neither can be measured, reproduced or waived by identifier
+/// (`heldReason`).
 struct A11yScene {
     /// A scroll container's axis, inferred in `walk` from its element kind and aspect (this app's
     /// only horizontal scroller is Calendar's week strip; everything else is a vertical `List`,
@@ -1038,7 +1042,18 @@ struct A11yScene {
     /// the predictive bar, "missing useful accessibility information"), not the app's.
     func heldReason(auditType: String, label: String, frame rawFrame: CGRect) -> String? {
         let frame = Self.finite(rawFrame)
-        guard frame.width > 0, frame.height > 0 else { return nil }
+        guard frame.width > 0, frame.height > 0 else {
+            // Item 11 (gate-2 round 2): paging to audit rows below the fold scrolls a `List`
+            // right before `dynamicType`/`textClipped` grow its text to predict larger sizes
+            // (`a11yPasses`); this file's own doc comments already record the same list-rebuild
+            // artifact at rest (run 38338079168's `.all` audit, run 38350587735's Calendar).
+            // With no element and no frame there is nothing to measure, reproduce or waive by
+            // identifier — the audit's own instability, not a finding about the app.
+            if label.isEmpty, auditType == "dynamicType" || auditType == "textClipped" {
+                return "no element (the audit's own list-rebuild artifact)"
+            }
+            return nil
+        }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
             return "on the system keyboard"
         }
