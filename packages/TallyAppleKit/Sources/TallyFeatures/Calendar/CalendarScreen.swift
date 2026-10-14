@@ -141,6 +141,19 @@ struct CalendarScreen: View {
                     scrollBelowPinnedStrip(today, with: proxy, animated: false)
                 }
             }
+            // MVP-2b gate-2 round 3 (verdict item 1, PMO note). CI showed a real, but
+            // incomplete, improvement from `contentMargins(.top:)` alone (heading.minY 98 pt ->
+            // 170 pt against a target of 233 pt, run 38644410449) — consistent with
+            // `scrollBelowPinnedStrip`'s fixed-delay re-corrections (50 ms, 200 ms) firing before
+            // `pinnedStripHeight` finished settling to its true value, so `scrollTo` kept using a
+            // too-small margin. Re-scrolling exactly when the measured height actually changes,
+            // rather than guessing how long that takes, keeps the correction in sync with
+            // whatever `contentMargins` currently reserves, however many renders that took.
+            .onChange(of: pinnedStripHeight) { _, _ in
+                if let target = selectedDay ?? calendar.todayID {
+                    scrollBelowPinnedStrip(target, with: proxy, animated: false)
+                }
+            }
         }
         .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
         .toolbar {
