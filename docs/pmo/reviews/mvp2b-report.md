@@ -906,4 +906,45 @@ A tour capture after the first-day tap is added (`AuditTourUITests.testD_calenda
 
 ### 5. CI runs
 
-_Filled in after dispatch; see the hand-off reply for the final figures._
+All dispatched on the scratch branch `mvp/a11y-fixes-2e` before merging into `mvp/a11y-fixes`.
+
+- scope=only (2 of 5 budgeted):
+  - [38788501810](https://github.com/rahart1362/Tally/actions/runs/38788501810) (`39cd95e`):
+    `AccessibilityAuditUITests/testCalendar`, `AccessibilityAuditDarkUITests/testCalendar`,
+    `AccessibilityAuditContrastUITests/testCalendar`, `CalendarUITests/
+    testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` — 4/4 passed. The "Dark"
+    class's own screenshot was not actually dark (`AccessibilityAuditUITests.swift`'s own doc
+    comment: Light/Dark appearance needs `xcrun simctl ui ... appearance dark`, a job step only
+    `scope=a11y`/the release gate run, never `scope=only`) — a pre-existing, documented
+    characteristic, not a regression; genuine Dark rendering came from scope=a11y below.
+- scope=a11y (1 of 2 budgeted):
+  - [38791601866](https://github.com/rahart1362/Tally/actions/runs/38791601866) (`39cd95e`): **all
+    58 methods passed** (Light 26, Dark 16, Increase Contrast 16). Downloaded evidence confirms
+    genuine Dark rendering this time (`Tally-a11y-dark/calendar-dark-std-audit-screen.png` canvas
+    `#05080F`) and the fixed rule on real device pixels: every navigation-bar hold (6 across
+    light-std, dark-std ×2, contrast-class, light-ax5) measured 100.0% coverage at 1.2:1, max
+    glyph 1.00–1.11:1 — the held-reason text now states the real tolerance
+    (`pmo-audit/.build-audit/mvp2e/a11y-evidence-1/`). The Calendar first-day screenshots (Light,
+    Dark, Increase Contrast) show "October"/"Updated just now" drawn, confirming S2 directly.
+- Audit tour (1 budgeted, plus one corrective re-dispatch after a bug the first one found):
+  - [38799743647](https://github.com/rahart1362/Tally/actions/runs/38799743647) (`39cd95e`):
+    `testD_calendar`, `testE_toDo`, `testF_insights`, `testN_sampleDataAndParentMode` on the
+    default 8-leg matrix (proMax/smallest × light/dark × std/ax5), widgets off — all 8 legs green.
+    To-Do and Parent Mode's new AX5 scroll captures and Insights' raised cap all worked (Insights
+    reached its own end at scroll15/scroll18 on the smallest device, under the new cap of 20, not
+    truncated). But `47-calendar-missing-firstDay` on all 4 AX5 legs: the week strip scrolls
+    centred on today from AX1 up (D18), so `elements("calendar.day").firstMatch` was not hittable
+    — a gap `AccessibilityAuditUITests.a11yReachCalendar` already handles with a swipe, which the
+    tour's own new code had not copied. Fixed (`1a3e86d`): swipe `calendar.pinnedHeader` right up
+    to 6 times first, the same as that helper.
+  - [38805937157](https://github.com/rahart1362/Tally/actions/runs/38805937157) (`1a3e86d`):
+    `testD_calendar` only, the 4 AX5 legs — all green, `47-calendar-firstDay` present on every one,
+    confirming the fix (`pmo-audit/.build-audit/mvp2e/tour-38805937157/`).
+- Release gate (1 budgeted):
+  - [38808356721](https://github.com/rahart1362/Tally/actions/runs/38808356721) (`1a3e86d`): every
+    job succeeded (`iOS gate`, `iOS gate on iOS 27`, `Static compliance checks`,
+    `TallyCore tests`, `Launch metric and screenshots`, `Compliance report`). The compliance JSON
+    (`pmo-audit/.build-audit/mvp2e/gate-compliance/compliance.json`): **`REL.a11y.audit`: PASS** —
+    "56 audit test(s) ran, 24 waiver(s) in `A11yWaivers.waived`" — **0 of 103 checks `FAIL`** (87
+    `PASS`, 16 `PENDING` for a later milestone).
+- PR run: in the hand-off reply, after the single push to `mvp/a11y-fixes`.
