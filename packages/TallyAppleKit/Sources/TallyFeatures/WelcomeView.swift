@@ -153,12 +153,31 @@ struct WelcomeView: View {
     }
 
     private var footer: some View {
-        // app-store-compliance.md R10: the exact disclaimer wording, always
-        // visible, never gated behind a tap.
-        Text(L10n.Account.disclaimer())
-            .font(TallyTypography.caption)
-            .foregroundStyle(TallyColor.textSecondary)
-            .multilineTextAlignment(.center)
+        VStack(spacing: TallySpacing.xs) {
+            // app-store-compliance.md R10: the exact disclaimer wording, always
+            // visible, never gated behind a tap.
+            Text(L10n.Account.disclaimer())
+                .font(TallyTypography.caption)
+                .foregroundStyle(TallyColor.textSecondary)
+                .multilineTextAlignment(.center)
+
+            // EB-06: a small, unobtrusive link beside the disclaimer -- it lives in the
+            // scrolling footer, well away from the two pinned CTAs above (`actions`), so it
+            // never competes with them. Reuses the paywall's own key
+            // (`subscription.privacyPolicy`) and URL source (`SubscriptionLinks`): no new
+            // string. `WelcomeFlowView` already tints this whole stack `TallyColor.accent`
+            // (the FP-4/FP-5 fix for onboarding's unstyled controls), and the minHeight/
+            // contentShape pair is the paywall's own 44 pt minimum (D10).
+            if let privacy = SubscriptionLinks.privacyPolicy {
+                Link(destination: privacy) {
+                    Text(L10n.Subscription.privacyPolicy())
+                        .font(TallyTypography.caption)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("account.privacyPolicy")
+            }
+        }
     }
 }
 

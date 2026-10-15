@@ -143,7 +143,7 @@ jobs:
           if [ "${{ inputs.widgets }}" = "true" ] && [ "${{ matrix.device }}" = "proMax" ] && [ "${{ matrix.appearance }}" = "light" ] && [ "${{ matrix.textSize }}" = "std" ]; then
             TESTS="$TESTS -only-testing:TallyAppTests/WidgetFamilyRenderTests"
           fi
-          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_MAX_TEST_ALLOWANCE=600 \
             IOS_ONLY_TESTING="$TESTS" IOS_RESULT_NAME=Tally-audit
       - name: Export the screenshots and attachments
         if: always()

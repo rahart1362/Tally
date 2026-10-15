@@ -1,0 +1,25 @@
+DRAFT: owner and counsel review. Not legal advice. Written from the code on main (MVP-4, EB-13). Sentences marked [AT SUBMISSION] depend on decisions not yet made (a school enabled for sign-in, GL-04). Replace this line before submission.
+
+Thank you for reviewing Tally.
+
+EDUCATION ACCOUNT, NOT A SECOND LOGIN (GUIDELINE 4.8)
+Tally signs in with the student's existing school Canvas account, through Canvas's own OAuth sign-in page in Apple's secure web sheet. Tally has no account of its own and never sees the Canvas password. Guideline 4.8 says an education app that requires sign-in with an existing education account needs no second login system; Tally has none. [AT SUBMISSION] Sign-in works only at schools where Tally is enabled; state here whether a school is enabled for this build.
+
+DEMO MODE: EXPLORE WITH SAMPLE DATA (GUIDELINE 2.1) -- REQUESTING APPROVAL
+Tally cannot offer a demo Canvas account: every account belongs to a school. Instead, Welcome's second button, "Explore with Sample Data," runs the app's screens -- Dashboard, Courses, To-Do, Calendar, Insights, Settings and parent mode -- on a bundled synthetic student, with no account, school or sign-in. In this mode Tally itself sends nothing over the network: the student data is bundled in the app. The only network activity is Apple's own StoreKit when you view or buy the subscription, and Safari if you open the Privacy Policy. We are requesting Apple's prior approval for this built-in demo mode under Guideline 2.1(a), which allows one with such approval when a real demo account cannot be provided.
+
+To review: on the first screen, tap "Explore with Sample Data." To see the subscription: Settings, then Subscription, then See Plans, then Continue.
+
+PARENT MODE (GUIDELINE 5.1.1(viii))
+A parent sees a student's Canvas information only through Canvas's own parent (observer) account feature, which the student starts with a pairing code they generate and share; a parent cannot start the link alone. Tally does not compile this information from any other source. In "Explore with Sample Data," Settings offers "Explore Parent Mode," which shows this view over two fictional students, with no real pairing. [AT SUBMISSION] Real-account parent linking is not part of this build; update this paragraph if it ships.
+
+NO TALLY ACCOUNT
+Tally has no server and no account system of its own. A student's Canvas information travels from their school's Canvas to their iPhone, is stored only there, encrypted, and is never sent to us or to anyone else. Settings' "Sign Out & Erase" removes it from the iPhone.
+
+PERMISSIONS
+Tally asks for two permissions, both optional:
+- Notifications, so Tally can remind a student about upcoming and overdue work locally. Tally has no push notification capability; nothing is sent from a server.
+- Face ID, Touch ID, or the device passcode, only if the student turns on App Lock in Settings, to require unlocking Tally on their own device.
+Tally does not request Calendar, Contacts, Photos, Camera or Location access. "Add to Calendar" and "Subscribe to Canvas Calendar" hand off to the iPhone's own Calendar app without asking Tally for calendar access.
+
+Thank you for your time reviewing Tally.

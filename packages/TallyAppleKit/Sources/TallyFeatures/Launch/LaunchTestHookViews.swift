@@ -11,9 +11,10 @@ struct LaunchTestHookOverlay: ViewModifier {
 
     func body(content: Content) -> some View {
         content.safeAreaInset(edge: .top, spacing: 0) {
-            if let hooks = appModel.testHooks, hooks.signOutButton || hooks.blockNetwork || hooks.appLock != nil {
+            if let hooks = appModel.testHooks,
+               hooks.signOutButton || hooks.blockNetwork || hooks.trapAllNetwork || hooks.appLock != nil {
                 HStack(spacing: TallySpacing.md) {
-                    if hooks.blockNetwork {
+                    if hooks.blockNetwork || hooks.trapAllNetwork {
                         NetworkProbeLabel(probe: LaunchProbe.shared)
                     }
                     if hooks.appLock != nil {

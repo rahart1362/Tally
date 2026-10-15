@@ -43,6 +43,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         /// `YES`: an account's Canvas gateway never answers (no network at all), and a banner
         /// reports how many requests were made before the first cached paint.
         public static let blockNetwork = "TallyTestHooks.blockNetwork"
+        /// `YES`: every seam the composition root wires an `HTTPTransport` into (the account's
+        /// Canvas gateway's token work, the sign-in token exchange, institution search) traps
+        /// instead of sending, and records the attempt (`LaunchProbe`) instead of fabricating a
+        /// response. Unlike `blockNetwork` (one account's gateway, after a long stall), this
+        /// covers every seam at once and needs no signed-in account, so it also watches Sample
+        /// Data mode, Settings and the paywall -- `ReviewPathUITests`' proof that the review
+        /// path (O6) makes no network request.
+        public static let trapAllNetwork = "TallyTestHooks.trapAllNetwork"
         /// `YES`: sign-in against a stubbed token endpoint and the flagship replay (the demo school
         /// is the persona's host, typed as an address in school search).
         public static let demoSignIn = "TallyTestHooks.demoSignIn"
@@ -69,6 +77,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public let deviceAuth: [AppLockPolicy.AuthResult]?
     public let replayAccounts: Bool
     public let blockNetwork: Bool
+    public let trapAllNetwork: Bool
     public let demoSignIn: Bool
     public let signOutButton: Bool
     public let emptyScene: Bool
@@ -97,6 +106,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
             .flatMap { $0.isEmpty ? nil : $0 }
         replayAccounts = flag(Key.replayAccounts)
         blockNetwork = flag(Key.blockNetwork)
+        trapAllNetwork = flag(Key.trapAllNetwork)
         demoSignIn = flag(Key.demoSignIn)
         signOutButton = flag(Key.signOutButton)
         emptyScene = flag(Key.emptyScene)
@@ -105,8 +115,8 @@ public nonisolated struct LaunchTestHooks: Sendable {
 
     /// Whether any hook is on. `AppEnvironment` keeps no hooks object when none is.
     public var isActive: Bool {
-        seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork || demoSignIn
-            || signOutButton || emptyScene || lastRefreshAttempt != nil
+        seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork
+            || trapAllNetwork || demoSignIn || signOutButton || emptyScene || lastRefreshAttempt != nil
     }
 
     private static func authResult(_ name: String) -> AppLockPolicy.AuthResult? {
@@ -127,6 +137,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public func configure(_ environment: AccountEnvironment) -> AccountEnvironment {
         var configured = environment
         if demoSignIn { configured = configured.replacingTransport(DemoCanvasTransport()) }
+        if trapAllNetwork { configured = configured.replacingTransport(TrapTransport()) }
         if blockNetwork {
             configured = configured.replacingGateway { _ in BlockedNetworkGateway() }
         } else if replayAccounts || demoSignIn {
@@ -137,10 +148,17 @@ public nonisolated struct LaunchTestHooks: Sendable {
     }
 
     /// The demo school, a web-auth sheet that answers at once, and the stubbed token endpoint.
+    /// `trapAllNetwork` is applied first and `demoSignIn` after, so a launch that (oddly) sets
+    /// both ends up on the demo path, not the trap -- the same "last one wins" order every other
+    /// hook here follows.
     @MainActor
     public func configure(_ services: SignInServices) -> SignInServices {
-        guard demoSignIn else { return services }
         var configured = services
+        if trapAllNetwork {
+            configured.institutionSearch = CanvasAccountSearch(transport: TrapTransport())
+            configured.makeTokenExchange = SignInServices.canvasTokenExchange(transport: TrapTransport())
+        }
+        guard demoSignIn else { return configured }
         let host = SampleFixtures.demoHost
         configured.registry = ClientRegistry([ClientRegistration(host: host, clientID: Self.demoClientID)])
         configured.webAuthPresenter = DemoWebAuthPresenter()
@@ -267,6 +285,17 @@ nonisolated struct BlockedNetworkGateway: CanvasGateway {
         await LaunchProbe.shared.networkRequested(at: requestedAt)
         try await Task.sleep(for: TallyConfig.foregroundHardCeiling * 2)
         throw RefreshFailure.offline
+    }
+}
+
+/// `trapAllNetwork`: every seam the composition root wires an `HTTPTransport` into reaches this
+/// instead of the network. The attempt is recorded (`LaunchProbe`, the same counter `blockNetwork`
+/// uses) and then fails -- never a fabricated response, so a test that should see no network
+/// activity at all can tell the difference between "never asked" and "asked, and this stood in".
+nonisolated struct TrapTransport: HTTPTransport {
+    func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
+        await LaunchProbe.shared.networkRequested(at: ContinuousClock.now)
+        throw TransportError.offline
     }
 }
 

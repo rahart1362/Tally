@@ -94,6 +94,11 @@ final class AuditTourUITests: TallyUITestCase {
     }
 
     private static let demoHost = "canvas.northfield.example"
+    /// Each tour method's own time allowance: its screen walk, at AX5, on a slow runner, needs more
+    /// than the 300 s CI cap (testG ran at 97% of it on main), so the Audit tour workflow raises the cap
+    /// to 600 (`IOS_MAX_TEST_ALLOWANCE`, Makefile) and the tour asks for 560. XCTest rounds it up to a
+    /// whole minute.
+    static let tourAllowance: TimeInterval = 560
 
     // MARK: - Per-method bookkeeping (a fresh instance per test method; never shared)
 
@@ -129,7 +134,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testA_dashboard() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 0
         resetAppState()
@@ -154,7 +159,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testB_coursesAndFirstCourseDetail() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 15
         resetAppState()
@@ -192,7 +197,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testB2_firstCourseMenuAndWhatIf() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 300
         resetAppState()
@@ -244,7 +249,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testC_secondCourseDetail() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 30
         resetAppState()
@@ -277,7 +282,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testD_calendar() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 45
         resetAppState()
@@ -312,7 +317,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testE_toDo() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 60
         resetAppState()
@@ -384,7 +389,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testF_insights() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 75
         resetAppState()
@@ -403,7 +408,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testG_settingsSignedIn() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 90
         resetAppState()
@@ -451,7 +456,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testH_welcomeAndSchoolSearch() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 110
         resetAppState()
@@ -487,7 +492,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testI_demoSignInProgress() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 120
         resetAppState()
@@ -535,7 +540,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testJ_firstSyncFailure() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 130
         resetAppState()
@@ -560,7 +565,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testK_paywallAfterFirstSync() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 140
         resetAppState()
@@ -586,7 +591,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testL_lockedTabAndSchoolSeatSubscription() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 155
         resetAppState()
@@ -630,7 +635,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testM_appLockAndPrivacyCover() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 170
         resetAppState()
@@ -684,7 +689,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testN_sampleDataAndParentMode() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 180
         resetAppState()
@@ -752,7 +757,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testO_parentEmptyState() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 200
         resetAppState()
@@ -813,7 +818,7 @@ final class AuditTourUITests: TallyUITestCase {
     @MainActor
     func testP_slowRefreshBreadcrumb() throws {
         continueAfterFailure = true
-        executionTimeAllowance = 280
+        executionTimeAllowance = Self.tourAllowance
         XCUIDevice.shared.appearance = Self.appearance
         stepNumber = 215
         resetAppState()
