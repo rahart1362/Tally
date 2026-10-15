@@ -1054,11 +1054,48 @@ extension TallyUITestCase {
 ///    bar still fails). The frame must sit at least two thirds inside the bar's own frame
 ///    (`overlapsByAtLeastTwoThirds`, stricter than the generic chrome rule's one third — the bar
 ///    still never qualifies for that one, `ChromeKind.canHoldContrast`), and `measureNavBarCoverage`
-///    must then measure at least 95% of that frame's pixels within `colourTolerance` of the bar's
-///    own background colour, with no pixel row reaching above 1.5:1 contrast against it. An
-///    elementless `textClipped` issue has no frame of its own to apply the two-thirds test to, so
-///    it is checked the strictest way instead: the bar's own whole frame must itself measure clean.
-///    Both measured numbers are recorded in the held reason (`navBarHoldReason`).
+///    must then measure the frame's pixels against the bar's own background colour. Both measured
+///    numbers are recorded in the held reason (`navBarHoldReason`).
+///
+/// **MVP-2e (gate-2 final review, verdict fix list item 1 — narrows MVP-2d's own proof, which the
+/// PMO's final review found wider than intended).**
+/// 1a. **Coverage is now one test, at a tighter bound.** MVP-2d counted a pixel as the bar's own
+///     colour when it was within `colourTolerance` (3/255) *or* within `navBarGlyphContrastThreshold`
+///     (1.5:1) of it — the second, looser arm made coverage a near-copy of the glyph bound, so the
+///     navigation bar's own two glass buttons (`navBarGlassButtonIdentifiers`), whose soft shadow
+///     reads up to 2.02:1 right outside their own reported frames, were the only thing coverage was
+///     actually failing on (five of seven holds failed strict `colourTolerance`, per the verdict's
+///     own re-measurement). The PMO's ruling: exclude the buttons' own drawn extent structurally
+///     instead of loosening the tolerance for every pixel (`navBarButtonGlassExtent`, below), then
+///     count coverage with one bound alone — `navBarCoverageContrastThreshold` (1.2:1, tighter than
+///     the old 1.5:1) — and nothing else. Coverage must still clear `navBarCoverageThreshold` (95%).
+/// 1b. **`chromeOwnContent` is structural, not geometric.** MVP-2d told a bar's own content (its
+///     title, subtitle, a button) apart from scrolling content underneath it by geometry alone —
+///     any element at least 90% inside a bar's frame (`isMostlyInside`), scrolling rows included.
+///     The verdict's own probe (`exclusion_probe.py`) pasted one real, 15.8:1 row into the bar's
+///     frame with its element kept in the hierarchy (as a scrolled row's always is) and the old
+///     rule excluded it — proof that a real leak through D01 could have been "measured covered".
+///     `chromeOwnContent` is now true tree ancestry, tracked the same way `insidePinned` already
+///     is: a descendant of the navigation bar/tab bar/toolbar that is not itself inside any scroll
+///     view, or a descendant of `calendar.pinnedHeader` (its own internal horizontal strip stays
+///     eligible — nothing else identifies the week strip's own day letters and numbers, MVP-2d's
+///     own `calendar.dayHeading` evidence below). A scrolled row can never be a tree descendant of
+///     either, so the probe's case A now fails (is caught) as the ruling requires.
+/// 1c. **No glyph floor.** MVP-2d's `navBarGlyphMinimumPixelCount` (8) was a stand-in for excluding
+///     the glass buttons' own anti-aliased edge (the actual leak it was built against, run
+///     38745363478) and it over-reached: it compared a row's *exact*-colour pixel count against the
+///     floor, not the tolerance-grouped share its own `densestColour` had just picked, so real text
+///     whose antialiasing spread its colour across many near-but-not-identical values could have
+///     every one of its glyph rows dropped (the verdict's `floor_probe.py`: 1,479 of 4,448 real
+///     glyph rows, courseDetail-contrast's "Quiz 4" among them). With the buttons' own drawn extent
+///     now excluded structurally (1a), the floor's one real job is already done; it is removed.
+/// 1d. **An elementless `textClipped` hold is bounded to where it is evidenced.** MVP-2d let it
+///     fire on any screen with a clean navigation bar; it is now checked only on Calendar's own
+///     today variants (`pinned` is non-empty only there, and never on a `-firstDay` variant — the
+///     only state this file ever labels that way), replacing gate-2 round 3's own dead `-paged`
+///     case (nothing has read a `-paged` variant since `a11yPageToEnd` was removed). Still capped
+///     at 3 per pass and confirmed by `runA11yAudit`'s own retry (item 5's mechanism, unchanged);
+///     `docs/pmo/a11y-waivers.md` documents it as the position-free exception the PMO has accepted.
 /// 2. **The long screens' `test<Screen>AX5` audits no longer page**: `a11yPageToEnd` (MVP-2c) is
 ///    removed, and each covers its first page only. Rows below that fold are covered by the Audit
 ///    tour's AX5 layout checks at every scroll step and the gate-2 visual review at 200%, an
@@ -1119,10 +1156,11 @@ struct A11yScene {
     var selectedDayNumber: Int?
     /// The system keyboard, when it is up (Find School opens with its search field focused).
     var keyboards: [CGRect] = []
-    /// MVP-2d ruling 1: every non-chrome element's own frame that sits almost entirely (at least
-    /// 90% of its own area, `isMostlyInside`) inside a `chrome` bar's or a `pinned` bar's frame —
-    /// an opaque bar's own legitimate content (the navigation bar's title, subtitle and buttons;
-    /// the week strip's own day letters and numbers), not the scrolling content under it.
+    /// MVP-2e ruling 1(b): every element structurally inside the navigation bar/tab bar/toolbar
+    /// (and not itself inside a scroll view), or inside `calendar.pinnedHeader` — true tree
+    /// ancestry, tracked during `walk` exactly as `insidePinned` already is, never geometry. An
+    /// opaque bar's own legitimate content (the navigation bar's title, subtitle and buttons; the
+    /// week strip's own day letters and numbers), not the scrolling content under it.
     /// `measureNavBarCoverage` excludes these from its pixel check: scope=only run 38729620004
     /// found the navigation bar's own two-line title ("October" / "Updated just now") sitting
     /// inside the exact rectangle of Calendar's previous-day heading row (`calendar.dayHeading`,
@@ -1130,8 +1168,17 @@ struct A11yScene {
     /// week strip below), so a check that does not know about either bar's own content fails every
     /// such row on a bar's own title or day letters, never the row's — those pixels are accounted
     /// for by a different, already-identified (and separately audited) element, not a leak of the
-    /// one actually being judged.
+    /// one actually being judged. MVP-2d's own version of this field used geometry alone (at least
+    /// 90% inside a bar's frame, `isMostlyInside`), which the gate-2 final review's own probe
+    /// (`exclusion_probe.py`) showed could exclude a real, visible scrolled row too — see this
+    /// type's own doc comment, MVP-2e point 1b.
     var chromeOwnContent: [CGRect] = []
+    /// MVP-2e ruling 1(a): the drawn extent (frame plus the glass circle and its soft shadow) of
+    /// the navigation bar's own two glass buttons (`navBarGlassButtonIdentifiers`), outset from
+    /// each button's own reported frame by `navBarGlassButtonOutset`. Excluded from
+    /// `measureNavBarCoverage`'s pixel check alongside `chromeOwnContent` — a structural exclusion
+    /// in place of MVP-2d's own looser coverage tolerance (this type's own doc comment, point 1a).
+    var navBarButtonGlassExtent: [CGRect] = []
 
     /// A pixel buffer of the audit screenshot (RGBA8, one draw at init), for
     /// `measureFadeBandContrast`'s in-test measurement (item 3). Empty when no screenshot was
@@ -1140,10 +1187,6 @@ struct A11yScene {
     private var pixelWidth = 0
     private var pixelHeight = 0
     private var pixelScale: CGFloat = 1
-    /// MVP-2d ruling 1: a raw-`CGRect` mirror of every `elements` entry (JSON there, for the
-    /// attachment), kept only to compute `chromeOwnContent` once `walk` finishes — never attached
-    /// or read elsewhere, so `elements`'s own shape and every existing reader of it are untouched.
-    private var recordedElementFrames: [(frame: CGRect, kind: XCUIElement.ElementType)] = []
 
     init() {}
 
@@ -1151,25 +1194,11 @@ struct A11yScene {
     init(_ app: XCUIApplication, screenshot: UIImage? = nil) {
         guard let root = try? app.snapshot() else { return }
         window = root.frame
-        walk(root, container: nil, insidePinned: false)
-        // MVP-2d ruling 1: once every `chrome` bar, `pinned` bar and element's own frame is known,
-        // an opaque bar's own non-chrome content (its title, subtitle, buttons; the week strip's
-        // own day letters and numbers) can be told apart from scrolling content that merely sits
-        // under it (`measureNavBarCoverage`'s own doc comment). `pinned` bars count too: a tall
-        // element at least two thirds under the navigation bar (the geometric precondition
-        // `heldReason` applies before ever calling `measureNavBarCoverage`) can still have up to a
-        // third of its own frame reaching past the navigation bar's own bottom edge and into the
-        // week strip below it — run 38729620004: Calendar's previous-day heading row (`calendar.
-        // dayHeading`, 58 pt tall against the navigation bar's 54) reached 15 pt into the week
-        // strip, where its own real, visible day letters and numbers sit, which are no less
-        // somebody else's already-identified, legitimate content than the navigation bar's title.
-        let chromeKinds: Set<XCUIElement.ElementType> = [.tabBar, .navigationBar, .toolbar]
-        let opaqueBars = chrome.map { $0.frame } + pinned
-        chromeOwnContent = recordedElementFrames
-            .filter { !chromeKinds.contains($0.kind) }
-            .filter { entry in opaqueBars.contains { Self.isMostlyInside(entry.frame, $0) } }
-            .map { $0.frame }
-        recordedElementFrames = []
+        // MVP-2e ruling 1(b): `chromeOwnContent` and `navBarButtonGlassExtent` are now populated
+        // live, during the walk, from true tree ancestry (`insideChromeBar`, tracked the same way
+        // `insidePinned` already is) — never a post-walk geometric pass. See this type's own doc
+        // comment, MVP-2e points 1a/1b, for why.
+        walk(root, container: nil, insidePinned: false, insideChromeBar: false)
         guard let screenshot, let cgImage = screenshot.cgImage, window.width > 0 else { return }
         pixelWidth = cgImage.width
         pixelHeight = cgImage.height
@@ -1186,7 +1215,8 @@ struct A11yScene {
     }
 
     @MainActor
-    private mutating func walk(_ node: XCUIElementSnapshot, container: (frame: CGRect, axis: ScrollAxis)?, insidePinned: Bool) {
+    private mutating func walk(_ node: XCUIElementSnapshot, container: (frame: CGRect, axis: ScrollAxis)?, insidePinned: Bool,
+                               insideChromeBar: Bool) {
         // Fields into locals first: `&&`/`||` autoclosures capturing the non-Sendable snapshot fail
         // the Release test build (`AuditTourUITests.analyzeLayout`'s own note, run 37704108738).
         let kind = node.elementType
@@ -1195,6 +1225,7 @@ struct A11yScene {
         let label = node.label
         let isSelected = node.isSelected
         let isOverlay = kind == .image && identifier == Self.dimmingOverlay
+        let isChromeBarNode = kind == .tabBar || kind == .navigationBar || kind == .toolbar
         if isOverlay {
             dimming.append(frame)
         } else if kind == .tabBar {
@@ -1208,6 +1239,10 @@ struct A11yScene {
         // identifier is seen, not only when a frame happens to intersect it — the pinned bar's own
         // content (the week strip's day letters, in a `ScrollView` since 52c5876) is never held.
         let nowInsidePinned = insidePinned || Self.pinnedBars.contains(identifier)
+        // MVP-2e ruling 1(b): true for this node's descendants once a chrome-bar node is seen —
+        // the bar's own node uses the INCOMING `insideChromeBar` (still false) below, so the bar's
+        // whole frame is never counted as its own content.
+        let nowInsideChromeBar = insideChromeBar || isChromeBarNode
         if Self.pinnedBars.contains(identifier) {
             pinned.append(frame)
         }
@@ -1216,6 +1251,12 @@ struct A11yScene {
         }
         if identifier == Self.dayButtonIdentifier, isSelected {
             selectedDayNumber = Self.dayNumber(in: label)
+        }
+        // MVP-2e ruling 1(a): the navigation bar's own two glass buttons, by identifier — their
+        // drawn extent (frame plus the glass circle and its shadow) reaches beyond their own
+        // reported frame (this type's own doc comment on `navBarButtonGlassExtent`).
+        if Self.navBarGlassButtonIdentifiers.contains(identifier) {
+            navBarButtonGlassExtent.append(frame.insetBy(dx: -Self.navBarGlassButtonOutset, dy: -Self.navBarGlassButtonOutset))
         }
         // Run 38363059477: the snapshot showed the keyboard as an "Other" element, `inputView` (402 x
         // 335 pt, holding the predictive bar and the keys), not as a keyboard element.
@@ -1233,7 +1274,14 @@ struct A11yScene {
             elements.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
                              "frame": Self.json(frame), "inScrollView": container != nil,
                              "scrollView": Self.json(container?.frame ?? .zero)])
-            recordedElementFrames.append((frame: frame, kind: kind))
+            // MVP-2e ruling 1(b): structural only — a descendant of a chrome bar that is not
+            // itself inside a scroll view (`container == nil`), or a descendant of a pinned bar
+            // (its own internal horizontal strip, `container != nil`, stays eligible: this type's
+            // own doc comment, point 1b). Uses the INCOMING ancestry flags, never `nowInside...`,
+            // so a bar's own node is never counted as its own content.
+            if (insideChromeBar && container == nil) || insidePinned {
+                chromeOwnContent.append(frame)
+            }
         }
         let next: (frame: CGRect, axis: ScrollAxis)?
         switch kind {
@@ -1248,7 +1296,7 @@ struct A11yScene {
             next = container
         }
         for child in node.children {
-            walk(child, container: next, insidePinned: nowInsidePinned)
+            walk(child, container: next, insidePinned: nowInsidePinned, insideChromeBar: nowInsideChromeBar)
         }
     }
 
@@ -1268,30 +1316,27 @@ struct A11yScene {
             // With no element and no frame there is nothing to measure, reproduce or waive by
             // identifier — the audit's own instability, not a finding about the app.
             //
-            // Item 5 (gate-2 round 3): narrowed. Allowed only in a `-paged` variant (`auditScreen`'s
-            // own paging, item 6 — a plain first-pass audit never rebuilds mid-measurement the way
-            // paging does), and only with an empty element identifier too (not only an empty
-            // label — `heldReason`'s caller, `runA11yAudit`, caps this at 3 per pass and confirms
-            // it with one retry after the list settles; this function only recognises the shape).
-            if elementIdentifier.isEmpty, label.isEmpty, variant.contains("-paged"),
-               auditType == "dynamicType" || auditType == "textClipped" {
-                return "no element (the audit's own list-rebuild artifact, -paged only)"
-            }
-            // MVP-2d ruling 1 (the PMO's binding ruling): an elementless `textClipped` issue has
-            // no frame of its own to check against the navigation bar at two thirds' overlap, so
-            // this is the strictest version of the same proof instead — nothing anywhere in the
-            // bar's own frame may be visible, not only the (unknown) row the audit meant.
-            // `docs/pmo/a11y-waivers.md` has the evidence this exists for: Calendar's today state,
-            // where the previous day's last rows and heading rest under the bar at the agenda's
-            // resting scroll position, and the audit returns no element for some of them once the
-            // list is away from its top.
-            if elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
-               let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-               let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar, excluding: chromeOwnContent),
-               measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
-                return Self.navBarHoldReason(measured, noElement: true)
-            }
-            return nil
+            // MVP-2e ruling 1(d) (the PMO's binding ruling, final gate-2 review — replaces gate-2
+            // round 3's own `-paged` case, dead since ruling 2 removed `a11yPageToEnd` itself: no
+            // variant has read "-paged" since, docs/pmo/a11y-waivers.md's own PARTIAL note on it).
+            // An elementless `textClipped` issue has no frame of its own to check against the
+            // navigation bar at two thirds' overlap, so it is checked the strictest way instead —
+            // nothing anywhere in the bar's own frame may be visible, not only the (unknown) row
+            // the audit meant — and only on Calendar's own today variants (`pinned` is non-empty
+            // only there, and never on a `-firstDay` variant, the only other Calendar state this
+            // file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for — Calendar's
+            // today state, where the previous day's last rows and heading rest under the bar at the
+            // agenda's resting scroll position, and the audit returns no element for some of them
+            // once the list is away from its top. Still capped at 3 per pass and confirmed by one
+            // retry (`runA11yAudit`'s own mechanism, item 5, unchanged).
+            guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
+                  !pinned.isEmpty, !variant.contains("firstDay"),
+                  let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
+                  let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
+                                                       excluding: chromeOwnContent + navBarButtonGlassExtent),
+                  measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold
+            else { return nil }
+            return Self.navBarHoldReason(measured, noElement: true)
         }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
             return "on the system keyboard"
@@ -1319,7 +1364,8 @@ struct A11yScene {
         // checks the issue's own frame region against the bar's own background colour.
         if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
            Self.overlapsByAtLeastTwoThirds(navBar, frame),
-           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame, excluding: chromeOwnContent),
+           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
+                                                excluding: chromeOwnContent + navBarButtonGlassExtent),
            measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
             return Self.navBarHoldReason(measured)
         }
@@ -1363,15 +1409,6 @@ struct A11yScene {
         let overlap = bar.intersection(frame)
         guard !overlap.isNull, frame.height > 0 else { return false }
         return overlap.height / frame.height >= 2.0 / 3.0
-    }
-
-    /// MVP-2d ruling 1: `inner` is almost entirely (by area, not just height) inside `outer` — the
-    /// test `chromeOwnContent` uses to tell a bar's own small content (title, subtitle, a button)
-    /// apart from a large scrolling row that only partly pokes into the bar.
-    static func isMostlyInside(_ inner: CGRect, _ outer: CGRect) -> Bool {
-        let overlap = inner.intersection(outer)
-        guard !overlap.isNull, inner.width > 0, inner.height > 0 else { return false }
-        return (overlap.width * overlap.height) / (inner.width * inner.height) >= 0.9
     }
 
     /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
@@ -1502,12 +1539,14 @@ struct A11yScene {
     /// frame for a `contrast` issue, or the bar's whole frame for an elementless `textClipped`
     /// issue, which has no frame of its own to narrow the check to (`heldReason`'s own two call
     /// sites). Returns:
-    /// - `coverage`: the share of every pixel in `regionFrame` that reads as the bar's own colour —
-    ///   within `A11yScene.colourTolerance` of it exactly, **or** (MVP-2d, after run 38729620004's
-    ///   own evidence below) no more than `navBarGlyphContrastThreshold` contrast from it, the same
-    ///   bound `maxGlyphContrast` is held to. A pixel the glyph test itself would not call a glyph
-    ///   cannot be what fails coverage either — one bound, used both ways, rather than a stricter
-    ///   second one `colourTolerance` alone cannot clear on real hardware (below);
+    /// - `coverage`: the share of every non-excluded pixel in `regionFrame` that reads within
+    ///   `navBarCoverageContrastThreshold` (1.2:1) contrast of the bar's own colour. One bound,
+    ///   MVP-2e ruling 1(a): MVP-2d's own version also counted a pixel within `colourTolerance`
+    ///   (3/255) exactly, *or* within the looser `navBarGlyphContrastThreshold` (1.5:1) — the loose
+    ///   arm made coverage fail on nothing but the glass buttons' own soft shadow (five of seven
+    ///   holds failed strict `colourTolerance` alone, the gate-2 final review's own re-measurement),
+    ///   which `excluding`'s own `navBarButtonGlassExtent` now removes structurally instead, so
+    ///   coverage needs only the one, tighter bound;
     /// - `maxGlyphContrast`: the highest contrast ratio any pixel ROW inside `regionFrame` reaches
     ///   against that colour — a single visible glyph row still fails even where the rest of the
     ///   region reads clean. Mirrors `measureFadeBandContrast`'s own per-row core-colour
@@ -1515,23 +1554,12 @@ struct A11yScene {
     ///   the row's farthest pixel) but against this one fixed background rather than each row's
     ///   own, and keeps the maximum rather than the median: proving invisibility needs the worst
     ///   row, not the typical one. A row with no pixel at least 1.05:1 from the background has no
-    ///   glyph at all and does not move the maximum.
-    ///
-    /// **Why `coverage` needs the contrast bound too (MVP-2d, run 38729620004's own evidence):**
-    /// a colour-channel tolerance of 3 (`colourTolerance`) is tight enough that it does not survive
-    /// a soft shadow. The waiver table already documents this exact bar's own artifact — "the week
-    /// strip's day letter... sit[s] in the soft shadow under the toolbar's two glass buttons"
-    /// (`calendar.weekStrip.weekday`'s waiver) — and the same shadow reaches into a full-width row's
-    /// own measured region near either button: run 38729620004 measured Calendar's previous-day
-    /// heading (`calendar.dayHeading`, "Wed, Oct 14") at 100% of its non-excluded pixels within
-    /// 1.5:1 of the bar's own colour, but only 78.55% within `colourTolerance` exactly, entirely in
-    /// a band (`pmo-audit/.build-audit/mvp2d/`, the x-bucketed measurement) under each button, a few
-    /// RGB values short of the 3-unit tolerance (`#EBEDF1` against `#EFF1F5` is 4 on every channel).
-    /// The row's own max glyph contrast there was 1.13:1 — nowhere near a readable glyph (run
-    /// 38729620004's "HIST 210"/"October" comparison measured a real glyph at 18.57:1, a wide,
-    /// comfortable margin from shadow noise) — so the shadow was never close to being mistaken for
-    /// text; `colourTolerance` alone was simply too strict a bound for a gradient, the same lesson
-    /// `measureFadeBandContrast`'s own MVP-2c correction already drew for the scroll-edge fade.
+    ///   glyph at all and does not move the maximum. MVP-2e ruling 1(c): no minimum pixel count any
+    ///   more — MVP-2d's own floor compared a row's *exact*-colour pixel count against 8, not the
+    ///   tolerance-grouped share `densestColour` had just picked, so real antialiased text could
+    ///   have every glyph row dropped (the gate-2 final review's own `floor_probe.py`); the floor
+    ///   existed to drop the glass buttons' own anti-aliased edge, which `excluding` now removes
+    ///   structurally instead (the same fix as `coverage`'s own, immediately above).
     ///
     /// `nil` when there is no screenshot, either frame is off the image, or the bar's own colour
     /// cannot be read at all (an empty frame). Deliberately duplicates rather than shares
@@ -1551,7 +1579,10 @@ struct A11yScene {
     /// rectangle — confirmed by direct visual inspection of the screenshot crop, which shows no
     /// trace of the row's own text anywhere in it. Excluding the title and subtitle's own frames
     /// (`chromeOwnContent`) is what a reviewer would do by eye; this is that same judgement, made
-    /// in test code from already-identified elements, not a guess at unidentified pixels.
+    /// in test code from already-identified elements, not a guess at unidentified pixels. Both call
+    /// sites (`heldReason`) now also pass `navBarButtonGlassExtent` (MVP-2e ruling 1(a)): the glass
+    /// buttons' own drawn extent, which reaches beyond their reported frames and so is never caught
+    /// by `chromeOwnContent` alone (this type's own doc comment, point 1a).
     func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect,
                                excluding: [CGRect] = []) -> (coverage: Double, maxGlyphContrast: Double)? {
         guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
@@ -1580,10 +1611,9 @@ struct A11yScene {
                     let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
                     rowCounts[key, default: 0] += 1
                     total += 1
-                    // MVP-2d: exact tolerance match, or no more than the same contrast bound the
-                    // glyph test itself uses (this method's own doc comment has why).
-                    if Self.isNear(key, background)
-                        || Self.navBarContrastRatio(key, background) <= Self.navBarGlyphContrastThreshold {
+                    // MVP-2e ruling 1(a): one bound, 1.2:1 contrast — the OR'd exact-colour match
+                    // is gone (this method's own doc comment has why).
+                    if Self.navBarContrastRatio(key, background) <= Self.navBarCoverageContrastThreshold {
                         withinTolerance += 1
                     }
                 }
@@ -1593,17 +1623,9 @@ struct A11yScene {
                 let cut = 1 + (extreme - 1) * 0.5
                 var core: [UInt32: Int] = [:]
                 for (key, count) in rowCounts where Self.navBarContrastRatio(key, background) >= cut { core[key] = count }
-                guard let glyph = Self.densestColour(core), let glyphCount = core[glyph],
-                      // MVP-2d: scope=a11y run 38745363478's own evidence (dark-std Calendar) —
-                      // an excluded button's own anti-aliased edge, a pixel or two of blend right
-                      // outside its reported frame, read as a "glyph" at up to 2.01:1 contrast in
-                      // ~100 rows, every one exactly 2 (twice 4) pixels wide; the real glyph this
-                      // check exists to catch (the navigation bar's own title, the same run's own
-                      // undisputed positive) was never under 50 pixels in any row it occupied. A
-                      // floor of `navBarGlyphMinimumPixelCount`, comfortably between the two, is
-                      // the same reliability discipline `measureFadeBandContrast`'s own "at least
-                      // half the row" rule already applies elsewhere in this file.
-                      glyphCount > Self.navBarGlyphMinimumPixelCount else { continue }
+                // MVP-2e ruling 1(c): no minimum pixel count (this method's own doc comment has
+                // why) — every row with a measurable core counts.
+                guard let glyph = Self.densestColour(core) else { continue }
                 maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
             }
         }
@@ -1666,26 +1688,39 @@ struct A11yScene {
         return (hi + 0.05) / (lo + 0.05)
     }
 
-    /// MVP-2d ruling 1: the PMO's own thresholds — at least 95% pixel coverage near the bar's own
-    /// colour, and no glyph row above this contrast against it. Below either, the hold does not
-    /// apply and the issue fails like any other (the D01 protection).
+    /// MVP-2d ruling 1: the PMO's own coverage floor — at least 95% pixel coverage near the bar's
+    /// own colour. Below it, or above `navBarGlyphContrastThreshold`, the hold does not apply and
+    /// the issue fails like any other (the D01 protection).
     static let navBarCoverageThreshold: Double = 0.95
+    /// MVP-2e ruling 1(a): the single contrast bound coverage now uses, in place of MVP-2d's own
+    /// `colourTolerance`-or-1.5:1 pair (`measureNavBarCoverage`'s own doc comment has why).
+    static let navBarCoverageContrastThreshold: Double = 1.2
+    /// MVP-2d ruling 1 (unchanged by MVP-2e): no glyph ROW may read above this contrast against
+    /// the bar's own colour.
     static let navBarGlyphContrastThreshold: Double = 1.5
-    /// MVP-2d: a row's "glyph" candidate must clear this many pixels to count — run 38745363478's
-    /// own evidence (dark-std Calendar, `measureNavBarCoverage`'s own doc comment): an excluded
-    /// button's anti-aliased edge read as a 2-pixel "glyph" at up to 2.01:1 in ~100 rows, while the
-    /// real glyph the same run measured (the navigation bar's own title) was never under 50 pixels
-    /// in any row. 8 sits with a comfortable margin above the first and well below the second.
-    static let navBarGlyphMinimumPixelCount = 8
+    /// MVP-2e ruling 1(a): the navigation bar's own two glass buttons (`CalendarScreen.swift`'s
+    /// `calendar.options` and `home.settingsButton`), the only elements this file names for
+    /// `navBarButtonGlassExtent`.
+    static let navBarGlassButtonIdentifiers: Set<String> = ["calendar.options", "home.settingsButton"]
+    /// MVP-2e ruling 1(a): the outset beyond each glass button's own reported (36 pt) frame that
+    /// its drawn (44 pt) circle and shadow occupy — measured directly from scope=a11y run
+    /// 38757233994's own screenshots (dark-std and light-std: pixels differing from the bar's own
+    /// background colour extend a clean 4 pt beyond the reported frame on every side before the
+    /// bar's own colour resumes; `pmo-audit/.build-audit/mvp2e/button_glass_extent_probe.py`).
+    /// (44 - 36) / 2 = 4.
+    static let navBarGlassButtonOutset: CGFloat = 4
 
-    /// MVP-2d ruling 1: the held reason's own text, recording both measured numbers (the ruling's
-    /// own requirement) so a reviewer can check them against the attached screenshot without
-    /// recomputing anything.
+    /// MVP-2e ruling 1(a)/1(d): the held reason's own text, recording both measured numbers (the
+    /// ruling's own requirement) so a reviewer can check them against the attached screenshot
+    /// without recomputing anything. MVP-2d's own text said "within colourTolerance", which the
+    /// gate-2 final review found false (coverage was never checked against `colourTolerance` alone
+    /// — the tolerance actually used is now named here).
     static func navBarHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double), noElement: Bool = false) -> String {
         let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
         let contrast = String(format: "%.2f", measured.maxGlyphContrast)
         let suffix = noElement ? " (no element of its own; the bar's whole frame measured instead)" : ""
-        return "under the navigation bar\(suffix), measured \(coveragePct)% of its pixels within colourTolerance " +
+        return "under the navigation bar\(suffix), measured \(coveragePct)% of its pixels within \(tolerance):1 contrast " +
                "of the bar's own colour, max glyph row contrast \(contrast):1 against it"
     }
 

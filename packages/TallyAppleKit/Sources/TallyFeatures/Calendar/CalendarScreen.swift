@@ -79,11 +79,33 @@ struct CalendarScreen: View {
             // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
             .tallyList()
             // D01: content scrolled past the top stayed visible, blurred, under the inline title
-            // and the status bar, even at rest. R4 (round 3): Calendar is a large-title tab root
-            // too (no inline display mode); it usually opens scrolled to today, its title already
-            // collapsed into the bar, but on a day whose row is first it opens at the scroll edge,
-            // where a `.visible` fill would paint over the large title as on the other four roots.
-            .tallyLargeTitleScreenChrome()
+            // and the status bar, even at rest.
+            //
+            // MVP-2e (gate-2 final review S2, fix list item 2): R4 (round 3) made Calendar a
+            // large-title tab root (`tallyLargeTitleScreenChrome`, fill `.automatic`) on the theory
+            // that it usually opens scrolled to today, title already collapsed, and only a day
+            // whose row is first opens at the true scroll edge, where a `.visible` fill would paint
+            // over the large title as it did on the other four roots. That theory was wrong for
+            // this screen specifically: every large-title capture since MVP-2c (scope=a11y and
+            // scope=only, Light/Dark/Increase Contrast, 22 of them) shows "October" and "Updated
+            // just now" in the hierarchy but drawn nowhere (max pixel difference from the canvas 15
+            // in Light, 0 in Dark) — the pre-existing l10n-04 defect (main-era, today a Sunday) is
+            // the same blank band, now reached on every first-day tap instead of only by chance.
+            // The week strip's `.safeAreaBar(edge: .top)`, below, is the one thing that
+            // distinguishes Calendar from the other four large-title roots: pinning content
+            // directly under the bar is apparently enough for `.automatic` to resolve as though the
+            // list had scrolled, even at the List's own true top, so the fill goes opaque and
+            // collapses the title together, leaving nothing drawn in the expanded title's place.
+            // Diagnosing the exact SwiftUI interaction further needs a simulator this host does not
+            // have, so this takes the PMO's own sanctioned fallback instead: an inline title, like
+            // Course Detail's (`CourseDetailView.swift`) and What-If's (`WhatIfSheet.swift`), both
+            // of which already render correctly on `tallyScreenChrome()`'s always-opaque fill — the
+            // same state this screen's own OWN inline (collapsed) title already rendered correctly
+            // in, every time it was reached by scrolling rather than by opening at the top. D01 is
+            // unaffected (content is still never visible under the bar at rest; the fill is simply
+            // always on instead of conditional). Recorded for the owner: a native large title for
+            // Calendar remains open, should the safe-area-bar interaction ever get a real fix.
+            .tallyScreenChrome()
             // MVP-2c: the week strip is a safe-area bar (iOS 26), so the list's safe area, its scroll
             // edge effect and `scrollTo(_:anchor: .top)` all start below it. Round 3's diagnosis
             // ("scrollTo ignores the inset") was the test's: run 38623450627's hierarchy has today's
@@ -118,6 +140,9 @@ struct CalendarScreen: View {
             }
         }
         .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
+        // MVP-2e (S2, fix list item 2): paired with `tallyScreenChrome()` above, like Course
+        // Detail's and What-If's own inline titles.
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {

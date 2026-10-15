@@ -149,7 +149,7 @@ Author: Accessibility Engineer, round 2, Claude Sonnet 5. Same branch, from `bba
 | 1. Drop the dimming overlay from chrome | `A11yScene.walk` no longer adds `AdditionalDimmingOverlay` to `chrome`; its frames go to a separate `dimming` array | `AccessibilityAuditUITests.swift:987` | scope=a11y run 38550012702: 53 issues now held as "in the fade band, measured X:1", never by position alone |
 | 2. ≥1/3 height overlap, not any intersection | `overlapsByAtLeastAThird` | `AccessibilityAuditUITests.swift:1086-1090` | same run: 54 "under system chrome" holds, each passing the check |
 | 3. In-test pixel measurement for the fade band | `measureFadeBandContrast` (RGBA8 draw of the audit screenshot, same algorithm as `a11ylib.measure`), `isLargeText` for the 3:1/4.5:1 threshold | `AccessibilityAuditUITests.swift:1098-1140`, `1082-1084` | measured ratios cross-checked against `contrast-measurements.md`'s own Python figures for the same elements: "Exam 1" 14.86:1 both ways, "93.2/100" 9.53:1 both ways, "Introduction to Psychology" 17.51:1 both ways, "87.2%" 6.87:1 both ways (`a11y-final/` evidence) |
-| 4. Never hold inside a pinned subtree | `insidePinned`, set while walking the tree (not by frame intersection), checked first in `heldReason` | `AccessibilityAuditUITests.swift:999-1012`, `1063` | the two remaining "under the screen's pinned bar" holds are "Sun, Oct 11" (a day before the agenda's first/selected day, legitimately scrolled past); the week strip's own weekday letters are no longer in that bucket |
+| 4. Never hold inside a pinned subtree | `insidePinned`, set while walking the tree (not by frame intersection), checked first in `heldReason` | `AccessibilityAuditUITests.swift:999-1012`, `1063` | **Correction (MVP-2e, gate-2 final review fix list item 4): wrong.** The two remaining "under the screen's pinned bar" holds are "Sun, Oct 11" — **the agenda's own first/selected day at that run's date, not a day before it** (item 8's own correction, below, already had this right); the week strip's own weekday letters are no longer in that bucket |
 | 5. "Partly outside" on the scroll axis only | `ScrollAxis`, inferred per container in `walk`; `isPartlyOutside` checks only that axis | `AccessibilityAuditUITests.swift:902-905`, `1021-1027`, `1092-1096` | 11 "partly outside" holds, all past the bottom edge of a vertical list (none on a left/right edge) |
 | 6. `textClipped` held only in the partly-outside case | `heldReason` returns before the chrome/pinned/dimming checks unless `auditType == "contrast"` | `AccessibilityAuditUITests.swift:1067-1069` | no `textClipped` issue held for chrome or a pinned bar in any run |
 | 7. No hold for navigation-bar overlap | `ChromeKind.canHoldContrast` excludes `.navigationBar` | `AccessibilityAuditUITests.swift:910-912` | 0 "under system chrome" holds attributed to a navigation bar |
@@ -699,6 +699,9 @@ MVP-2c) is left in place rather than deleted: it is not named `a11yPageToEnd` an
 brief calls for removing it, but it is now dead code (no variant can ever contain `-paged` again),
 noted inline and in `docs/pmo/a11y-waivers.md`.
 
+**Removed (MVP-2e, gate-2 final review fix list item 4):** this dead `-paged` branch is deleted —
+`heldReason`'s elementless case is now only the navigation bar's own (MVP-2e section A below).
+
 ### C. `origin/main` merged before the final push (PR #57, `1856b3d`)
 
 Per the PMO's standing rule to merge `main` before a package's single final push: PR #57 (MVP-4,
@@ -742,7 +745,17 @@ alone, 0 occurrences of the literal `280` left anywhere in the file).
     exactly 2 pixels a row across ~100 rows, read as a 2.01:1 "glyph" — over the 1.5:1 bound —
     although the real glyph the same run measured, the navigation bar's own title, was never
     under 50 pixels in any row it occupied; `navBarGlyphMinimumPixelCount` now floors a row's
-    glyph candidate at 8 pixels before it can count). Re-verified against this run's own
+    glyph candidate at 8 pixels before it can count).
+    **Correction (MVP-2e, gate-2 final review fix list item 1(c) and item 4): this run's own
+    2-pixel measurement was real, but `docs/pmo/a11y-waivers.md`'s own description of it as "a
+    2-pixel glyph" generalised too far — the gate-2 final review's own re-measurement of the
+    *shipped* run (38757233994) found the same glass buttons' shadow holding up to 50 pixels a row
+    above 1.5:1 (max 2.02:1), the buttons' own 44 pt circles drawn beyond their 36 pt reported
+    frames, not a 2-pixel edge. The 8-pixel floor this section added compared a row's *exact*-colour
+    pixel count against 8, not the tolerance-grouped share `densestColour` had already picked, so a
+    real glyph's own antialiased rows could be dropped the same way (`floor_probe.py`: 1,479 of
+    4,448 real glyph rows in the gate-2 final review's own probe). MVP-2e excludes the buttons' own
+    drawn extent structurally instead (`navBarButtonGlassExtent`) and removes the floor.** Re-verified against this run's own
     screenshot in Python before redispatching (coverage 99.48%, max glyph read as 1.00:1 once the
     noise is floored out, against a 100.00%/1.10:1 regression check on the known-good light-std
     case). **Why a second scope=a11y dispatch, over the nominal budget of 1:** the release gate
@@ -759,7 +772,9 @@ alone, 0 occurrences of the literal `280` left anywhere in the file).
     `calendar.dayHeading` was not flagged at all this run (the audit's own scroll position is
     date-dependent, run to run); nothing else changed.
 - Release gate: [38766587017](https://github.com/rahart1362/Tally/actions/runs/38766587017)
-  (`7b29a9b`): every job succeeded (`iOS gate`, `iOS gate on iOS 27`, `Static compliance checks`,
+  (**Correction, MVP-2e fix list item 4: `70c5303`, not `7b29a9b`** — `gh run view`'s own head SHA;
+  this bullet contradicted section E's own pacing note two paragraphs down, which already had it
+  right): every job succeeded (`iOS gate`, `iOS gate on iOS 27`, `Static compliance checks`,
   `TallyCore tests`, `Launch metric and screenshots`, `Compliance report`). The compliance JSON
   (`pmo-audit/.build-audit/mvp2d/gate-compliance/compliance.json`): **`REL.a11y.audit`: PASS** —
   "56 audit test(s) ran, 24 waiver(s) in `A11yWaivers.waived`" — and **0 of the report's 103 checks
@@ -774,3 +789,121 @@ release gate run (38766587017) was already in progress. GitHub Actions resolves 
 already checked out `70c5303`) and nothing was re-queued or restarted; still, the brief's own
 pacing rule ("never push while any run on that branch is in progress") was not followed for that
 one push. Noted here rather than left out, and not repeated for the rest of this package's work.
+
+## MVP-2e (the PMO's final gate-2 review fix list, closing PR #56)
+
+Author: Accessibility Engineer (work package MVP-2e), Claude Sonnet 5. From `3718217`. This host
+has no Xcode: every iOS claim below cites a CI run whose job log or exported attachments were read
+here, or a Python re-derivation against a prior run's own evidence, verified before any CI
+dispatch. Evidence: `pmo-audit/.build-audit/mvp2e/`. Verdict:
+`pmo-audit/.build-audit/mvp2d/review/verdict.md` (the PMO's final gate-2 review of `3718217`,
+reusing its own `scripts/` and `evidence/`).
+
+### 1. The navigation-bar proof, narrowed to ruling 1 exactly
+
+`AccessibilityAuditUITests.swift`, `A11yScene`. The gate-2 final review found MVP-2d's own proof
+wider than its ruling in four ways; all four are fixed in the same pass, since (a) and (c) share
+one mechanism:
+
+- **1(a) Coverage.** MVP-2d counted a pixel as the bar's own colour within `colourTolerance`
+  (3/255) **or** within 1.5:1 contrast — the loose arm made coverage pass on nothing but the glass
+  buttons' own soft shadow (five of the shipped run's seven holds failed strict `colourTolerance`
+  alone, the verdict's own re-measurement, section 3). `A11yScene.navBarButtonGlassExtent` (new)
+  excludes the two buttons' own drawn extent structurally instead: each button's reported 36 pt
+  frame outset by `navBarGlassButtonOutset` (4 pt), measured directly from run 38757233994's own
+  screenshots (`pmo-audit/.build-audit/mvp2e/scripts/mvp2e_navbar_acceptance.py`'s own pixel scan,
+  dark-std and light-std: pixels differing from the bar's own colour extend a clean 4 pt beyond the
+  reported frame before the bar's own colour resumes — the "44 pt circle, 36 pt frame" the verdict
+  itself cites). Coverage now uses one bound alone, `navBarCoverageContrastThreshold` (1.2:1,
+  tighter than the old 1.5:1).
+- **1(b) `chromeOwnContent`.** MVP-2d's version was geometric (≥ 90% inside a bar's frame,
+  `isMostlyInside`), which the verdict's own `exclusion_probe.py` showed could exclude a real,
+  visible scrolled row pasted into the bar with its element kept in the hierarchy (case A). It is
+  now true tree ancestry, tracked during `A11yScene.walk` the same way `insidePinned` already is
+  (`insideChromeBar`): a descendant of the navigation bar/tab bar/toolbar that is itself never
+  inside a scroll view, or a descendant of `calendar.pinnedHeader` (whose own internal horizontal
+  strip stays eligible, since nothing else identifies the week strip's own day letters and
+  numbers). `isMostlyInside` is removed — nothing calls it any more.
+- **1(c) The glyph floor.** MVP-2d's `navBarGlyphMinimumPixelCount` (8) compared a row's *exact*-
+  colour pixel count against the floor, not the tolerance-grouped share `densestColour` had
+  already picked, so real antialiased text could have every glyph row dropped (the verdict's own
+  `floor_probe.py`: 1,479 of 4,448 real glyph rows). With the buttons' own drawn extent excluded
+  structurally (1a), the floor's one real job is already done; it is removed.
+- **1(d) The elementless `textClipped` hold.** Bounded to Calendar's own today variants only
+  (`!pinned.isEmpty && !variant.contains("firstDay")` — `pinned` is non-empty only on Calendar, and
+  `-firstDay` is the only other Calendar state this suite audits), replacing gate-2 round 3's own
+  dead `-paged` case (removed; nothing has read a `-paged` variant since MVP-2d removed paging
+  itself). Still capped at 3 per pass and confirmed by `runA11yAudit`'s own retry, unchanged.
+  Documented in `docs/pmo/a11y-waivers.md` as the position-free exception the PMO has accepted.
+
+**Verified in Python against the shipped evidence before any CI dispatch**
+(`pmo-audit/.build-audit/mvp2e/scripts/mvp2e_navbar_acceptance.py`, mirroring the fixed Swift):
+- All 7 of run 38757233994's navigation-bar holds still measure clean under the new rule (100%
+  coverage at 1.2:1 on 4 of 5 regions, 99.5%/96.1%-plus on the rest — exact figures in
+  `pmo-audit/.build-audit/mvp2e/evidence/mvp2e-navbar-acceptance.json` — max glyph contrast 1.00
+  to 1.11:1, all under the 1.5:1 bound).
+- `exclusion_probe.py`'s case A now fails to be excluded under the structural rule (coverage 96.1%
+  but max glyph 15.79:1 — the pasted row is correctly caught by the glyph check), matching the
+  ruling's own acceptance ("case A must FAIL").
+- The no-floor glyph rule reads courseDetail-contrast's "Quiz 4" at 16.55:1 (≥ 16:1) and the
+  0.33 pt-blurred "PSY 101" at 5.99:1 (> 1.5:1), both clearing the ruling's own acceptance numbers.
+
+### 2. The Calendar large title (S2)
+
+**Cause.** `CalendarScreen.swift` used `tallyLargeTitleScreenChrome()` (fill `.automatic`:
+`ScreenChrome.swift`'s own R4 fix for the other four large-title tab roots) on the theory that
+Calendar usually opens scrolled to today, title already collapsed, and only a first-day open
+reaches the true scroll edge. Every large-title capture since MVP-2c (22 of them, Light/Dark/
+Increase Contrast, scope=a11y and scope=only) shows "October"/"Updated just now" in the hierarchy
+but drawn nowhere (max pixel difference from the canvas 15 in Light, 0 in Dark) — the pre-existing
+l10n-04 defect, now reached on every first-day tap instead of only by chance. The week strip's own
+`.safeAreaBar(edge: .top)` is the one thing that distinguishes Calendar from the other four
+large-title roots: pinning content directly under the bar is apparently enough for `.automatic` to
+resolve as though the list had scrolled even at the List's own true top, so the fill goes opaque
+and collapses the title together, leaving nothing drawn in its place. Diagnosing the exact SwiftUI
+interaction needs a simulator this host does not have.
+
+**Fix.** The PMO's own sanctioned fallback: Calendar now uses `tallyScreenChrome()` (always-opaque
+fill) and `.navigationBarTitleDisplayMode(.inline)`, the same pairing as Course Detail
+(`CourseDetailView.swift`) and What-If (`WhatIfSheet.swift`), both of which already render
+correctly on that fill — the same state Calendar's own inline (collapsed) title already rendered
+correctly in, every time it was reached by scrolling rather than by opening at the top. D01 is
+unaffected (content is still never visible under the bar at rest; the fill is simply always on
+instead of conditional). Recorded for the owner: a native large title for Calendar remains open,
+should the safe-area-bar interaction ever get a real fix with a simulator available.
+
+A tour capture after the first-day tap is added (`AuditTourUITests.testD_calendar`,
+`calendar-firstDay`), checked at 200% against the CI evidence below.
+
+### 3. Ruling 2's tour coverage, made real
+
+`AuditTourUITests.swift`:
+- **To-Do and Parent Mode AX5 scroll captures** (`testE_toDo`, `testN_sampleDataAndParentMode`):
+  previously one capture each, never scrolled — their rows below the AX5 fold had no tour evidence
+  of any kind. Both now call `captureScreenfuls`, gated on the new `Self.isAX5Leg` (so the other
+  seven legs are unchanged).
+- **Insights reaches its end**: `testF_insights`'s `maxScreens` raised from 10 to 20 (matching
+  Settings' own) — the smallest device's AX5 leg previously hit the 10-screenful cap before
+  `captureScreenfuls`'s own "unchanged screenshot" stop condition fired.
+- **Honest docs** (`docs/pmo/a11y-waivers.md`): the tour's AX5 layout checks are stated plainly as
+  review aids for the gate-2 200% review, never a gate (`analyzeLayout` asserts nothing); as 4 AX5
+  legs, not 8; and `truncationHint` as reading the accessibility label, not the rendered width.
+
+### 4. Documentation and dead code
+
+- `docs/pmo/a11y-waivers.md`: the coverage definition (1.2:1, structural button exclusion, no
+  floor); the elementless `textClipped` exception documented as the PMO's accepted position-free
+  case; the tour-coverage overstatement corrected (above); the navigation-bar audit-position-rule
+  bullet rewritten for MVP-2e.
+- `docs/pmo/reviews/mvp2b-report.md` (this file): the gate SHA correction (`70c5303`, not
+  `7b29a9b`); round 2's item-4 row corrected ("Sun, Oct 11" was the selected day, not a day before
+  it); the "2-pixel glyph" claim's own over-generalisation noted against the verdict's own
+  50-pixel/2.02:1 re-measurement.
+- `AccessibilityAuditUITests.swift`: the dead `-paged` elementless-hold branch removed (1d, above).
+- `CalendarUITests.swift`: `assertSelectedDayHeadingClearsThePinnedStrip` now reads
+  `header.frame.maxY` fresh inside the `eventually` poll, not once before the scroll settles (S3
+  note).
+
+### 5. CI runs
+
+_Filled in after dispatch; see the hand-off reply for the final figures._

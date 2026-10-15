@@ -66,16 +66,32 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   `REL.a11y.audit` could not pass with paging still in place, and why the PMO's ruling removes it
   instead of attempting a third repair.
 
-  **The accepted limitation.** Rows below the first page's AX5 fold are covered another way: the
-  Audit tour's own AX5 layout checks (truncation, clipping, overlap by frame) run at every scroll
-  step on all 8 legs (`AuditTourUITests.swift`), and the gate-2 visual review at 200% looks at
-  every screen's full scroll, AX5 included. Neither re-runs the accessibility audit API itself on
-  rows past the first page, so a Dynamic Type or clipping defect that only the API would catch,
-  below that fold, is not covered by this suite. That gap is accepted, not fixed: MVP-2c's own
-  measurements above are its evidence, and no further attempt to re-page is expected without a
-  method that does not relayout the list mid-measurement (for example, measuring each row's text
-  at the default size and at AX5 without the audit's own re-layout, or building those screens short
-  enough to hold every row on one page) — an idea, not a plan, and not this package's to build.
+  **The accepted limitation, honestly stated (MVP-2e, fix list item 3 — the gate-2 final review
+  found this section overstated: `AuditTourUITests.analyzeLayout`'s own doc comment calls its
+  checks "a hint for the reviewer, not a verdict"; it asserts nothing).** Rows below the first
+  page's AX5 fold are covered two other ways, neither of which re-runs the accessibility audit API
+  itself on them, so a Dynamic Type or clipping defect that only the API would catch, below that
+  fold, is still not covered by this suite:
+  - **The Audit tour's own AX5 layout checks are review aids for the gate-2 200% review, never a
+    gate.** `analyzeLayout` computes a truncation/clipping/overlap hint at every scroll step, but
+    only on the tour's **4 AX5 legs** (of 8 total — the other 4 are std/xxxLarge), and
+    `truncationHint` reads the element's own accessibility **label**, which keeps the full string
+    even when the drawn text is visibly cut (round 2's own `smallest-light-xxxLarge/16-courses-top`
+    returned no hint for a visibly truncated "Needs atte…"). "Clipping" checks only the window's
+    own edges, not a container's. These numbers are a starting point for the reviewer reading the
+    screenshots at 200%, not a pass/fail signal on their own.
+  - **The tour's scroll coverage, made real (MVP-2e):** To-Do and Parent Mode previously had no
+    scroll capture at all (`testE_toDo`/`testN_sampleDataAndParentMode`, `AuditTourUITests.swift`)
+    — their rows below the AX5 fold had no tour evidence of any kind, not even a hint. Both now
+    capture AX5 screenfuls down to their own end, gated on the AX5 leg. Insights previously hit its
+    10-screenful cap before reaching its true end at AX5 on the smallest device
+    (`smallest-light-ax5/86-insights-scroll10` ended mid-card); its cap is now 20, matching
+    Settings' own.
+
+  No further attempt to re-page the accessibility audit API itself is expected without a method
+  that does not relayout the list mid-measurement (for example, measuring each row's text at the
+  default size and at AX5 without the audit's own re-layout, or building those screens short enough
+  to hold every row on one page) — an idea, not a plan, and not this package's to build.
 - **What-If is audited pulled up to its large height.** At the medium height the system draws
   the sheet at 0.96 scale (Reset measured 64.65 × 34.57 pt there, 67.33 × 36 pt pulled up, run
   38350587735), and the text checks misfire on the scaled text: 4 `textClipped` and 4
@@ -86,35 +102,68 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   verdict item 2; `a11yReachCalendarToday` / `a11yReachCalendar`, `AccessibilityAuditUITests.swift`).
   The first-day tap is a student's own path through the week strip; it returns the agenda to the
   top of its list, where scope=only run 38672964445's first-day audits (std and AX5) passed.
-  **Resolved (MVP-2d, the PMO's first binding ruling): the today state's own issues are held only
-  on a passing in-test pixel proof that the text is actually invisible, never on position alone.**
+  **Resolved (MVP-2d, the PMO's first binding ruling; narrowed by MVP-2e, the gate-2 final
+  review's own binding rulings, fix list item 1): the today state's own issues are held only on a
+  passing in-test pixel proof that the text is actually invisible, never on position alone.**
   Round 1 (item 7) left the navigation bar holding nothing at all, which is why these failed; the
   rule is not "the navigation bar never holds" but "the navigation bar holds only proof, never
   position" (`A11yScene.heldReason`, `measureNavBarCoverage`):
   - **contrast** on an element at least two thirds inside the bar's own frame (`A11yScene.
-    overlapsByAtLeastTwoThirds`) is held when `measureNavBarCoverage` measures at least 95% of that
-    element's own frame within `A11yScene.colourTolerance` of the bar's own background colour
-    (sampled as the bar's own densest colour, text being far the smaller share of its pixels), and
-    no pixel row inside it reaches above 1.5:1 contrast against that colour. Both numbers are
+    overlapsByAtLeastTwoThirds`) is held when `measureNavBarCoverage` measures at least **95%** of
+    that element's own frame within **1.2:1 contrast** (`A11yScene.navBarCoverageContrastThreshold`)
+    of the bar's own background colour (sampled as the bar's own densest colour, text being far the
+    smaller share of its pixels), excluding the bar's own two glass buttons' drawn extent (below),
+    and no pixel row inside it reaches above 1.5:1 contrast against that colour. Both numbers are
     recorded in the held reason, so "HIST 210" (y = 114.7) and "9:00 PM – 10:15 PM" (y = 160.3) in
     Light (`calendar (light-std)`, both attempts of run 38672964445) and "Wed, Oct 14"
     (y = 127.3–185.3, 74% under the bar) in Increase Contrast (`calendar (contrast)`, both
     attempts of run 38701661581) are each held or not strictly on what the audit screenshot itself
-    shows there, not on where they sit — `docs/pmo/reviews/mvp2b-report.md`'s MVP-2d section has
-    every run's own measured numbers;
+    shows there, not on where they sit — `docs/pmo/reviews/mvp2b-report.md`'s MVP-2d/MVP-2e
+    sections have every run's own measured numbers;
   - an elementless **textClipped** issue (no frame of its own: the list was away from its top when
     `textClipped` grew the text, `a11yPasses`, and the recycled row's element did not resolve) is
     checked the strictest way instead, since there is no element frame to apply the two-thirds test
     to: the navigation bar's own whole frame must itself measure clean (>= 95% coverage, no row
-    above 1.5:1) before it is held.
+    above 1.5:1) before it is held, **and only on Calendar's own today variants** — never on a
+    `-firstDay` variant, never on any other screen (MVP-2e ruling 1(d), below).
+
+  **MVP-2e's own narrowing (the gate-2 final review found MVP-2d's proof wider than the ruling):**
+  - **Coverage is one bound, not two.** MVP-2d counted a pixel as the bar's own colour within
+    `colourTolerance` (3/255) **or** within 1.5:1 contrast — the loose arm made coverage pass on
+    nothing but the glass buttons' own soft shadow (five of the seven shipped holds failed strict
+    `colourTolerance` alone). The buttons' own drawn extent (frame plus the 44 pt glass circle and
+    its shadow, 4 pt beyond each button's 36 pt reported frame — measured once from run
+    38757233994's own screenshots) is now excluded structurally instead, and coverage uses one
+    bound alone, 1.2:1 (tighter than the old 1.5:1).
+  - **`chromeOwnContent` is structural, not geometric.** MVP-2d told the bar's own content (title,
+    subtitle, a button) apart from scrolling content by geometry alone (≥ 90% inside the bar's
+    frame) — the gate-2 final review's own probe (`exclusion_probe.py`) pasted a real, 15.8:1 row
+    into the bar with its element kept in the hierarchy, as a scrolled row's always is, and the old
+    rule excluded it. It is now true tree ancestry: a descendant of the navigation bar/tab bar/
+    toolbar that is itself never inside a scroll view, or a descendant of `calendar.pinnedHeader`
+    (whose own internal horizontal strip stays eligible).
+  - **No glyph floor.** MVP-2d's 8-pixel floor compared a row's *exact*-colour pixel count against
+    8, not the tolerance-grouped share its own colour-picking already used, so real antialiased
+    text could have every glyph row dropped (the gate-2 final review's own `floor_probe.py`: 1,479
+    of 4,448 real glyph rows). With the buttons' own drawn extent excluded structurally (above),
+    the floor's one real job is already done; it is removed.
+  - **The elementless `textClipped` hold is bounded to where it is evidenced** (ruling 1(d), fix
+    list item 1(d)): Calendar's own today variants only (`light-std`, `dark-std`, `light-ax5`,
+    `contrast` — never `-firstDay`, the only other Calendar state this suite audits), **at most 3
+    per pass**, and **only confirmed by `runA11yAudit`'s own retry** after the list settles (the
+    same mechanism the old, now-removed `-paged` case used). This is the position-free exception
+    the PMO has accepted: the issue has no element, frame or label of its own, so nothing about
+    *where* on the bar it would sit can be checked — only that the bar's own whole frame, at this
+    moment, on this screen, shows nothing visible. Evidence: run 38757233994 held 5 such issues
+    (light-std ×2, dark-std ×2, light-ax5 ×1), each confirmed by the retry, none exceeding the cap.
 
   **The D01 protection stays**: anything the pixel check finds actually visible — any row above
-  1.5:1, or under 95% coverage — still fails, exactly as it would have failed before this ruling.
+  1.5:1, or under 95% coverage — still fails, exactly as it would have failed before either ruling.
   Nothing here widens the pinned-bar hold (unchanged, the strip's own rule) or the generic chrome
   hold (`ChromeKind.canHoldContrast` still excludes the navigation bar there); this is its own,
-  separate, narrower rule, gated on measurement rather than overlap. MVP-2d's own CI runs (`docs/
-  pmo/reviews/mvp2b-report.md`'s MVP-2d section) have the measured coverage and max glyph contrast
-  for every issue this rule held or failed.
+  separate, narrower rule, gated on measurement rather than overlap. MVP-2d's and MVP-2e's own CI
+  runs (`docs/pmo/reviews/mvp2b-report.md`'s MVP-2d/MVP-2e sections) have the measured coverage and
+  max glyph contrast for every issue this rule held or failed.
 - **The selected day's heading rests below the strip: FIXED (MVP-2c)** (gate-2 round 2 verdict,
   item 8/9; round 2's fix did not hold; round 3's attempts did not either). The strip is a
   `.safeAreaBar(edge: .top)`, the agenda's list scrolls with one plain `scrollTo(day, anchor: .top)`
@@ -179,41 +228,43 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
 - A `contrast` or `textClipped` issue **partly outside its own scroll view or the window**, along
   that container's own scroll axis only.
 - A `dynamicType` or `textClipped` issue with **no element at all** (frame zero, empty label,
-  *and* empty identifier), **only in a `-paged` variant** (`auditScreen`'s own paging, item 6),
-  **capped at 3 per pass**, and **confirmed by one retry** of the same pass, after the list
-  settles, that shows no elementless issue of the same type — otherwise it is a real, recurring
-  problem, not the audit's own list-rebuild instability, and fails like any other issue
-  (`runA11yAudit`). Unchanged in MVP-2c. **MVP-2d note: this case cannot fire any more** — paging
-  (the only source of a `-paged` variant) is removed below, so no variant ever matches
-  `-paged` again; the code is left in place (nothing calls for removing it) but is now dead.
-- **MVP-2d (the PMO's first binding ruling): a `contrast` issue, or an elementless `textClipped`
-  issue, under the navigation bar**, on a passing in-test pixel proof only — never on position
-  alone (the D01 protection: anything actually visible through the bar still fails this rule like
-  any other). `A11yScene.measureNavBarCoverage`:
+  *and* empty identifier). Gate-2 round 3 (item 6) allowed this only in a `-paged` variant,
+  `auditScreen`'s own paging; **removed in MVP-2e (fix list item 4)** — dead code since MVP-2d
+  removed paging itself (`a11yPageToEnd`), so no variant has matched `-paged` since. The only
+  elementless hold left is the navigation bar's own, below.
+- **A `contrast` issue, or an elementless `textClipped` issue, under the navigation bar**
+  (MVP-2d, the PMO's first binding ruling, narrowed by MVP-2e, the gate-2 final review's second —
+  fix list item 1), on a passing in-test pixel proof only — never on position alone (the D01
+  protection: anything actually visible through the bar still fails this rule like any other).
+  `A11yScene.measureNavBarCoverage`:
   - a `contrast` issue needs its own frame at least **two thirds** inside the bar's own frame
     (`A11yScene.overlapsByAtLeastTwoThirds`, stricter than the "under system chrome" bullet's one
     third, since the navigation bar still never satisfies that one);
   - an elementless `textClipped` issue (no frame of its own) is checked over the bar's **whole**
-    frame instead, the strictest version of the same proof;
-  - either way, the region must measure **at least 95%** of its pixels either within
-    `A11yScene.colourTolerance` of the bar's own background colour (its densest colour, sampled
-    across its whole frame — text is always the smaller share of a navigation bar's own pixels) or
-    no more than **1.5:1** contrast from it, **and** no pixel row inside the region may itself reach
-    above that same **1.5:1** against that colour (`A11yScene.chromeOwnContent` excludes any pixel
-    already accounted for by a different, already-identified element — the bar's own title,
-    subtitle or a button, or the week strip's own day letters and numbers a frame reaching past the
-    navigation bar's own bottom edge can meet — before either number is measured; scope=only run
-    38729620004's own evidence, cited in `measureNavBarCoverage`'s doc comment, is why coverage
-    needed the same 1.5:1 bound a strict `colourTolerance` match alone could not clear on a real
-    device: a soft shadow under the navigation bar's own glass buttons, the same artifact the
-    `calendar.weekStrip.weekday` waiver above already documents, shifts a few RGB values past the
-    tolerance without ever approaching a readable glyph). A row's glyph candidate must also clear
-    `A11yScene.navBarGlyphMinimumPixelCount` (8) pixels before it can move the maximum: scope=a11y
-    run 38745363478's own evidence (Dark Calendar) found an excluded button's own anti-aliased edge
-    reading as a 2-pixel "glyph" at up to 2.01:1 in about 100 rows, where the real glyph the same
-    run measured (the navigation bar's own title) was never under 50 pixels in any row.
-  Both measured numbers are recorded in the held reason (`A11yScene.navBarHoldReason`). See the
-  Calendar note above for the issues this was written for and their measured values.
+    frame instead, the strictest version of the same proof, **and only on Calendar's own today
+    variants, at most 3 per pass, confirmed by `runA11yAudit`'s own retry** (MVP-2e ruling 1(d) —
+    the position-free exception the PMO has accepted; see the Calendar note above);
+  - either way, the region must measure **at least 95%** of its pixels within **1.2:1 contrast**
+    (`A11yScene.navBarCoverageContrastThreshold`) of the bar's own background colour (its densest
+    colour, sampled across its whole frame — text is always the smaller share of a navigation
+    bar's own pixels), **and** no pixel row inside the region may itself reach above **1.5:1**
+    against that colour. `A11yScene.chromeOwnContent` excludes any pixel already accounted for by
+    a different, already-identified element — the bar's own title, subtitle or a button (now true
+    tree ancestry, MVP-2e: a structural descendant of the bar never itself in a scroll view), or
+    the week strip's own day letters and numbers a frame reaching past the navigation bar's own
+    bottom edge can meet (a structural descendant of `calendar.pinnedHeader`) — and
+    `A11yScene.navBarButtonGlassExtent` (MVP-2e) additionally excludes the two glass buttons' own
+    *drawn* extent: 4 pt beyond each button's reported frame, where its 44 pt circle and shadow
+    actually render (measured once from run 38757233994's own screenshots), which is what let
+    coverage need only the one, 1.2:1 bound above instead of MVP-2d's own looser pair. MVP-2d's own
+    8-pixel floor on a row's glyph candidate is removed (MVP-2e, fix list item 1(c)): it compared a
+    row's *exact*-colour pixel count against 8, not the grouped share the colour-picking itself
+    used, which could drop a real glyph's own rows; the buttons' drawn extent being excluded
+    structurally now does the floor's one real job.
+  Both measured numbers are recorded in the held reason (`A11yScene.navBarHoldReason`; MVP-2e:
+  the text now names the actual tolerance, 1.2:1 — MVP-2d's own text said "within colourTolerance",
+  which the gate-2 final review found false). See the Calendar note above for the issues this was
+  written for and their measured values.
 - Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
   own, not the app's (run 38357314250: Find School in Dark, three empty
   `TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").

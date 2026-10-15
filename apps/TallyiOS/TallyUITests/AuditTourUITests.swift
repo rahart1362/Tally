@@ -56,6 +56,13 @@ final class AuditTourUITests: TallyUITestCase {
         }
     }
 
+    /// MVP-2e (ruling 2's coverage made real, fix list item 3): true on the leg `textSizeArguments`
+    /// above launches at AX5 — the only size the PMO asked for To-Do's, Parent Mode's and Insights'
+    /// own below-the-fold scroll coverage at.
+    private static var isAX5Leg: Bool {
+        ProcessInfo.processInfo.environment["AUDIT_TEXT_SIZE"] == "ax5"
+    }
+
     /// Plan 08 L10N-04: the leg's language, from the `Audit tour` workflow's own `language` input
     /// (`TEST_RUNNER_AUDIT_LANGUAGE`, landing here as `AUDIT_LANGUAGE`, the same mechanism as
     /// `AUDIT_APPEARANCE`/`AUDIT_TEXT_SIZE` above). Default `en` when the workflow does not set it
@@ -292,6 +299,16 @@ final class AuditTourUITests: TallyUITestCase {
         _ = elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "calendar", state: "weekStripAndAgenda", reachedVia: "Calendar tab")
 
+        // MVP-2e (gate-2 final review S2, fix list item 2): the large title is reachable (not
+        // collapsed) only once the agenda is at its true top, which the week's first day's own
+        // heading guarantees (`CalendarUITests`' own `a11yReachCalendar`/`AccessibilityAuditUITests`'
+        // own `-firstDay` variants use the same tap) — the state the blank-title defect needed and
+        // this tour never captured before.
+        let firstDay = elements("calendar.day", in: app).firstMatch
+        if go(firstDay, app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day") {
+            snap(app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day")
+        }
+
         if go(app.buttons["calendar.options"], app, screen: "calendar", state: "optionsMenu", reachedVia: "toolbar options button") {
             snap(app, screen: "calendar", state: "optionsMenu", reachedVia: "tapped calendar.options")
             // L10N-04: was `app.buttons["Subscribe to Canvas Calendar…"]`, `app.alerts["Subscribing
@@ -380,6 +397,14 @@ final class AuditTourUITests: TallyUITestCase {
             if app.buttons["todo.markDone"].exists { app.buttons["todo.markDone"].tap() }
         }
 
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — To-Do's
+        // rows below the AX5 fold had no tour evidence at all (verdict section 4). Gated on the
+        // AX5 leg only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        if Self.isAX5Leg {
+            scrollToTop(app)
+            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 10)
+        }
+
         app.terminate()
         finish("E")
     }
@@ -397,7 +422,12 @@ final class AuditTourUITests: TallyUITestCase {
         let app = launchSignedIn()
         openTabInTour(Self.tabLabel(.insights), in: app)
         _ = element("chart.trend", in: app).waitForExistence(timeout: 30)
-        captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 10)
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): raised from 10 — the smallest
+        // device's AX5 leg hit the 10-screenful cap before `captureScreenfuls`' own "unchanged
+        // screenshot" stop condition (`smallest-light-ax5/86-insights-scroll10` ended mid-card,
+        // verdict section 4). 20 matches Settings' own cap (`testG_settingsSignedIn`), the other
+        // screen long enough to need one that high.
+        captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 20)
 
         app.terminate()
         finish("F")
@@ -714,6 +744,13 @@ final class AuditTourUITests: TallyUITestCase {
             return
         }
         snap(app, screen: "family", state: "parentDashboard", reachedVia: "Settings -> Explore Parent Mode")
+
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — Parent
+        // Mode had exactly one capture, never scrolled (verdict section 4). Gated on the AX5 leg
+        // only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        if Self.isAX5Leg {
+            captureScreenfuls(app, screen: "family", reachedVia: "Settings -> Explore Parent Mode, AX5 scroll", maxScreens: 10)
+        }
 
         let switchers = elements("family.switcher", in: app)
         let visibleSwitcher = (0..<switchers.count).map { switchers.element(boundBy: $0) }.first { $0.exists && $0.isHittable }

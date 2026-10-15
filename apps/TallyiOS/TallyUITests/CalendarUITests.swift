@@ -155,16 +155,19 @@ final class CalendarUITests: TallyUITestCase {
     /// re-scrolls afterwards: one `scrollTo`, no timers, `CalendarScreen.swift`).
     @MainActor
     private func assertSelectedDayHeadingClearsThePinnedStrip(_ app: XCUIApplication, header: XCUIElement, after: String) {
-        let pinnedMaxY = header.frame.maxY
         guard let day = selectedDayNumber(app) else {
             XCTFail("no selected day in the strip after \(after). Hierarchy: \(app.debugDescription)")
             return
         }
+        // MVP-2e (S3 note, fix list item 4): `header.frame.maxY` read fresh on every poll, not
+        // once before the scroll settles — the strip's own frame, not only the heading's, can
+        // still be mid-animation when this starts.
         _ = eventually(timeout: 3) {
             guard let heading = self.headingFrame(forDay: day, in: app) else { return false }
-            return heading.minY >= pinnedMaxY - 0.5
+            return heading.minY >= header.frame.maxY - 0.5
         }
         keepEvidence(app, name: "Calendar, selected heading after \(after)")
+        let pinnedMaxY = header.frame.maxY
         guard let heading = headingFrame(forDay: day, in: app) else {
             XCTFail("the selected day's heading (day \(day)) is not on screen after \(after). Hierarchy: \(app.debugDescription)")
             return
