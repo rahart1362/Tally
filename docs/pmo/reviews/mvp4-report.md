@@ -204,3 +204,17 @@ fixed here (restructuring that script is outside this item's scope).
   committed to the repo; images never go in a public repo).
 - `pmo-audit/.build-audit/mvp4/make_crops.py`, `make_owner_sheet.py` — the generation scripts.
 - Journal: `build/logs/journal/2026-10-14-mvp4.md`.
+
+## PMO fixes after gate 2 (2026-10-15)
+Gate 2 (Opus, `pmo-audit/.build-audit/mvp4/review/verdict.md`) failed the review notes on two S2s. The PMO fixed those and the recommended items:
+- **N1/N2/N3, review notes:**
+  - Sample Data is now described as "Tally itself sends nothing over the network", with StoreKit and Safari named as the only network activity.
+  - The header no longer claims every sentence is true of this build. Sentences that depend on decisions not yet made (a school enabled for sign-in, real-account parent linking) are marked `[AT SUBMISSION]`.
+  - The subscription path is spelled out (Settings → Subscription → See Plans → Continue), and so is the calendar label ("Subscribe to Canvas Calendar").
+- **V1:** the Settings Privacy Policy row drops its redundant `.frame(minHeight: 44)`, which made it 74 pt tall against its 51–52 pt neighbours. A Form row is already at least 44 pt.
+- **T1:** `testG` ran at 97% of its 300 s cap on `main` and timed out on the smallest iPhone in dark at AX5 (tour 38695020712).
+  - The Makefile's cap is now `IOS_MAX_TEST_ALLOWANCE` (default 300, so CI is unchanged).
+  - The Audit tour passes 600, and the tour methods use `AuditTourUITests.tourAllowance` (560).
+- **P1:** `check_policy_matches_app.py` also detects `….institutionSearch = …` and `….registry = …` assigned anywhere in `live()`, with a self-test case for it (9 of 9 pass).
+- **S4-1, a correction:** §3 above says no capture of the signed-in footer exists. It does: the PMO's tour 38695020712 shows it on 7 of 8 legs (`pmo-audit/.build-audit/mvp4/footer-for-approval.jpg`), and the owner approved the string on 2026-10-15 (the catalog comment is updated).
+- **Not done:** S4-6 (mapping ReviewPath to a `REL.flow`) is left for MVP-3, which owns `check_release.py`. Counsel items C1–C6 go to the owner's attorney.

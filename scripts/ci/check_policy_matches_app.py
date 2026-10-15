@@ -149,17 +149,26 @@ def app_wired_flows(sign_in_services: str, app_environment: str, shipping_text: 
     if re.search(r"makeTokenExchange\s*:\s*SignInServices\.canvasTokenExchange", call):
         wired.add("canvas-api")
 
-    # school-search: explicitly assigned in live(), and not itself an Unavailable stand-in.
+    # school-search: explicitly assigned in live() (in the constructor call, or by a later
+    # `….institutionSearch = …` anywhere in live(); MVP-4 gate 2 caught the latter slipping
+    # through), and not itself an Unavailable stand-in.
+    assigned_search = re.search(r"\.institutionSearch\s*=\s*(\w+)\(", live_body)
     search_arg = re.search(r"institutionSearch\s*:\s*(\w+)\(", call)
-    if search_arg:
+    if assigned_search and not assigned_search.group(1).startswith("Unavailable"):
+        wired.add("school-search")
+    elif search_arg:
         if not search_arg.group(1).startswith("Unavailable"):
             wired.add("school-search")
     elif not _default_is_unavailable(sign_in_services, "institutionSearch"):
         wired.add("school-search")  # live() took the struct's default, and that default is live.
 
-    # school-list-download: a non-empty registry, however it is built.
+    # school-list-download: a non-empty registry, however it is built (in the call, or assigned
+    # later in live()).
+    assigned_registry = re.search(r"\.registry\s*=\s*([^\n;]+)", live_body)
     registry_arg = re.search(r"registry\s*:\s*([^,)]+)", call)
-    if registry_arg:
+    if assigned_registry and not re.fullmatch(r"\s*\w+\s*\(\s*\[\s*\]\s*\)\s*", assigned_registry.group(1)):
+        wired.add("school-list-download")
+    elif registry_arg:
         if not re.fullmatch(r"\s*\w+\s*\(\s*\[\s*\]\s*\)\s*", registry_arg.group(1)):
             wired.add("school-list-download")
     elif not _default_is_unavailable(sign_in_services, "registry"):
@@ -287,6 +296,18 @@ def self_test() -> int:
         "institutionSearch: CanvasAccountSearch(transport: transport),")
     errs, _ = check(search_live_claims, sign_in_services, wired_search_app_env, shipping_text)
     case("school-search wired and left inactive (undisclosed)", errs, should_fail=True)
+    # The same flow wired by an assignment after construction (MVP-4 gate 2, P1), left inactive.
+    assigned_search_app_env = app_environment.replace(
+        "var signIn = SignInServices(webAuthPresenter: WebAuthPresenter(),",
+        "var signIn = SignInServices(webAuthPresenter: WebAuthPresenter(),", 1)
+    marker = "var signIn = SignInServices("
+    i = assigned_search_app_env.find(marker)
+    j = assigned_search_app_env.find("\n", assigned_search_app_env.find(")", i))
+    assigned_search_app_env = (assigned_search_app_env[:j] +
+                               "\n        signIn.institutionSearch = CanvasAccountSearch(transport: transport)" +
+                               assigned_search_app_env[j:])
+    errs, _ = check(search_live_claims, sign_in_services, assigned_search_app_env, shipping_text)
+    case("school-search assigned after construction and left inactive (undisclosed)", errs, should_fail=True)
     # Sanity: the same code change, with the claim correctly flipped to active too, must pass.
     both_active = policy_html  # already "active" for school-search
     errs, _ = check(both_active, sign_in_services, wired_search_app_env, shipping_text)

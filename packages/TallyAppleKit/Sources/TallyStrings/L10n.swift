@@ -1226,7 +1226,7 @@ public enum L10n {
                 "settings.signOut.footer",
                 defaultValue: "Before you delete Tally, use Sign Out & Erase to end its access at your school.",
                 bundle: #bundle,
-                comment: "Settings, Account section footer, shown under Sign Out & Erase when signed in (EB-17, dossier.md §12 P3; R-11): explains that deleting the app alone can leave Tally's Canvas access active at the school, so Sign Out & Erase should happen first. NEW key, PENDING owner approval.")
+                comment: "Settings, Account section footer, shown under Sign Out & Erase when signed in (EB-17, dossier.md §12 P3; R-11): explains that deleting the app alone can leave Tally's Canvas access active at the school, so Sign Out & Erase should happen first. Approved by the owner on 2026-10-15.")
         }
 
         public static func signOutConfirmation() -> LocalizedStringResource {

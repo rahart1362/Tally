@@ -474,7 +474,7 @@ struct SettingsView: View {
             // EB-06: reuses the paywall's own key (`subscription.privacyPolicy`) and URL source
             // (`SubscriptionLinks`, GO-LIVE GL-02) -- no new string. Styled like the Language
             // row above (an external link gets `arrow.up.forward`, never a chevron, per the
-            // L10N-04 gate-2 verdict "Language row"), and the paywall's own 44 pt minimum (D10).
+            // L10N-04 gate-2 verdict "Language row"). A Form row is already at least 44 pt tall.
             if let privacy = SubscriptionLinks.privacyPolicy {
                 Link(destination: privacy) {
                     LabeledContent {
@@ -484,8 +484,6 @@ struct SettingsView: View {
                         Text(L10n.Subscription.privacyPolicy())
                             .foregroundStyle(TallyColor.textPrimary)
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("settings.privacyPolicy")
             }
