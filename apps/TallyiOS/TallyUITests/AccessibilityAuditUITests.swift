@@ -1593,7 +1593,17 @@ struct A11yScene {
                 let cut = 1 + (extreme - 1) * 0.5
                 var core: [UInt32: Int] = [:]
                 for (key, count) in rowCounts where Self.navBarContrastRatio(key, background) >= cut { core[key] = count }
-                guard let glyph = Self.densestColour(core) else { continue }
+                guard let glyph = Self.densestColour(core), let glyphCount = core[glyph],
+                      // MVP-2d: scope=a11y run 38745363478's own evidence (dark-std Calendar) —
+                      // an excluded button's own anti-aliased edge, a pixel or two of blend right
+                      // outside its reported frame, read as a "glyph" at up to 2.01:1 contrast in
+                      // ~100 rows, every one exactly 2 (twice 4) pixels wide; the real glyph this
+                      // check exists to catch (the navigation bar's own title, the same run's own
+                      // undisputed positive) was never under 50 pixels in any row it occupied. A
+                      // floor of `navBarGlyphMinimumPixelCount`, comfortably between the two, is
+                      // the same reliability discipline `measureFadeBandContrast`'s own "at least
+                      // half the row" rule already applies elsewhere in this file.
+                      glyphCount > Self.navBarGlyphMinimumPixelCount else { continue }
                 maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
             }
         }
@@ -1661,6 +1671,12 @@ struct A11yScene {
     /// apply and the issue fails like any other (the D01 protection).
     static let navBarCoverageThreshold: Double = 0.95
     static let navBarGlyphContrastThreshold: Double = 1.5
+    /// MVP-2d: a row's "glyph" candidate must clear this many pixels to count — run 38745363478's
+    /// own evidence (dark-std Calendar, `measureNavBarCoverage`'s own doc comment): an excluded
+    /// button's anti-aliased edge read as a 2-pixel "glyph" at up to 2.01:1 in ~100 rows, while the
+    /// real glyph the same run measured (the navigation bar's own title) was never under 50 pixels
+    /// in any row. 8 sits with a comfortable margin above the first and well below the second.
+    static let navBarGlyphMinimumPixelCount = 8
 
     /// MVP-2d ruling 1: the held reason's own text, recording both measured numbers (the ruling's
     /// own requirement) so a reviewer can check them against the attached screenshot without
