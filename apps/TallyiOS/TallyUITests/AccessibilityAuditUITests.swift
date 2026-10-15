@@ -538,14 +538,6 @@ extension TallyUITestCase {
     /// MVP-2c: how far (pt) a page's anchor text may sit from where it was before the page's audit
     /// and still count as not moved.
     static let a11yAnchorTolerance: CGFloat = 2
-    /// MVP-2c: how far a held drag travels before the list starts to follow it (a pan's touch
-    /// slop): the 559 pt drag moved every list exactly 549.3 pt from its top (run 38672964445).
-    static let a11yDragSlop: CGFloat = 9.7
-    /// MVP-2c: drags tried to bring a moved page back before giving up.
-    static let a11yRestoreDrags = 3
-    /// MVP-2c: the farthest one of those drags goes from the middle of the screen, as a share of
-    /// its height, so it never leaves the screen.
-    static let a11yRestoreTravel: CGFloat = 0.4
 
     /// MVP-2b gate-2 round 3 (verdict item 6): one screenful at a time to the end of the list,
     /// auditing each page, so Settings' lower rows (Exit Sample Data, Language, English, Show every
@@ -563,17 +555,19 @@ extension TallyUITestCase {
     ///   page 8 on, and Insights until the 20-page cap.
     /// Reaching `maxPages` without the end fails: a silent stop would leave rows unaudited.
     ///
-    /// **And a page its audit moved is brought back, or the paging stops, failing.** The two growing
-    /// checks lay the screen out at other text sizes, and on most paged screens it does not come back
-    /// to the same rows (scope=only run 38672964445: every first drag from the top moved exactly
-    /// 549.3 pt, then Settings came back to its top every fourth page and To-Do jumped both ways,
-    /// both out of time; run 38677820708: Course Detail, Insights, Paywall, Parent Mode, Settings and
-    /// To-Do moved, Courses and Dashboard did not). The page's own second pass then audits other rows,
-    /// and an issue whose element was recycled meanwhile comes back with no element. So each page
-    /// notes one text's position before its audit (`a11yPageAnchor`), drags it back if it is still on
-    /// screen (`a11yRestore`), and records what happened (`paging-<N>`); if it cannot, the paging
-    /// stops: auditing on at the wrong rows would not be the coverage item 6 asks for.
-    /// `docs/pmo/a11y-waivers.md` has this as an open decision.
+    /// **And a page whose audit moved the list stops the paging, failing.** The two growing checks
+    /// lay the screen out at other text sizes, and on six of the eight paged screens the list does
+    /// not stay where it was: it comes back pulled up to a fixed offset of its own (scope=only run
+    /// 38681232896, the same both attempts: Insights to about 1,012 pt, so +86, +635 and +1,184 pt on
+    /// pages 2–4; Parent Mode to about 71 pt; Paywall to about 36 pt; To-Do and Settings near their
+    /// top; Course Detail both ways). Courses and Dashboard kept their place (run 38677820708). That
+    /// happens inside the growing pass, so the page's own second pass and the clamped pass itself see
+    /// other rows (Settings' "Show every grade change" was flagged on a page that does not show it),
+    /// and an issue whose element was recycled comes back with no element; dragging the page back
+    /// afterwards (tried in `1c86261`) cannot make that audit valid. So each page notes one text's
+    /// position before its audit (`a11yPageAnchor`) and records where it is after (`paging-<N>`), and
+    /// the paging stops at the first page that moved: auditing on at the wrong rows is not the
+    /// coverage item 6 asks for. `docs/pmo/a11y-waivers.md` has this as an open decision.
     @MainActor
     func a11yPageToEnd(_ app: XCUIApplication, maxPages: Int = TallyUITestCase.a11yMaxPages,
                        file: StaticString = #filePath, line: UInt = #line, onPage: (Int) -> Void) {
@@ -590,12 +584,15 @@ extension TallyUITestCase {
             onPage(index)
             a11yWaitUntilSettled(app)
             guard let anchor else { continue }
-            let restored = a11yRestore(anchor, in: app)
-            a11yAttachNote("page \(index): anchor '\(anchor.label)' at y = \(anchor.minY); after its audit: \(restored.note)",
-                           name: "paging-\(index)")
-            if !restored.ok {
-                XCTFail("page \(index): its audit moved the list (\(restored.note)), so later pages would be audited " +
-                        "at the wrong rows; paging stopped", file: file, line: line)
+            let offset = a11yAnchorOffset(anchor, in: app)
+            let tolerance = Self.a11yAnchorTolerance
+            let moved = offset.map { abs($0) > tolerance } ?? true
+            let movement = offset.map { String(format: "moved %+.1f pt", Double($0)) } ?? "gone (off screen or repeated)"
+            a11yAttachNote("page \(index): anchor '\(anchor.label)' at y = \(anchor.minY); after its audit: " +
+                           (moved ? movement : "not moved"), name: "paging-\(index)")
+            if moved {
+                XCTFail("page \(index): its audit moved the list (anchor '\(anchor.label)' \(movement)), so this page's " +
+                        "second pass and every later page would audit other rows; paging stopped", file: file, line: line)
                 return
             }
         }
@@ -633,35 +630,6 @@ extension TallyUITestCase {
         let matches = app.staticTexts.matching(NSPredicate(format: "label == %@", anchor.label))
         guard matches.count == 1 else { return nil }
         return matches.element(boundBy: 0).frame.minY - anchor.minY
-    }
-
-    /// MVP-2c: brings a page whose audit moved it back, while its anchor text is still on screen: a
-    /// held drag of the offset (plus the pan's slop, `a11yDragSlop`), up to `a11yRestoreDrags` times.
-    /// `ok` is `false` when the anchor is gone or does not come back within `a11yAnchorTolerance`;
-    /// `note` says what happened, for the page's evidence.
-    @MainActor
-    private func a11yRestore(_ anchor: (label: String, minY: CGFloat), in app: XCUIApplication) -> (ok: Bool, note: String) {
-        var moves: [String] = []
-        for _ in 0...Self.a11yRestoreDrags {
-            guard let offset = a11yAnchorOffset(anchor, in: app) else {
-                return (ok: false, note: (moves + ["anchor gone (off screen or repeated)"]).joined(separator: ", "))
-            }
-            moves.append(String(format: "%+.1f pt", offset))
-            if abs(offset) <= Self.a11yAnchorTolerance {
-                return (ok: true, note: moves.count == 1 ? "not moved" : "moved, brought back: " + moves.joined(separator: ", "))
-            }
-            if moves.count > Self.a11yRestoreDrags { break }
-            // The text sits `offset` pt lower than it did: move the content up by that much (a drag
-            // up), or down for a negative offset. The middle of the screen is list on every paged screen.
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let limit = app.frame.height * Self.a11yRestoreTravel
-            let wanted = offset > 0 ? -(offset + Self.a11yDragSlop) : (-offset + Self.a11yDragSlop)
-            let travel = max(-limit, min(limit, wanted))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: travel)),
-                        withVelocity: .slow, thenHoldForDuration: 0.3)
-            a11yWaitUntilSettled(app)
-        }
-        return (ok: false, note: "did not come back: " + moves.joined(separator: ", "))
     }
 
     /// MVP-2c: a short text kept with the test's evidence (`only-evidence`, the exported attachments).
