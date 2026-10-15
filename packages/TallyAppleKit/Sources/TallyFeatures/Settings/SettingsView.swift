@@ -261,6 +261,13 @@ struct SettingsView: View {
         } header: {
             Text(L10n.Settings.accountHeader())
                 .tallySectionText()
+        } footer: {
+            // EB-17 (dossier.md §12 P3): only where Sign Out & Erase itself shows -- sample mode
+            // has nothing to sign out of, and nothing says "your school" for it.
+            if isSignedIn {
+                Text(L10n.Settings.signOutFooter())
+                    .tallySectionText()
+            }
         }
     }
 
@@ -464,6 +471,22 @@ struct SettingsView: View {
         Section {
             LabeledContent(String(localized: L10n.Settings.versionLabel()), value: AppVersion.text)
                 .accessibilityIdentifier("settings.version")
+            // EB-06: reuses the paywall's own key (`subscription.privacyPolicy`) and URL source
+            // (`SubscriptionLinks`, GO-LIVE GL-02) -- no new string. Styled like the Language
+            // row above (an external link gets `arrow.up.forward`, never a chevron, per the
+            // L10N-04 gate-2 verdict "Language row"). A Form row is already at least 44 pt tall.
+            if let privacy = SubscriptionLinks.privacyPolicy {
+                Link(destination: privacy) {
+                    LabeledContent {
+                        Image(systemName: "arrow.up.forward")
+                            .accessibilityHidden(true)
+                    } label: {
+                        Text(L10n.Subscription.privacyPolicy())
+                            .foregroundStyle(TallyColor.textPrimary)
+                    }
+                }
+                .accessibilityIdentifier("settings.privacyPolicy")
+            }
         } header: {
             Text(L10n.Settings.aboutHeader())
                 .tallySectionText()

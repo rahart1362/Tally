@@ -145,6 +145,14 @@ jobs:
           python3 scripts/ci/check_string_catalogs.py .
       - name: StoreKit products derive from the bundle ID (PAY-01, M3-B1)
         run: python3 scripts/ci/check_storekit_products.py --self-test && python3 scripts/ci/check_storekit_products.py .
+      - name: Privacy policy names only the flows the app wires (EB-07; dossier.md §12)
+        # Compares site/privacy/index.html's POLICY-FLOWS manifest comment against what
+        # AppEnvironment.live() and SignInServices's defaults actually wire. Known mismatches
+        # (school search, the tally-app.dev list, summary sharing -- none wired yet) are on a
+        # dated allowlist that names dossier.md §12 P1/P2; a new, unlisted mismatch still fails.
+        run: |
+          python3 scripts/ci/check_policy_matches_app.py --self-test
+          python3 scripts/ci/check_policy_matches_app.py .
 
   core-linux:
     name: TallyCore tests (Linux, Swift 6.4)
