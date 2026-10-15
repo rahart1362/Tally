@@ -303,8 +303,18 @@ final class AuditTourUITests: TallyUITestCase {
         // collapsed) only once the agenda is at its true top, which the week's first day's own
         // heading guarantees (`CalendarUITests`' own `a11yReachCalendar`/`AccessibilityAuditUITests`'
         // own `-firstDay` variants use the same tap) — the state the blank-title defect needed and
-        // this tour never captured before.
+        // this tour never captured before. From AX1 up the week strip scrolls, centred on today
+        // (`AccessibilityAuditUITests.a11yReachCalendar`'s own doc comment, D18), so the first day
+        // is swiped back into reach the same way that helper does, before `go` taps it (found
+        // missing on all 4 AX5 legs of the first dispatch, run 38799743647: the strip's own
+        // `calendar.pinnedHeader` needed swiping right first).
         let firstDay = elements("calendar.day", in: app).firstMatch
+        let weekStripHeader = element("calendar.pinnedHeader", in: app)
+        var firstDaySwipes = 0
+        while !firstDay.isHittable, firstDaySwipes < 6 {
+            weekStripHeader.swipeRight()
+            firstDaySwipes += 1
+        }
         if go(firstDay, app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day") {
             snap(app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day")
         }
