@@ -153,7 +153,7 @@ Author: Accessibility Engineer, round 2, Claude Sonnet 5. Same branch, from `bba
 | 5. "Partly outside" on the scroll axis only | `ScrollAxis`, inferred per container in `walk`; `isPartlyOutside` checks only that axis | `AccessibilityAuditUITests.swift:902-905`, `1021-1027`, `1092-1096` | 11 "partly outside" holds, all past the bottom edge of a vertical list (none on a left/right edge) |
 | 6. `textClipped` held only in the partly-outside case | `heldReason` returns before the chrome/pinned/dimming checks unless `auditType == "contrast"` | `AccessibilityAuditUITests.swift:1067-1069` | no `textClipped` issue held for chrome or a pinned bar in any run |
 | 7. No hold for navigation-bar overlap | `ChromeKind.canHoldContrast` excludes `.navigationBar` | `AccessibilityAuditUITests.swift:910-912` | 0 "under system chrome" holds attributed to a navigation bar |
-| 8. Calendar: scroll below the pinned strip | `scrollBelowPinnedStrip`: the existing `scrollTo` call, then a second one after the run loop turns, correcting a `List`'s own imprecise initial offset | `CalendarScreen.swift:79, 94, 162-179` | **Correction (gate-2 round 2 verdict section 3, confirmed by this round's own file read): wrong.** This row named "Mon, Oct 12" at y = 494 as the selected day's heading; the test taps and selects the week's *first* day, which is **Sun, Oct 11**, not Monday — that heading in fact rested under the pinned strip at this state (`a11yReachCalendar`, `AccessibilityAuditUITests.swift:787`: `firstDay.isSelected`). This fix did not hold. The real fix, and its evidence, is in the Round 3 section's item 1. |
+| 8. Calendar: scroll below the pinned strip | `scrollBelowPinnedStrip`: the existing `scrollTo` call, then a second one after the run loop turns, correcting a `List`'s own imprecise initial offset | `CalendarScreen.swift:79, 94, 162-179` | **Correction (gate-2 round 2 verdict section 3, confirmed by this round's own file read): wrong.** This row named "Mon, Oct 12" at y = 494 as the selected day's heading; the test taps and selects the week's *first* day, which is **Sun, Oct 11**, not Monday — that heading in fact rested under the pinned strip at this state (`a11yReachCalendar`, `AccessibilityAuditUITests.swift:787`: `firstDay.isSelected`). This fix did not hold. Round 3's own five attempts did not fully fix it either — see the Round 3 section's item 1 for the diagnostic history and the open gap. |
 | 9. Fix the waivers doc's Calendar claim | Removed "at the first day nothing is hidden above the agenda" | `docs/pmo/a11y-waivers.md` | — |
 | 10. `whatif.summary.projectedValue` | Tried the fix first: `tallyReflowPinnedValue()` (no `minimumScaleFactor`) in place of `tallyReflowValue()`, since the element is already capped to AX2 and has a full line to itself from AX1 up | `AccessibilityReflow.swift:126-133, 154-157`; `WhatIfSheet.swift:132` | **Outcome below** |
 | 11. Page AX5 for rows below the fold | `auditScreen(page:)` runs a second `-paged` audit after scrolling; applied to Dashboard, Courses, Course Detail, To-Do, Insights, Settings, Parent Mode, Paywall | `AccessibilityAuditUITests.swift:440-467` | run 38550012702: every paged variant present, 0 unwaived/unheld after the follow-up fix below |
@@ -233,7 +233,7 @@ hand-off only). One leg failed its first attempt (`smallest-dark-ax5`:
   capture is a no-regression check rather than fresh evidence of item 8 itself. **Correction
   (gate-2 round 2 verdict section 3): item 8 was not, in fact, fixed** — the tour's own 10/10 legs
   opened on today with the heading hidden under the strip, pixel-identical to round 1. See the
-  Round 3 section for the real fix.
+  Round 3 section's item 1 — still open after five attempts this round too.
 - **What-If** (item 10): `smallest-light-ax5/303-course1-whatIf.png` — "93.4%" renders on one line,
   no clipping, no overlap with "Projected" above it.
 - `xxxLarge/16-courses-top.png` and `xxxLarge/46-calendar-weekStripAndAgenda.png` exist on both
@@ -282,3 +282,331 @@ chip's own percent text, `item.title`); only its translator comment changed, fro
 - **Visual regression was not reviewed image-by-image** beyond the spot checks above; the tour's own
   pass/fail (every `go`/`goScrolling` reaching what it expects) is the main signal, not a human
   review of all ~100 captures × 12 legs.
+
+## Round 3 (gate-2 fix list, PMO's Opus review, round 2)
+
+Author: Accessibility Engineer (work package MVP-2b, round 3), Claude Sonnet 5. This host has no
+Xcode; every claim below cites a CI run read directly (`gh run view --job <id> --log`). PR #56,
+branch `mvp/a11y-fixes`, final commit `56d9535`.
+
+### Fix list
+
+| # | Item | Status | Evidence |
+| :-- | :-- | :-- | :-- |
+| 1. Calendar: scroll target on the heading itself | **NOT FIXED, open.** Five attempts this round, none closed the gap. | See "Item 1: diagnostic history" below. |
+| 2. Audit Calendar opened on today, first-day as a second variant | **Done.** `a11yReachCalendarToday` added; `testCalendar` (all 3 classes) now audits the today state first, the first-day tap as `-firstDay`. | `AccessibilityAuditUITests.swift:144-150, 241-244, 301-305`; `scope=a11y` run 38660677136 exercised both (both fail Calendar's own unresolved item-1 defect, not a defect in the "which state" coverage itself). |
+| 3. Narrow the pinned-bar hold (≥1/3 overlap, ends above the heading) | **Done in code; not independently exercised.** Calendar is the only screen with any `pinnedBars` entry, and its only pinned-bar-adjacent element is the (unfixed) heading itself, so this round produced no case that tests the narrowed rule's *rejection* path on a genuinely-scrolled-past row. | `AccessibilityAuditUITests.swift:1203-1211` (`heldReason`). |
+| 4. Fade band: row-by-row, 4.5:1 always | **Done; working as intended, surfaced 2 real defects.** HIST 210 (Calendar, anticipated by the verdict) and a new one: `firstSyncSkeleton`'s "BIO 101" skeleton text. Neither fixed or waived this round — no push budget left. | `scope=a11y` run 38660677136: `testFirstSyncSkeleton` (light-std) — "contrast on label 'BIO 101': Contrast failed". `testCalendar`'s own contrast failure (item 1) is a second case, though entangled with the heading's position defect. |
+| 5. No-element hold: `-paged` only, capped at 3, retry-confirmed | **Done; working as intended, surfaced new real defects.** `testSettings`/`testToDo`'s deeper pages (reachable only because of item 6) now fail on textClipped/dynamicType issues the old, looser rule would have held silently. | `scope=a11y` run 38660677136: `testSettings` — "settings (light-ax5-paged-1): 1 unwaived…"; `testToDo` — "toDo (light-ax5-paged-3): 3 unwaived…". |
+| 6. `a11yPageToEnd`: page to the end of the list | **Done, but CONFIRMED TOO SLOW — open.** 4 of 18 `AccessibilityAuditUITests` methods timed out at the run's own 300 s ceiling. | `scope=a11y` run 38660677136: `xcresult: result=Failed, totalTestCount=18, passedTests=10, failedTests=8`; 4 of the 8 failures are "Test exceeded execution time allowance of 5 minutes" (`testCourses`, `testCourseDetail`, `testDashboard`, `testParentMode`). |
+| 7. Tour: hand-off capture + xxxLarge sign-in reach | **Code done; tour result pending at hand-off time** (CI runner capacity: the dispatch sat queued past this report's own writing). | `AuditTourUITests.swift:495-530, 865-876`; tour run 38668917906 (see "Open items"). |
+| 8. Docs | **Done.** `a11y-waivers.md`'s rule section rewritten to match the code; this report's own round-2 citation errors corrected (Sun Oct 11, the real Settings path); the stale "17 pt semibold is large text" line removed from `contrast-measurements.md`. | `docs/pmo/a11y-waivers.md`; this file's "Round 2" section, items 8 and 14; `pmo-audit/.build-audit/mvp2b/contrast-measurements.md:12` (evidence, not this repo). |
+| 9. Courses chip at xxxLarge: let it wrap | **Code done; tour result pending at hand-off time** (same capacity delay as item 7). | `CoursesScreen.swift:121-129, 175, 194, 205` (`usesFullWidthColumn`); tour run 38668917906 (see "Open items"). |
+
+### Item 1: diagnostic history (Calendar heading under the pinned strip)
+
+Five fixes, each committed and pushed, each validated against a fresh CI run before trying the
+next. `pinnedHeader.frame.maxY` stayed `233.33` pt throughout (the strip itself was never in
+question); what changed is where `heading.frame.minY` landed.
+
+| Attempt | Change | Commit | Run | `heading.minY` |
+| :-- | :-- | :-- | :-- | ---: |
+| 0 (round 2, for reference) | `.id(day.id)` on the `Section`; a second `scrollTo` 50 ms later | — | gate-2 round 2 | under the strip (verdict section 3) |
+| 1 | `.id(day.id)` moved onto the `header:` closure's `Text` | `995ce97` | 38608671835 | 87 |
+| 2 | Heading made the Section's own first row (no `header:`) instead | `151ce9a` | 38623450627 | 98.33 |
+| 3 | Two re-corrective `scrollTo` calls (50 ms, 200 ms), reasoning the `List` had not settled | `8b89065` | 38634697575 | 98.33 (unchanged) |
+| 4 | `.contentMargins(.top:, for: .scrollContent)` fed by the strip's measured height, strip moved to `.overlay`, replacing `.safeAreaInset`'s reservation (PMO-suggested diagnosis: `scrollTo` reads `contentMargins`, not `safeAreaInset`) | `8a6108b` | 38644410449 | 170 |
+| 5 | Re-scroll on `.onChange(of: pinnedStripHeight)` instead of a fixed delay, in case the margin was still settling | `56d9535` | 38652917902 | 170 (unchanged) |
+
+Attempts 1→2 show the anchor needed to be a row, not header content (SwiftUI/List does not
+publish a `scrollTo` anchor for `header:`/`footer:` content at all). Attempt 3 shows the remaining
+gap at that point was not a timing issue (identical result with and without the delays). Attempt 4
+(the PMO's own diagnosis) recovered 72 of the needed ~146 pt, confirming `contentMargins` genuinely
+is read by `scrollTo` where `safeAreaInset` was not — real, substantial progress. Attempt 5 shows
+the *remaining* ~63 pt gap is not a late-settling `contentMargins` value either (byte-for-byte the
+same 170 with and without the geometry-driven re-scroll). What exactly the remaining 63 pt
+represents is not established: measuring `pinnedStripHeight` is confirmed stable and consistent
+across both attempts 4 and 5, so either it is under-measuring the true required margin by that
+amount, or `contentMargins` on a `List` does not compose with `scrollTo`'s anchor math the way
+attempt 4's theory assumed, or some third factor neither attempt accounted for.
+
+`scope=a11y` run 38660677136 shows the downstream effect: `calendar.dayHeading` fails a real
+`contrast` check (not held — `heldReason` only holds `contrast`/`textClipped` on an element inside
+a scroll view that is not wholly in view, which is exactly this case, but the pinned-bar branch's
+own `>= 1/3 overlap` and `ends above the heading` conditions do not match the heading's *own*
+frame) in Light (`calendar (light-std)`), Dark (`calendar (dark-std)`) and Increase Contrast
+(`calendar (contrast)` and `calendar (contrast-firstDay)`) alike.
+
+**Not fixed. Per the brief's own guidance once the push budget was exhausted without a resolution:
+stopping here and reporting, rather than continuing to guess.** `CalendarUITests.
+testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` is left in place as the
+reproduction and the regression guard for whichever fix lands next.
+
+### Held-issue counts
+
+Not available as one clean before/after table this round: `scope=a11y` run 38660677136 (the only
+clean dispatch; an earlier one was cancelled by a concurrency clash with the auto-triggered PR run)
+did not finish cleanly — 4 of 18 `AccessibilityAuditUITests` methods timed out (item 6) before
+producing a result at all, so there is no single run with a complete, final count across every
+screen this round. What is known, per class:
+
+| Class | Total | Passed | Failed | Notes |
+| :-- | ---: | ---: | ---: | :-- |
+| `AccessibilityAuditUITests` (Light) | 18 | 10 | 8 | 4 timeouts (item 6); `testCalendar` and `testFirstSyncSkeleton` fail on real contrast; `testSettings`/`testToDo` fail on newly-reached pages (item 5 working as intended) |
+| `AccessibilityAuditDarkUITests` | 16 | 15 | 1 | `testCalendar` only (item 1) |
+| `AccessibilityAuditContrastUITests` | 16 | 15 | 1 | `testCalendar` only (item 1) |
+
+The release gate was not dispatched this round: these results already show it would fail, and
+dispatching it would have confirmed that without adding any new information, at the cost of CI
+budget this report's "Open items" can put to better use describing what actually needs fixing.
+
+### Strings PENDING owner approval
+
+None: no new strings. Every change this round is a Swift accessibility identifier, a layout
+modifier, or a measurement algorithm — never user-facing text, and the brief's "no new strings
+unless unavoidable" was never tested.
+
+### CI runs
+
+- scope=a11y: [38608672210](https://github.com/rahart1362/Tally/actions/runs/38608672210)
+  (cancelled: a concurrency clash with the PR run its own push auto-triggered),
+  [38660677136](https://github.com/rahart1362/Tally/actions/runs/38660677136) (completed; see
+  "Held-issue counts" above) (2 of 3 used).
+- Audit tour: [38668887404](https://github.com/rahart1362/Tally/actions/runs/38668887404)
+  (cancelled: dispatched with the default `sizes` input, missing `xxxLarge`),
+  [38668917906](https://github.com/rahart1362/Tally/actions/runs/38668917906) (dispatched with
+  `sizes=["std","ax5","xxxLarge"]`; status at hand-off time in "Open items") (1 of 1 used).
+- Release gate: not dispatched this round (0 of 1 used) — see "Held-issue counts" above for why.
+- PR run: five pushes, five auto-triggered runs, all on `iOS build + test`:
+  [38608671835](https://github.com/rahart1362/Tally/actions/runs/38608671835),
+  [38623450627](https://github.com/rahart1362/Tally/actions/runs/38623450627),
+  [38634697575](https://github.com/rahart1362/Tally/actions/runs/38634697575),
+  [38644410449](https://github.com/rahart1362/Tally/actions/runs/38644410449),
+  [38652917902](https://github.com/rahart1362/Tally/actions/runs/38652917902) — every one failed
+  on `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` (item 1);
+  every other `iOS build + test` check (hygiene, lint, sanitizers, Linux, perf) passed on all five.
+  `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect` failed on 3 of the 5 runs (not
+  introduced by anything in this round's diff; never touched `ToDoScreen` or its swipe/selection
+  code) — a pre-existing flake, left alone per the brief's own "triage flakes, don't chase them"
+  guidance.
+
+### Open items
+
+- **Item 1, Calendar heading: not fixed.** See the diagnostic history above. Needs a round with
+  device access or Xcode's view debugger — this host cannot inspect the resolved frame hierarchy
+  to see what the remaining ~63 pt actually is.
+- **Item 6, paging: too slow, not fixed.** 4 of 18 Light-class methods time out at 300 s (the
+  command line's own ceiling; already raised from the 240 s default). Needs a smaller
+  `maxScreens`, a cheaper per-page audit, or to accept the 300 s ceiling is not enough and page
+  fewer screens per test method.
+- **Item 4's own correct behaviour surfaced a new real defect**: `firstSyncSkeleton`'s "BIO 101"
+  skeleton text fails `contrast` at 4.5:1 (previously held by the dropped 3:1 large-text
+  exception). Not fixed or waived — needs a measurement and an owner-approved waiver, or a real
+  fix, like HIST 210.
+- **Item 5's own correct behaviour surfaced new real defects**: `testSettings`
+  (`light-ax5-paged-1`) and `testToDo` (`light-ax5-paged-3`, plus further pages once item 6's
+  timeout is fixed and paging can run to completion) have genuine, previously-unreached
+  `textClipped`/`dynamicType` issues. Not investigated beyond the CI log line — no budget left to
+  open the attached per-page JSON evidence this round.
+- **Items 7 and 9: tour dispatch result pending at hand-off time.** Tour run 38668917906 was still
+  queued (CI runner capacity) when this report was written; its result, once it lands, is this
+  round's actual evidence for both — not asserted here without it.
+- **The release gate was not run this round.** It would fail on items 1, 4, 5 and 6 above; running
+  it would not have added information this report does not already have from `scope=a11y`.
+
+## MVP-2c (finishing PR #56)
+
+Author: Accessibility & Layout Engineer (work package MVP-2c), Claude Opus 5.5. From `56d9535`.
+This host has no Xcode: every iOS claim below cites a CI run whose job log, `.xcresult` or exported
+attachments were read here. Evidence (outside the repo): `pmo-audit/.build-audit/mvp2c/`.
+
+**Corrections to round 3 above.** Item 1's diagnosis was the test's, not the layout's (B below);
+item 4's "BIO 101" was the measurement's (C); items 5 and 6 rest on paging that skipped rows,
+never found the end, and audited rows the audit itself had moved (C); tour run 38668917906 was
+cancelled, not queued, so items 7 and 9 had no tour evidence (the tour below covers them).
+
+### A. A 15–20 minute loop: `scope=only`
+
+`ci.yml`: a dispatch scope `only` and a free-text input `only`, the `-only-testing` targets
+(space-separated; checked against `^[A-Za-z0-9_/]+( [A-Za-z0-9_/]+)*$` before they reach a command
+line). It runs `ios-build` alone, and in it only the build-for-testing and those tests, with
+`TALLY_A11Y_AUDIT` set so a named audit class runs (in Light), then exports every kept attachment
+under its readable name (`only-evidence`: screenshots, the audit JSON, each failure's full element
+hierarchy, which the console truncates). The five Linux jobs exclude it as they exclude
+`compat`/`a11y`; every `ios-build` step it skips says so in its own `if:`. Push and pull-request
+events evaluate as before (`inputs.scope` is empty there). Run 38672964445 took 34 minutes with
+seven targets, five of them audit methods.
+
+The iterations ran on a branch with no pull request, `mvp/a11y-fixes-2c` (deleted at hand-off), so
+no intermediate commit started the 75-minute PR run; `mvp/a11y-fixes` was pushed once, at the end.
+
+### B. Calendar: the selected day's heading under the strip
+
+**Round 3's diagnosis was the test's.** `CalendarUITests` checked the *topmost* `calendar.dayHeading`
+in the hierarchy. The list starts at y = 106, under the navigation bar (116–170), so the previous
+day's heading is still in the hierarchy while it sits under the bars:
+- run 38623450627 (round 3's attempt 2: `.safeAreaInset`, the heading as an id'd row, one plain
+  `scrollTo`): today's heading rested at **y = 237.3**, below the strip's 233.3, already right; the
+  test read "Tue, Oct 13" at 98.3;
+- run 38608671835 (attempt 1, the id on the section `header:`): the first row at 237.3 and the header
+  at 197–237.3, under the strip: a `List` header is no `scrollTo` anchor;
+- runs 38644410449 and 38652917902 (attempts 4–5, `.overlay` + `.contentMargins`): today's heading at
+  **y = 170**, the navigation bar's bottom. `contentMargins` is padding inside the content, which
+  `scrollTo` does not count, so "98 → 170" was a regression, not progress.
+(Each run's hierarchy is from its `build-logs` `.xcresult`, unpacked with `zstd`.)
+
+**The fix (the brief's option 1, which the assertion proved, so options 2 and 3 were not needed).**
+`CalendarScreen.swift`:
+- the week strip and breadcrumb are a `.safeAreaBar(edge: .top, spacing: 0)`, so the list's safe
+  area, its scroll edge effect and `scrollTo(_:anchor: .top)` all start below the strip;
+- one plain `scrollTo(day, anchor: .top)`, animated on a tap, as on `main`; the timed re-scrolls,
+  `contentMargins`, the measured strip height and its `onChange` re-scroll are gone;
+- each day's heading is a section of its own, one clear row that is the scroll target
+  (`DayHeading`), and the day's items the next section. Round 3 had made the heading the card's
+  own first row: it scrolled right but squared the card's top corners and shrank the heading to
+  footnote size (run 38660677136's screenshot). As its own section the card keeps the system's
+  corners, separators and padding, and the heading takes the system header's measured style:
+  17 pt semibold, `TallyTypography.listHeader` (= `.headline`; the system header "Mon, Oct 12" in
+  run 38550012702 has a 12.0 pt cap height and a 2 pt stem), `#475467` (`tallySectionText()`), and
+  `.listSectionSpacing(.custom(0))` with `DayHeading.Metrics` placing it where the header was.
+
+**Proof.** `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` now
+checks the selected day's heading, matched by its day of the month to the strip's selected day
+(`A11yScene.dayNumber(in:)`), and the first row below it, and keeps a screenshot and the hierarchy
+at each check. Scope=only run 38672964445, first attempt:
+
+| Check | std: heading row's top / strip's bottom | AX5 |
+| :-- | :-- | :-- |
+| On open (today) | 237.3 / 233.3 | 332.7 / 328.7 |
+| After the first day | 309.3 / 305.3 (the large title expanded again at the top: bar 116–242) | 332.7 / 328.7 |
+| After a mid-week day | 237.3 / 233.3 | 332.7 / 328.7 |
+
+Runs 38677820708 and 38684344518 passed it again on the first attempt, the first with
+`DayHeading.Metrics` corrected (below).
+
+**The look, at 200 %** (`pmo-audit/.build-audit/mvp2c/view/`): `heading-look-r2-vs-2c-std.png` puts
+round 2's system header "Mon, Oct 12" beside "Fri, Oct 16": the same size, weight and colour, the
+text's left edge at the same 33.3 pt, the same 58 pt between the two cards, and a rounded card top
+again. Run 38672964445 measured the capitals 0.67 pt high (31.0 / 27.0 pt from the cards against
+31.7 / 26.3), corrected in `7556c75` (`Metrics` 28.2 / 9.3). `cal-ax5-r2-vs-2c.jpg` shows AX5: round
+2 left the selected heading hidden and its first row cut under the strip; it now rests below it.
+**The Audit tour** [38687904701](https://github.com/rahart1362/Tally/actions/runs/38687904701), at
+`b5fc131` (the final code: only documents changed after it): all 12 legs green on one attempt (the 8
+legs, plus xxxLarge in Light and Dark on both devices). On all 12 Calendar opens with today's heading
+resting below the strip over a rounded card; `view/tour-calendar/` has a 200 % before/after crop for
+each leg (before: round 2's tour 38563159933, 10 legs; it had no Dark xxxLarge legs), and the strip,
+the bar, the cards and their rows are otherwise unchanged (the dates differ: the sample data is
+relative to the day). Round 3's items 7 and 9, which had no tour evidence: the hand-off is captured
+(`121-demoSignIn-handoff.png`) on all 12 legs, the xxxLarge sign-in included on both devices; and on
+Courses at xxxLarge on the smallest iPhone "Needs attention" is whole (round 2: "Needs atte…"), its
+card now in round 3's full-width column with the sparkline and grade below the text
+(`view/courses-xxxlarge-chip-r2-vs-2c.jpg`), a visible layout change at that size for gate 2 to
+judge. Every leg still records `demoSignIn-missing-firstSyncProgress`, as in round 2 (the fast
+replay finishes first).
+
+### C. The remaining audit failures
+
+- **First Sync, "BIO 101" contrast (Light): a measurement defect, fixed in the measurement.** The
+  audit ran on the Dashboard (the demo sync had finished), where "BIO 101" rests in the scroll-edge
+  fade. Its glyph rows read 4.97–6.00:1 (median 5.52:1, the round-2 reviewer's darkest-pixel
+  method). The suite measured 3.56:1 from 4 of its 29 rows: the blurred fade spreads one background
+  over near-identical values, so no exact value covered half a row and 25 rows were skipped,
+  leaving an anti-aliased edge row in the median. `measureFadeBandContrast` now counts a colour's
+  share within 3 of 255 per channel (`A11yScene.colourTolerance`); the 50 % rule, the median and
+  the 4.5:1 threshold are unchanged. Re-measuring every fade-band issue of runs 38550012702 and
+  38660677136 (233) both ways changed one decision, this one, and HIST 210 Light (the round-2 false
+  pass) still fails at 4.18:1 (`pmo-audit/.build-audit/mvp2c/fadeband/`). `testFirstSyncSkeleton`
+  passed in run 38672964445. No token or layout change: there was no low-contrast text.
+- **Paging (To-Do and Settings at AX5, and the four timeouts): the paging was broken, and on every
+  paged screen the audit can move the list.** Run 38660677136's pages show the fling skipping rows (To-Do
+  about 1,100 pt a page), the end never detected (Settings audited 7 more times after its end) and
+  four methods past 300 s. `a11yPageToEnd` now steps by a held 559 pt drag, stops when the list
+  did not move after a second try from the left margin (a drag on a Courses card once left it in
+  place, run 38677820708), and each long screen's AX5 audit has its own method. Dashboard paged
+  exactly and passed in run 38672964445, but its page-2 audit moved it +398.7 pt in run 38686158723.
+  On all eight the two growing checks can pull the list up to an offset of its own, measured page by
+  page in run 38681232896 (the same both attempts):
+  Insights to about 1,012 pt (+86, +635, +1,184 pt on pages 2–4), Parent Mode to about 71 pt,
+  Paywall to about 36 pt, To-Do and Settings near their top, Course Detail both ways, and Courses
+  on its fourth page (run 38684344518). That happens inside a pass, so the To-Do and Settings
+  findings are its product: elementless
+  `textClipped` issues (of the 85 audits that did not page in two runs, only four had them, all
+  Calendar away from its top), and Settings' "Show every grade change" `dynamicType`, flagged on a
+  page whose own screenshot does not show it. The brief's settle-and-retry cannot clear them (the
+  retry moves the list again), dragging the page back afterwards (`1c86261`) restores the position
+  but not the audit, and nothing was held or widened. `a11yPageToEnd` now stops, failing, at the
+  first page whose audit moved the list, recording the offset (`paging-<N>`), instead of auditing
+  other rows or timing out. **Open, for the PMO** (paging bullet in `docs/pmo/a11y-waivers.md`): how
+  to cover the paged screens' rows below the AX5 fold.
+- **Calendar's today state at the default size: open, for the PMO.** With the heading fixed, the
+  previous day's last rows or heading rest under the navigation bar and fail contrast, since the
+  navigation bar never holds (round 1 item 7): "HIST 210" and "9:00 PM – 10:15 PM" in Light (run
+  38672964445), "Wed, Oct 14" in Increase Contrast (run 38701661581, that class's only failure); the
+  band is clean on the screenshots. Elementless `textClipped` issues come with the list away from
+  its top (four in Light and Dark, run 38687902833). Both attempts each. Holding them would widen a hold; `docs/pmo/a11y-waivers.md` has
+  the options.
+
+### D. To-Do batch select: the known flake, with a cause TEST-REL did not cover
+
+Not a regression. The same failure ("'Quiz 5: Cellular Respiration, …' was not selected after a
+retry") hit `mvp/release-checks` (run 38235284131) and `l10n/es` (run 38201921389), both with
+TEST-REL's fix and none of this branch's code; this branch changes no To-Do or harness code (its
+only shared change, `StatusChip`'s line limit, is unchanged where a chip fits one line). The
+failure hierarchies (runs 38634697575, both attempts, and 38652917902) show the cause: the picked
+row rested under the navigation bar (y = 108 to 207 against a bar ending at 170), so its centre,
+where TEST-REL taps, was inside the bar, and no row was selected at all. `ToDoUITests` now brings
+the row clear of the bar too (`bringClearOfTheTop`, a held drag) and taps the middle of its part
+clear of both bars (`clearTapPoint`); a retry taps only a row still not selected. It passed on its
+first attempt in runs 38672964445, 38677820708 and 38684344518; the PR run is its fourth.
+
+### E. Documents
+
+`docs/pmo/a11y-waivers.md`: the paging and Calendar bullets rewritten to the code, the rule section
+corrected (the fade-band measurement is per row, never a whole-crop gate; the selected heading is
+found by its day; no stale line numbers), and the two open decisions stated with their evidence.
+
+### Strings PENDING owner approval
+
+None: no new keys. `DayHeading` shows the existing `day.heading`; `TallyTypography.listHeader` is a
+font token.
+
+### CI runs
+
+- scope=only (6 of 8), all on `mvp/a11y-fixes-2c`:
+  [38672964445](https://github.com/rahart1362/Tally/actions/runs/38672964445) (`46d6240`: the Calendar
+  fix proven, std and AX5; To-Do; First Sync; Dashboard AX5 in 83.6 s; the paging drift found),
+  [38677820708](https://github.com/rahart1362/Tally/actions/runs/38677820708) (`7556c75`: the
+  heading's metrics; the drift found on six more screens),
+  [38681232896](https://github.com/rahart1362/Tally/actions/runs/38681232896) (`1c86261`: the drift
+  measured page by page, and dragging back tried),
+  [38684344518](https://github.com/rahart1362/Tally/actions/runs/38684344518) (`4d1d593`: the paging
+  stopping at the first moved page; Courses' 4 pages),
+  [38686158723](https://github.com/rahart1362/Tally/actions/runs/38686158723) (`9732216`: the end rule's
+  second try; Dashboard moving on page 2),
+  [38701661581](https://github.com/rahart1362/Tally/actions/runs/38701661581) (`b5fc131`: the whole
+  Increase Contrast class, 15 of 16 passing, Calendar's today state the one failing).
+- scope=a11y: [38687902833](https://github.com/rahart1362/Tally/actions/runs/38687902833), at
+  `b5fc131` (2 of 3: its first attempt hit the job's 90-minute cap with Increase Contrast stalled
+  and left no log or evidence; that class ran normally in 10 minutes in run 38701661581 at the same
+  commit, so the second attempt is a re-run, not a fix). Light: 17 of 26 methods pass (with
+  FamilyUITests' two); Dark and Increase Contrast: 15 of 16. Every failure is one of the two open
+  decisions: `testCalendar` in all three classes (today's state; its first-day variants pass), and
+  the eight `test<Screen>AX5` methods, each stopping at the first page its audit moved (Course
+  Detail −334 pt, Parent Mode +478, Paywall +513, Dashboard +398.7 and Insights +86.3 on page 2,
+  To-Do and Settings gone, Courses gone on page 4). 230 issues: 80 waived, 143 held (fade band 56,
+  under system chrome 62, partly outside 16, under the pinned bar 3, no element 3, keyboard 3), 7
+  failing: contrast on "Wed, Oct 14" under the navigation bar (Light std, Increase Contrast), four
+  elementless `textClipped` on Calendar's today state (Light std 1, Light AX5 1, Dark std 2) and one on
+  Settings' first page.
+- Audit tour: [38687904701](https://github.com/rahart1362/Tally/actions/runs/38687904701), at `b5fc131`: 12 of 12 legs green, one attempt (1 of 1).
+- Release gate: not dispatched. Its `REL.a11y.audit` would fail on the two open decisions above
+  (Calendar's today state, and the paging), which no change in this package may resolve.
+- PR run: in the hand-off reply.
+
+### Open items
+
+- **Two decisions for the PMO** (both in `docs/pmo/a11y-waivers.md`, with evidence): Calendar's
+  today state under the navigation bar, and how to audit the paged screens' rows below the AX5 fold.
+- **The release gate** waits for them.
+- Device checks (VoiceOver, Switch Control, the Large Content Viewer, a real Increase Contrast
+  setting) are still not done on this host, as in rounds 1–3.

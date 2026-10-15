@@ -35,13 +35,53 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   one `.all` audit, contrast and clipping issues on `List` screens came back with no element (the
   list had rebuilt its rows at the larger size). Run 38350587735: with `textClipped` in the first
   pass, Calendar's agenda moved while contrast was being measured.
-- **AX5 pages to the end of the list, auditing each page** (gate-2 round 3, verdict item 6,
-  replacing round 2's single extra swipe — `AccessibilityAuditUITests.a11yPageToEnd`). Dashboard,
-  Courses, Course Detail, To-Do, Insights, Settings, Paywall and Parent Mode each run one
-  `-paged-<N>` audit per screenful, to the bottom (capped at 20), so a row the first pass's fold
-  left unmeasured is still reached — Settings alone is up to 16 screenfuls at AX5 on the smallest
-  iPhone (the Audit tour's own `captureScreenfuls`), and round 2's one extra pass reached only one
-  of them.
+- **AX5 pages to the end of the list, auditing each page** (gate-2 round 3, verdict item 6;
+  MVP-2c rebuilt how). Dashboard, Courses, Course Detail, To-Do, Insights, Settings, Paywall and
+  Parent Mode each have a `test<Screen>AX5` method of their own (the AX5 audit, then one
+  `-paged-<N>` audit per page), so each gets the whole 300 s per-test ceiling
+  (`AccessibilityAuditUITests.a11yPageToEnd`):
+  - a page is a press, a slow drag from 86 % to 22 % of the screen's height and a hold before
+    release: 559 pt on the 874 pt audit device, less than the 621 pt of list between To-Do's bars,
+    so consecutive pages overlap and no row is skipped, and no fling carries it further;
+  - the end is a list that did not move: the band of two settled screenshots between those two
+    heights is compared, and a step that did not move it is tried once more 10 pt from the left
+    edge, outside every card (in run 38677820708 a drag that began on a Courses card left the list
+    where it was, and Courses "ended" after 2 of its 4 pages); reaching 30 pages fails the test.
+
+  Round 3's version swiped (`app.swipeUp()`) and compared whole screenshots taken right after the
+  swipe. In scope=a11y run 38660677136 the fling moved To-Do about 1,100 pt a page (rows between
+  pages never in view), and the end was never detected (a bounce, the scroll indicator or the
+  clock changed every screenshot): Settings was audited 7 more times after its end, To-Do 4,
+  Insights up to the 20-page cap, and Dashboard, Courses, Course Detail and Parent Mode ran past
+  300 s. With the held drag a step from the top moves the list 549.3 pt (scope=only run
+  38672964445: Settings and Dashboard; To-Do 545.7 pt, its large title collapsing on the way), and
+  Dashboard reached its end in 3 pages and passed in 83.6 s.
+
+  **Open (MVP-2c), for the PMO: on every paged screen the audit can move the list.** The two
+  growing checks lay the screen out at other text sizes, and the list comes back pulled up to a
+  fixed offset of its own. Scope=only run 38681232896 measured it (each page noted one text's
+  position before its audit, `paging-<N>`; the same both attempts): Insights to about 1,012 pt
+  (+86, +635 and +1,184 pt on pages 2–4), Parent Mode to about 71 pt, Paywall to about 36 pt,
+  To-Do and Settings near their top (the text gone from the screen), Course Detail both ways, and
+  Courses on its fourth page (run 38684344518). Dashboard kept its place in run 38672964445 (549.3
+  pt a page, passed) and moved +398.7 pt on page 2 in run 38686158723; the sample data's dates are
+  relative to the day, so what a screen holds changes from run to run. Insights, Paywall and
+  Dashboard are `ScrollView`s, so it is not a matter of `List` against `ScrollView`. MVP-2c's first
+  version, which paged on regardless (run 38672964445), shows what that does: Settings came back to
+  its top every fourth page, To-Do jumped both ways, and both ran out of time. It happens inside a
+  growing pass, so that pass and the page's
+  other pass see other rows (Settings' "Show every grade change" was flagged by `dynamicType` on a
+  page whose own screenshot shows Subscription and Exit Sample Data), and an issue whose element was
+  recycled comes back with no element: of the 85 audits that did not page in runs 38660677136 and
+  38672964445, the only four with such issues were Calendar away from the top of its list (round
+  3's first-day state, 63 pt down; MVP-2c's today state). Dragging the page back afterwards
+  (`1c86261`, run 38681232896) restores the position but not the audit. So `a11yPageToEnd` now
+  notes one text's position before each page's audit (`a11yPageAnchor`) and stops, failing, at the
+  first page whose audit moved it: auditing on at the wrong rows is not the coverage item 6 asks
+  for, and nothing is held for it. Covering those screens' rows below the AX5 fold, past the offset
+  each one is pulled back to, needs another method, which is the PMO's decision (for example, a
+  check that measures each row's text at the default size and at AX5 without the audit's own
+  re-layout, or auditing those rows on a screen built short enough to hold them).
 - **What-If is audited pulled up to its large height.** At the medium height the system draws
   the sheet at 0.96 scale (Reset measured 64.65 × 34.57 pt there, 67.33 × 36 pt pulled up, run
   38350587735), and the text checks misfire on the scaled text: 4 `textClipped` and 4
@@ -49,55 +89,86 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   summary pulled up (`whatIf-light-std-large`, every type). The Audit tour captures the sheet
   pulled up too.
 - **Calendar is audited both as opened on today and at the agenda's first day** (gate-2 round 3,
-  verdict item 2 — the "opened on today" state was, until this round, only ever walked by the
-  Audit tour, never by this scope=a11y suite itself; `a11yReachCalendarToday` /
-  `a11yReachCalendar`, `AccessibilityAuditUITests.swift`). The first-day tap is a student's own
-  path through the week strip. There the clipping check returned a "may be clipped" it could not
-  attach to any element, one to four per variant across several scope=a11y runs — the no-element
-  case above, and only in a `-paged` pass; an unpaged first/top pass with such a finding fails.
-- **The selected day's heading and the row under it** (gate-2 round 2 verdict, item 8/9; gate-2
-  round 2's own fix did not hold — round-2 review section 3). **Correction:** the round-2 report's
-  evidence named "Mon, Oct 12" as the selected day; the test taps the week's *first* day, which the
-  review's own screenshot shows selected (filled) — Sunday, Oct 11 (gate-2 round 2 verdict section
-  2.3 and section 3). **Gate-2 round 3 (item 1):** `.id(day.id)` used to sit on the `Section`
-  (`CalendarScreen.swift`), which made `List`'s `ScrollViewProxy.scrollTo(_:anchor:)` land on the
-  Section's first *row*, not its header. The id now sits on the header view itself
-  (`CalendarScreen.swift:65-68`), and the delayed second `scrollTo` (which could not have helped,
-  landing on the same row) is removed (`CalendarScreen.swift:188`, `scrollBelowPinnedStrip`).
-  `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` asserts
-  `heading.frame.minY >= pinnedHeader.frame.maxY` and that the heading's first row is hittable, on
-  open, after tapping the first day and after tapping a mid-week day, at std and AX5 — this is the
-  round-3 evidence that the fix holds, not a repeat of round 2's own unverified claim.
+  verdict item 2; `a11yReachCalendarToday` / `a11yReachCalendar`, `AccessibilityAuditUITests.swift`).
+  The first-day tap is a student's own path through the week strip; it returns the agenda to the
+  top of its list, where scope=only run 38672964445's first-day audits (std and AX5) passed.
+  **Open (MVP-2c), for the PMO: the today state at the default size** fails on issues the rules
+  give no hold to:
+  - contrast on the previous day's last rows or heading, scrolled past and resting under the
+    navigation bar (116–170): "HIST 210" (y = 114.7) and "9:00 PM – 10:15 PM" (y = 160.3) in Light
+    (`calendar (light-std)`, both attempts of run 38672964445); "Wed, Oct 14" (y = 127.3–185.3, 74 %
+    under the bar) in Increase Contrast (`calendar (contrast)`, both attempts of run 38701661581, the
+    class's only failure). Which rows sit there depends on the day: the sample data is relative to
+    it. The band is clean on the audit's screenshot (no text shows through), but the navigation bar
+    never holds (round 1, item 7), and the pinned-bar hold is the strip's only. The same day's rows
+    under the strip are held as "under the screen's pinned bar" ("English Composition Seminar" in
+    Light, "Nothing scheduled" in Increase Contrast);
+  - `textClipped` issues with no element, in passes that do not page: the list is away from its
+    top (the "Open" note in the paging bullet above): one in Light std and one in Light AX5, two in
+    Dark std (scope=a11y run 38687902833, where the Light and Increase Contrast contrast failure is
+    "Wed, Oct 14" again). The first-day variants, at the top of the list, pass in all three classes.
+  A correctly scrolled agenda always has the days before the selected one under the bars: the list
+  runs under the navigation bar so that the large title can collapse. Holding these would widen a
+  hold, which the brief rules out, so they stay failures until the PMO decides (for example, the
+  pinned-bar condition, "ends above the selected day's heading", extended to the navigation bar on
+  a screen with a pinned bar; and the textClipped check run at the first day only).
+- **The selected day's heading rests below the strip: FIXED (MVP-2c)** (gate-2 round 2 verdict,
+  item 8/9; round 2's fix did not hold; round 3's attempts did not either). The strip is a
+  `.safeAreaBar(edge: .top)`, the agenda's list scrolls with one plain `scrollTo(day, anchor: .top)`
+  (no timers, no `contentMargins`), and each day's heading is a section of its own, a clear row
+  that is the scroll target, styled as the system header it replaces (`CalendarScreen.swift`,
+  `DayHeading`). `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping`
+  checks the *selected* day's heading (by its day of the month) and its first row on open, after
+  the first day and after a mid-week day, at std and AX5: it passed on its first attempt in
+  scope=only run 38672964445 (std: the heading's row at y = 237.3, below a strip ending at 233.3;
+  AX5: 332.7 below 328.7; first day: 309.3 below 305.3, the large title expanded again at the top),
+  and again in runs 38677820708 and 38684344518.
+  **Correction of round 3's diagnosis:** the test measured the topmost heading in the hierarchy,
+  which is the previous day's while it sits under the bars. Round 3's attempt 2 (`.safeAreaInset`,
+  the heading as an id'd row, one `scrollTo`) already placed the selected heading at 237.3 (run
+  38623450627's hierarchy) while the test read "Tue, Oct 13" at 98.3; attempts 4–5
+  (`.contentMargins`) then moved it to 170, under the strip, because `contentMargins` is padding
+  inside the content, which `scrollTo` does not count. A section `header:` is no `scrollTo` anchor
+  (run 38608671835: the header at 197–237.3, the first row at 237.3), hence the heading row.
 
 ## The audit-position rule (`A11yScene.heldReason`; not a waiver)
 
 **What it holds, as of gate-2 round 3 (verdict items 3–5; this replaces the round-2 wording,
 which the round-2 review found too broad in exactly these ways — section 2 of
-`pmo-audit/.build-audit/mvp2b/review-r2/verdict.md`).**
+`pmo-audit/.build-audit/mvp2b/review-r2/verdict.md`), with MVP-2c's two corrections marked.**
+Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swift`.
 
 - A `contrast` issue **under system chrome**: a tab bar or toolbar overlapping the element's own
   frame by at least a third of its height (`A11yScene.overlapsByAtLeastAThird`). **The navigation
-  bar never counts as chrome here** (`ChromeKind.canHoldContrast`,
-  `AccessibilityAuditUITests.swift:1030`) — an element under the nav bar or a pinned header at
-  rest is a real at-rest defect (item 1's Calendar fix), not mid-scroll occlusion.
+  bar never counts as chrome here** (`ChromeKind.canHoldContrast`): an element under the nav bar
+  at rest was a real at-rest defect in round 2 (Calendar's selected heading, fixed in MVP-2c). See
+  the Calendar note above for the rows this now leaves failing.
 - A `contrast` issue in iOS 26's translucent scroll-edge dimming (`AdditionalDimmingOverlay`),
-  held **only on a passing in-test pixel measurement**
-  (`A11yScene.measureFadeBandContrast`, `AccessibilityAuditUITests.swift:1261`): the glyph core
-  against each pixel ROW's own modal background (not one colour for the whole frame), excluding
-  any row inside an opaque chrome bar, with the whole crop's own dominant colour required to
-  cover at least half of it (otherwise there is no reliable background to measure against, and
-  the issue is not held — it fails or must be fixed). Always **4.5:1**; there is no large-text
+  held **only on a passing in-test pixel measurement** (`A11yScene.measureFadeBandContrast`): the
+  glyph core against each pixel ROW's own background, excluding any row inside an opaque chrome
+  bar, the median of the measured rows. A row is measured only when its background covers at
+  least half of it; otherwise it is skipped, and with no measured row the issue is not held.
+  **MVP-2c correction:** a colour's share of a row counts every pixel within 3 of 255 of it on each
+  channel (`A11yScene.colourTolerance`; the most common eight colours are tried as the centre), not
+  only its exact value: the fade is blurred, so one background is a spread of near-identical values,
+  and "BIO 101" (First Sync, Light) was failed on 4 of its 29 rows, one of them an anti-aliased edge
+  (3.56:1). It reads 5.40:1 on 29 rows (5.52:1 by the round-2 reviewer's own darkest-pixel method).
+  Re-measuring every fade-band issue of runs 38550012702 and 38660677136 both ways changed that one
+  decision only, and HIST 210 Light, the round-2 false pass, still fails (4.18:1)
+  (`pmo-audit/.build-audit/mvp2c/fadeband/`). Always **4.5:1**; there is no large-text
   exception here (gate-2 round 2 item 13's own correction: 17 pt semibold is normal text, and a
   frame-height approximation cannot see weight at all, so it never over-granted 3:1 either — the
   exception is dropped rather than left to over-grant something else).
 - A `contrast` issue under one of the app's own opaque pinned bars (`A11yScene.pinnedBars`:
   Calendar's week strip and breadcrumb, `calendar.pinnedHeader`), **by at least a third of its own
   height, and only when the element ends above the selected day's own heading**
-  (`dayHeadings`/`A11yScene.dayHeadingIdentifier`, `calendar.dayHeading` —
-  `AccessibilityAuditUITests.swift:1040,1044,1209-1211`): content genuinely scrolled past and now
-  under the strip. The heading itself, and its own rows, start at or after the heading and can
-  never satisfy that — they are never held this way (gate-2 round 2 verdict section 2.3 found the
-  rule's only 2 holds were exactly that heading, a real defect, now item 1's fix). An element
+  (`dayHeadings`, `A11yScene.dayHeadingIdentifier`): content genuinely scrolled past and now under
+  the strip. The heading itself, and its own rows, start at or after the heading and can never
+  satisfy that, so they are never held this way. **MVP-2c correction:** the selected day's heading
+  is the one whose day of the month is the strip's selected day's (`selectedDayNumber`,
+  `A11yScene.dayNumber(in:)`), no longer the topmost heading on screen, which is the previous
+  day's while it sits under the bars; with no selected day or no such heading, nothing is held
+  this way. An element
   structurally inside a pinned bar's own subtree (`insidePinned`) is never held by any reason,
   regardless of overlap.
 - A `contrast` or `textClipped` issue **partly outside its own scroll view or the window**, along
@@ -107,7 +178,7 @@ which the round-2 review found too broad in exactly these ways — section 2 of
   **capped at 3 per pass**, and **confirmed by one retry** of the same pass, after the list
   settles, that shows no elementless issue of the same type — otherwise it is a real, recurring
   problem, not the audit's own list-rebuild instability, and fails like any other issue
-  (`runA11yAudit`, `AccessibilityAuditUITests.swift:547-634`).
+  (`runA11yAudit`). Unchanged in MVP-2c; the paging bullet above has where these issues come from.
 - Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
   own, not the app's (run 38357314250: Find School in Dark, three empty
   `TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").
