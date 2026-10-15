@@ -66,11 +66,20 @@ final class ToDoUITests: TallyUITestCase {
             // 38039203669, 37925235523: "'<row>' was not selected"). Wait for the row to stop
             // moving, tap its centre (not whichever point XCTest's default tap picks), and retry
             // once before failing.
+            //
+            // MVP-2c: the row can also rest under the navigation bar (runs 38634697575, both attempts,
+            // and 38652917902: the picked row at y = 108 to 207 under a bar ending at 170, so its
+            // centre was inside the bar and "was not selected" with nothing selected at all; the same
+            // failure on two branches without this package's changes, runs 38201921389 and
+            // 38235284131). Bring it clear of the top too, and tap the middle of its part that is
+            // clear of both bars. A retry taps only a row that is still not selected.
+            bringClearOfTheTop(row, in: app)
             waitUntilRowAtRest(row, in: app)
-            let centre = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            centre.tap()
+            clearTapPoint(row, in: app).tap()
             if !eventually(timeout: 3, { row.isSelected }) {
-                centre.tap()
+                waitUntilRowAtRest(row, in: app)
+                let stillNotSelected = !row.isSelected
+                if stillNotSelected { clearTapPoint(row, in: app).tap() }
             }
             XCTAssertTrue(eventually(timeout: 2) { row.isSelected }, "'\(label)' was not selected after a retry. Hierarchy: \(app.debugDescription)")
         }

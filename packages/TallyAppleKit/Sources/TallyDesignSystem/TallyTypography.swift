@@ -19,6 +19,14 @@ public enum TallyTypography {
         .system(.headline)
     }
 
+    /// An inset-grouped `List` section header's own style on iOS 26, for a heading drawn as a row
+    /// (Calendar's day headings, which must be rows to be `scrollTo` targets). Measured on the
+    /// system header "Mon, Oct 12" (scope=a11y run 38550012702, light-std): cap height 12.0 pt and
+    /// a 2 pt stem, so 17 pt semibold, which is `.headline`.
+    public static var listHeader: Font {
+        .system(.headline)
+    }
+
     /// Body copy: `.body`.
     public static var body: Font {
         .system(.body)

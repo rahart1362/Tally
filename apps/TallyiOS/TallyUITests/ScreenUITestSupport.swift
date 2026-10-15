@@ -71,6 +71,36 @@ extension TallyUITestCase {
         return clear()
     }
 
+    /// MVP-2c: the other edge from `bringClearOfTheBottom`. Drags the list down, with a hold before
+    /// release so it stops where it is put, until `element`'s top is `margin` below the navigation
+    /// bar. To-Do's batch select failed with its first picked row resting under the bar (y = 108 to
+    /// 207 against a bar ending at 170; runs 38634697575, both attempts, and 38652917902): its
+    /// centre, where the row was tapped, was inside the bar, so the tap selected nothing.
+    @MainActor
+    func bringClearOfTheTop(_ element: XCUIElement, in app: XCUIApplication, margin: CGFloat = 8) {
+        let bar = app.navigationBars.firstMatch
+        guard bar.exists, element.exists else { return }
+        let overlap = bar.frame.maxY + margin - element.frame.minY
+        guard overlap > 0 else { return }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // A pan starts only after the touch has moved a few points; the extra margin covers that.
+        let end = start.withOffset(CGVector(dx: 0, dy: overlap + 2 * margin))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+    }
+
+    /// MVP-2c: the middle of the part of `element` that is between the navigation bar and
+    /// `bottomMargin` above the screen's bottom (the floating tab bar or a bottom bar), so a tap lands
+    /// on the element itself, never on a bar over it.
+    @MainActor
+    func clearTapPoint(_ element: XCUIElement, in app: XCUIApplication, bottomMargin: CGFloat = 160) -> XCUICoordinate {
+        let frame = element.frame
+        let bar = app.navigationBars.firstMatch
+        let top = max(frame.minY, bar.exists ? bar.frame.maxY : app.frame.minY)
+        let bottom = min(frame.maxY, app.frame.maxY - bottomMargin)
+        let middle = bottom > top ? (top + bottom) / 2 : frame.midY
+        return element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: (middle - frame.minY) / max(frame.height, 1)))
+    }
+
     /// Waits for `element`'s frame to stop moving (two checks `interval` apart land on the same
     /// rect), up to `timeout`: the swipe that brought it on screen (`bringClearOfTheBottom`) has
     /// finished decelerating. `true` once it has, or once `timeout` passes regardless (run

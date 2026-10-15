@@ -24,11 +24,6 @@ struct CalendarScreen: View {
     @State private var selectedDay: Date?
     @State private var draft: CalendarEventDraft?
     @State private var showsSampleFeedNote = false
-    /// MVP-2b gate-2 round 3 (verdict item 1, PMO note). The strip's own measured height (never a
-    /// fixed number: it scales with Dynamic Type and changes shape from AX1 up, D18), fed to
-    /// `.contentMargins(.top:)` below so `scrollTo` reserves exactly as much room as the strip
-    /// actually draws.
-    @State private var pinnedStripHeight: CGFloat = 0
 
     var body: some View {
         let calendar = model.calendarScreen
@@ -45,38 +40,26 @@ struct CalendarScreen: View {
                     .tallyRow()
                 } else {
                     ForEach(calendar.days) { day in
+                        // MVP-2c: the day's heading is a section of its own, one clear row that is the
+                        // day's scroll target, and its items are the next section, a native card.
+                        // A `List` header is never a `scrollTo` anchor (run 38608671835: with the id
+                        // on the header, the list scrolled to the first row and left the header
+                        // under the strip). Round 3 made the heading the card's own first row, which
+                        // scrolled correctly but squared the card's top corners and shrank the
+                        // heading to footnote size (run 38660677136's screenshot). As its own section
+                        // the card keeps the system's corners and separators, and `DayHeading` keeps
+                        // the system header's measured style.
                         Section {
-                            // MVP-2b gate-2 round 3 (verdict item 1, the PMO's documented
-                            // fallback). The first attempt put `.id(day.id)` on the `header:`
-                            // closure's own `Text` instead of the `Section`, reasoning that
-                            // `scrollTo` landing on "the Section's first row" meant the anchor
-                            // needed to sit on the header view itself. CI proved that wrong
-                            // (run 38608671835: `heading.minY` of 87 against a target of 233, on
-                            // open — the scroll barely moved at all): a `List` `Section`'s
-                            // `header:`/`footer:` content does not publish the anchor preference
-                            // `ScrollViewProxy.scrollTo` reads; only its own rows do. The heading
-                            // is now the Section's own first row instead, carrying the id
-                            // `scrollTo` needs, and styled to read as the header did: this app's
-                            // own "meta text" role (`.footnote`, the same size role the freshness
-                            // breadcrumb and agenda times use) and `tallySectionText()`'s colour,
-                            // no cell background (`.tallyRow()` below sets the card colour for
-                            // every *other* row in this Section; a row's own `.listRowBackground`
-                            // overrides that), and the `.isHeader` trait a true header gets
-                            // automatically.
-                            Text(day.heading)
-                                .font(TallyTypography.footnote)
-                                .tallySectionText()
-                                .accessibilityAddTraits(.isHeader)
-                                .accessibilityIdentifier("calendar.dayHeading")
-                                .listRowBackground(Color.clear)
+                            DayHeading(text: day.heading)
                                 .id(day.id)
+                        }
+                        Section {
                             if day.items.isEmpty {
                                 Text(L10n.Calendar.nothingScheduled())
                                     .font(TallyTypography.subheadline)
                                     .foregroundStyle(TallyColor.textSecondary)
-                                    // MVP-2b gate-2 round 3: lets a UI test find the row under a
-                                    // heading even on a day with nothing scheduled (item 1's own
-                                    // assertion needs the heading's first row, whichever it is).
+                                    // MVP-2b round 3: the UI test finds the first row under a heading
+                                    // even on a day with nothing scheduled.
                                     .accessibilityIdentifier("calendar.nothingScheduled")
                             }
                             ForEach(day.items) { item in
@@ -88,6 +71,10 @@ struct CalendarScreen: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // MVP-2c: the gap above each heading is `DayHeading`'s own top inset (the system's
+            // section spacing plus its header padding), so a heading sits on its card as a header
+            // did, and rests that same gap below the strip once scrolled to.
+            .listSectionSpacing(.custom(0))
             .refreshable { await model.refreshUntilSettledOrDelayed() }
             // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
             .tallyList()
@@ -97,21 +84,14 @@ struct CalendarScreen: View {
             // collapsed into the bar, but on a day whose row is first it opens at the scroll edge,
             // where a `.visible` fill would paint over the large title as on the other four roots.
             .tallyLargeTitleScreenChrome()
-            // MVP-2b gate-2 round 3 (verdict item 1, PMO note). `.safeAreaInset(edge: .top)`
-            // (round 1 onward) places the strip correctly, but `List`'s `ScrollViewProxy.scrollTo`
-            // does not read that inset when computing an anchor's target offset — a documented
-            // `List`/`ScrollViewReader` gap, confirmed empirically (CI runs 38608671835,
-            // 38623450627: the heading landed near the navigation bar's own height, short of the
-            // strip's extra reservation, however the anchor or the timing was adjusted).
-            // `.contentMargins(.top:, for: .scrollContent)` IS read by `scrollTo` (it is the same
-            // mechanism `tallyList()` already uses for the horizontal margins), so the strip's own
-            // measured height now drives that margin instead. The strip itself moves to an
-            // `.overlay` so the two mechanisms never double-reserve the same space — only
-            // `contentMargins` reserves scroll room; the overlay only draws, inside the safe area
-            // (unchanged: no `.ignoresSafeArea()`), so it still starts right below the navigation
-            // bar exactly where the inset view used to.
-            .contentMargins(.top, pinnedStripHeight, for: .scrollContent)
-            .overlay(alignment: .top) {
+            // MVP-2c: the week strip is a safe-area bar (iOS 26), so the list's safe area, its scroll
+            // edge effect and `scrollTo(_:anchor: .top)` all start below it. Round 3's diagnosis
+            // ("scrollTo ignores the inset") was the test's: run 38623450627's hierarchy has today's
+            // heading at y = 237.3 under a strip ending at 233.3, with `.safeAreaInset`; the test
+            // measured the previous day's heading, still in the hierarchy under the bars. Round 3's
+            // `.contentMargins` replacement is padding inside the content, which `scrollTo` does
+            // not count (run 38652917902: the heading at the navigation bar's bottom, y = 170).
+            .safeAreaBar(edge: .top, spacing: 0) {
                 // The week strip stays in place above the agenda (it is how the student moves
                 // through the week), under the breadcrumb when one shows.
                 VStack(spacing: 0) {
@@ -119,7 +99,7 @@ struct CalendarScreen: View {
                     if !calendar.week.isEmpty {
                         WeekStrip(days: calendar.week, selected: selectedDay ?? calendar.todayID) { day in
                             selectedDay = day
-                            scrollBelowPinnedStrip(day, with: proxy, animated: true)
+                            withAnimation { proxy.scrollTo(day, anchor: .top) }
                         }
                         .padding(.horizontal, TallySpacing.sm)
                         .padding(.vertical, TallySpacing.xs)
@@ -128,31 +108,13 @@ struct CalendarScreen: View {
                 }
                 // MVP-2b: a container (its children stay their own elements) with an identifier, so
                 // the accessibility audit knows where this opaque pinned bar is: agenda rows above
-                // today pass under it by design (`A11yScene.pinnedBars`, AccessibilityAuditUITests).
+                // the selected day pass under it by design (`A11yScene.pinnedBars`).
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("calendar.pinnedHeader")
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
-                    pinnedStripHeight = height
-                }
             }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).
-                if let today = calendar.todayID, selectedDay == nil {
-                    scrollBelowPinnedStrip(today, with: proxy, animated: false)
-                }
-            }
-            // MVP-2b gate-2 round 3 (verdict item 1, PMO note). CI showed a real, but
-            // incomplete, improvement from `contentMargins(.top:)` alone (heading.minY 98 pt ->
-            // 170 pt against a target of 233 pt, run 38644410449) — consistent with
-            // `scrollBelowPinnedStrip`'s fixed-delay re-corrections (50 ms, 200 ms) firing before
-            // `pinnedStripHeight` finished settling to its true value, so `scrollTo` kept using a
-            // too-small margin. Re-scrolling exactly when the measured height actually changes,
-            // rather than guessing how long that takes, keeps the correction in sync with
-            // whatever `contentMargins` currently reserves, however many renders that took.
-            .onChange(of: pinnedStripHeight) { _, _ in
-                if let target = selectedDay ?? calendar.todayID {
-                    scrollBelowPinnedStrip(target, with: proxy, animated: false)
-                }
+                if let today = calendar.todayID, selectedDay == nil { proxy.scrollTo(today, anchor: .top) }
             }
         }
         .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
@@ -217,40 +179,36 @@ struct CalendarScreen: View {
         }
         openURL(url)
     }
+}
 
-    /// MVP-2b gate-2 round 3 (verdict item 1; round 2's own fix did not hold — section 3; round
-    /// 3's first attempt did not either — CI run 38608671835/38623450627). Two separate bugs, now
-    /// both fixed:
-    /// 1. **The wrong scroll anchor.** Round 2's `.id(day.id)` sat on the `Section`, which made
-    ///    `scrollTo` land on the Section's first *row*, not its heading. Round 3's own first
-    ///    attempt moved the id onto the `header:` closure's `Text`, which CI proved does not
-    ///    register as a `scrollTo` anchor at all (the scroll barely moved). The id now sits on
-    ///    the heading's own ROW (`CalendarScreen.body`: the heading is the Section's first row,
-    ///    no `header:` closure), which `scrollTo` does resolve correctly.
-    /// 2. **Layout not yet settled.** Even with the right anchor, a single `scrollTo` right when
-    ///    this `.task`/`onSelect` fires measures against the `List`'s own row heights before they
-    ///    have all been laid out for a freshly rendered agenda, landing short (CI run
-    ///    38623450627: heading.minY 98 against a target of 233 pt, on open). A second,
-    ///    re-corrective call, one or more run-loop turns later, measures the now-settled layout
-    ///    and corrects it — this is the same shape round 2's single delayed call took, but that
-    ///    one could never have helped: it targeted the SAME wrong anchor as the first call. With
-    ///    the anchor now correct, the delayed calls can actually re-measure and land.
-    ///
-    /// `CalendarUITests.testSelectedDayHeadingClearsThePinnedStripOnOpenAndAfterTapping` asserts
-    /// `heading.frame.minY >= pinnedHeader.frame.maxY` on open, after the first day and after a
-    /// mid-week day, at std and AX5.
-    private func scrollBelowPinnedStrip(_ day: Date, with proxy: ScrollViewProxy, animated: Bool) {
-        func scroll() {
-            if animated {
-                withAnimation { proxy.scrollTo(day, anchor: .top) }
-            } else {
-                proxy.scrollTo(day, anchor: .top)
-            }
-        }
-        scroll()
-        for delay in [0.05, 0.2] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { scroll() }
-        }
+/// MVP-2c: a day's heading in the agenda, drawn as a row (the day's scroll target) that looks like
+/// the inset-grouped section header it replaces: the system header's measured font
+/// (`TallyTypography.listHeader`), colour (`tallySectionText()`, `#475467` measured) and position
+/// (`Metrics`), on no card, with no separator. It keeps the header's `.isHeader` trait.
+private struct DayHeading: View {
+    /// The system header "Mon, Oct 12" in scope=a11y run 38550012702 (light-std, before round 3's
+    /// change): the previous card ends at y = 476.3, the capitals' tops are at 508.0 and the
+    /// header's own card starts at 534.3. With the section spacing at zero these insets put the
+    /// heading's text (its box starts 4.2 pt above the capitals) at those same distances.
+    enum Metrics {
+        static let top: CGFloat = 27.5
+        static let bottom: CGFloat = 10
+        static let horizontal: CGFloat = 16
+    }
+
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(TallyTypography.listHeader)
+            .tallySectionText()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("calendar.dayHeading")
+            .listRowInsets(EdgeInsets(top: Metrics.top, leading: Metrics.horizontal,
+                                      bottom: Metrics.bottom, trailing: Metrics.horizontal))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 }
 

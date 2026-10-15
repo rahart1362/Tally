@@ -93,31 +93,43 @@ final class AccessibilityAuditUITests: TallyUITestCase {
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
-    /// MVP-2b gate-2 round 3 (verdict item 6): paging to the end of the list, auditing each page,
-    /// takes longer than round 2's single extra swipe. `executionTimeAllowance` raised to this
-    /// run's own ceiling (`TEST_FLAGS`'s `-maximum-test-execution-time-allowance 300`;
-    /// `TallyUITestCase.executionAllowance`'s plain 240 s default is sized for the old, shorter
-    /// coverage), the same margin `AuditTourUITests` already gives its own long methods.
+    /// MVP-2b gate-2 round 3 (verdict item 6): the long screens' AX5 audit pages to the end of the
+    /// list, auditing each page (`a11yPageToEnd`). MVP-2c: that AX5 audit and its pages are a method
+    /// of their own (`test<Screen>AX5`), so each gets the whole per-test ceiling: in scope=a11y run
+    /// 38660677136 the default-size audit, the AX5 audit and the pages shared one method, and four of
+    /// them (Dashboard, Courses, Course Detail, Parent Mode) ran past 300 s.
     @MainActor
     func testDashboard() throws {
-        executionTimeAllowance = 300
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testDashboardAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testCourses() throws {
-        executionTimeAllowance = 300
         auditScreen("courses", reach: { self.a11yReachCourses(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testCoursesAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("courses", reach: { self.a11yReachCourses(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testCourseDetail() throws {
-        executionTimeAllowance = 300
         auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testCourseDetailAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
@@ -161,40 +173,60 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testToDo() throws {
-        executionTimeAllowance = 300
         auditScreen("toDo", reach: { self.a11yReachToDo(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testToDoAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("toDo", reach: { self.a11yReachToDo(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testInsights() throws {
-        executionTimeAllowance = 300
         auditScreen("insights", reach: { self.a11yReachInsights(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testInsightsAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("insights", reach: { self.a11yReachInsights(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testSettings() throws {
-        executionTimeAllowance = 300
         auditScreen("settings", reach: { self.a11yReachSettings(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testSettingsAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("settings", reach: { self.a11yReachSettings(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testPaywall() throws {
-        executionTimeAllowance = 300
         auditScreen("paywall", reach: { self.a11yReachPaywall(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testPaywallAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("paywall", reach: { self.a11yReachPaywall(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
 
     @MainActor
     func testParentMode() throws {
-        executionTimeAllowance = 300
         auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testParentModeAX5() throws {
+        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
     }
@@ -485,31 +517,67 @@ extension TallyUITestCase {
         let app = reach(extra)
         runA11yAudit(app, for: types, screen: screen, variant: variant, file: file, line: line)
         if pageToEnd {
-            Self.a11yPageToEnd(app) { pageIndex in
+            a11yPageToEnd(app, file: file, line: line) { pageIndex in
                 runA11yAudit(app, for: types, screen: screen, variant: "\(variant)-paged-\(pageIndex)", file: file, line: line)
             }
         }
         app.terminate()
     }
 
+    /// MVP-2c: a paged AX5 method's own ceiling, the command line's maximum (`IOS_TEST_FLAGS`'s
+    /// `-maximum-test-execution-time-allowance 300`, the release gate's `TEST_FLAGS` alike).
+    static let a11yPagedAllowance: TimeInterval = 300
+    /// MVP-2c: one page is a drag from this height of the screen (just above the tab bar, 751 of 874
+    /// pt; no paged screen pins anything there, run 38660677136's elements) ...
+    static let a11yPageDragFrom: CGFloat = 0.86
+    /// ... to this one (192 pt, below the navigation bar's 170): 559 pt, less than the 621 pt of
+    /// list between To-Do's bars, so consecutive pages overlap and no row is skipped.
+    static let a11yPageDragTo: CGFloat = 0.22
+    /// MVP-2c: more pages than any screen needs at AX5; reaching it fails the test (see below).
+    static let a11yMaxPages = 30
+
     /// MVP-2b gate-2 round 3 (verdict item 6): one screenful at a time to the end of the list,
-    /// auditing each page — not just one extra swipe (round 2's own gap). Mirrors
-    /// `AuditTourUITests.captureScreenfuls`'s own stop rule: a swipe that leaves the screenshot
-    /// unchanged means the bottom (or a screen shorter than the screen, where this is a no-op),
-    /// capped at `maxScreens` for safety. `onPage` runs after each swipe that changed the screen,
-    /// with that page's 1-based index, so Settings' lower rows (Exit Sample Data, Language,
-    /// English, Show every grade change, At least 0.5 points — 16 tour screenfuls at AX5 on the
-    /// smallest iPhone) each land on an audited page instead of only the second one.
+    /// auditing each page, so Settings' lower rows (Exit Sample Data, Language, English, Show every
+    /// grade change, At least 0.5 points) each land on an audited page. `onPage` runs after each
+    /// step that moved the list, with that page's 1-based index.
+    ///
+    /// MVP-2c, two fixes (scope=a11y run 38660677136's own pages):
+    /// - **A step is a held drag of under one screen**, not `app.swipeUp()`. The swipe's fling moved
+    ///   To-Do about 1,100 pt per page, almost two screens, so rows between pages were never in
+    ///   view. A press, a slow drag and a hold before release leave no momentum.
+    /// - **The end is a list that did not move**: the middle band of two settled screenshots,
+    ///   between the drag's two points, is compared. The old rule compared whole screenshots taken
+    ///   right after the swipe, which a bounce, a scroll indicator or the clock always changed:
+    ///   Settings reached its end by page 6 and was audited 7 more times at the same rows, To-Do from
+    ///   page 8 on, and Insights until the 20-page cap.
+    /// Reaching `maxPages` without the end fails: a silent stop would leave rows unaudited.
     @MainActor
-    static func a11yPageToEnd(_ app: XCUIApplication, maxScreens: Int = 20, onPage: (Int) -> Void) {
-        var previous = app.screenshot().pngRepresentation
-        for index in 1...maxScreens {
-            app.swipeUp()
-            let current = app.screenshot().pngRepresentation
-            if current == previous { break }
+    func a11yPageToEnd(_ app: XCUIApplication, maxPages: Int = TallyUITestCase.a11yMaxPages,
+                       file: StaticString = #filePath, line: UInt = #line, onPage: (Int) -> Void) {
+        var previous = a11yListBand(app)
+        for index in 1...maxPages {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: Self.a11yPageDragFrom))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: Self.a11yPageDragTo))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
+            a11yWaitUntilSettled(app)
+            let current = a11yListBand(app)
+            if current == previous { return }
             previous = current
             onPage(index)
         }
+        XCTFail("paging reached \(maxPages) pages before the end of the list", file: file, line: line)
+    }
+
+    /// The band of a screenshot between `a11yPageDragTo` and `a11yPageDragFrom` (list content only:
+    /// no status bar clock, title or tab bar), as PNG data for `a11yPageToEnd`'s comparison.
+    @MainActor
+    private func a11yListBand(_ app: XCUIApplication) -> Data? {
+        guard let image = app.screenshot().image.cgImage else { return nil }
+        let height = CGFloat(image.height)
+        let band = CGRect(x: 0, y: (height * Self.a11yPageDragTo).rounded(), width: CGFloat(image.width),
+                          height: (height * (Self.a11yPageDragFrom - Self.a11yPageDragTo)).rounded())
+        guard let cropped = image.cropping(to: band) else { return nil }
+        return UIImage(cgImage: cropped).pngData()
     }
 
     /// `AccessibilityAuditContrastUITests`: Increase Contrast's two mechanisms (this file's top doc
@@ -900,9 +968,10 @@ extension TallyUITestCase {
         // clipped" it could not attach to any element: one to four per variant in all five scope=a11y
         // runs, and the only finding left in the last. Gate-2 round 3 (item 1): tapping the first day
         // used to leave its own heading under the strip too, a real defect, not this audit-position
-        // artifact — fixed in `CalendarScreen.scrollBelowPinnedStrip`; `docs/pmo/a11y-waivers.md`
-        // tracks the current state. From AX1 up the strip scrolls, centred on today, so it is swiped
-        // back until the first day can be tapped.
+        // artifact; MVP-2c fixed it (the strip is a safe-area bar and the heading a row,
+        // `CalendarScreen.swift`), and `docs/pmo/a11y-waivers.md` tracks the current state. From AX1
+        // up the strip scrolls, centred on today, so it is swiped back until the first day can be
+        // tapped.
         let header = element("calendar.pinnedHeader", in: app)
         var swipes = 0
         while !firstDay.isHittable, swipes < 6 {
@@ -1056,6 +1125,8 @@ struct A11yScene {
     /// needs it to tell content genuinely scrolled past and under the strip from the selected
     /// day's own heading, or its rows, which must never be held that way.
     static let dayHeadingIdentifier = "calendar.dayHeading"
+    /// The week strip's day buttons (`CalendarScreen.swift`), one of them selected.
+    static let dayButtonIdentifier = "calendar.day"
 
     /// The app's window, in points.
     var window: CGRect = .zero
@@ -1073,8 +1144,12 @@ struct A11yScene {
     var scrolling: [(label: String, frame: CGRect, container: CGRect, axis: ScrollAxis, insidePinned: Bool)] = []
     /// The frames of `pinnedBars` on this screen.
     var pinned: [CGRect] = []
-    /// The frames of `dayHeadingIdentifier` on this screen (item 3).
-    var dayHeadings: [CGRect] = []
+    /// The frames and labels of `dayHeadingIdentifier` on this screen (item 3).
+    var dayHeadings: [(frame: CGRect, label: String)] = []
+    /// MVP-2c: the day of the month of the strip's selected day, if the strip is on screen. The
+    /// selected day's heading is the one with this day (`dayNumber(in:)`), never simply the topmost:
+    /// the day before it stays in the hierarchy under the bars (run 38623450627).
+    var selectedDayNumber: Int?
     /// The system keyboard, when it is up (Find School opens with its search field focused).
     var keyboards: [CGRect] = []
 
@@ -1116,6 +1191,7 @@ struct A11yScene {
         let frame = Self.finite(node.frame)
         let identifier = node.identifier
         let label = node.label
+        let isSelected = node.isSelected
         let isOverlay = kind == .image && identifier == Self.dimmingOverlay
         if isOverlay {
             dimming.append(frame)
@@ -1134,7 +1210,10 @@ struct A11yScene {
             pinned.append(frame)
         }
         if identifier == Self.dayHeadingIdentifier {
-            dayHeadings.append(frame)
+            dayHeadings.append((frame: frame, label: label))
+        }
+        if identifier == Self.dayButtonIdentifier, isSelected {
+            selectedDayNumber = Self.dayNumber(in: label)
         }
         // Run 38363059477: the snapshot showed the keyboard as an "Other" element, `inputView` (402 x
         // 335 pt, holding the predictive bar and the keys), not as a keyboard element.
@@ -1219,9 +1298,13 @@ struct A11yScene {
         // scrolled past and now under the strip. The heading itself, and its own rows (which start
         // at or after the heading, never above it), can never satisfy `frame.maxY <= heading.minY`,
         // so they can never be held this way again (gate-2 round 2 verdict section 2.3: the rule's
-        // only 2 holds were the selected day's own heading, a real at-rest defect, now item 1's fix).
+        // only 2 holds were the selected day's own heading, a real at-rest defect). MVP-2c: the
+        // selected day's heading by its day number, not the topmost heading (that is the day before,
+        // under the bars); with no selected day or no such heading on screen, nothing is held here.
         if pinned.contains(where: { Self.overlapsByAtLeastAThird($0, frame) }),
-           let heading = dayHeadings.min(by: { $0.minY < $1.minY }), frame.maxY <= heading.minY + 0.5 {
+           let selected = selectedDayNumber,
+           let heading = dayHeadings.first(where: { Self.dayNumber(in: $0.label) == selected })?.frame,
+           frame.maxY <= heading.minY + 0.5 {
             return "under the screen's pinned bar"
         }
         if dimming.contains(where: { $0.intersects(frame) }), let measured = measureFadeBandContrast(frame: frame) {
@@ -1307,6 +1390,29 @@ struct A11yScene {
             let hi = max(la, lb), lo = min(la, lb)
             return (hi + 0.05) / (lo + 0.05)
         }
+        // MVP-2c: a colour's "share" of a row counts the pixels within `colourTolerance` of it on
+        // every channel, not only its exact value. The scroll-edge fade is blurred, so one row's
+        // background is a spread of near-identical values (#FBFCFC, #FCFCFD, #FCFDFD under "BIO 101",
+        // run 38660677136) and no exact value reached half the row: the measurement skipped 25 of
+        // that text's 29 rows and its median came from four, one an anti-aliased edge (3.56:1;
+        // 5.40:1 on 29 rows, 5.52:1 by the round-2 reviewer's darkest-pixel method). Re-measuring
+        // every fade-band issue of runs 38550012702 and 38660677136 this way changed one decision,
+        // that "BIO 101"; HIST 210 Light (the round-2 false pass) still fails, at 4.18:1
+        // (`pmo-audit/.build-audit/mvp2c/fadeband/`). Only a row's eight most common values are
+        // tried as its centre, which gives the same decisions in a fraction of the time.
+        func share(of key: UInt32, among counts: [UInt32: Int]) -> Int {
+            counts.reduce(0) { sum, entry in Self.isNear(entry.key, key) ? sum + entry.value : sum }
+        }
+        func densest(_ counts: [UInt32: Int]) -> (key: UInt32, share: Int)? {
+            let candidates = counts.sorted { $0.value > $1.value }.prefix(Self.centreCandidates)
+            var best: (key: UInt32, share: Int, count: Int)?
+            for candidate in candidates {
+                let candidateShare = share(of: candidate.key, among: counts)
+                if let current = best, (current.share, current.count) >= (candidateShare, candidate.value) { continue }
+                best = (key: candidate.key, share: candidateShare, count: candidate.value)
+            }
+            return best.map { (key: $0.key, share: $0.share) }
+        }
         var rowRatios: [Double] = []
         pixels.withUnsafeBufferPointer { buffer in
             for y in y0..<y1 where !chromeRows.contains(y) {
@@ -1318,16 +1424,16 @@ struct A11yScene {
                     rowCounts[key, default: 0] += 1
                 }
                 let total = rowCounts.values.reduce(0, +)
-                guard total > 0, let bg = rowCounts.max(by: { $0.value < $1.value }) else { continue }
+                guard total > 0, let bg = densest(rowCounts) else { continue }
                 // Item 4's row-level gate: skip a row with no reliable single background.
-                guard Double(bg.value) / Double(total) >= 0.5 else { continue }
+                guard Double(bg.share) / Double(total) >= 0.5 else { continue }
                 let bgKey = bg.key
                 let extreme = rowCounts.keys.map { contrastRatio($0, bgKey) }.max() ?? 1.0
                 guard extreme >= 1.05 else { continue }
                 let cut = 1 + (extreme - 1) * 0.5
                 var core: [UInt32: Int] = [:]
                 for (key, count) in rowCounts where contrastRatio(key, bgKey) >= cut { core[key] = count }
-                guard let fg = core.max(by: { $0.value < $1.value })?.key else { continue }
+                guard let fg = densest(core)?.key else { continue }
                 rowRatios.append(contrastRatio(fg, bgKey))
             }
         }
@@ -1335,6 +1441,30 @@ struct A11yScene {
         rowRatios.sort()
         let mid = rowRatios.count / 2
         return rowRatios.count % 2 == 0 ? (rowRatios[mid - 1] + rowRatios[mid]) / 2 : rowRatios[mid]
+    }
+
+    /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the
+    /// scroll-edge blur's own spread (`measureFadeBandContrast`). 3 of 255 is far below any visible
+    /// difference: it moves a contrast ratio by about 1%.
+    static let colourTolerance: UInt32 = 3
+    /// MVP-2c: how many of a row's most common values `measureFadeBandContrast` tries as its centre.
+    static let centreCandidates = 8
+
+    static func isNear(_ lhs: UInt32, _ rhs: UInt32) -> Bool {
+        for shift in [UInt32(16), 8, 0] {
+            let a = (lhs >> shift) & 0xFF
+            let b = (rhs >> shift) & 0xFF
+            if (a > b ? a - b : b - a) > colourTolerance { return false }
+        }
+        return true
+    }
+
+    /// MVP-2c: the day of the month in a Calendar label, the first whole number from 1 to 31: the
+    /// week strip's "Sunday, October 11, 3 items" and the agenda's "Sun, Oct 11" or "Today · Wed,
+    /// Oct 14" all give 11 or 14. Seven consecutive days never share one, so it pairs the strip's
+    /// selected day with that day's own heading. English labels (the UI tests' locale).
+    static func dayNumber(in label: String) -> Int? {
+        label.split(whereSeparator: { !$0.isNumber }).lazy.compactMap { Int($0) }.first { (1...31).contains($0) }
     }
 
     static func same(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
