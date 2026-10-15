@@ -559,11 +559,12 @@ extension TallyUITestCase {
     /// Reaching `maxPages` without the end fails: a silent stop would leave rows unaudited.
     ///
     /// **And a page whose audit moved the list stops the paging, failing.** The two growing checks
-    /// lay the screen out at other text sizes, and on six of the eight paged screens the list does
-    /// not stay where it was: it comes back pulled up to a fixed offset of its own (scope=only run
-    /// 38681232896, the same both attempts: Insights to about 1,012 pt, so +86, +635 and +1,184 pt on
-    /// pages 2–4; Parent Mode to about 71 pt; Paywall to about 36 pt; To-Do and Settings near their
-    /// top; Course Detail both ways). Courses and Dashboard kept their place (run 38677820708). That
+    /// lay the screen out at other text sizes, and on every paged screen the list can come back
+    /// pulled up to an offset of its own (scope=only run 38681232896, the same both attempts:
+    /// Insights to about 1,012 pt, so +86, +635 and +1,184 pt on pages 2–4; Parent Mode to about
+    /// 71 pt; Paywall to about 36 pt; To-Do and Settings near their top; Course Detail both ways;
+    /// Courses on its fourth page, run 38684344518; Dashboard kept its place in run 38672964445 and
+    /// moved +398.7 pt on page 2 in run 38686158723). That
     /// happens inside the growing pass, so the page's own second pass and the clamped pass itself see
     /// other rows (Settings' "Show every grade change" was flagged on a page that does not show it),
     /// and an issue whose element was recycled comes back with no element; dragging the page back
