@@ -649,6 +649,35 @@ still fails this rule exactly as it fails any other).
   host cannot recompile and re-verify it, so it is left untouched rather than refactored to share
   code with a new, unverified path.
 
+**First cut failed scope=only run 38729620004 — a measurement artifact, not a real defect.**
+`testCalendar` failed in all three classes: `contrast` on `calendar.dayHeading` ("Wed, Oct 14",
+today's previous day once the run's own date advanced past MVP-2c's) measured only 78.55% coverage
+and an 18.57:1 glyph, and the elementless `textClipped` issues stayed unheld too. The job log and
+`only-evidence` artifact (`pmo-audit/.build-audit/mvp2d/ios-build-job-38729620004.log`,
+`only-evidence/`) show why: the navigation bar's own two-line title ("October" / "Updated just
+now") sits inside the exact rectangle of that 370 x 58 pt row (only 2/3 of it under the bar), and
+the row's own frame reaches 15 pt into the week strip below, where its day letters and numbers
+sit — both bars' own legitimate content, read as if it were the row's. A crop of the audit
+screenshot at the exact measured region (`pmo-audit/.build-audit/mvp2d/crop-exact-region.png`)
+shows no trace of "Wed, Oct 14" anywhere in it, confirming the row really is invisible; the
+measurement just could not yet tell that apart from the bar's own content.
+
+**The fix, re-verified in Python against all 5 of that run's failures before spending another CI
+dispatch** (`pmo-audit/.build-audit/mvp2d/verify_ruling1.py`, mirroring the Swift line for line):
+- `A11yScene.chromeOwnContent` (new): every other element's own frame at least 90% inside a
+  `chrome` bar's **or a `pinned` bar's** frame (`isMostlyInside`) — the navigation bar's title,
+  subtitle and buttons, and the week strip's own day letters and numbers (a row at least 2/3 under
+  the navigation bar can still reach a third of its own height into the strip below).
+  `measureNavBarCoverage` excludes every such pixel entirely, from both numbers.
+- `coverage` now also counts a pixel within `navBarGlyphContrastThreshold` (1.5:1) of the bar's own
+  colour, not only an exact `colourTolerance` match: the waiver table already documents this bar's
+  own soft shadow under its two glass buttons (`calendar.weekStrip.weekday`'s waiver), which shifts
+  a few RGB values past the 3-unit tolerance (`#EBEDF1` against `#EFF1F5`) without ever approaching
+  a readable glyph — measured max 1.13:1 in the same run, against a real glyph's 18.57:1.
+All 5 of run 38729620004's failures measured clean under the fix (100% coverage, 1.13:1 max glyph)
+in that Python re-derivation; scope=only run 38741023585 dispatched the fix for the real device's
+own measurement (below).
+
 ### B. AX5 audits the first page only (ruling 2)
 
 `AccessibilityAuditUITests.swift`: every `test<Screen>AX5` method (Dashboard, Courses, Course
@@ -669,3 +698,35 @@ The existing `heldReason` "no element... only in a `-paged` variant" hold (item 
 MVP-2c) is left in place rather than deleted: it is not named `a11yPageToEnd` and nothing in the
 brief calls for removing it, but it is now dead code (no variant can ever contain `-paged` again),
 noted inline and in `docs/pmo/a11y-waivers.md`.
+
+### C. `origin/main` merged before the final push (PR #57, `1856b3d`)
+
+Per the PMO's standing rule to merge `main` before a package's single final push: PR #57 (MVP-4,
+App Review readiness) touched `AuditTourUITests.swift`, `audit-tour.yml`, the `Makefile`,
+`SettingsView.swift` and `ci.yml`'s hygiene job — none of this package's own files. One conflict,
+in `SettingsView.swift`: this package's base (`mvp/a11y-fixes`, MVP-2b) names the account section
+header for its own waiver (`.accessibilityIdentifier("settings.accountHeader")`) right where PR #57
+adds a new `footer:` closure (EB-17's Sign Out & Erase note); both are additive, so the header's
+closing brace and the new footer both stay. `AuditTourUITests.swift` merged without a conflict:
+PR #57 renamed every `executionTimeAllowance = 280` to `Self.tourAllowance` (280 → 560) and
+MVP-2c's own additions to that file (the 12-leg Calendar proof) still used the literal `280`; git's
+three-way merge applied the rename to MVP-2c's own lines too — confirmed after merging, not assumed
+(`grep -c 'executionTimeAllowance = Self.tourAllowance'`: 17 on this branch, 17 on `origin/main`
+alone, 0 occurrences of the literal `280` left anywhere in the file).
+
+### D. CI runs
+
+- scope=only (2 of 4 budgeted):
+  - [38729620004](https://github.com/rahart1362/Tally/actions/runs/38729620004) (`88a6903`):
+    `testDashboardAX5` and `testToDoAX5` passed first attempt (ruling 2 proven); `testCalendar`
+    failed in all three classes — the measurement artifact section A's "First cut failed" paragraph
+    covers (`pmo-audit/.build-audit/mvp2d/ios-build-job-38729620004.log`, `only-evidence/`).
+  - [38741023585](https://github.com/rahart1362/Tally/actions/runs/38741023585) (`afaad76`, after
+    the `chromeOwnContent` fix and the `origin/main` merge): all 5 targets passed first attempt
+    (`testCalendar` in all three classes, 136–169 s each; `testDashboardAX5` 28.6 s;
+    `testToDoAX5` 37.0 s). The navigation-bar hold fired 8 times across the three Calendar classes
+    and the AX5 pass — `calendar.dayHeading` (`contrast`, all three classes) and two elementless
+    `textClipped` issues each in Light std, Dark std and Light AX5 (one) — every one measured
+    **100.0% coverage, 1.13:1 max glyph contrast** against the bar's own colour
+    (`pmo-audit/.build-audit/mvp2d/ios-build-job-38741023585.log`, `only-evidence-2/`).
+- scope=a11y, release gate, PR run: below, once dispatched.
