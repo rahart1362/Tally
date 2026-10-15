@@ -610,3 +610,62 @@ font token.
 - **The release gate** waits for them.
 - Device checks (VoiceOver, Switch Control, the Large Content Viewer, a real Increase Contrast
   setting) are still not done on this host, as in rounds 1–3.
+
+## MVP-2d (the PMO's two rulings on MVP-2c's open decisions, closing PR #56)
+
+Author: Accessibility Engineer (work package MVP-2d), Claude Sonnet 5. From `b3349fb`. This host
+has no Xcode: every iOS claim below cites a CI run whose job log or exported attachments were read
+here. Evidence (outside the repo): `pmo-audit/.build-audit/mvp2d/`.
+
+### A. The navigation bar: proof, not position (ruling 1)
+
+`AccessibilityAuditUITests.swift`, `A11yScene`: a `contrast` issue, or an elementless
+`textClipped` issue, under the navigation bar is now held, but only on a passing in-test pixel
+measurement — never on position alone (round 1's own history is why position alone was never
+enough: an element under the nav bar at rest was a real defect there once, Calendar's selected
+heading, fixed in MVP-2c; the D01 protection stays, so anything actually visible through the bar
+still fails this rule exactly as it fails any other).
+
+- `A11yScene.overlapsByAtLeastTwoThirds` (new, beside the existing `overlapsByAtLeastAThird`):
+  the geometric precondition — at least two thirds of the issue's own frame height under the bar,
+  stricter than the generic "under system chrome" rule's one third, since `ChromeKind.
+  canHoldContrast` still excludes the navigation bar from that rule (unchanged).
+- `A11yScene.measureNavBarCoverage(barFrame:regionFrame:)` (new): reads the bar's own background
+  colour as its densest colour across its whole frame (`modalColour`, new) — text is always the
+  far smaller share of a navigation bar's own pixels, so the mode is the bar itself, outside any
+  text, exactly as the ruling asks for. It then measures `regionFrame` (the issue's own element
+  frame for a `contrast` issue; the bar's own whole frame for an elementless `textClipped` issue,
+  which has no frame of its own to narrow the check to) against that colour two ways: the share of
+  every pixel within `A11yScene.colourTolerance` of it (`coverage`), and the highest contrast
+  ratio any pixel row inside the region reaches against it (`maxGlyphContrast`, mirroring
+  `measureFadeBandContrast`'s own per-row core-colour extraction, kept as the maximum rather than
+  the median — proving invisibility needs the worst row, not the typical one). The hold applies
+  only at `coverage >= 0.95` and `maxGlyphContrast <= 1.5` (`navBarCoverageThreshold`,
+  `navBarGlyphContrastThreshold`), and the held reason records both measured numbers
+  (`navBarHoldReason`).
+- Deliberately duplicates rather than shares `measureFadeBandContrast`'s own nested pixel-math
+  helpers (`densestColour`, `navBarLuminance`, `navBarContrastRatio` are standalone): that method
+  is this file's own proven, CI-measured evidence for every held fade-band issue to date, and this
+  host cannot recompile and re-verify it, so it is left untouched rather than refactored to share
+  code with a new, unverified path.
+
+### B. AX5 audits the first page only (ruling 2)
+
+`AccessibilityAuditUITests.swift`: every `test<Screen>AX5` method (Dashboard, Courses, Course
+Detail, To-Do, Insights, Settings, Paywall, Parent Mode) drops `pageToEnd: true` and its
+`executionTimeAllowance = Self.a11yPagedAllowance` line, so each now runs the same single
+`dynamicType`/`textClipped` audit of the screen as it opens that every other AX5 variant in this
+suite already runs. `auditScreen`'s own `pageToEnd` parameter is removed with them.
+`AccessibilityAuditUITests.a11yPageToEnd` and its exclusive private helpers (`a11yPageDrag`,
+`a11yPageAnchor`, `a11yAnchorOffset`, `a11yAttachNote`, `a11yListBand`) and constants
+(`a11yPagedAllowance`, `a11yPageDragFrom`, `a11yPageDragTo`, `a11yMaxPages`,
+`a11yAnchorTolerance`, `a11yPageDragColumns`) are deleted: a grep over `apps/TallyiOS/` for each
+name found no caller outside this one file, confirming nothing else used them.
+`docs/pmo/a11y-waivers.md`'s paging bullet has the accepted-limitation writeup (the Audit tour's
+AX5 layout checks and the gate-2 200% review cover the rows below this fold instead), with
+MVP-2c's own measured list-drift kept as this decision's evidence.
+
+The existing `heldReason` "no element... only in a `-paged` variant" hold (item 5, unchanged in
+MVP-2c) is left in place rather than deleted: it is not named `a11yPageToEnd` and nothing in the
+brief calls for removing it, but it is now dead code (no variant can ever contain `-paged` again),
+noted inline and in `docs/pmo/a11y-waivers.md`.

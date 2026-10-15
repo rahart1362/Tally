@@ -1119,6 +1119,19 @@ struct A11yScene {
     var selectedDayNumber: Int?
     /// The system keyboard, when it is up (Find School opens with its search field focused).
     var keyboards: [CGRect] = []
+    /// MVP-2d ruling 1: every non-chrome element's own frame that sits almost entirely (at least
+    /// 90% of its own area, `isMostlyInside`) inside a `chrome` bar's or a `pinned` bar's frame —
+    /// an opaque bar's own legitimate content (the navigation bar's title, subtitle and buttons;
+    /// the week strip's own day letters and numbers), not the scrolling content under it.
+    /// `measureNavBarCoverage` excludes these from its pixel check: scope=only run 38729620004
+    /// found the navigation bar's own two-line title ("October" / "Updated just now") sitting
+    /// inside the exact rectangle of Calendar's previous-day heading row (`calendar.dayHeading`,
+    /// 370 x 58 pt, only 2/3 of it actually under the navigation bar, the rest reaching into the
+    /// week strip below), so a check that does not know about either bar's own content fails every
+    /// such row on a bar's own title or day letters, never the row's — those pixels are accounted
+    /// for by a different, already-identified (and separately audited) element, not a leak of the
+    /// one actually being judged.
+    var chromeOwnContent: [CGRect] = []
 
     /// A pixel buffer of the audit screenshot (RGBA8, one draw at init), for
     /// `measureFadeBandContrast`'s in-test measurement (item 3). Empty when no screenshot was
@@ -1127,6 +1140,10 @@ struct A11yScene {
     private var pixelWidth = 0
     private var pixelHeight = 0
     private var pixelScale: CGFloat = 1
+    /// MVP-2d ruling 1: a raw-`CGRect` mirror of every `elements` entry (JSON there, for the
+    /// attachment), kept only to compute `chromeOwnContent` once `walk` finishes — never attached
+    /// or read elsewhere, so `elements`'s own shape and every existing reader of it are untouched.
+    private var recordedElementFrames: [(frame: CGRect, kind: XCUIElement.ElementType)] = []
 
     init() {}
 
@@ -1135,6 +1152,24 @@ struct A11yScene {
         guard let root = try? app.snapshot() else { return }
         window = root.frame
         walk(root, container: nil, insidePinned: false)
+        // MVP-2d ruling 1: once every `chrome` bar, `pinned` bar and element's own frame is known,
+        // an opaque bar's own non-chrome content (its title, subtitle, buttons; the week strip's
+        // own day letters and numbers) can be told apart from scrolling content that merely sits
+        // under it (`measureNavBarCoverage`'s own doc comment). `pinned` bars count too: a tall
+        // element at least two thirds under the navigation bar (the geometric precondition
+        // `heldReason` applies before ever calling `measureNavBarCoverage`) can still have up to a
+        // third of its own frame reaching past the navigation bar's own bottom edge and into the
+        // week strip below it — run 38729620004: Calendar's previous-day heading row (`calendar.
+        // dayHeading`, 58 pt tall against the navigation bar's 54) reached 15 pt into the week
+        // strip, where its own real, visible day letters and numbers sit, which are no less
+        // somebody else's already-identified, legitimate content than the navigation bar's title.
+        let chromeKinds: Set<XCUIElement.ElementType> = [.tabBar, .navigationBar, .toolbar]
+        let opaqueBars = chrome.map { $0.frame } + pinned
+        chromeOwnContent = recordedElementFrames
+            .filter { !chromeKinds.contains($0.kind) }
+            .filter { entry in opaqueBars.contains { Self.isMostlyInside(entry.frame, $0) } }
+            .map { $0.frame }
+        recordedElementFrames = []
         guard let screenshot, let cgImage = screenshot.cgImage, window.width > 0 else { return }
         pixelWidth = cgImage.width
         pixelHeight = cgImage.height
@@ -1198,6 +1233,7 @@ struct A11yScene {
             elements.append(["elementType": Int(kind.rawValue), "identifier": identifier, "label": label,
                              "frame": Self.json(frame), "inScrollView": container != nil,
                              "scrollView": Self.json(container?.frame ?? .zero)])
+            recordedElementFrames.append((frame: frame, kind: kind))
         }
         let next: (frame: CGRect, axis: ScrollAxis)?
         switch kind {
@@ -1251,7 +1287,7 @@ struct A11yScene {
             // list is away from its top.
             if elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-               let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar),
+               let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar, excluding: chromeOwnContent),
                measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
                 return Self.navBarHoldReason(measured, noElement: true)
             }
@@ -1283,7 +1319,7 @@ struct A11yScene {
         // checks the issue's own frame region against the bar's own background colour.
         if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
            Self.overlapsByAtLeastTwoThirds(navBar, frame),
-           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame),
+           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame, excluding: chromeOwnContent),
            measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
             return Self.navBarHoldReason(measured)
         }
@@ -1327,6 +1363,15 @@ struct A11yScene {
         let overlap = bar.intersection(frame)
         guard !overlap.isNull, frame.height > 0 else { return false }
         return overlap.height / frame.height >= 2.0 / 3.0
+    }
+
+    /// MVP-2d ruling 1: `inner` is almost entirely (by area, not just height) inside `outer` — the
+    /// test `chromeOwnContent` uses to tell a bar's own small content (title, subtitle, a button)
+    /// apart from a large scrolling row that only partly pokes into the bar.
+    static func isMostlyInside(_ inner: CGRect, _ outer: CGRect) -> Bool {
+        let overlap = inner.intersection(outer)
+        guard !overlap.isNull, inner.width > 0, inner.height > 0 else { return false }
+        return (overlap.width * overlap.height) / (inner.width * inner.height) >= 0.9
     }
 
     /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
@@ -1457,8 +1502,12 @@ struct A11yScene {
     /// frame for a `contrast` issue, or the bar's whole frame for an elementless `textClipped`
     /// issue, which has no frame of its own to narrow the check to (`heldReason`'s own two call
     /// sites). Returns:
-    /// - `coverage`: the share of every pixel in `regionFrame` within `A11yScene.colourTolerance`
-    ///   of the bar's own colour (the ruling's 95% test is `heldReason`'s to apply);
+    /// - `coverage`: the share of every pixel in `regionFrame` that reads as the bar's own colour —
+    ///   within `A11yScene.colourTolerance` of it exactly, **or** (MVP-2d, after run 38729620004's
+    ///   own evidence below) no more than `navBarGlyphContrastThreshold` contrast from it, the same
+    ///   bound `maxGlyphContrast` is held to. A pixel the glyph test itself would not call a glyph
+    ///   cannot be what fails coverage either — one bound, used both ways, rather than a stricter
+    ///   second one `colourTolerance` alone cannot clear on real hardware (below);
     /// - `maxGlyphContrast`: the highest contrast ratio any pixel ROW inside `regionFrame` reaches
     ///   against that colour — a single visible glyph row still fails even where the rest of the
     ///   region reads clean. Mirrors `measureFadeBandContrast`'s own per-row core-colour
@@ -1468,18 +1517,57 @@ struct A11yScene {
     ///   row, not the typical one. A row with no pixel at least 1.05:1 from the background has no
     ///   glyph at all and does not move the maximum.
     ///
+    /// **Why `coverage` needs the contrast bound too (MVP-2d, run 38729620004's own evidence):**
+    /// a colour-channel tolerance of 3 (`colourTolerance`) is tight enough that it does not survive
+    /// a soft shadow. The waiver table already documents this exact bar's own artifact — "the week
+    /// strip's day letter... sit[s] in the soft shadow under the toolbar's two glass buttons"
+    /// (`calendar.weekStrip.weekday`'s waiver) — and the same shadow reaches into a full-width row's
+    /// own measured region near either button: run 38729620004 measured Calendar's previous-day
+    /// heading (`calendar.dayHeading`, "Wed, Oct 14") at 100% of its non-excluded pixels within
+    /// 1.5:1 of the bar's own colour, but only 78.55% within `colourTolerance` exactly, entirely in
+    /// a band (`pmo-audit/.build-audit/mvp2d/`, the x-bucketed measurement) under each button, a few
+    /// RGB values short of the 3-unit tolerance (`#EBEDF1` against `#EFF1F5` is 4 on every channel).
+    /// The row's own max glyph contrast there was 1.13:1 — nowhere near a readable glyph (run
+    /// 38729620004's "HIST 210"/"October" comparison measured a real glyph at 18.57:1, a wide,
+    /// comfortable margin from shadow noise) — so the shadow was never close to being mistaken for
+    /// text; `colourTolerance` alone was simply too strict a bound for a gradient, the same lesson
+    /// `measureFadeBandContrast`'s own MVP-2c correction already drew for the scroll-edge fade.
+    ///
     /// `nil` when there is no screenshot, either frame is off the image, or the bar's own colour
     /// cannot be read at all (an empty frame). Deliberately duplicates rather than shares
     /// `measureFadeBandContrast`'s nested helpers: that method is this file's own proven, CI-
     /// measured evidence for every held fade-band issue to date, and this host has no Xcode to
     /// recompile and re-verify it against, so it is left untouched.
-    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect) -> (coverage: Double, maxGlyphContrast: Double)? {
+    ///
+    /// **`excluding` (MVP-2d, added after scope=only run 38729620004's own evidence):** pixels
+    /// inside any of these frames are skipped entirely — neither measured for `coverage` nor for
+    /// `maxGlyphContrast` — because `chromeOwnContent` identifies them as a *different*,
+    /// already-identified element's own legitimate content (the bar's title, subtitle or a
+    /// button), not a possible leak of the element actually being judged. Run 38729620004's own
+    /// evidence (`pmo-audit/.build-audit/mvp2d/crop-exact-region.png`): Calendar's previous-day
+    /// heading row (370 x 58 pt, `calendar.dayHeading`, only two thirds of it under the bar) was
+    /// measured at 78.55% coverage and an 18.57:1 glyph with no exclusion, entirely because the
+    /// navigation bar's own two-line title ("October" / "Updated just now") sits inside that same
+    /// rectangle — confirmed by direct visual inspection of the screenshot crop, which shows no
+    /// trace of the row's own text anywhere in it. Excluding the title and subtitle's own frames
+    /// (`chromeOwnContent`) is what a reviewer would do by eye; this is that same judgement, made
+    /// in test code from already-identified elements, not a guess at unidentified pixels.
+    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect,
+                               excluding: [CGRect] = []) -> (coverage: Double, maxGlyphContrast: Double)? {
         guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
         let x0 = max(0, Int((regionFrame.minX * pixelScale).rounded()))
         let y0 = max(0, Int((regionFrame.minY * pixelScale).rounded()))
         let x1 = min(pixelWidth, Int(((regionFrame.minX + regionFrame.width) * pixelScale).rounded()))
         let y1 = min(pixelHeight, Int(((regionFrame.minY + regionFrame.height) * pixelScale).rounded()))
         guard x1 > x0, y1 > y0 else { return nil }
+        // Excluded frames converted to pixel bounds once, not per pixel.
+        let excludedPixelRects: [(x0: Int, y0: Int, x1: Int, y1: Int)] = excluding.map { rect in
+            (x0: Int((rect.minX * pixelScale).rounded()), y0: Int((rect.minY * pixelScale).rounded()),
+             x1: Int(((rect.minX + rect.width) * pixelScale).rounded()), y1: Int(((rect.minY + rect.height) * pixelScale).rounded()))
+        }
+        func isExcluded(_ x: Int, _ y: Int) -> Bool {
+            excludedPixelRects.contains { x >= $0.x0 && x < $0.x1 && y >= $0.y0 && y < $0.y1 }
+        }
         var withinTolerance = 0
         var total = 0
         var maxGlyphContrast = 1.0
@@ -1487,13 +1575,19 @@ struct A11yScene {
             for y in y0..<y1 {
                 var rowCounts: [UInt32: Int] = [:]
                 let rowStart = y * pixelWidth * 4
-                for x in x0..<x1 {
+                for x in x0..<x1 where !isExcluded(x, y) {
                     let offset = rowStart + x * 4
                     let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
                     rowCounts[key, default: 0] += 1
                     total += 1
-                    if Self.isNear(key, background) { withinTolerance += 1 }
+                    // MVP-2d: exact tolerance match, or no more than the same contrast bound the
+                    // glyph test itself uses (this method's own doc comment has why).
+                    if Self.isNear(key, background)
+                        || Self.navBarContrastRatio(key, background) <= Self.navBarGlyphContrastThreshold {
+                        withinTolerance += 1
+                    }
                 }
+                guard !rowCounts.isEmpty else { continue }
                 let extreme = rowCounts.keys.map { Self.navBarContrastRatio($0, background) }.max() ?? 1.0
                 guard extreme >= 1.05 else { continue }
                 let cut = 1 + (extreme - 1) * 0.5
