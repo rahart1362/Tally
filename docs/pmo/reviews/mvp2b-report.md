@@ -729,4 +729,33 @@ alone, 0 occurrences of the literal `280` left anywhere in the file).
     `textClipped` issues each in Light std, Dark std and Light AX5 (one) — every one measured
     **100.0% coverage, 1.13:1 max glyph contrast** against the bar's own colour
     (`pmo-audit/.build-audit/mvp2d/ios-build-job-38741023585.log`, `only-evidence-2/`).
-- scope=a11y, release gate, PR run: below, once dispatched.
+- scope=a11y (budgeted at 1; a second was needed, see below for why):
+  - [38745363478](https://github.com/rahart1362/Tally/actions/runs/38745363478) (`cf9811b`): Light
+    (all 26 methods) and Increase Contrast (all 16) passed first attempt.
+    `AccessibilityAuditDarkUITests.testCalendar` failed on its two elementless `textClipped`
+    issues — the first real test of ruling 1 under true Dark rendering: `scope=only` never
+    switches the simulator's own appearance (its class name notwithstanding), so runs
+    38729620004 and 38741023585 above exercised only Light colours for every class, "Dark" and
+    "Contrast" included. `pmo-audit/.build-audit/mvp2d/a11y-job-38745363478.log` and
+    `a11y-evidence/Tally-a11y-dark/` have the failure; `measureNavBarCoverage`'s own doc comment
+    and commit `8bc1e90` have the root cause and the fix (an excluded button's anti-aliased edge,
+    exactly 2 pixels a row across ~100 rows, read as a 2.01:1 "glyph" — over the 1.5:1 bound —
+    although the real glyph the same run measured, the navigation bar's own title, was never
+    under 50 pixels in any row it occupied; `navBarGlyphMinimumPixelCount` now floors a row's
+    glyph candidate at 8 pixels before it can count). Re-verified against this run's own
+    screenshot in Python before redispatching (coverage 99.48%, max glyph read as 1.00:1 once the
+    noise is floored out, against a 100.00%/1.10:1 regression check on the known-good light-std
+    case). **Why a second scope=a11y dispatch, over the nominal budget of 1:** the release gate
+    (below) runs this exact same Dark audit as part of `REL.a11y.audit`; dispatching it without
+    first confirming the fix under real Dark colours would very likely spend the single, scarcer
+    release-gate budget line on a known, preventable repeat of this same failure.
+  - [38757233994](https://github.com/rahart1362/Tally/actions/runs/38757233994) (`8bc1e90`): **all
+    58 methods passed** (Light 26, Dark 16, Increase Contrast 16; confirmed by the job log's own
+    58 "passed" / 0 "failed" lines, not only the green run). The navigation-bar hold fired 7 times
+    (`calendar.dayHeading` `contrast` in Light std and the Contrast class; elementless
+    `textClipped` twice each in Light std and Dark std, once in Light AX5) — **minimum coverage
+    99.5%, maximum glyph contrast 1.11:1** across every held issue
+    (`pmo-audit/.build-audit/mvp2d/a11y-job-38757233994.log`, `a11y-evidence-2/`). Dark's own
+    `calendar.dayHeading` was not flagged at all this run (the audit's own scroll position is
+    date-dependent, run to run); nothing else changed.
+- Release gate, PR run: below, once dispatched.
