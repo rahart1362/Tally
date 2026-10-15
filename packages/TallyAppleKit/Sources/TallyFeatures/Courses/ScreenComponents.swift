@@ -152,13 +152,40 @@ struct StatusChip: View {
 /// ux-fp2 D11: a row of status chips that wraps instead of squeezing them. Side by side while they
 /// fit on one line at their full size; otherwise one under the other (the smallest iPhone in To-Do's
 /// select mode read "Not sub…" next to "High pri…", and AX5 split them mid-word).
+///
+/// MVP-2f gate-2 (fix list item 3): `ViewThatFits` picks between the two stacks above by each one's
+/// own IDEAL size (every chip at its natural single-line width, `lineLimit` or not — "ideal" means
+/// unconstrained). At accessibility sizes a chip's natural single-line width can exceed the row's
+/// own width on its own, so neither alternative's ideal size ever fits and `ViewThatFits` falls back
+/// to its last alternative, squeezed into the row's width with no definite width handed to the
+/// `Text` inside to wrap against — the gate-2 final review's own evidence (verdict §3): "Not
+/// subm…" on the smallest iPhone at AX5 outside select mode, "Not submi…" and "High priori…" on Pro
+/// Max in select mode. FP-2's rule is that a VALUE never breaks mid-token; these are word chips
+/// (never `.valueStyle()`), so wrapping between words is the correct fix, not shrinking them.
+///
+/// The Courses xxxLarge precedent (`CourseCardView.usesFullWidthColumn`) is reused here: at
+/// accessibility sizes and `xxxLarge` (the standard size closest to them), skip `ViewThatFits`
+/// entirely and lay the chips out in a plain `VStack` given the row's own full width directly, so
+/// each chip's `Text` is laid out against a definite, finite width (not an ideal one) and wraps
+/// (`StatusChip`'s own `.lineLimit(2)`) instead of truncating mid-word.
 struct StatusChipRow<Content: View>: View {
     @ViewBuilder let content: () -> Content
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Same threshold as `CourseCardView.usesFullWidthColumn`, for the same reason (this type's own
+    /// doc comment): a standalone copy, not a shared property, since the two types are otherwise
+    /// unrelated and neither owns the other.
+    private var usesFullRowWidth: Bool { typeSize.isAccessibilitySize || typeSize == .xxxLarge }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: TallySpacing.xs) { content() }
+        if usesFullRowWidth {
             VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: TallySpacing.xs) { content() }
+                VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
+            }
         }
     }
 }

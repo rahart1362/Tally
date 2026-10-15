@@ -561,12 +561,18 @@ extension TallyUITestCase {
     /// - An issue the audit-position rule holds (`A11yScene.heldReason`) is recorded with its
     ///   reason and does not fail the test; `docs/pmo/a11y-waivers.md` has the rule and every
     ///   issue it held, with its measurement.
-    /// - MVP-2b gate-2 round 3 (verdict item 5): a "no element" hold (`heldReason`'s own doc
-    ///   comment) is now allowed only in a `-paged` variant, only with an empty element identifier,
-    ///   capped at 3 per pass, and only confirmed by one retry of the same pass, after the list
-    ///   settles, that shows no elementless issue of the same type — otherwise it is a real,
-    ///   recurring problem, not the audit's own list-rebuild instability, and fails like any other
-    ///   issue.
+    /// - MVP-2f (gate-2 final review, ruling 1(d) — replaces gate-2 round 3's own `-paged` case,
+    ///   dead since ruling 2 removed `a11yPageToEnd`, and MVP-2e's own first attempt at this ruling,
+    ///   which the final review found never actually ran: the held reason read "under the
+    ///   navigation bar …", so a check for a `"no element"` prefix never matched it). The one
+    ///   elementless hold left (`heldReason`'s "no frame" branch, Calendar's own today variants) now
+    ///   carries an explicit flag (`HeldResult.isElementlessNavBarHold`), set only there — never
+    ///   inferred from the reason string — so this method's cap and retry apply to exactly that
+    ///   case. It is capped at 3 per pass, and confirmed only when BOTH hold on the retry, after the
+    ///   list settles: the same elementless issue of the same type is found again (stable, not a
+    ///   transient list-rebuild artifact), AND the navigation-bar pixel proof (rulings 1(a)–(c),
+    ///   unchanged) passes again, measured fresh on the retry's own new screenshot, not the first
+    ///   one. Anything short of both fails like any other issue.
     @MainActor
     func runA11yAudit(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, screen: String, variant: String,
                       file: StaticString = #filePath, line: UInt = #line) {
@@ -605,16 +611,20 @@ extension TallyUITestCase {
                     var held = waived ? nil : scene.heldReason(auditType: typeName, label: elementLabel,
                                                               elementIdentifier: elementID,
                                                               frame: elementFrame, variant: variant)
-                    let isNoElementHold = held?.hasPrefix("no element") == true
+                    // MVP-2f (gate-2 final review, ruling 1(d)): an explicit flag from `heldReason`
+                    // itself, not a reason-string prefix — the elementless nav-bar hold's own text
+                    // begins "under the navigation bar …", which a `"no element"` prefix check
+                    // (MVP-2e's own attempt) never matched, so the cap and retry below never ran.
+                    let isNoElementHold = held?.isElementlessNavBarHold == true
                     if isNoElementHold {
                         noElementCount += 1
                         noElementTypesSeen.insert(typeName)
-                        // Item 5: capped at 3 per pass.
+                        // Ruling 1(d)'s own cap: at most 3 such holds per pass.
                         if noElementCount > 3 { held = nil }
                     }
                     var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived, identifier: elementID,
                                                       label: elementLabel, frame: elementFrame, elementType: elementType)
-                    record["held"] = held ?? ""
+                    record["held"] = held?.reason ?? ""
                     pending.append(PendingIssue(record: record, elementID: elementID, elementLabel: elementLabel,
                                                 typeName: typeName, waived: waived, isNoElementHold: isNoElementHold))
                     // A no-element hold's real verdict waits on the retry below — XCTest's own
@@ -628,11 +638,16 @@ extension TallyUITestCase {
                     unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
                 }
             }
-            // Item 5: one retry, after the list settles, decides which "no element" types are
-            // confirmed transient (none of that type on the retry) versus still elementless (not
-            // held — a real, recurring issue). The retry's own issues are never recorded or waived;
-            // it exists only to answer that one question.
-            var stillElementless: Set<String> = []
+            // MVP-2f (gate-2 final review, ruling 1(d), "retry-confirmed" as the PMO defined it):
+            // one retry, after the list settles, decides whether each elementless nav-bar type stays
+            // held. Unlike the old (dead) `-paged` mechanism this replaces — which held a hold only
+            // when the type did NOT recur (confirmed transient) — this ruling needs the OPPOSITE:
+            // the issue must recur (confirmed stable, not a one-off list-rebuild artifact), AND the
+            // navigation-bar pixel proof (rulings 1(a)–(c), unchanged) must pass again, measured on
+            // a fresh screenshot taken after this same settle — never the first audit's own
+            // screenshot, which the retry's wait has by now moved past.
+            var recurredOnRetry: Set<String> = []
+            var retryPixelProofPasses = false
             if !noElementTypesSeen.isEmpty {
                 a11yWaitUntilSettled(app, timeout: 2)
                 _ = try? app.performAccessibilityAudit(for: pass) { retryIssue in
@@ -641,17 +656,32 @@ extension TallyUITestCase {
                     let retryID = retryIssue.element?.identifier ?? ""
                     let retryLabel = retryIssue.element?.label ?? ""
                     if retryFrame.width <= 0, retryFrame.height <= 0, retryID.isEmpty, retryLabel.isEmpty {
-                        stillElementless.insert(retryType)
+                        recurredOnRetry.insert(retryType)
                     }
                     return true
+                }
+                // The retry's own fresh scene and screenshot — `a11yAttachScreen` settles again
+                // (near-instant: the wait just above already settled it) and attaches
+                // `<screen>-<variant>-audit-retry-*` evidence, so a reviewer can check this
+                // measurement against the actual pixels it ran on.
+                let retryScene = a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-retry")
+                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame,
+                   let measured = retryScene.measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
+                                                                    excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent),
+                   measured.coverage >= A11yScene.navBarCoverageThreshold,
+                   measured.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold {
+                    retryPixelProofPasses = true
                 }
             }
             for item in pending {
                 var record = item.record
                 var held = (record["held"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                if item.isNoElementHold, held != nil, stillElementless.contains(item.typeName) {
-                    held = nil
-                    record["held"] = ""
+                if item.isNoElementHold, held != nil {
+                    let confirmed = recurredOnRetry.contains(item.typeName) && retryPixelProofPasses
+                    if !confirmed {
+                        held = nil
+                        record["held"] = ""
+                    }
                 }
                 issues.append(record)
                 if !item.waived && held == nil {
@@ -1093,9 +1123,22 @@ extension TallyUITestCase {
 ///     fire on any screen with a clean navigation bar; it is now checked only on Calendar's own
 ///     today variants (`pinned` is non-empty only there, and never on a `-firstDay` variant — the
 ///     only state this file ever labels that way), replacing gate-2 round 3's own dead `-paged`
-///     case (nothing has read a `-paged` variant since `a11yPageToEnd` was removed). Still capped
-///     at 3 per pass and confirmed by `runA11yAudit`'s own retry (item 5's mechanism, unchanged);
-///     `docs/pmo/a11y-waivers.md` documents it as the position-free exception the PMO has accepted.
+///     case (nothing has read a `-paged` variant since `a11yPageToEnd` was removed).
+///
+///     **MVP-2f (gate-2 final review): capped and retry-confirmed for real.** MVP-2e's own text
+///     here claimed this was "still capped at 3 per pass and confirmed by `runA11yAudit`'s own
+///     retry" — false: the retry only engages for a hold flagged `isNoElementHold`, which MVP-2e
+///     computed from `held?.hasPrefix("no element")`, and this hold's own reason text begins "under
+///     the navigation bar …", so the cap never incremented and the retry never ran (gate-2 final
+///     review verdict, section 1). `heldReason` now returns an explicit `HeldResult` carrying
+///     `isElementlessNavBarHold`, set only here, so `runA11yAudit` never has to infer it from a
+///     string. The PMO's own definition of "retry-confirmed" for this case (gate-2 final review,
+///     binding): held only when, after the list settles, a retry of the same audit (1) shows the
+///     same elementless issue again — stable, not the audit's own transient list-rebuild artifact —
+///     and (2) the navigation-bar pixel proof above (1a–1c, unchanged) passes again, measured fresh
+///     on the retry's own new screenshot; still capped at 3 per pass (`runA11yAudit`). Anything
+///     short of both fails like any other issue. `docs/pmo/a11y-waivers.md` documents it as the
+///     position-free exception the PMO has accepted.
 /// 2. **The long screens' `test<Screen>AX5` audits no longer page**: `a11yPageToEnd` (MVP-2c) is
 ///    removed, and each covers its first page only. Rows below that fold are covered by the Audit
 ///    tour's AX5 layout checks at every scroll step and the gate-2 visual review at 200%, an
@@ -1255,7 +1298,13 @@ struct A11yScene {
         // MVP-2e ruling 1(a): the navigation bar's own two glass buttons, by identifier — their
         // drawn extent (frame plus the glass circle and its shadow) reaches beyond their own
         // reported frame (this type's own doc comment on `navBarButtonGlassExtent`).
-        if Self.navBarGlassButtonIdentifiers.contains(identifier) {
+        //
+        // MVP-2f (gate-2 final review, S3 notes for the owner): gated on the INCOMING
+        // `insideChromeBar` too, so the exclusion is structural, not identifier alone — both
+        // identifiers happen to be toolbar-only today (harmless), but an element elsewhere in the
+        // tree that happened to share one of these identifiers must never be excluded from
+        // `measureNavBarCoverage`'s pixel check by its identifier alone.
+        if insideChromeBar, Self.navBarGlassButtonIdentifiers.contains(identifier) {
             navBarButtonGlassExtent.append(frame.insetBy(dx: -Self.navBarGlassButtonOutset, dy: -Self.navBarGlassButtonOutset))
         }
         // Run 38363059477: the snapshot showed the keyboard as an "Other" element, `inputView` (402 x
@@ -1300,13 +1349,31 @@ struct A11yScene {
         }
     }
 
+    /// `heldReason`'s own result: the reason text (recorded verbatim in the issue's `held` field,
+    /// unchanged), plus an explicit flag for `runA11yAudit`'s cap and retry.
+    ///
+    /// MVP-2f (gate-2 final review, ruling 1(d)): added because MVP-2e's cap/retry check
+    /// (`held?.hasPrefix("no element")`) never matched this hold's own text ("under the navigation
+    /// bar …"), so neither the cap nor the retry ever ran (verdict section 1). `isElementlessNavBarHold`
+    /// is set `true` only at this type's one elementless-hold return point, below — never inferred
+    /// from the reason string anywhere else.
+    struct HeldResult {
+        let reason: String
+        let isElementlessNavBarHold: Bool
+
+        init(_ reason: String, isElementlessNavBarHold: Bool = false) {
+            self.reason = reason
+            self.isElementlessNavBarHold = isElementlessNavBarHold
+        }
+    }
+
     /// The audit-position rule (this type's doc comment): the reason an issue is held, or `nil`.
     ///
     /// One more case, of any audit type: an element wholly inside the system keyboard is the
     /// keyboard's own (run 38357314250: Find School, Dark, three empty `TUIPredictionViewCell`s of
     /// the predictive bar, "missing useful accessibility information"), not the app's.
     func heldReason(auditType: String, label: String, elementIdentifier: String, frame rawFrame: CGRect,
-                    variant: String) -> String? {
+                    variant: String) -> HeldResult? {
         let frame = Self.finite(rawFrame)
         guard frame.width > 0, frame.height > 0 else {
             // Item 11 (gate-2 round 2): paging to audit rows below the fold scrolls a `List`
@@ -1316,19 +1383,22 @@ struct A11yScene {
             // With no element and no frame there is nothing to measure, reproduce or waive by
             // identifier — the audit's own instability, not a finding about the app.
             //
-            // MVP-2e ruling 1(d) (the PMO's binding ruling, final gate-2 review — replaces gate-2
-            // round 3's own `-paged` case, dead since ruling 2 removed `a11yPageToEnd` itself: no
-            // variant has read "-paged" since, docs/pmo/a11y-waivers.md's own PARTIAL note on it).
-            // An elementless `textClipped` issue has no frame of its own to check against the
-            // navigation bar at two thirds' overlap, so it is checked the strictest way instead —
-            // nothing anywhere in the bar's own frame may be visible, not only the (unknown) row
-            // the audit meant — and only on Calendar's own today variants (`pinned` is non-empty
-            // only there, and never on a `-firstDay` variant, the only other Calendar state this
-            // file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for — Calendar's
-            // today state, where the previous day's last rows and heading rest under the bar at the
-            // agenda's resting scroll position, and the audit returns no element for some of them
-            // once the list is away from its top. Still capped at 3 per pass and confirmed by one
-            // retry (`runA11yAudit`'s own mechanism, item 5, unchanged).
+            // MVP-2e/2f ruling 1(d) (the PMO's binding ruling, final gate-2 review — replaces
+            // gate-2 round 3's own `-paged` case, dead since ruling 2 removed `a11yPageToEnd`
+            // itself: no variant has read "-paged" since, docs/pmo/a11y-waivers.md's own PARTIAL
+            // note on it). An elementless `textClipped` issue has no frame of its own to check
+            // against the navigation bar at two thirds' overlap, so it is checked the strictest way
+            // instead — nothing anywhere in the bar's own frame may be visible, not only the
+            // (unknown) row the audit meant — and only on Calendar's own today variants (`pinned` is
+            // non-empty only there, and never on a `-firstDay` variant, the only other Calendar
+            // state this file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for —
+            // Calendar's today state, where the previous day's last rows and heading rest under the
+            // bar at the agenda's resting scroll position, and the audit returns no element for some
+            // of them once the list is away from its top.
+            //
+            // MVP-2f: this measurement, on THIS screenshot, is the proof `runA11yAudit`'s retry
+            // must reproduce fresh (its own doc comment) before this hold is kept; `isElementlessNavBarHold`
+            // is the explicit flag that routes it there, not this reason string's own wording.
             guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                   !pinned.isEmpty, !variant.contains("firstDay"),
                   let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
@@ -1336,10 +1406,10 @@ struct A11yScene {
                                                        excluding: chromeOwnContent + navBarButtonGlassExtent),
                   measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold
             else { return nil }
-            return Self.navBarHoldReason(measured, noElement: true)
+            return HeldResult(Self.navBarHoldReason(measured, noElement: true), isElementlessNavBarHold: true)
         }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
-            return "on the system keyboard"
+            return HeldResult("on the system keyboard")
         }
         guard auditType == "contrast" || auditType == "textClipped" else { return nil }
         guard let node = scrolling.first(where: { $0.label == label && Self.same($0.frame, frame) }) else { return nil }
@@ -1347,13 +1417,13 @@ struct A11yScene {
         if node.insidePinned { return nil }
         let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
         if Self.isPartlyOutside(frame, inView, axis: node.axis) {
-            return "partly outside its scroll view or the window"
+            return HeldResult("partly outside its scroll view or the window")
         }
         // Item 5: textClipped is held only in the partly-outside case above, never for chrome or a
         // pinned bar (occlusion does not explain a clipping prediction).
         guard auditType == "contrast" else { return nil }
         if chrome.contains(where: { $0.kind.canHoldContrast && Self.overlapsByAtLeastAThird($0.frame, frame) }) {
-            return "under system chrome"
+            return HeldResult("under system chrome")
         }
         // MVP-2d ruling 1 (the PMO's binding ruling): the navigation bar can hold a `contrast`
         // issue too, but only on a passing in-test pixel measurement — position alone is not
@@ -1361,13 +1431,16 @@ struct A11yScene {
         // Needs at least two thirds of the issue's own frame height under the bar (stricter than
         // the one third "under system chrome" rule just above, since `ChromeKind.canHoldContrast`
         // still excludes the navigation bar from that plain rule); `measureNavBarCoverage` then
-        // checks the issue's own frame region against the bar's own background colour.
+        // checks the issue's own frame region against the bar's own background colour. This is
+        // NEVER the elementless case above (it has its own frame), so `isElementlessNavBarHold`
+        // stays `false` — ruling 1(d)'s cap and retry are not ruling 1(a)–(c)'s, which stay
+        // unchanged.
         if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
            Self.overlapsByAtLeastTwoThirds(navBar, frame),
            let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
                                                 excluding: chromeOwnContent + navBarButtonGlassExtent),
            measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
-            return Self.navBarHoldReason(measured)
+            return HeldResult(Self.navBarHoldReason(measured))
         }
         // Item 3 (gate-2 round 3): narrowed to >= 1/3 overlap (like the chrome case above), and
         // only for an element that ENDS ABOVE the selected day's own heading — content genuinely
@@ -1381,13 +1454,13 @@ struct A11yScene {
            let selected = selectedDayNumber,
            let heading = dayHeadings.first(where: { Self.dayNumber(in: $0.label) == selected })?.frame,
            frame.maxY <= heading.minY + 0.5 {
-            return "under the screen's pinned bar"
+            return HeldResult("under the screen's pinned bar")
         }
         if dimming.contains(where: { $0.intersects(frame) }), let measured = measureFadeBandContrast(frame: frame) {
             // Item 4: 4.5:1 always — the frame-height large-text exception is dropped (a two-line
             // caption is not 18 pt bold; `isLargeText` is gone).
             if measured >= 4.5 {
-                return "in the fade band, measured \(String(format: "%.2f", measured)):1 on the audit screenshot (row median)"
+                return HeldResult("in the fade band, measured \(String(format: "%.2f", measured)):1 on the audit screenshot (row median)")
             }
         }
         return nil

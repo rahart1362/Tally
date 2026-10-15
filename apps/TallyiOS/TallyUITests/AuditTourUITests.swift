@@ -405,14 +405,34 @@ final class AuditTourUITests: TallyUITestCase {
             }
             snap(app, screen: "todo", state: "batchSelect", reachedVia: "Select, then two rows tapped")
             if app.buttons["todo.markDone"].exists { app.buttons["todo.markDone"].tap() }
+            // MVP-2f (fix list item 2): `todo.markDone`'s own `withAnimation { editMode = .inactive }`
+            // (`ToDoScreen.swift`) can still be in flight when the capture below starts — the
+            // gate-2 final review's own evidence: both Pro Max AX5 legs were captured with the
+            // "Cancel" bar and the "Mark Done" pill still on screen (verdict section 3). `todo.select`
+            // is the SAME toggle button in both states ("Select"/"Cancel", switched on
+            // `editMode.isEditing` — never matched by its label, which L10N translates), so once the
+            // screen settles, if `todo.markDone` is still there, batch-select mode never actually
+            // closed (for example, no "Not Done" row existed on this leg to select and mark), and
+            // tapping `todo.select` again forces it shut before the AX5 capture below.
+            _ = waitUntilAtRest(app)
+            if app.buttons["todo.markDone"].exists {
+                app.buttons["todo.select"].tap()
+                _ = waitUntilAtRest(app)
+            }
         }
 
         // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — To-Do's
         // rows below the AX5 fold had no tour evidence at all (verdict section 4). Gated on the
         // AX5 leg only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        //
+        // MVP-2f (fix list item 2): the gate-2 final review found all 4 AX5 legs still scrolling at
+        // `maxScreens: 10` (1,483-2,124 rows still changing on each of the last 3 steps, verdict
+        // section 3) — raised well above 10, like Insights' own cap (`testF_insights`), so
+        // `captureScreenfuls`' own "unchanged screenshot" rule is what actually stops it, not this
+        // count.
         if Self.isAX5Leg {
             scrollToTop(app)
-            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 10)
+            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 40)
         }
 
         app.terminate()
@@ -748,6 +768,22 @@ final class AuditTourUITests: TallyUITestCase {
         guard goScrolling(app.buttons["family.sample.viewAsParent"], app, screen: "family", state: "parentDashboard",
                           reachedVia: "Settings -> Explore Parent Mode", maxSwipes: 30) else {
             // L10N-04: was app.buttons["Done"] — the English label, which Spanish changes.
+            if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
+            finish("N")
+            app.terminate()
+            return
+        }
+        // MVP-2f (fix list item 2): `goScrolling`'s own tap only confirms the button was hittable
+        // and tapped (this file's own doc comment on `go`), never that Parent Mode actually opened.
+        // The gate-2 final review found smallest-light-ax5 never left the Settings sheet: every
+        // "family" capture below it — `top` and `scroll1-3` — was still "Dana Sample, Explore
+        // Parent Mode, Version, Privacy Policy", mislabelled as Parent Mode (verdict section 3).
+        // `family.switcher` (the student switcher) is on screen whenever Parent Mode really is, so
+        // its absence files this leg's entry as `missing-parentDashboard`, and the rest of this
+        // screen's steps — which all assume Parent Mode — are skipped, rather than capturing and
+        // labelling the wrong screen without noticing.
+        guard element("family.switcher", in: app).waitForExistence(timeout: 10) else {
+            snap(app, screen: "family", state: "missing-parentDashboard", reachedVia: "Settings -> Explore Parent Mode")
             if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
             finish("N")
             app.terminate()

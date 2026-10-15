@@ -80,13 +80,22 @@ element's frame and the screenshot taken at the audit moment, and decides each o
     returned no hint for a visibly truncated "Needs atte…"). "Clipping" checks only the window's
     own edges, not a container's. These numbers are a starting point for the reviewer reading the
     screenshots at 200%, not a pass/fail signal on their own.
-  - **The tour's scroll coverage, made real (MVP-2e):** To-Do and Parent Mode previously had no
-    scroll capture at all (`testE_toDo`/`testN_sampleDataAndParentMode`, `AuditTourUITests.swift`)
-    — their rows below the AX5 fold had no tour evidence of any kind, not even a hint. Both now
-    capture AX5 screenfuls down to their own end, gated on the AX5 leg. Insights previously hit its
-    10-screenful cap before reaching its true end at AX5 on the smallest device
-    (`smallest-light-ax5/86-insights-scroll10` ended mid-card); its cap is now 20, matching
-    Settings' own.
+  - **The tour's scroll coverage, made real (MVP-2e; corrected MVP-2f).** To-Do and Parent Mode
+    previously had no scroll capture at all (`testE_toDo`/`testN_sampleDataAndParentMode`,
+    `AuditTourUITests.swift`) — their rows below the AX5 fold had no tour evidence of any kind, not
+    even a hint. MVP-2e added AX5 scroll capture, gated on the AX5 leg, but claimed "both now
+    capture AX5 screenfuls down to their own end" — the gate-2 final review found that false on
+    both screens: To-Do's 4 AX5 legs all hit the 10-screenful cap still scrolling (1,483–2,124 rows
+    changing on each of the last 3 steps), and Parent Mode's smallest-light-ax5 leg never left the
+    Settings sheet (`goScrolling`'s own tap landed without the screen actually becoming Parent
+    Mode, so every "family" capture on that leg was the Settings sheet, mislabelled). MVP-2f:
+    To-Do's cap is now 40 (`captureScreenfuls`' own "unchanged screenshot" rule is meant to stop it
+    first, as it does for Insights below); Parent Mode's entry is now confirmed by `family.switcher`
+    existing before any capture, filing a failed entry as `missing-parentDashboard` instead of
+    mislabelling it. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run's own
+    per-leg counts. Insights previously hit its 10-screenful cap before reaching its true end at
+    AX5 on the smallest device (`smallest-light-ax5/86-insights-scroll10` ended mid-card); its cap
+    is 20, matching Settings' own, and reaches the end on all 4 AX5 legs (MVP-2e).
 
   No further attempt to re-page the accessibility audit API itself is expected without a method
   that does not relayout the list mid-measurement (for example, measuring each row's text at the
@@ -150,12 +159,25 @@ element's frame and the screenshot taken at the audit moment, and decides each o
   - **The elementless `textClipped` hold is bounded to where it is evidenced** (ruling 1(d), fix
     list item 1(d)): Calendar's own today variants only (`light-std`, `dark-std`, `light-ax5`,
     `contrast` — never `-firstDay`, the only other Calendar state this suite audits), **at most 3
-    per pass**, and **only confirmed by `runA11yAudit`'s own retry** after the list settles (the
-    same mechanism the old, now-removed `-paged` case used). This is the position-free exception
-    the PMO has accepted: the issue has no element, frame or label of its own, so nothing about
-    *where* on the bar it would sit can be checked — only that the bar's own whole frame, at this
-    moment, on this screen, shows nothing visible. Evidence: run 38757233994 held 5 such issues
-    (light-std ×2, dark-std ×2, light-ax5 ×1), each confirmed by the retry, none exceeding the cap.
+    per pass**. This is the position-free exception the PMO has accepted: the issue has no element,
+    frame or label of its own, so nothing about *where* on the bar it would sit can be checked —
+    only that the bar's own whole frame, at this moment, on this screen, shows nothing visible.
+
+    **MVP-2f (gate-2 final review): the cap and retry corrected.** MVP-2e's text here, and its
+    code, claimed this hold was "only confirmed by `runA11yAudit`'s own retry" (the old `-paged`
+    case's mechanism). False on both counts: that mechanism checks a reason string for a `"no
+    element"` prefix, and this hold's own text begins "under the navigation bar …", so the retry
+    never ran and the cap never incremented — run 38757233994's 5 held issues (light-std ×2,
+    dark-std ×2, light-ax5 ×1) were **not** confirmed by any retry, contrary to what this row
+    previously said; the previous review's run 38727620004 (section 3.4) had the same mismatch, so
+    its own retry never ran either. `heldReason` now returns this hold flagged explicitly
+    (`A11yScene.HeldResult.isElementlessNavBarHold`), never inferred from the string, so
+    `runA11yAudit`'s cap and retry apply for real. The PMO's own definition of "retry-confirmed"
+    for this case (binding): held only when, after the list settles, a retry of the same audit (1)
+    finds the same elementless issue again — stable, not the audit's own transient list-rebuild
+    artifact — **and** (2) the navigation-bar pixel proof above passes again, measured fresh on the
+    retry's own new screenshot, never the first audit's. Anything short of both fails like any other
+    issue. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run evidence.
 
   **The D01 protection stays**: anything the pixel check finds actually visible — any row above
   1.5:1, or under 95% coverage — still fails, exactly as it would have failed before either ruling.
