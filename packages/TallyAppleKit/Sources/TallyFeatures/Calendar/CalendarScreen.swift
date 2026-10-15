@@ -188,11 +188,13 @@ struct CalendarScreen: View {
 private struct DayHeading: View {
     /// The system header "Mon, Oct 12" in scope=a11y run 38550012702 (light-std, before round 3's
     /// change): the previous card ends at y = 476.3, the capitals' tops are at 508.0 and the
-    /// header's own card starts at 534.3. With the section spacing at zero these insets put the
-    /// heading's text (its box starts 4.2 pt above the capitals) at those same distances.
+    /// header's own card starts at 534.3, so 31.7 pt from the card above to the capitals and 26.3
+    /// pt from the capitals to the card below. With the section spacing at zero these insets put the
+    /// heading's capitals at those distances (scope=only run 38672964445 measured 31.0 and 27.0 with
+    /// 27.5 and 10, hence 28.2 and 9.3; the 58 pt between the cards is unchanged).
     enum Metrics {
-        static let top: CGFloat = 27.5
-        static let bottom: CGFloat = 10
+        static let top: CGFloat = 28.2
+        static let bottom: CGFloat = 9.3
         static let horizontal: CGFloat = 16
     }
 

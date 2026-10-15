@@ -535,6 +535,9 @@ extension TallyUITestCase {
     static let a11yPageDragTo: CGFloat = 0.22
     /// MVP-2c: more pages than any screen needs at AX5; reaching it fails the test (see below).
     static let a11yMaxPages = 30
+    /// MVP-2c: how far (pt) a page's anchor text may sit from where it was before the page's audit
+    /// and still count as not moved.
+    static let a11yAnchorTolerance: CGFloat = 2
 
     /// MVP-2b gate-2 round 3 (verdict item 6): one screenful at a time to the end of the list,
     /// auditing each page, so Settings' lower rows (Exit Sample Data, Language, English, Show every
@@ -551,6 +554,17 @@ extension TallyUITestCase {
     ///   Settings reached its end by page 6 and was audited 7 more times at the same rows, To-Do from
     ///   page 8 on, and Insights until the 20-page cap.
     /// Reaching `maxPages` without the end fails: a silent stop would leave rows unaudited.
+    ///
+    /// **And a page whose audit moved the list stops the paging, failing.** On a `List` the two
+    /// growing checks lay the screen out at other text sizes, and the list does not come back to the
+    /// same rows (scope=only run 38672964445: every first drag from the top moved exactly 549.3 pt,
+    /// and after any audit away from the top the next screenshot no longer lined up with the last;
+    /// Settings came back to its top every fourth page, To-Do jumped both ways, and both ran out of
+    /// time). The page's own second pass then audits other rows, and an issue whose element was
+    /// recycled meanwhile comes back with no element. A `ScrollView` screen keeps its place
+    /// (Dashboard, same run). So each page notes one text's position before its audit
+    /// (`a11yPageAnchor`) and checks it afterwards: auditing on at the wrong rows would not be the
+    /// coverage item 6 asks for. `docs/pmo/a11y-waivers.md` has this as an open decision.
     @MainActor
     func a11yPageToEnd(_ app: XCUIApplication, maxPages: Int = TallyUITestCase.a11yMaxPages,
                        file: StaticString = #filePath, line: UInt = #line, onPage: (Int) -> Void) {
@@ -563,9 +577,50 @@ extension TallyUITestCase {
             let current = a11yListBand(app)
             if current == previous { return }
             previous = current
+            let anchor = a11yPageAnchor(app)
             onPage(index)
+            a11yWaitUntilSettled(app)
+            if let anchor, a11yAnchorMoved(anchor, in: app) {
+                XCTFail("page \(index): its audit moved the list ('\(anchor.label)' is no longer at y = \(anchor.minY)), " +
+                        "so later pages would be audited at the wrong rows; paging stopped", file: file, line: line)
+                return
+            }
         }
         XCTFail("paging reached \(maxPages) pages before the end of the list", file: file, line: line)
+    }
+
+    /// MVP-2c: the topmost text wholly inside the paging band whose label appears once on screen,
+    /// and its top edge: a mark for whether the page's audit moved the list.
+    @MainActor
+    private func a11yPageAnchor(_ app: XCUIApplication) -> (label: String, minY: CGFloat)? {
+        guard let root = try? app.snapshot() else { return nil }
+        let top = root.frame.height * Self.a11yPageDragTo
+        let bottom = root.frame.height * Self.a11yPageDragFrom
+        var texts: [(label: String, minY: CGFloat, maxY: CGFloat)] = []
+        var pending: [XCUIElementSnapshot] = [root]
+        while let node = pending.popLast() {
+            let kind = node.elementType
+            let label = node.label
+            let frame = node.frame
+            if kind == .staticText, !label.isEmpty {
+                texts.append((label: label, minY: frame.minY, maxY: frame.maxY))
+            }
+            pending.append(contentsOf: node.children)
+        }
+        let counts = Dictionary(texts.map { ($0.label, 1) }, uniquingKeysWith: +)
+        return texts.filter { $0.minY >= top && $0.maxY <= bottom && counts[$0.label] == 1 }
+            .min { $0.minY < $1.minY }
+            .map { (label: $0.label, minY: $0.minY) }
+    }
+
+    /// MVP-2c: `true` when `anchor`'s text is gone, doubled or more than `a11yAnchorTolerance` from
+    /// where it was.
+    @MainActor
+    private func a11yAnchorMoved(_ anchor: (label: String, minY: CGFloat), in app: XCUIApplication) -> Bool {
+        let matches = app.staticTexts.matching(NSPredicate(format: "label == %@", anchor.label))
+        guard matches.count == 1 else { return true }
+        let minY = matches.element(boundBy: 0).frame.minY
+        return abs(minY - anchor.minY) > Self.a11yAnchorTolerance
     }
 
     /// The band of a screenshot between `a11yPageDragTo` and `a11yPageDragFrom` (list content only:
@@ -649,15 +704,20 @@ extension TallyUITestCase {
             do {
                 try app.performAccessibilityAudit(for: pass) { issue in
                     let typeName = Self.a11yAuditTypeName(issue.auditType)
-                    let elementID = issue.element?.identifier ?? ""
+                    // MVP-2c: each read of an issue's element is a query (about 0.1 s); read each
+                    // field once (run 38672964445's log: 2.9 s a page on three waived issues).
+                    let element = issue.element
+                    let elementID = element?.identifier ?? ""
                     // CI run 38306768609: most issues land on a plain `Text` with no identifier;
                     // `element?.label` gives the actual words to search the source for. Never part
                     // of the waiver key: several unidentified elements share the empty identifier.
-                    let elementLabel = issue.element?.label ?? ""
+                    let elementLabel = element?.label ?? ""
+                    let elementFrame = A11yScene.finite(element?.frame ?? .zero)
+                    let elementType = Int(element?.elementType.rawValue ?? 0)
                     let waived = !elementID.isEmpty && A11yWaivers.isWaived(elementIdentifier: elementID, auditType: typeName)
                     var held = waived ? nil : scene.heldReason(auditType: typeName, label: elementLabel,
                                                               elementIdentifier: elementID,
-                                                              frame: issue.element?.frame ?? .zero, variant: variant)
+                                                              frame: elementFrame, variant: variant)
                     let isNoElementHold = held?.hasPrefix("no element") == true
                     if isNoElementHold {
                         noElementCount += 1
@@ -665,7 +725,8 @@ extension TallyUITestCase {
                         // Item 5: capped at 3 per pass.
                         if noElementCount > 3 { held = nil }
                     }
-                    var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived)
+                    var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived, identifier: elementID,
+                                                      label: elementLabel, frame: elementFrame, elementType: elementType)
                     record["held"] = held ?? ""
                     pending.append(PendingIssue(record: record, elementID: elementID, elementLabel: elementLabel,
                                                 typeName: typeName, waived: waived, isNoElementHold: isNoElementHold))
@@ -726,14 +787,13 @@ extension TallyUITestCase {
     /// missing or non-finite frame is recorded as zero (JSONSerialization rejects infinity, and
     /// one bad number would drop the whole attachment).
     @MainActor
-    static func a11yIssueRecord(_ issue: XCUIAccessibilityAuditIssue, typeName: String, waived: Bool) -> [String: Any] {
-        let element = issue.element
-        let frame = A11yScene.finite(element?.frame ?? .zero)
-        return [
+    static func a11yIssueRecord(_ issue: XCUIAccessibilityAuditIssue, typeName: String, waived: Bool, identifier: String,
+                                label: String, frame: CGRect, elementType: Int) -> [String: Any] {
+        [
             "type": typeName,
-            "element": element?.identifier ?? "",
-            "elementLabel": element?.label ?? "",
-            "elementType": Int(element?.elementType.rawValue ?? 0),
+            "element": identifier,
+            "elementLabel": label,
+            "elementType": elementType,
             "frame": A11yScene.json(frame),
             "description": issue.compactDescription,
             "detailedDescription": issue.detailedDescription,
