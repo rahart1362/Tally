@@ -100,7 +100,8 @@ element's frame and the screenshot taken at the audit moment, and decides each o
     Light (`calendar (light-std)`, both attempts of run 38672964445) and "Wed, Oct 14"
     (y = 127.3–185.3, 74% under the bar) in Increase Contrast (`calendar (contrast)`, both
     attempts of run 38701661581) are each held or not strictly on what the audit screenshot itself
-    shows there, not on where they sit — MVP-2d's own CI run (below) has the measured numbers;
+    shows there, not on where they sit — `docs/pmo/reviews/mvp2b-report.md`'s MVP-2d section has
+    every run's own measured numbers;
   - an elementless **textClipped** issue (no frame of its own: the list was away from its top when
     `textClipped` grew the text, `a11yPasses`, and the recycled row's element did not resolve) is
     checked the strictest way instead, since there is no element frame to apply the two-thirds test
@@ -206,7 +207,11 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
     needed the same 1.5:1 bound a strict `colourTolerance` match alone could not clear on a real
     device: a soft shadow under the navigation bar's own glass buttons, the same artifact the
     `calendar.weekStrip.weekday` waiver above already documents, shifts a few RGB values past the
-    tolerance without ever approaching a readable glyph).
+    tolerance without ever approaching a readable glyph). A row's glyph candidate must also clear
+    `A11yScene.navBarGlyphMinimumPixelCount` (8) pixels before it can move the maximum: scope=a11y
+    run 38745363478's own evidence (Dark Calendar) found an excluded button's own anti-aliased edge
+    reading as a 2-pixel "glyph" at up to 2.01:1 in about 100 rows, where the real glyph the same
+    run measured (the navigation bar's own title) was never under 50 pixels in any row.
   Both measured numbers are recorded in the held reason (`A11yScene.navBarHoldReason`). See the
   Calendar note above for the issues this was written for and their measured values.
 - Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
