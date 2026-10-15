@@ -9523,6 +9523,24 @@
         }
       }
     },
+    "settings.signOut.footer" : {
+      "comment" : "Settings, Account section footer, shown under Sign Out & Erase when signed in (EB-17, dossier.md §12 P3; R-11): explains that deleting the app alone can leave Tally's Canvas access active at the school, so Sign Out & Erase should happen first. NEW key, PENDING owner approval.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before you delete Tally, use Sign Out & Erase to end its access at your school."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Antes de eliminar Tally, usa Cerrar sesión y borrar para terminar su acceso en tu escuela."
+          }
+        }
+      }
+    },
     "settings.signOut.title" : {
       "comment" : "Settings: the sign-out confirmation dialog's title.",
       "extractionState" : "manual",

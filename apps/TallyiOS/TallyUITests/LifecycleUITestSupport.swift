@@ -9,6 +9,9 @@ enum TestHooks {
     /// The account's Canvas is the bundled flagship replay: no network in any test.
     static let replayAccounts = ["-TallyTestHooks.replayAccounts", "YES"]
     static let blockNetwork = ["-TallyTestHooks.blockNetwork", "YES"]
+    /// Every seam the composition root wires an `HTTPTransport` into traps instead of sending
+    /// (`ReviewPathUITests`' proof of O6, which needs no signed-in account unlike `blockNetwork`).
+    static let trapAllNetwork = ["-TallyTestHooks.trapAllNetwork", "YES"]
     static let demoSignIn = ["-TallyTestHooks.demoSignIn", "YES"]
     static let signOutButton = ["-TallyTestHooks.signOutButton", "YES"]
     static let appLockOn = ["-TallyTestHooks.appLock", "on"]
