@@ -93,11 +93,16 @@ final class AccessibilityAuditUITests: TallyUITestCase {
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
-    /// MVP-2b gate-2 round 3 (verdict item 6): the long screens' AX5 audit pages to the end of the
-    /// list, auditing each page (`a11yPageToEnd`). MVP-2c: that AX5 audit and its pages are a method
-    /// of their own (`test<Screen>AX5`), so each gets the whole per-test ceiling: in scope=a11y run
-    /// 38660677136 the default-size audit, the AX5 audit and the pages shared one method, and four of
-    /// them (Dashboard, Courses, Course Detail, Parent Mode) ran past 300 s.
+    /// MVP-2d (the PMO's second ruling): the long screens' `test<Screen>AX5` audits cover the first
+    /// page only — no paging. MVP-2c's own paging (`a11yPageToEnd`, gate-2 round 3 item 6) found that
+    /// on every one of these screens the two growing checks (`.textClipped`, `.dynamicType`) can pull
+    /// the list to an offset of its own while auditing a later page, so a later page's audit measures
+    /// the wrong rows (`docs/pmo/a11y-waivers.md`'s paging bullet has the measured drift, screen by
+    /// screen). Rows below this fold are covered another way instead: the Audit tour's AX5 layout
+    /// checks (truncation, clipping, overlap by frame) at every scroll step, and the gate-2 visual
+    /// review at 200% — an accepted limitation, not a gap, recorded in `docs/pmo/a11y-waivers.md`
+    /// with MVP-2c's evidence. `test<Screen>AX5` is its own method, separate from the plain
+    /// `test<Screen>`, so this file's own three-classes doc comment's naming warning still applies.
     @MainActor
     func testDashboard() throws {
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, variant: "light-std")
@@ -105,9 +110,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testDashboardAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("dashboard", reach: { self.a11yReachDashboard(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -117,9 +121,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testCoursesAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("courses", reach: { self.a11yReachCourses(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -129,9 +132,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testCourseDetailAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("courseDetail", reach: { self.a11yReachCourseDetail(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     /// MVP-2b gate-2 round 2 (item 12): the medium height is the state every user opens the sheet
@@ -178,9 +180,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testToDoAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("toDo", reach: { self.a11yReachToDo(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -190,9 +191,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testInsightsAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("insights", reach: { self.a11yReachInsights(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -202,9 +202,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testSettingsAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("settings", reach: { self.a11yReachSettings(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -214,9 +213,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testPaywallAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("paywall", reach: { self.a11yReachPaywall(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -226,9 +224,8 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 
     @MainActor
     func testParentModeAX5() throws {
-        executionTimeAllowance = Self.a11yPagedAllowance
         auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
-                    variant: "light-ax5", types: [.dynamicType, .textClipped], pageToEnd: true)
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
 
     @MainActor
@@ -502,174 +499,28 @@ extension TallyUITestCase {
     /// Reaches a screen with `reach`, audits it, attaches the issue list, and terminates the app.
     /// One call per screen × variant, so a failure's message names both.
     ///
-    /// MVP-2b gate-2 round 3 (verdict item 6, replacing round 2's one-extra-swipe `page`):
-    /// `pageToEnd`, when `true`, scrolls the reached screen one screenful at a time to the end of
-    /// the list, auditing each page (`a11yPageToEnd`, below) — round 2's single second pass
-    /// (`<variant>-paged`) covered only one more screenful, so Settings' lower rows (16 tour
-    /// screenfuls at AX5 on the smallest iPhone, `docs/pmo/a11y-waivers.md`) were still never
-    /// reached. Paging after the first pass, rather than scrolling before it, keeps the first
-    /// pass's own at-rest reading of the screen as it opens.
+    /// MVP-2d (the PMO's second ruling, replacing MVP-2c's `pageToEnd`/`a11yPageToEnd`): no paging.
+    /// Every `test<Screen>AX5` method now audits the first page only; this file's own doc comment
+    /// above `testDashboard` has why, and `docs/pmo/a11y-waivers.md` has it as an accepted
+    /// limitation with MVP-2c's evidence (the audit's own growing checks could pull a later page's
+    /// list to an offset of its own, so a later page would be audited at the wrong rows).
     @MainActor
     func auditScreen(_ screen: String, reach: ([String]) -> XCUIApplication, extra: [String] = [], variant: String,
                      types: XCUIAccessibilityAuditType = TallyUITestCase.a11yDefaultSizeTypes,
-                     pageToEnd: Bool = false,
                      file: StaticString = #filePath, line: UInt = #line) {
         let app = reach(extra)
         runA11yAudit(app, for: types, screen: screen, variant: variant, file: file, line: line)
-        if pageToEnd {
-            a11yPageToEnd(app, file: file, line: line) { pageIndex in
-                runA11yAudit(app, for: types, screen: screen, variant: "\(variant)-paged-\(pageIndex)", file: file, line: line)
-            }
-        }
         app.terminate()
     }
 
-    /// MVP-2c: a paged AX5 method's own ceiling, the command line's maximum (`IOS_TEST_FLAGS`'s
-    /// `-maximum-test-execution-time-allowance 300`, the release gate's `TEST_FLAGS` alike).
-    static let a11yPagedAllowance: TimeInterval = 300
-    /// MVP-2c: one page is a drag from this height of the screen (just above the tab bar, 751 of 874
-    /// pt; no paged screen pins anything there, run 38660677136's elements) ...
-    static let a11yPageDragFrom: CGFloat = 0.86
-    /// ... to this one (192 pt, below the navigation bar's 170): 559 pt, less than the 621 pt of
-    /// list between To-Do's bars, so consecutive pages overlap and no row is skipped.
-    static let a11yPageDragTo: CGFloat = 0.22
-    /// MVP-2c: more pages than any screen needs at AX5; reaching it fails the test (see below).
-    static let a11yMaxPages = 30
-    /// MVP-2c: how far (pt) a page's anchor text may sit from where it was before the page's audit
-    /// and still count as not moved.
-    static let a11yAnchorTolerance: CGFloat = 2
-    /// MVP-2c: where a page's drag runs, as a share of the screen's width: the middle, then, if the
-    /// list did not move, 10 pt from the left edge (every paged screen's cards start at 16 pt).
-    static let a11yPageDragColumns: [CGFloat] = [0.5, 0.025]
-
-    /// MVP-2b gate-2 round 3 (verdict item 6): one screenful at a time to the end of the list,
-    /// auditing each page, so Settings' lower rows (Exit Sample Data, Language, English, Show every
-    /// grade change, At least 0.5 points) each land on an audited page. `onPage` runs after each
-    /// step that moved the list, with that page's 1-based index.
-    ///
-    /// MVP-2c, two fixes (scope=a11y run 38660677136's own pages):
-    /// - **A step is a held drag of under one screen**, not `app.swipeUp()`. The swipe's fling moved
-    ///   To-Do about 1,100 pt per page, almost two screens, so rows between pages were never in
-    ///   view. A press, a slow drag and a hold before release leave no momentum.
-    /// - **The end is a list that did not move**: the middle band of two settled screenshots,
-    ///   between the drag's two points, is compared. The old rule compared whole screenshots taken
-    ///   right after the swipe, which a bounce, a scroll indicator or the clock always changed:
-    ///   Settings reached its end by page 6 and was audited 7 more times at the same rows, To-Do from
-    ///   page 8 on, and Insights until the 20-page cap.
-    /// Reaching `maxPages` without the end fails: a silent stop would leave rows unaudited.
-    ///
-    /// **And a page whose audit moved the list stops the paging, failing.** The two growing checks
-    /// lay the screen out at other text sizes, and on every paged screen the list can come back
-    /// pulled up to an offset of its own (scope=only run 38681232896, the same both attempts:
-    /// Insights to about 1,012 pt, so +86, +635 and +1,184 pt on pages 2–4; Parent Mode to about
-    /// 71 pt; Paywall to about 36 pt; To-Do and Settings near their top; Course Detail both ways;
-    /// Courses on its fourth page, run 38684344518; Dashboard kept its place in run 38672964445 and
-    /// moved +398.7 pt on page 2 in run 38686158723). That
-    /// happens inside the growing pass, so the page's own second pass and the clamped pass itself see
-    /// other rows (Settings' "Show every grade change" was flagged on a page that does not show it),
-    /// and an issue whose element was recycled comes back with no element; dragging the page back
-    /// afterwards (tried in `1c86261`) cannot make that audit valid. So each page notes one text's
-    /// position before its audit (`a11yPageAnchor`) and records where it is after (`paging-<N>`), and
-    /// the paging stops at the first page that moved: auditing on at the wrong rows is not the
-    /// coverage item 6 asks for. `docs/pmo/a11y-waivers.md` has this as an open decision.
-    @MainActor
-    func a11yPageToEnd(_ app: XCUIApplication, maxPages: Int = TallyUITestCase.a11yMaxPages,
-                       file: StaticString = #filePath, line: UInt = #line, onPage: (Int) -> Void) {
-        var previous = a11yListBand(app)
-        for index in 1...maxPages {
-            // A drag that starts on a control can leave the list where it was (scope=only run
-            // 38677820708: Courses "ended" after 2 of its 4 pages and passed). So a step that did not
-            // move the list is tried once more from the screen's left margin, outside every card,
-            // and only a list that moved neither time is at its end.
-            var current = previous
-            for x in Self.a11yPageDragColumns where current == previous {
-                a11yPageDrag(app, x: x)
-                a11yWaitUntilSettled(app)
-                current = a11yListBand(app)
-            }
-            if current == previous { return }
-            previous = current
-            let anchor = a11yPageAnchor(app)
-            onPage(index)
-            a11yWaitUntilSettled(app)
-            guard let anchor else { continue }
-            let offset = a11yAnchorOffset(anchor, in: app)
-            let tolerance = Self.a11yAnchorTolerance
-            let moved = offset.map { abs($0) > tolerance } ?? true
-            let movement = offset.map { String(format: "moved %+.1f pt", Double($0)) } ?? "gone (off screen or repeated)"
-            a11yAttachNote("page \(index): anchor '\(anchor.label)' at y = \(anchor.minY); after its audit: " +
-                           (moved ? movement : "not moved"), name: "paging-\(index)")
-            if moved {
-                XCTFail("page \(index): its audit moved the list (anchor '\(anchor.label)' \(movement)), so this page's " +
-                        "second pass and every later page would audit other rows; paging stopped", file: file, line: line)
-                return
-            }
-        }
-        XCTFail("paging reached \(maxPages) pages before the end of the list", file: file, line: line)
-    }
-
-    /// MVP-2c: one page's step: a press at `x` (a share of the width), a slow drag from
-    /// `a11yPageDragFrom` to `a11yPageDragTo` and a hold before release, so it leaves no momentum.
-    @MainActor
-    private func a11yPageDrag(_ app: XCUIApplication, x: CGFloat) {
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: Self.a11yPageDragFrom))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: Self.a11yPageDragTo))
-        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
-    }
-
-    /// MVP-2c: the topmost text wholly inside the paging band whose label appears once on screen,
-    /// and its top edge: a mark for whether the page's audit moved the list.
-    @MainActor
-    private func a11yPageAnchor(_ app: XCUIApplication) -> (label: String, minY: CGFloat)? {
-        guard let root = try? app.snapshot() else { return nil }
-        let top = root.frame.height * Self.a11yPageDragTo
-        let bottom = root.frame.height * Self.a11yPageDragFrom
-        var texts: [(label: String, minY: CGFloat, maxY: CGFloat)] = []
-        var pending: [XCUIElementSnapshot] = [root]
-        while let node = pending.popLast() {
-            let kind = node.elementType
-            let label = node.label
-            let frame = node.frame
-            if kind == .staticText, !label.isEmpty {
-                texts.append((label: label, minY: frame.minY, maxY: frame.maxY))
-            }
-            pending.append(contentsOf: node.children)
-        }
-        let counts = Dictionary(texts.map { ($0.label, 1) }, uniquingKeysWith: +)
-        return texts.filter { $0.minY >= top && $0.maxY <= bottom && counts[$0.label] == 1 }
-            .min { $0.minY < $1.minY }
-            .map { (label: $0.label, minY: $0.minY) }
-    }
-
-    /// MVP-2c: where `anchor`'s text is now relative to where it was (pt, positive = lower), or `nil`
-    /// when it is gone or no longer unique.
-    @MainActor
-    private func a11yAnchorOffset(_ anchor: (label: String, minY: CGFloat), in app: XCUIApplication) -> CGFloat? {
-        let matches = app.staticTexts.matching(NSPredicate(format: "label == %@", anchor.label))
-        guard matches.count == 1 else { return nil }
-        return matches.element(boundBy: 0).frame.minY - anchor.minY
-    }
-
-    /// MVP-2c: a short text kept with the test's evidence (`only-evidence`, the exported attachments).
-    @MainActor
-    private func a11yAttachNote(_ text: String, name: String) {
-        let note = XCTAttachment(string: text)
-        note.name = name
-        note.lifetime = .keepAlways
-        add(note)
-    }
-
-    /// The band of a screenshot between `a11yPageDragTo` and `a11yPageDragFrom` (list content only:
-    /// no status bar clock, title or tab bar), as PNG data for `a11yPageToEnd`'s comparison.
-    @MainActor
-    private func a11yListBand(_ app: XCUIApplication) -> Data? {
-        guard let image = app.screenshot().image.cgImage else { return nil }
-        let height = CGFloat(image.height)
-        let band = CGRect(x: 0, y: (height * Self.a11yPageDragTo).rounded(), width: CGFloat(image.width),
-                          height: (height * (Self.a11yPageDragFrom - Self.a11yPageDragTo)).rounded())
-        guard let cropped = image.cropping(to: band) else { return nil }
-        return UIImage(cgImage: cropped).pngData()
-    }
+    // MVP-2d (the PMO's second ruling): `a11yPageToEnd` and its own helpers (`a11yPageDrag`,
+    // `a11yPageAnchor`, `a11yAnchorOffset`, `a11yAttachNote`, `a11yListBand`), and the constants
+    // `a11yPagedAllowance`, `a11yPageDragFrom`, `a11yPageDragTo`, `a11yMaxPages`,
+    // `a11yAnchorTolerance` and `a11yPageDragColumns`, are removed — grep over `apps/TallyiOS/`
+    // found no caller of any of them outside this file, and `auditScreen`'s own `pageToEnd`
+    // parameter (above) is gone with them. `test<Screen>AX5` now audits one page; the paging
+    // bullet in `docs/pmo/a11y-waivers.md` has why, with MVP-2c's own measurements kept as the
+    // evidence for this accepted limitation.
 
     /// `AccessibilityAuditContrastUITests`: Increase Contrast's two mechanisms (this file's top doc
     /// comment), `.contrast` only.
@@ -1186,14 +1037,34 @@ extension TallyUITestCase {
 /// scrolls (it sits in a scroll view, table or collection view, and is not itself inside a pinned
 /// subtree), which at the audit moment is not wholly in view along its own scroll axis; and, for
 /// `contrast` only, one under a tab bar or toolbar by at least a third of its own height, under one
-/// of the app's own opaque pinned bars, or in the translucent fade band with a passing in-test
-/// measurement. Every other issue still fails, and so does anything wholly in view, inside a
-/// pinned subtree, or under the navigation bar. A held issue is still attached, with its reason.
-/// The rule's two other cases: an issue on the system keyboard's own elements, and a growing-type
-/// issue (`dynamicType`/`textClipped`) with no element and no frame at all — the audit's own
-/// list-rebuild artifact (paging, item 11, makes this common enough to need a rule, not a
-/// scroll-position workaround); neither can be measured, reproduced or waived by identifier
-/// (`heldReason`).
+/// of the app's own opaque pinned bars, under the navigation bar on a passing in-test pixel proof
+/// (below), or in the translucent fade band with a passing in-test measurement. Every other issue
+/// still fails, and so does anything wholly in view or inside a pinned subtree. A held issue is
+/// still attached, with its reason. The rule's two other cases: an issue on the system keyboard's
+/// own elements, and a growing-type issue (`dynamicType`/`textClipped`) with no element and no
+/// frame at all — the audit's own list-rebuild artifact (paging, item 11, makes this common enough
+/// to need a rule, not a scroll-position workaround); neither can be measured, reproduced or
+/// waived by identifier (`heldReason`).
+///
+/// **MVP-2d (the PMO's two binding rulings).**
+/// 1. **The navigation bar can now hold a `contrast` issue, or an elementless `textClipped`
+///    issue, but only on a passing in-test pixel proof that the text is actually invisible —
+///    never on position alone (round 2's own at-rest Calendar defect, fixed in MVP-2c, is exactly
+///    why position alone was never enough; the D01 protection stays: anything visible through the
+///    bar still fails). The frame must sit at least two thirds inside the bar's own frame
+///    (`overlapsByAtLeastTwoThirds`, stricter than the generic chrome rule's one third — the bar
+///    still never qualifies for that one, `ChromeKind.canHoldContrast`), and `measureNavBarCoverage`
+///    must then measure at least 95% of that frame's pixels within `colourTolerance` of the bar's
+///    own background colour, with no pixel row reaching above 1.5:1 contrast against it. An
+///    elementless `textClipped` issue has no frame of its own to apply the two-thirds test to, so
+///    it is checked the strictest way instead: the bar's own whole frame must itself measure clean.
+///    Both measured numbers are recorded in the held reason (`navBarHoldReason`).
+/// 2. **The long screens' `test<Screen>AX5` audits no longer page**: `a11yPageToEnd` (MVP-2c) is
+///    removed, and each covers its first page only. Rows below that fold are covered by the Audit
+///    tour's AX5 layout checks at every scroll step and the gate-2 visual review at 200%, an
+///    accepted limitation recorded in `docs/pmo/a11y-waivers.md` with MVP-2c's own evidence of why
+///    (the two growing checks could pull a later page's list to an offset of its own, so paging on
+///    could audit the wrong rows).
 struct A11yScene {
     /// A scroll container's axis, inferred in `walk` from its element kind and aspect (this app's
     /// only horizontal scroller is Calendar's week strip; everything else is a vertical `List`,
@@ -1370,6 +1241,20 @@ struct A11yScene {
                auditType == "dynamicType" || auditType == "textClipped" {
                 return "no element (the audit's own list-rebuild artifact, -paged only)"
             }
+            // MVP-2d ruling 1 (the PMO's binding ruling): an elementless `textClipped` issue has
+            // no frame of its own to check against the navigation bar at two thirds' overlap, so
+            // this is the strictest version of the same proof instead — nothing anywhere in the
+            // bar's own frame may be visible, not only the (unknown) row the audit meant.
+            // `docs/pmo/a11y-waivers.md` has the evidence this exists for: Calendar's today state,
+            // where the previous day's last rows and heading rest under the bar at the agenda's
+            // resting scroll position, and the audit returns no element for some of them once the
+            // list is away from its top.
+            if elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
+               let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
+               let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar),
+               measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                return Self.navBarHoldReason(measured, noElement: true)
+            }
             return nil
         }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
@@ -1388,6 +1273,19 @@ struct A11yScene {
         guard auditType == "contrast" else { return nil }
         if chrome.contains(where: { $0.kind.canHoldContrast && Self.overlapsByAtLeastAThird($0.frame, frame) }) {
             return "under system chrome"
+        }
+        // MVP-2d ruling 1 (the PMO's binding ruling): the navigation bar can hold a `contrast`
+        // issue too, but only on a passing in-test pixel measurement — position alone is not
+        // enough (the D01 protection: anything actually visible through the bar still fails).
+        // Needs at least two thirds of the issue's own frame height under the bar (stricter than
+        // the one third "under system chrome" rule just above, since `ChromeKind.canHoldContrast`
+        // still excludes the navigation bar from that plain rule); `measureNavBarCoverage` then
+        // checks the issue's own frame region against the bar's own background colour.
+        if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
+           Self.overlapsByAtLeastTwoThirds(navBar, frame),
+           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame),
+           measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+            return Self.navBarHoldReason(measured)
         }
         // Item 3 (gate-2 round 3): narrowed to >= 1/3 overlap (like the chrome case above), and
         // only for an element that ENDS ABOVE the selected day's own heading — content genuinely
@@ -1418,6 +1316,17 @@ struct A11yScene {
         let overlap = bar.intersection(frame)
         guard !overlap.isNull, frame.height > 0 else { return false }
         return overlap.height / frame.height >= 1.0 / 3.0
+    }
+
+    /// MVP-2d ruling 1 (the PMO's binding ruling on the navigation bar): the geometric precondition
+    /// before `measureNavBarCoverage`'s pixel check runs at all — at least two thirds of the
+    /// issue's own frame height overlapped by the bar, stricter than `overlapsByAtLeastAThird`'s
+    /// one third (the navigation bar still never satisfies that plain "under system chrome" rule;
+    /// this is its own, narrower rule, gated on proof rather than overlap alone).
+    static func overlapsByAtLeastTwoThirds(_ bar: CGRect, _ frame: CGRect) -> Bool {
+        let overlap = bar.intersection(frame)
+        guard !overlap.isNull, frame.height > 0 else { return false }
+        return overlap.height / frame.height >= 2.0 / 3.0
     }
 
     /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
@@ -1537,6 +1446,137 @@ struct A11yScene {
         rowRatios.sort()
         let mid = rowRatios.count / 2
         return rowRatios.count % 2 == 0 ? (rowRatios[mid - 1] + rowRatios[mid]) / 2 : rowRatios[mid]
+    }
+
+    /// MVP-2d ruling 1 (the PMO's binding ruling): the proof a hold under the navigation bar now
+    /// needs — never position alone (the D01 protection: anything actually visible through the bar
+    /// still fails). `barFrame` supplies the bar's own background colour, its densest colour
+    /// sampled across its whole frame (`modalColour`): text is always the far smaller share of a
+    /// navigation bar's own pixels, so the mode is the bar itself, outside any text, exactly as
+    /// the ruling asks. `regionFrame` is what gets checked against it — the issue's own element
+    /// frame for a `contrast` issue, or the bar's whole frame for an elementless `textClipped`
+    /// issue, which has no frame of its own to narrow the check to (`heldReason`'s own two call
+    /// sites). Returns:
+    /// - `coverage`: the share of every pixel in `regionFrame` within `A11yScene.colourTolerance`
+    ///   of the bar's own colour (the ruling's 95% test is `heldReason`'s to apply);
+    /// - `maxGlyphContrast`: the highest contrast ratio any pixel ROW inside `regionFrame` reaches
+    ///   against that colour — a single visible glyph row still fails even where the rest of the
+    ///   region reads clean. Mirrors `measureFadeBandContrast`'s own per-row core-colour
+    ///   extraction (the densest colour at least half as far, in contrast, from the background as
+    ///   the row's farthest pixel) but against this one fixed background rather than each row's
+    ///   own, and keeps the maximum rather than the median: proving invisibility needs the worst
+    ///   row, not the typical one. A row with no pixel at least 1.05:1 from the background has no
+    ///   glyph at all and does not move the maximum.
+    ///
+    /// `nil` when there is no screenshot, either frame is off the image, or the bar's own colour
+    /// cannot be read at all (an empty frame). Deliberately duplicates rather than shares
+    /// `measureFadeBandContrast`'s nested helpers: that method is this file's own proven, CI-
+    /// measured evidence for every held fade-band issue to date, and this host has no Xcode to
+    /// recompile and re-verify it against, so it is left untouched.
+    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect) -> (coverage: Double, maxGlyphContrast: Double)? {
+        guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
+        let x0 = max(0, Int((regionFrame.minX * pixelScale).rounded()))
+        let y0 = max(0, Int((regionFrame.minY * pixelScale).rounded()))
+        let x1 = min(pixelWidth, Int(((regionFrame.minX + regionFrame.width) * pixelScale).rounded()))
+        let y1 = min(pixelHeight, Int(((regionFrame.minY + regionFrame.height) * pixelScale).rounded()))
+        guard x1 > x0, y1 > y0 else { return nil }
+        var withinTolerance = 0
+        var total = 0
+        var maxGlyphContrast = 1.0
+        pixels.withUnsafeBufferPointer { buffer in
+            for y in y0..<y1 {
+                var rowCounts: [UInt32: Int] = [:]
+                let rowStart = y * pixelWidth * 4
+                for x in x0..<x1 {
+                    let offset = rowStart + x * 4
+                    let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
+                    rowCounts[key, default: 0] += 1
+                    total += 1
+                    if Self.isNear(key, background) { withinTolerance += 1 }
+                }
+                let extreme = rowCounts.keys.map { Self.navBarContrastRatio($0, background) }.max() ?? 1.0
+                guard extreme >= 1.05 else { continue }
+                let cut = 1 + (extreme - 1) * 0.5
+                var core: [UInt32: Int] = [:]
+                for (key, count) in rowCounts where Self.navBarContrastRatio(key, background) >= cut { core[key] = count }
+                guard let glyph = Self.densestColour(core) else { continue }
+                maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
+            }
+        }
+        guard total > 0 else { return nil }
+        return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
+    }
+
+    /// MVP-2d ruling 1: the densest colour across every pixel of `frame` — the navigation bar's
+    /// own background, sampled from the bar outside any text, since text is always the smaller
+    /// share of its pixels. `nil` when `frame` is off the image or has no pixels at all.
+    private func modalColour(in frame: CGRect) -> UInt32? {
+        let x0 = max(0, Int((frame.minX * pixelScale).rounded()))
+        let y0 = max(0, Int((frame.minY * pixelScale).rounded()))
+        let x1 = min(pixelWidth, Int(((frame.minX + frame.width) * pixelScale).rounded()))
+        let y1 = min(pixelHeight, Int(((frame.minY + frame.height) * pixelScale).rounded()))
+        guard x1 > x0, y1 > y0 else { return nil }
+        var counts: [UInt32: Int] = [:]
+        pixels.withUnsafeBufferPointer { buffer in
+            for y in y0..<y1 {
+                let rowStart = y * pixelWidth * 4
+                for x in x0..<x1 {
+                    let offset = rowStart + x * 4
+                    let key = UInt32(buffer[offset]) << 16 | UInt32(buffer[offset + 1]) << 8 | UInt32(buffer[offset + 2])
+                    counts[key, default: 0] += 1
+                }
+            }
+        }
+        return Self.densestColour(counts)
+    }
+
+    /// MVP-2d ruling 1: `counts`' own densest colour, `A11yScene.colourTolerance`-grouped exactly
+    /// as `measureFadeBandContrast`'s nested `densest` groups a row's colours (the eight most
+    /// common values tried as the centre, `centreCandidates`) — a standalone copy, not a shared
+    /// call, for the same reason `measureNavBarCoverage`'s own doc comment gives.
+    private static func densestColour(_ counts: [UInt32: Int]) -> UInt32? {
+        guard !counts.isEmpty else { return nil }
+        let candidates = counts.sorted { $0.value > $1.value }.prefix(centreCandidates)
+        var best: (key: UInt32, share: Int, count: Int)?
+        for candidate in candidates {
+            let candidateShare = counts.reduce(0) { sum, entry in Self.isNear(entry.key, candidate.key) ? sum + entry.value : sum }
+            if let current = best, (current.share, current.count) >= (candidateShare, candidate.value) { continue }
+            best = (key: candidate.key, share: candidateShare, count: candidate.value)
+        }
+        return best?.key
+    }
+
+    /// MVP-2d ruling 1: WCAG 2.x relative luminance and contrast ratio, the same formulas
+    /// `measureFadeBandContrast` uses, standalone for the reason above.
+    private static func navBarLuminance(_ key: UInt32) -> Double {
+        func channel(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        let r = channel(Double((key >> 16) & 0xFF) / 255)
+        let g = channel(Double((key >> 8) & 0xFF) / 255)
+        let b = channel(Double(key & 0xFF) / 255)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    private static func navBarContrastRatio(_ a: UInt32, _ b: UInt32) -> Double {
+        let la = navBarLuminance(a), lb = navBarLuminance(b)
+        let hi = max(la, lb), lo = min(la, lb)
+        return (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// MVP-2d ruling 1: the PMO's own thresholds — at least 95% pixel coverage near the bar's own
+    /// colour, and no glyph row above this contrast against it. Below either, the hold does not
+    /// apply and the issue fails like any other (the D01 protection).
+    static let navBarCoverageThreshold: Double = 0.95
+    static let navBarGlyphContrastThreshold: Double = 1.5
+
+    /// MVP-2d ruling 1: the held reason's own text, recording both measured numbers (the ruling's
+    /// own requirement) so a reviewer can check them against the attached screenshot without
+    /// recomputing anything.
+    static func navBarHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double), noElement: Bool = false) -> String {
+        let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
+        let suffix = noElement ? " (no element of its own; the bar's whole frame measured instead)" : ""
+        return "under the navigation bar\(suffix), measured \(coveragePct)% of its pixels within colourTolerance " +
+               "of the bar's own colour, max glyph row contrast \(contrast):1 against it"
     }
 
     /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the
