@@ -538,6 +538,9 @@ extension TallyUITestCase {
     /// MVP-2c: how far (pt) a page's anchor text may sit from where it was before the page's audit
     /// and still count as not moved.
     static let a11yAnchorTolerance: CGFloat = 2
+    /// MVP-2c: where a page's drag runs, as a share of the screen's width: the middle, then, if the
+    /// list did not move, 10 pt from the left edge (every paged screen's cards start at 16 pt).
+    static let a11yPageDragColumns: [CGFloat] = [0.5, 0.025]
 
     /// MVP-2b gate-2 round 3 (verdict item 6): one screenful at a time to the end of the list,
     /// auditing each page, so Settings' lower rows (Exit Sample Data, Language, English, Show every
@@ -573,11 +576,16 @@ extension TallyUITestCase {
                        file: StaticString = #filePath, line: UInt = #line, onPage: (Int) -> Void) {
         var previous = a11yListBand(app)
         for index in 1...maxPages {
-            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: Self.a11yPageDragFrom))
-            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: Self.a11yPageDragTo))
-            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
-            a11yWaitUntilSettled(app)
-            let current = a11yListBand(app)
+            // A drag that starts on a control can leave the list where it was (scope=only run
+            // 38677820708: Courses "ended" after 2 of its 4 pages and passed). So a step that did not
+            // move the list is tried once more from the screen's left margin, outside every card,
+            // and only a list that moved neither time is at its end.
+            var current = previous
+            for x in Self.a11yPageDragColumns where current == previous {
+                a11yPageDrag(app, x: x)
+                a11yWaitUntilSettled(app)
+                current = a11yListBand(app)
+            }
             if current == previous { return }
             previous = current
             let anchor = a11yPageAnchor(app)
@@ -597,6 +605,15 @@ extension TallyUITestCase {
             }
         }
         XCTFail("paging reached \(maxPages) pages before the end of the list", file: file, line: line)
+    }
+
+    /// MVP-2c: one page's step: a press at `x` (a share of the width), a slow drag from
+    /// `a11yPageDragFrom` to `a11yPageDragTo` and a hold before release, so it leaves no momentum.
+    @MainActor
+    private func a11yPageDrag(_ app: XCUIApplication, x: CGFloat) {
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: Self.a11yPageDragFrom))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: Self.a11yPageDragTo))
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
     }
 
     /// MVP-2c: the topmost text wholly inside the paging band whose label appears once on screen,
