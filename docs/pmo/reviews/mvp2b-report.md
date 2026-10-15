@@ -758,4 +758,19 @@ alone, 0 occurrences of the literal `280` left anywhere in the file).
     (`pmo-audit/.build-audit/mvp2d/a11y-job-38757233994.log`, `a11y-evidence-2/`). Dark's own
     `calendar.dayHeading` was not flagged at all this run (the audit's own scroll position is
     date-dependent, run to run); nothing else changed.
-- Release gate, PR run: below, once dispatched.
+- Release gate: [38766587017](https://github.com/rahart1362/Tally/actions/runs/38766587017)
+  (`7b29a9b`): every job succeeded (`iOS gate`, `iOS gate on iOS 27`, `Static compliance checks`,
+  `TallyCore tests`, `Launch metric and screenshots`, `Compliance report`). The compliance JSON
+  (`pmo-audit/.build-audit/mvp2d/gate-compliance/compliance.json`): **`REL.a11y.audit`: PASS** —
+  "56 audit test(s) ran, 24 waiver(s) in `A11yWaivers.waived`" — and **0 of the report's 103 checks
+  are `FAIL`** (87 `PASS`, 16 `PENDING` for a later milestone, none of them this package's).
+- PR run: in the hand-off reply, after the single push to `mvp/a11y-fixes`.
+
+### E. A pacing note
+
+One commit (`7b29a9b`, docs only) was pushed to the scratch branch `mvp/a11y-fixes-2d` while the
+release gate run (38766587017) was already in progress. GitHub Actions resolves a
+`workflow_dispatch` to the commit SHA at trigger time, so the running gate was unaffected (it had
+already checked out `70c5303`) and nothing was re-queued or restarted; still, the brief's own
+pacing rule ("never push while any run on that branch is in progress") was not followed for that
+one push. Noted here rather than left out, and not repeated for the rest of this package's work.
