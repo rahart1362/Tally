@@ -833,8 +833,12 @@ one mechanism:
   (`!pinned.isEmpty && !variant.contains("firstDay")` — `pinned` is non-empty only on Calendar, and
   `-firstDay` is the only other Calendar state this suite audits), replacing gate-2 round 3's own
   dead `-paged` case (removed; nothing has read a `-paged` variant since MVP-2d removed paging
-  itself). Still capped at 3 per pass and confirmed by `runA11yAudit`'s own retry, unchanged.
-  Documented in `docs/pmo/a11y-waivers.md` as the position-free exception the PMO has accepted.
+  itself). Claimed here as "still capped at 3 per pass and confirmed by `runA11yAudit`'s own
+  retry, unchanged" — **the gate-2 final review found this false**: the cap/retry check
+  (`held?.hasPrefix("no element")`) never matches this hold's own text ("under the navigation bar
+  …"), so neither ran. Fixed in MVP-2f (below): an explicit flag, and the PMO's own definition of
+  "retry-confirmed" for this case. Documented in `docs/pmo/a11y-waivers.md` as the position-free
+  exception the PMO has accepted.
 
 **Verified in Python against the shipped evidence before any CI dispatch**
 (`pmo-audit/.build-audit/mvp2e/scripts/mvp2e_navbar_acceptance.py`, mirroring the fixed Swift):
@@ -930,9 +934,13 @@ All dispatched on the scratch branch `mvp/a11y-fixes-2e` before merging into `mv
   - [38799743647](https://github.com/rahart1362/Tally/actions/runs/38799743647) (`39cd95e`):
     `testD_calendar`, `testE_toDo`, `testF_insights`, `testN_sampleDataAndParentMode` on the
     default 8-leg matrix (proMax/smallest × light/dark × std/ax5), widgets off — all 8 legs green.
-    To-Do and Parent Mode's new AX5 scroll captures and Insights' raised cap all worked (Insights
-    reached its own end at scroll15/scroll18 on the smallest device, under the new cap of 20, not
-    truncated). But `47-calendar-missing-firstDay` on all 4 AX5 legs: the week strip scrolls
+    Insights' raised cap worked (reached its own end at scroll15/scroll18 on the smallest device,
+    under the new cap of 20, not truncated). **The claim that To-Do and Parent Mode's new AX5
+    scroll captures "all worked" was wrong** — the gate-2 final review (section 3) found To-Do's 4
+    AX5 legs all hit the 10-screenful cap still scrolling, and Parent Mode's smallest-light-ax5 leg
+    never left the Settings sheet; MVP-2f's fix and re-run are below.
+
+    Also, `47-calendar-missing-firstDay` on all 4 AX5 legs: the week strip scrolls
     centred on today from AX1 up (D18), so `elements("calendar.day").firstMatch` was not hittable
     — a gap `AccessibilityAuditUITests.a11yReachCalendar` already handles with a swipe, which the
     tour's own new code had not copied. Fixed (`1a3e86d`): swipe `calendar.pinnedHeader` right up

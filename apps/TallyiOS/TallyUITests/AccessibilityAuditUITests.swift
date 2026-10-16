@@ -561,12 +561,21 @@ extension TallyUITestCase {
     /// - An issue the audit-position rule holds (`A11yScene.heldReason`) is recorded with its
     ///   reason and does not fail the test; `docs/pmo/a11y-waivers.md` has the rule and every
     ///   issue it held, with its measurement.
-    /// - MVP-2b gate-2 round 3 (verdict item 5): a "no element" hold (`heldReason`'s own doc
-    ///   comment) is now allowed only in a `-paged` variant, only with an empty element identifier,
-    ///   capped at 3 per pass, and only confirmed by one retry of the same pass, after the list
-    ///   settles, that shows no elementless issue of the same type — otherwise it is a real,
-    ///   recurring problem, not the audit's own list-rebuild instability, and fails like any other
-    ///   issue.
+    /// - MVP-2f (gate-2 final review, ruling 1(d) — replaces gate-2 round 3's own `-paged` case,
+    ///   dead since ruling 2 removed `a11yPageToEnd`, and MVP-2e's own first attempt at this ruling,
+    ///   which the final review found never actually ran: the held reason read "under the
+    ///   navigation bar …", so a check for a `"no element"` prefix never matched it). The one
+    ///   elementless hold left (`heldReason`'s "no frame" branch, Calendar's own today variants) now
+    ///   carries an explicit flag (`HeldResult.isElementlessNavBarHold`), set only there — never
+    ///   inferred from the reason string — so this method's cap and retry apply to exactly that
+    ///   case, at most 3 per pass. The PMO's own "retry-confirmed" definition (clarified after an
+    ///   initial gap — the first version covered only the recurring branch) has two outcomes, after
+    ///   the list settles: **(i)** the retry does NOT re-report the issue at all — held as
+    ///   transient (`A11yScene.navBarTransientHoldReason`), the retry's own measurement recorded as
+    ///   evidence, not a second gate; **(ii)** it recurs — held only when the navigation-bar pixel
+    ///   proof (rulings 1(a)–(c), unchanged) ALSO passes again, measured fresh on the retry's own
+    ///   new screenshot, not the first one; otherwise it is a real, recurring problem and fails like
+    ///   any other issue.
     @MainActor
     func runA11yAudit(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, screen: String, variant: String,
                       file: StaticString = #filePath, line: UInt = #line) {
@@ -605,16 +614,20 @@ extension TallyUITestCase {
                     var held = waived ? nil : scene.heldReason(auditType: typeName, label: elementLabel,
                                                               elementIdentifier: elementID,
                                                               frame: elementFrame, variant: variant)
-                    let isNoElementHold = held?.hasPrefix("no element") == true
+                    // MVP-2f (gate-2 final review, ruling 1(d)): an explicit flag from `heldReason`
+                    // itself, not a reason-string prefix — the elementless nav-bar hold's own text
+                    // begins "under the navigation bar …", which a `"no element"` prefix check
+                    // (MVP-2e's own attempt) never matched, so the cap and retry below never ran.
+                    let isNoElementHold = held?.isElementlessNavBarHold == true
                     if isNoElementHold {
                         noElementCount += 1
                         noElementTypesSeen.insert(typeName)
-                        // Item 5: capped at 3 per pass.
+                        // Ruling 1(d)'s own cap: at most 3 such holds per pass.
                         if noElementCount > 3 { held = nil }
                     }
                     var record = Self.a11yIssueRecord(issue, typeName: typeName, waived: waived, identifier: elementID,
                                                       label: elementLabel, frame: elementFrame, elementType: elementType)
-                    record["held"] = held ?? ""
+                    record["held"] = held?.reason ?? ""
                     pending.append(PendingIssue(record: record, elementID: elementID, elementLabel: elementLabel,
                                                 typeName: typeName, waived: waived, isNoElementHold: isNoElementHold))
                     // A no-element hold's real verdict waits on the retry below — XCTest's own
@@ -628,11 +641,22 @@ extension TallyUITestCase {
                     unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
                 }
             }
-            // Item 5: one retry, after the list settles, decides which "no element" types are
-            // confirmed transient (none of that type on the retry) versus still elementless (not
-            // held — a real, recurring issue). The retry's own issues are never recorded or waived;
-            // it exists only to answer that one question.
-            var stillElementless: Set<String> = []
+            // MVP-2f (gate-2 final review, ruling 1(d)): one retry, after the list settles, decides
+            // whether each elementless nav-bar candidate stays held. The PMO's own definition of
+            // "retry-confirmed" (binding, as clarified — the first version covered only the second
+            // branch below) has two outcomes:
+            // (i) the retry does NOT re-report the issue at all: the first observation was
+            //     transient and the settled screen reads clean — PASS, with its own reason
+            //     (`A11yScene.navBarTransientHoldReason`), carrying the retry's own measurement as
+            //     supporting evidence, never as a second gate;
+            // (ii) it recurs: held only if the navigation-bar pixel proof (rulings 1(a)–(c),
+            //     unchanged) ALSO passes again, measured fresh on the retry's own new screenshot —
+            //     never the first audit's own, which the retry's wait has by now moved past;
+            //     otherwise it is a real, recurring problem and fails like any other issue.
+            // Both outcomes share the same cap (at most 3 candidates per pass, already applied
+            // above, before either branch runs).
+            var recurredOnRetry: Set<String> = []
+            var retryMeasured: A11yScene.TopChromeMeasurement?
             if !noElementTypesSeen.isEmpty {
                 a11yWaitUntilSettled(app, timeout: 2)
                 _ = try? app.performAccessibilityAudit(for: pass) { retryIssue in
@@ -641,17 +665,47 @@ extension TallyUITestCase {
                     let retryID = retryIssue.element?.identifier ?? ""
                     let retryLabel = retryIssue.element?.label ?? ""
                     if retryFrame.width <= 0, retryFrame.height <= 0, retryID.isEmpty, retryLabel.isEmpty {
-                        stillElementless.insert(retryType)
+                        recurredOnRetry.insert(retryType)
                     }
                     return true
                 }
+                // The retry's own fresh scene and screenshot — `a11yAttachScreen` settles again
+                // (near-instant: the wait just above already settled it) and attaches
+                // `<screen>-<variant>-audit-retry-*` evidence, so a reviewer can check this
+                // measurement against the actual pixels it ran on. Taken and recorded whether or
+                // not the issue recurred — branch (i) cites it too, as evidence the settled screen
+                // really is clean, not as a second pass/fail gate.
+                //
+                // MVP-2f (PMO ruling): against the union of the nav bar and the pinned header, the
+                // same as the initial measurement this retry is reproducing (`heldReason`'s own
+                // elementless branch) — never the nav bar alone, now that the two can touch.
+                let retryScene = a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-retry")
+                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame,
+                   let pinnedHeader = retryScene.pinned.first {
+                    retryMeasured = retryScene.measureTopChromeCoverage(
+                        navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: navBar.union(pinnedHeader),
+                        excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent)
+                }
             }
+            let retryPixelProofPasses = retryMeasured.map {
+                $0.coverage >= A11yScene.navBarCoverageThreshold && $0.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold
+            } ?? false
             for item in pending {
                 var record = item.record
                 var held = (record["held"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                if item.isNoElementHold, held != nil, stillElementless.contains(item.typeName) {
-                    held = nil
-                    record["held"] = ""
+                if item.isNoElementHold, held != nil {
+                    if recurredOnRetry.contains(item.typeName) {
+                        // (ii) Recurred: held only on the retry's own passing pixel proof.
+                        if !retryPixelProofPasses {
+                            held = nil
+                            record["held"] = ""
+                        }
+                    } else {
+                        // (i) Transient: never re-reported on the settled retry. Always held, with
+                        // its own reason — never the nav-bar-proof text, which ruling (ii) owns.
+                        held = A11yScene.navBarTransientHoldReason(retryMeasured)
+                        record["held"] = held ?? ""
+                    }
                 }
                 issues.append(record)
                 if !item.waived && held == nil {
@@ -725,6 +779,13 @@ extension TallyUITestCase {
         let scene = A11yScene(app, screenshot: finalScreenshot.image)
         attachA11yJSON(A11yScene.json(scene.window), name: "\(prefix)-window")
         attachA11yJSON(scene.elements, name: "\(prefix)-elements")
+        // MVP-2f (PMO ruling): the chrome bars `heldReason` actually measured against — neither
+        // `chrome` (tab bar/nav bar/toolbar frames) nor `pinned` (the pinned header's own frame)
+        // was attached anywhere before, so the union ruling's own geometry could only be guessed at
+        // after the fact. Recorded here, once per screen, regardless of what held or failed.
+        attachA11yJSON(scene.chrome.map { ["kind": "\($0.kind)", "frame": A11yScene.json($0.frame)] },
+                       name: "\(prefix)-chrome")
+        attachA11yJSON(scene.pinned.map { A11yScene.json($0) }, name: "\(prefix)-pinned")
         return scene
     }
 
@@ -1093,8 +1154,34 @@ extension TallyUITestCase {
 ///     fire on any screen with a clean navigation bar; it is now checked only on Calendar's own
 ///     today variants (`pinned` is non-empty only there, and never on a `-firstDay` variant — the
 ///     only state this file ever labels that way), replacing gate-2 round 3's own dead `-paged`
-///     case (nothing has read a `-paged` variant since `a11yPageToEnd` was removed). Still capped
-///     at 3 per pass and confirmed by `runA11yAudit`'s own retry (item 5's mechanism, unchanged);
+///     case (nothing has read a `-paged` variant since `a11yPageToEnd` was removed).
+///
+///     **MVP-2f (gate-2 final review): capped and retry-confirmed for real.** MVP-2e's own text
+///     here claimed this was "still capped at 3 per pass and confirmed by `runA11yAudit`'s own
+///     retry" — false: the retry only engages for a hold flagged `isNoElementHold`, which MVP-2e
+///     computed from `held?.hasPrefix("no element")`, and this hold's own reason text begins "under
+///     the navigation bar …", so the cap never incremented and the retry never ran (gate-2 final
+///     review verdict, section 1). `heldReason` now returns an explicit `HeldResult` carrying
+///     `isElementlessNavBarHold`, set only here, so `runA11yAudit` never has to infer it from a
+///     string.
+///
+///     **The PMO's definition of "retry-confirmed" for this case (binding, clarified).** The first
+///     version covered only the recurring branch below, which a live CI run then showed could turn
+///     Calendar red on a candidate whose own navigation-bar pixels were PROVEN unchanged between
+///     the two measurements (100% coverage, 1.07:1 max glyph, both times) — the audit API's own
+///     issue-detection simply did not re-report it, exposing exactly the gap the PMO's
+///     clarification closes. After the list settles, a retry of the same audit:
+///     - **(i) does not re-report the issue at all**: the first observation was transient (the
+///       audit's own list-rebuild instability, this file's long-standing pattern) and the settled
+///       screen reads clean — **held**, with its own reason
+///       (`A11yScene.navBarTransientHoldReason`) recording the retry's own fresh measurement as
+///       supporting evidence, never as a second gate;
+///     - **(ii) it recurs**: held only when the navigation-bar pixel proof above (1a–1c, unchanged)
+///       ALSO passes again, measured fresh on the retry's own new screenshot, never the first
+///       audit's; anything short of that is a real, recurring problem and fails like any other
+///       issue.
+///
+///     Both outcomes share the same cap, at most 3 candidates per pass (`runA11yAudit`).
 ///     `docs/pmo/a11y-waivers.md` documents it as the position-free exception the PMO has accepted.
 /// 2. **The long screens' `test<Screen>AX5` audits no longer page**: `a11yPageToEnd` (MVP-2c) is
 ///    removed, and each covers its first page only. Rows below that fold are covered by the Audit
@@ -1190,6 +1277,17 @@ struct A11yScene {
 
     init() {}
 
+    /// MVP-2f (the PMO's required self-check, `A11ySceneMeasurementTests` below): builds a scene
+    /// directly from a raw pixel buffer, bypassing the `XCUIApplication` snapshot/screenshot
+    /// pipeline the other initializer needs — there is no simulator on this host to run one, and
+    /// `measureNavBarCoverage`/`measureTopChromeCoverage` need only `pixels`, not a live app.
+    init(pixels: [UInt8], pixelWidth: Int, pixelHeight: Int, pixelScale: CGFloat) {
+        self.pixels = pixels
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+        self.pixelScale = pixelScale
+    }
+
     @MainActor
     init(_ app: XCUIApplication, screenshot: UIImage? = nil) {
         guard let root = try? app.snapshot() else { return }
@@ -1255,7 +1353,13 @@ struct A11yScene {
         // MVP-2e ruling 1(a): the navigation bar's own two glass buttons, by identifier — their
         // drawn extent (frame plus the glass circle and its shadow) reaches beyond their own
         // reported frame (this type's own doc comment on `navBarButtonGlassExtent`).
-        if Self.navBarGlassButtonIdentifiers.contains(identifier) {
+        //
+        // MVP-2f (gate-2 final review, S3 notes for the owner): gated on the INCOMING
+        // `insideChromeBar` too, so the exclusion is structural, not identifier alone — both
+        // identifiers happen to be toolbar-only today (harmless), but an element elsewhere in the
+        // tree that happened to share one of these identifiers must never be excluded from
+        // `measureNavBarCoverage`'s pixel check by its identifier alone.
+        if insideChromeBar, Self.navBarGlassButtonIdentifiers.contains(identifier) {
             navBarButtonGlassExtent.append(frame.insetBy(dx: -Self.navBarGlassButtonOutset, dy: -Self.navBarGlassButtonOutset))
         }
         // Run 38363059477: the snapshot showed the keyboard as an "Other" element, `inputView` (402 x
@@ -1300,13 +1404,31 @@ struct A11yScene {
         }
     }
 
+    /// `heldReason`'s own result: the reason text (recorded verbatim in the issue's `held` field,
+    /// unchanged), plus an explicit flag for `runA11yAudit`'s cap and retry.
+    ///
+    /// MVP-2f (gate-2 final review, ruling 1(d)): added because MVP-2e's cap/retry check
+    /// (`held?.hasPrefix("no element")`) never matched this hold's own text ("under the navigation
+    /// bar …"), so neither the cap nor the retry ever ran (verdict section 1). `isElementlessNavBarHold`
+    /// is set `true` only at this type's one elementless-hold return point, below — never inferred
+    /// from the reason string anywhere else.
+    struct HeldResult {
+        let reason: String
+        let isElementlessNavBarHold: Bool
+
+        init(_ reason: String, isElementlessNavBarHold: Bool = false) {
+            self.reason = reason
+            self.isElementlessNavBarHold = isElementlessNavBarHold
+        }
+    }
+
     /// The audit-position rule (this type's doc comment): the reason an issue is held, or `nil`.
     ///
     /// One more case, of any audit type: an element wholly inside the system keyboard is the
     /// keyboard's own (run 38357314250: Find School, Dark, three empty `TUIPredictionViewCell`s of
     /// the predictive bar, "missing useful accessibility information"), not the app's.
     func heldReason(auditType: String, label: String, elementIdentifier: String, frame rawFrame: CGRect,
-                    variant: String) -> String? {
+                    variant: String) -> HeldResult? {
         let frame = Self.finite(rawFrame)
         guard frame.width > 0, frame.height > 0 else {
             // Item 11 (gate-2 round 2): paging to audit rows below the fold scrolls a `List`
@@ -1316,30 +1438,45 @@ struct A11yScene {
             // With no element and no frame there is nothing to measure, reproduce or waive by
             // identifier — the audit's own instability, not a finding about the app.
             //
-            // MVP-2e ruling 1(d) (the PMO's binding ruling, final gate-2 review — replaces gate-2
-            // round 3's own `-paged` case, dead since ruling 2 removed `a11yPageToEnd` itself: no
-            // variant has read "-paged" since, docs/pmo/a11y-waivers.md's own PARTIAL note on it).
-            // An elementless `textClipped` issue has no frame of its own to check against the
-            // navigation bar at two thirds' overlap, so it is checked the strictest way instead —
-            // nothing anywhere in the bar's own frame may be visible, not only the (unknown) row
-            // the audit meant — and only on Calendar's own today variants (`pinned` is non-empty
-            // only there, and never on a `-firstDay` variant, the only other Calendar state this
-            // file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for — Calendar's
-            // today state, where the previous day's last rows and heading rest under the bar at the
-            // agenda's resting scroll position, and the audit returns no element for some of them
-            // once the list is away from its top. Still capped at 3 per pass and confirmed by one
-            // retry (`runA11yAudit`'s own mechanism, item 5, unchanged).
+            // MVP-2e/2f ruling 1(d) (the PMO's binding ruling, final gate-2 review — replaces
+            // gate-2 round 3's own `-paged` case, dead since ruling 2 removed `a11yPageToEnd`
+            // itself: no variant has read "-paged" since, docs/pmo/a11y-waivers.md's own PARTIAL
+            // note on it). An elementless `textClipped` issue has no frame of its own to check
+            // against the navigation bar at two thirds' overlap, so it is checked the strictest way
+            // instead — nothing anywhere in the bar's own frame may be visible, not only the
+            // (unknown) row the audit meant — and only on Calendar's own today variants (`pinned` is
+            // non-empty only there, and never on a `-firstDay` variant, the only other Calendar
+            // state this file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for —
+            // Calendar's today state, where the previous day's last rows and heading rest under the
+            // bar at the agenda's resting scroll position, and the audit returns no element for some
+            // of them once the list is away from its top.
+            //
+            // MVP-2f: `isElementlessNavBarHold` is the explicit flag that routes this candidate to
+            // `runA11yAudit`'s own cap and retry (its own doc comment has the PMO's two-branch
+            // "retry-confirmed" definition) — never this reason string's own wording. This
+            // measurement, on THIS screenshot, only ever matters again if the retry finds the same
+            // issue recurring; if the retry does not re-report it at all, the retry's OWN fresh
+            // measurement is what gets recorded instead, not this one.
+            //
+            // MVP-2f (PMO ruling, following the "9:00 PM – 10:15 PM" gate-2 finding): checked
+            // against the UNION of the nav bar and the pinned header, not the nav bar alone — on
+            // Calendar's today variant (this branch's only domain, `!pinned.isEmpty` just below)
+            // the two always touch, and an elementless issue has no frame of its own to tell which
+            // one it would have sat under, so both must read clean (`measureTopChromeCoverage`,
+            // `navBar.union(pinnedHeader)` as the region: each bar's own full frame).
             guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                   !pinned.isEmpty, !variant.contains("firstDay"),
                   let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-                  let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
-                                                       excluding: chromeOwnContent + navBarButtonGlassExtent),
+                  let pinnedHeader = pinned.first,
+                  let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader,
+                                                           regionFrame: navBar.union(pinnedHeader),
+                                                           excluding: chromeOwnContent + navBarButtonGlassExtent),
                   measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold
             else { return nil }
-            return Self.navBarHoldReason(measured, noElement: true)
+            return HeldResult(Self.topChromeHoldReason(measured, noElement: true), isElementlessNavBarHold: true)
         }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
-            return "on the system keyboard"
+            return HeldResult("on the system keyboard")
         }
         guard auditType == "contrast" || auditType == "textClipped" else { return nil }
         guard let node = scrolling.first(where: { $0.label == label && Self.same($0.frame, frame) }) else { return nil }
@@ -1347,13 +1484,13 @@ struct A11yScene {
         if node.insidePinned { return nil }
         let inView = node.container.intersection(window).insetBy(dx: -0.5, dy: -0.5)
         if Self.isPartlyOutside(frame, inView, axis: node.axis) {
-            return "partly outside its scroll view or the window"
+            return HeldResult("partly outside its scroll view or the window")
         }
         // Item 5: textClipped is held only in the partly-outside case above, never for chrome or a
         // pinned bar (occlusion does not explain a clipping prediction).
         guard auditType == "contrast" else { return nil }
         if chrome.contains(where: { $0.kind.canHoldContrast && Self.overlapsByAtLeastAThird($0.frame, frame) }) {
-            return "under system chrome"
+            return HeldResult("under system chrome")
         }
         // MVP-2d ruling 1 (the PMO's binding ruling): the navigation bar can hold a `contrast`
         // issue too, but only on a passing in-test pixel measurement — position alone is not
@@ -1361,13 +1498,41 @@ struct A11yScene {
         // Needs at least two thirds of the issue's own frame height under the bar (stricter than
         // the one third "under system chrome" rule just above, since `ChromeKind.canHoldContrast`
         // still excludes the navigation bar from that plain rule); `measureNavBarCoverage` then
-        // checks the issue's own frame region against the bar's own background colour.
-        if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-           Self.overlapsByAtLeastTwoThirds(navBar, frame),
-           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
-                                                excluding: chromeOwnContent + navBarButtonGlassExtent),
-           measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
-            return Self.navBarHoldReason(measured)
+        // checks the issue's own frame region against the bar's own background colour. This is
+        // NEVER the elementless case above (it has its own frame), so `isElementlessNavBarHold`
+        // stays `false` — ruling 1(d)'s cap and retry are not ruling 1(a)–(c)'s, which stay
+        // unchanged.
+        //
+        // MVP-2f (PMO ruling, following scope=a11y run 38841944682's own "9:00 PM – 10:15 PM"
+        // finding): on Calendar, where the nav bar and the pinned header touch, a row can straddle
+        // both — which rows do depends on the day's own date — and checking only its own share of
+        // the nav bar undercounted it below two thirds even while the row sits entirely under
+        // opaque chrome. Wherever there is a pinned header to straddle into (`pinned.first`), the
+        // precondition and the pixel proof both run against the UNION of the two bars instead
+        // (`overlapsByAtLeastTwoThirds(_:_:_:)`, `measureTopChromeCoverage`, each part sampled
+        // against its own bar's own colour, never the other's). Every other screen, with no pinned
+        // header, keeps exactly the nav-bar-alone check above it always has.
+        if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame {
+            // MVP-2f (PMO ruling): the union path only applies when the issue actually touches the
+            // navigation bar (`!navBar.intersection(frame).isNull`) — an element entirely under the
+            // pinned header, away from the nav bar, is not straddling anything and still needs the
+            // existing pinned-bar rule below (>= 1/3 overlap, above the selected heading), not this
+            // one; falling into this branch instead would skip that rule's own, different
+            // precondition.
+            if let pinnedHeader = pinned.first, !navBar.intersection(frame).isNull {
+                if Self.overlapsByAtLeastTwoThirds(navBar, pinnedHeader, frame),
+                   let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: frame,
+                                                            excluding: chromeOwnContent + navBarButtonGlassExtent),
+                   measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                    return HeldResult(Self.topChromeHoldReason(measured))
+                }
+            } else if pinned.first == nil, Self.overlapsByAtLeastTwoThirds(navBar, frame),
+                      let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
+                                                           excluding: chromeOwnContent + navBarButtonGlassExtent,
+                                                           opaqueByConstruction: false),
+                      measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                return HeldResult(Self.navBarHoldReason(measured))
+            }
         }
         // Item 3 (gate-2 round 3): narrowed to >= 1/3 overlap (like the chrome case above), and
         // only for an element that ENDS ABOVE the selected day's own heading — content genuinely
@@ -1381,13 +1546,13 @@ struct A11yScene {
            let selected = selectedDayNumber,
            let heading = dayHeadings.first(where: { Self.dayNumber(in: $0.label) == selected })?.frame,
            frame.maxY <= heading.minY + 0.5 {
-            return "under the screen's pinned bar"
+            return HeldResult("under the screen's pinned bar")
         }
         if dimming.contains(where: { $0.intersects(frame) }), let measured = measureFadeBandContrast(frame: frame) {
             // Item 4: 4.5:1 always — the frame-height large-text exception is dropped (a two-line
             // caption is not 18 pt bold; `isLargeText` is gone).
             if measured >= 4.5 {
-                return "in the fade band, measured \(String(format: "%.2f", measured)):1 on the audit screenshot (row median)"
+                return HeldResult("in the fade band, measured \(String(format: "%.2f", measured)):1 on the audit screenshot (row median)")
             }
         }
         return nil
@@ -1409,6 +1574,23 @@ struct A11yScene {
         let overlap = bar.intersection(frame)
         guard !overlap.isNull, frame.height > 0 else { return false }
         return overlap.height / frame.height >= 2.0 / 3.0
+    }
+
+    /// MVP-2f (PMO ruling, following the "9:00 PM – 10:15 PM" gate-2 `scope=a11y` finding, run
+    /// 38841944682): the same two-thirds precondition as `overlapsByAtLeastTwoThirds`, but against
+    /// the UNION of the navigation bar and the pinned header (Calendar's week strip) when both are
+    /// present and touch, rather than the bar alone. A row that straddles both — which rows do
+    /// depends on the day's own date — was undercounted before: only its own share of the bar was
+    /// measured, so a row mostly under the strip but a little under the bar could fall under two
+    /// thirds even while fully covered by opaque chrome. `navBar` and `pinnedHeader` do not overlap
+    /// each other (they touch), so their own overlaps with `frame` cannot double-count.
+    static func overlapsByAtLeastTwoThirds(_ navBar: CGRect, _ pinnedHeader: CGRect, _ frame: CGRect) -> Bool {
+        guard frame.height > 0 else { return false }
+        let navOverlap = navBar.intersection(frame)
+        let pinnedOverlap = pinnedHeader.intersection(frame)
+        let navHeight = navOverlap.isNull ? 0 : navOverlap.height
+        let pinnedHeight = pinnedOverlap.isNull ? 0 : pinnedOverlap.height
+        return (navHeight + pinnedHeight) / frame.height >= 2.0 / 3.0
     }
 
     /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
@@ -1583,8 +1765,8 @@ struct A11yScene {
     /// sites (`heldReason`) now also pass `navBarButtonGlassExtent` (MVP-2e ruling 1(a)): the glass
     /// buttons' own drawn extent, which reaches beyond their reported frames and so is never caught
     /// by `chromeOwnContent` alone (this type's own doc comment, point 1a).
-    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect,
-                               excluding: [CGRect] = []) -> (coverage: Double, maxGlyphContrast: Double)? {
+    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect, excluding: [CGRect] = [],
+                               opaqueByConstruction: Bool) -> (coverage: Double, maxGlyphContrast: Double)? {
         guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
         let x0 = max(0, Int((regionFrame.minX * pixelScale).rounded()))
         let y0 = max(0, Int((regionFrame.minY * pixelScale).rounded()))
@@ -1629,8 +1811,95 @@ struct A11yScene {
                 maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
             }
         }
-        guard total > 0 else { return nil }
+        // MVP-2f (PMO ruling, binding and narrower than this method's own first attempt): `total ==
+        // 0` means every pixel of `regionFrame` was excluded. That is a clean pass ONLY when
+        // `opaqueByConstruction` says the caller's own bar is opaque by construction wherever its
+        // own identified content sits, so nothing else could possibly show through once that
+        // content is excluded — true today only for `calendar.pinnedHeader`
+        // (`CalendarScreen.swift:128`, `.background(TallyColor.bgCanvas)` on the week strip; its
+        // `calendar.day` buttons can tile that opaque background edge to edge, this file's own
+        // evidence: 7 buttons spanning 386 of the header's own 386 pt width, diagnosed from the
+        // `-chrome`/`-pinned` attachments this hold's own retry evidence now always carries). The
+        // navigation bar passes `opaqueByConstruction: false` always: with nothing left to measure
+        // there, there is no proof the bar's own background is what is underneath, so it fails like
+        // any other unproven issue — never a generic "nothing to measure" shortcut to a pass.
+        // `A11ySceneMeasurementTests` (below) is this ruling's own required self-check.
+        guard total > 0 else {
+            guard opaqueByConstruction else { return nil }
+            return (coverage: 1.0, maxGlyphContrast: 1.0)
+        }
         return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
+    }
+
+    /// MVP-2f (PMO ruling): `measureTopChromeCoverage`'s own result — the combined numbers the gate
+    /// itself uses, plus each part on its own (`nil` when `regionFrame` does not actually reach that
+    /// part), recorded in the held reason so a reviewer can check both without recomputing anything
+    /// (the PMO's own requirement: "record the union overlap and the per-part coverage").
+    struct TopChromeMeasurement {
+        let overlapFraction: Double
+        let navBarPart: (coverage: Double, maxGlyphContrast: Double)?
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)?
+        let coverage: Double
+        let maxGlyphContrast: Double
+    }
+
+    /// MVP-2f (PMO ruling, following the gate-2 `scope=a11y` finding on "9:00 PM – 10:15 PM", run
+    /// 38841944682): `measureNavBarCoverage` extended to a region that straddles BOTH the
+    /// navigation bar and the pinned header (Calendar's week strip) when the two touch — which
+    /// rows straddle depends on the day's own date, so a check against the nav bar alone
+    /// undercounts a row that is really mostly under the strip. Reuses `measureNavBarCoverage`
+    /// itself once per part, each against its own bar's own background colour, on the slice of
+    /// `regionFrame` that actually overlaps that bar — never cross-checked against the other bar's
+    /// colour, never a new per-pixel routing to risk diverging from the single-bar method
+    /// `measureNavBarCoverage` itself (unchanged, still used alone wherever there is no pinned
+    /// header to straddle into). `excluding` (the glass buttons' own drawn extent plus
+    /// `chromeOwnContent`) is passed to both calls: the glass buttons sit only inside the nav bar's
+    /// own rows, so they can never match anything in the pinned header's own slice, and
+    /// `chromeOwnContent` already carries both bars' own content (`insidePinned` entries included).
+    /// The two parts are combined by their own pixel count (equal to their own slice's height,
+    /// `regionFrame`'s width being the same for both, read from each call's own `coverage`
+    /// fraction over that height) for the combined coverage, and by the worse of the two for the
+    /// combined max glyph contrast — a single bad glyph row in either part still fails the whole
+    /// region, the same "every core pixel" rule `measureNavBarCoverage` already applies within one
+    /// bar. `nil` when `regionFrame` reaches neither bar at all.
+    func measureTopChromeCoverage(navBar: CGRect, pinnedHeader: CGRect, regionFrame: CGRect,
+                                  excluding: [CGRect]) -> TopChromeMeasurement? {
+        let overlapFraction: Double = {
+            guard regionFrame.height > 0 else { return 0 }
+            let navOverlap = navBar.intersection(regionFrame)
+            let pinnedOverlap = pinnedHeader.intersection(regionFrame)
+            let navHeight = navOverlap.isNull ? 0 : navOverlap.height
+            let pinnedHeight = pinnedOverlap.isNull ? 0 : pinnedOverlap.height
+            return (navHeight + pinnedHeight) / regionFrame.height
+        }()
+        let navRegion = navBar.intersection(regionFrame)
+        let pinnedRegion = pinnedHeader.intersection(regionFrame)
+        // MVP-2f (PMO ruling): `opaqueByConstruction` is `false` for the nav-bar part and `true`
+        // for the pinned-header part, structurally, every time — never left to a default
+        // (`measureNavBarCoverage`'s own parameter has none) and never inferred from anything else
+        // at this call site. See that method's own doc comment for why each bar gets the value it
+        // does.
+        let navPart: (coverage: Double, maxGlyphContrast: Double)? =
+            (navRegion.isNull || navRegion.height <= 0) ? nil
+            : measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding,
+                                    opaqueByConstruction: false)
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? =
+            (pinnedRegion.isNull || pinnedRegion.height <= 0) ? nil
+            : measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding,
+                                    opaqueByConstruction: true)
+        guard navPart != nil || pinnedPart != nil else { return nil }
+        let navWeight = navRegion.isNull ? 0 : max(0, navRegion.height)
+        let pinnedWeight = pinnedRegion.isNull ? 0 : max(0, pinnedRegion.height)
+        let totalWeight = navWeight + pinnedWeight
+        let coverage: Double
+        if totalWeight > 0 {
+            coverage = ((navPart?.coverage ?? 0) * navWeight + (pinnedPart?.coverage ?? 0) * pinnedWeight) / totalWeight
+        } else {
+            coverage = navPart?.coverage ?? pinnedPart?.coverage ?? 0
+        }
+        let maxGlyphContrast = max(navPart?.maxGlyphContrast ?? 1.0, pinnedPart?.maxGlyphContrast ?? 1.0)
+        return TopChromeMeasurement(overlapFraction: overlapFraction, navBarPart: navPart, pinnedPart: pinnedPart,
+                                    coverage: coverage, maxGlyphContrast: maxGlyphContrast)
     }
 
     /// MVP-2d ruling 1: the densest colour across every pixel of `frame` — the navigation bar's
@@ -1724,6 +1993,54 @@ struct A11yScene {
                "of the bar's own colour, max glyph row contrast \(contrast):1 against it"
     }
 
+    /// MVP-2f (PMO ruling): the measured numbers shared by `topChromeHoldReason` and
+    /// `navBarTransientHoldReason` — the union overlap fraction, each part's own coverage/glyph
+    /// (when `regionFrame` reached it), and the combined numbers the gate itself used. Recording
+    /// every one of them (the PMO's own requirement) lets a reviewer check each against the
+    /// attached screenshot without recomputing anything.
+    private static func topChromeMeasurementDetail(_ measured: TopChromeMeasurement) -> String {
+        let overlapPct = String(format: "%.1f", measured.overlapFraction * 100)
+        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
+        let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
+        var parts: [String] = []
+        if let navBarPart = measured.navBarPart {
+            parts.append("nav bar \(String(format: "%.1f", navBarPart.coverage * 100))%/\(String(format: "%.2f", navBarPart.maxGlyphContrast)):1")
+        }
+        if let pinnedPart = measured.pinnedPart {
+            parts.append("pinned header \(String(format: "%.1f", pinnedPart.coverage * 100))%/\(String(format: "%.2f", pinnedPart.maxGlyphContrast)):1")
+        }
+        let perPart = parts.joined(separator: ", ")
+        return "\(overlapPct)% of its height inside the navigation bar/pinned header union, measured \(coveragePct)% of its " +
+               "pixels within \(tolerance):1 contrast of each part's own colour (\(perPart)), max glyph row contrast " +
+               "\(contrast):1 against it"
+    }
+
+    /// MVP-2f (PMO ruling): `navBarHoldReason`'s own text, for a hold proven against the UNION of
+    /// the navigation bar and the pinned header (`measureTopChromeCoverage`).
+    static func topChromeHoldReason(_ measured: TopChromeMeasurement, noElement: Bool = false) -> String {
+        let suffix = noElement ? " (no element of its own; both bars' whole frames measured instead)" : ""
+        return "under the top chrome\(suffix), " + topChromeMeasurementDetail(measured)
+    }
+
+    /// MVP-2f (the PMO's clarification of ruling 1(d), branch (i)): the held reason for an
+    /// elementless nav-bar `textClipped` issue that the settled retry did NOT re-report at all —
+    /// read as a transient, one-off artifact of the audit's own first measurement (this file's
+    /// long-standing "list-rebuild instability" pattern), not a real, recurring issue. `measured`
+    /// is the retry's own fresh top-chrome measurement (`measureTopChromeCoverage`, the union
+    /// ruling below), recorded here as supporting evidence that the settled screen really does read
+    /// clean — never as a second gate: this branch holds regardless of what it reads, because the
+    /// determining fact is that the issue itself did not recur. `nil` only when the retry's own
+    /// screenshot had no navigation bar or pinned header to measure at all (should not happen on a
+    /// Calendar today variant, which is this hold's only domain, but degrades to a plain statement
+    /// rather than a crash or a fabricated number).
+    static func navBarTransientHoldReason(_ measured: TopChromeMeasurement?) -> String {
+        guard let measured else {
+            return "transient: not re-reported on the settled retry (its own top-chrome measurement could not be taken)"
+        }
+        return "transient: not re-reported on the settled retry, " + topChromeMeasurementDetail(measured)
+    }
+
     /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the
     /// scroll-edge blur's own spread (`measureFadeBandContrast`). 3 of 255 is far below any visible
     /// difference: it moves a contrast ratio by about 1%.
@@ -1761,5 +2078,59 @@ struct A11yScene {
 
     static func json(_ frame: CGRect) -> [String: Double] {
         ["x": Double(frame.minX), "y": Double(frame.minY), "width": Double(frame.width), "height": Double(frame.height)]
+    }
+}
+
+/// MVP-2f (the PMO's required self-check on `measureNavBarCoverage`'s `opaqueByConstruction`
+/// ruling): fast, logic-only tests of `A11yScene`'s own pixel measurement — no `XCUIApplication`,
+/// no simulator, built from `A11yScene`'s own test-only pixel-buffer initializer. The one case the
+/// PMO's own ruling requires: a synthetic element entirely under the navigation bar, with every
+/// pixel excluded, must fail — "nothing left to measure" is a clean pass only where the PMO's
+/// ruling says a bar is opaque by construction (`calendar.pinnedHeader`,
+/// `CalendarScreen.swift:128`), never for the navigation bar, where it would otherwise hide a real
+/// "no proof" case behind a false pass.
+final class A11ySceneMeasurementTests: XCTestCase {
+    /// A small, solid-colour RGBA8 buffer (one flat colour, 1:1 pixel scale) — `measureNavBarCoverage`
+    /// only ever reads `pixels`/`pixelWidth`/`pixelHeight`/`pixelScale`, never a real screenshot.
+    private func solidScene(width: Int = 10, height: Int = 10, colour: (UInt8, UInt8, UInt8) = (0xEF, 0xF1, 0xF5)) -> A11yScene {
+        var pixels = [UInt8](repeating: 0xFF, count: width * height * 4)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            pixels[i] = colour.0
+            pixels[i + 1] = colour.1
+            pixels[i + 2] = colour.2
+        }
+        return A11yScene(pixels: pixels, pixelWidth: width, pixelHeight: height, pixelScale: 1)
+    }
+
+    /// The PMO's own required case: a region entirely under the navigation bar, excluded entirely,
+    /// must fail (no proof), never pass as though "opaque by construction" applied to it too.
+    func testNavBarRegionFullyExcludedFails() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [bar],
+                                                    opaqueByConstruction: false)
+        XCTAssertNil(measured, "a fully excluded navigation-bar region must fail, not pass")
+    }
+
+    /// The mirror case: the SAME geometry, but for a bar the caller has declared opaque by
+    /// construction (the pinned header's own `opaqueByConstruction: true`) — a clean pass, exactly
+    /// because nothing is left that could possibly show through.
+    func testOpaqueByConstructionRegionFullyExcludedPasses() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [bar],
+                                                    opaqueByConstruction: true)
+        XCTAssertEqual(measured?.coverage, 1.0)
+        XCTAssertEqual(measured?.maxGlyphContrast, 1.0)
+    }
+
+    /// A sanity check that the buffer itself measures normally when nothing is excluded: a solid
+    /// colour against itself is 100% within tolerance, regardless of `opaqueByConstruction`.
+    func testUnexcludedSolidRegionPasses() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [],
+                                                    opaqueByConstruction: false)
+        XCTAssertEqual(measured?.coverage, 1.0)
     }
 }

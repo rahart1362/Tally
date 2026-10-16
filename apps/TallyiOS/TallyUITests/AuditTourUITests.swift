@@ -405,14 +405,56 @@ final class AuditTourUITests: TallyUITestCase {
             }
             snap(app, screen: "todo", state: "batchSelect", reachedVia: "Select, then two rows tapped")
             if app.buttons["todo.markDone"].exists { app.buttons["todo.markDone"].tap() }
+            // MVP-2f (fix list item 2): `todo.markDone`'s own `withAnimation { editMode = .inactive }`
+            // (`ToDoScreen.swift`) can still be in flight when the capture below starts — the
+            // gate-2 final review's own evidence: both Pro Max AX5 legs were captured with the
+            // "Cancel" bar and the "Mark Done" pill still on screen (verdict section 3). `todo.select`
+            // is the SAME toggle button in both states ("Select"/"Cancel", switched on
+            // `editMode.isEditing` — never matched by its label, which L10N translates), so once the
+            // screen settles, if `todo.markDone` is still there, batch-select mode never actually
+            // closed (for example, no "Not Done" row existed on this leg to select and mark), and
+            // tapping `todo.select` again forces it shut before the AX5 capture below.
+            _ = waitUntilAtRest(app)
+            if app.buttons["todo.markDone"].exists {
+                app.buttons["todo.select"].tap()
+                _ = waitUntilAtRest(app)
+            }
         }
 
         // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — To-Do's
         // rows below the AX5 fold had no tour evidence at all (verdict section 4). Gated on the
         // AX5 leg only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        //
+        // MVP-2f (fix list item 2): the gate-2 final review found all 4 AX5 legs still scrolling at
+        // `maxScreens: 10` (1,483-2,124 rows still changing on each of the last 3 steps, verdict
+        // section 3). Raising it to 40 (matching Insights' own cap, `testF_insights`) was still not
+        // enough: dispatched for real (Audit tour run 38828098145), proMax's two AX5 legs reached
+        // their own true end at scroll35 (the next swipe produced no change), but smallest's two
+        // legs were still changing by ~2,000 rows a screenful at scroll40, the cap, not an
+        // unchanged body — the sample To-Do list (`planner_items.page1`/`page2.json`: 178 items
+        // total) is genuinely long, and the smallest device's narrower rows show fewer of them per
+        // screenful than proMax's.
+        //
+        // Re-dispatched twice more at `maxScreens: 70` while fixing item 3 (runs 38834373248,
+        // 38837025127): smallest's own true end is consistently 45-52 screens, comfortably inside
+        // 70. But the SECOND of those runs also surfaced a separate, pre-existing flake in
+        // `captureScreenfuls`'s own stop condition, unrelated to this count: proMax's own true end
+        // is consistently ~34-35 (three runs agree, including this one — `99-todo-scroll34.png` was
+        // already byte-identical to every scroll after it, `35` through `70`), yet that run's loop
+        // never broke, recording 36 duplicate screenshots up to the cap. The raw-PNG equality check
+        // (`pngRepresentation ==`, shared with `waitUntilAtRest`) must be seeing some difference
+        // between consecutive full-screen captures even once the scrollable content has stopped —
+        // a status-bar or glass-chrome animation is the likely source, not scroll content — but
+        // reproducing and fixing that check itself is a separate concern from this ruling, and risks
+        // changing `waitUntilAtRest`'s own behaviour everywhere else it is used (every capture in
+        // this file). Flagged for the PMO rather than guessed at here. Lowered to 60 instead of
+        // raising further: comfortably above every observed true end (34-35, 45-52), while keeping
+        // the worst case (the loop running to the cap without breaking, as it did here) safely under
+        // `tourAllowance` (560 s) at this file's own observed ~6 s/screenful rate (60 × 6 ≈ 360 s,
+        // well short of 560 even before the rest of this test method's own budget).
         if Self.isAX5Leg {
             scrollToTop(app)
-            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 10)
+            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 60)
         }
 
         app.terminate()
@@ -748,6 +790,22 @@ final class AuditTourUITests: TallyUITestCase {
         guard goScrolling(app.buttons["family.sample.viewAsParent"], app, screen: "family", state: "parentDashboard",
                           reachedVia: "Settings -> Explore Parent Mode", maxSwipes: 30) else {
             // L10N-04: was app.buttons["Done"] — the English label, which Spanish changes.
+            if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
+            finish("N")
+            app.terminate()
+            return
+        }
+        // MVP-2f (fix list item 2): `goScrolling`'s own tap only confirms the button was hittable
+        // and tapped (this file's own doc comment on `go`), never that Parent Mode actually opened.
+        // The gate-2 final review found smallest-light-ax5 never left the Settings sheet: every
+        // "family" capture below it — `top` and `scroll1-3` — was still "Dana Sample, Explore
+        // Parent Mode, Version, Privacy Policy", mislabelled as Parent Mode (verdict section 3).
+        // `family.switcher` (the student switcher) is on screen whenever Parent Mode really is, so
+        // its absence files this leg's entry as `missing-parentDashboard`, and the rest of this
+        // screen's steps — which all assume Parent Mode — are skipped, rather than capturing and
+        // labelling the wrong screen without noticing.
+        guard element("family.switcher", in: app).waitForExistence(timeout: 10) else {
+            snap(app, screen: "family", state: "missing-parentDashboard", reachedVia: "Settings -> Explore Parent Mode")
             if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
             finish("N")
             app.terminate()
