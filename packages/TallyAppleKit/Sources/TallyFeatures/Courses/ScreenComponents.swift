@@ -86,6 +86,14 @@ struct StatusChip: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// MVP-2f gate-2 (fix list item 3): set by an ancestor `StatusChipRow` (via `.environment`,
+    /// never a direct parameter — `StatusChipRow`'s own `content` closure is generic, so it cannot
+    /// reach into its children to set a property on each chip individually). Giving a WRAPPING
+    /// `VStack` its own `.frame(maxWidth: .infinity)` does not, by itself, make each child inside
+    /// it any wider than that child's own natural "pill" size wants to be — a `VStack` positions
+    /// children by `alignment` within its bounds, it does not stretch them; this file's own
+    /// `body` doc comment below has the fix this flag drives.
+    @Environment(\.statusChipFullWidth) private var fullWidth
     /// A value chip (a score) keeps D02's value rule: one line, shrunk at the accessibility sizes.
     private var isValue = false
 
@@ -126,6 +134,24 @@ struct StatusChip: View {
         .labelStyle(.tallyCompact)
         .lineLimit(isValue ? 1 : 2)
         .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
+        // MVP-2f gate-2 (fix list item 3): the gate-2 final review's own evidence (verdict §3) was
+        // still "Not subm…"/"High priori…" truncated at AX5 even once `StatusChipRow` stopped using
+        // `ViewThatFits` there (a prior attempt that wrapped only the ROW in `.frame(maxWidth:
+        // .infinity)`, which this doc comment's own earlier wording wrongly assumed would reach
+        // each chip — dispatched for real, Audit tour run 38828098145, it did not: the chip is
+        // still its own "ideal"-sized pill). Two things were missing, both on the chip itself:
+        // - `.fixedSize(horizontal: false, vertical: true)`: without it, nothing guarantees this
+        //   `Label` is actually GIVEN the height its own wrapped second line needs inside a `List`
+        //   row's own (separate) height-measurement pass — always on, value chips included, since a
+        //   value chip's own single line already equals its ideal height (this costs it nothing).
+        // - `.frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)`: only when
+        //   `fullWidth` (`StatusChipRow`'s own flag, this type's own doc comment) — stretches the
+        //   chip itself to the row's width, handing its `Text` a definite width to wrap against,
+        //   instead of the chip's own natural, compact pill width (too narrow for "High priority"
+        //   on one line, and with nothing wider offered, two lines either). `nil` elsewhere (every
+        //   other call site: Courses, CourseDetail, Calendar) keeps the plain pill unchanged.
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
@@ -163,11 +189,19 @@ struct StatusChip: View {
 /// Max in select mode. FP-2's rule is that a VALUE never breaks mid-token; these are word chips
 /// (never `.valueStyle()`), so wrapping between words is the correct fix, not shrinking them.
 ///
-/// The Courses xxxLarge precedent (`CourseCardView.usesFullWidthColumn`) is reused here: at
-/// accessibility sizes and `xxxLarge` (the standard size closest to them), skip `ViewThatFits`
-/// entirely and lay the chips out in a plain `VStack` given the row's own full width directly, so
-/// each chip's `Text` is laid out against a definite, finite width (not an ideal one) and wraps
-/// (`StatusChip`'s own `.lineLimit(2)`) instead of truncating mid-word.
+/// **A first attempt (skip `ViewThatFits` at accessibility sizes, give this row's own `VStack` a
+/// `.frame(maxWidth: .infinity)`) did not actually fix it** — dispatched for real (Audit tour run
+/// 38828098145), Pro Max select mode still read "High priori…". A `VStack` stacks and aligns its
+/// children within its own bounds; stretching the STACK's own frame does not, by itself, stretch
+/// EACH CHILD inside it any wider than that child's own natural "pill" size wants — each `StatusChip`
+/// was still proposed (and fit itself to) its own ideal compact width, the same as before. The real
+/// fix is on `StatusChip` itself (its own doc comment): this row only sets `statusChipFullWidth`
+/// (via `.environment`, since `content` is a generic closure this type cannot reach inside of) —
+/// every chip inside reads that flag and stretches ITSELF.
+///
+/// The Courses xxxLarge precedent (`CourseCardView.usesFullWidthColumn`) is reused for WHEN this
+/// applies: at accessibility sizes and `xxxLarge` (the standard size closest to them), skip
+/// `ViewThatFits` entirely and lay the chips out in a plain, full-width `VStack`.
 struct StatusChipRow<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -181,12 +215,28 @@ struct StatusChipRow<Content: View>: View {
         if usesFullRowWidth {
             VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.statusChipFullWidth, true)
         } else {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: TallySpacing.xs) { content() }
                 VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
             }
         }
+    }
+}
+
+/// MVP-2f gate-2 (fix list item 3): `StatusChipRow`'s own "lay chips out full width, not as
+/// compact pills" decision, read by every `StatusChip` in its subtree (`StatusChip`'s own doc
+/// comment on `fullWidth` has why this is an environment value, not a parameter). `fileprivate`:
+/// only `StatusChipRow` sets it and only `StatusChip` reads it, both in this file.
+fileprivate struct StatusChipFullWidthKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    fileprivate var statusChipFullWidth: Bool {
+        get { self[StatusChipFullWidthKey.self] }
+        set { self[StatusChipFullWidthKey.self] = newValue }
     }
 }
 

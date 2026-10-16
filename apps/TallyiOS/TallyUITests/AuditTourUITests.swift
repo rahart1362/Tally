@@ -427,12 +427,18 @@ final class AuditTourUITests: TallyUITestCase {
         //
         // MVP-2f (fix list item 2): the gate-2 final review found all 4 AX5 legs still scrolling at
         // `maxScreens: 10` (1,483-2,124 rows still changing on each of the last 3 steps, verdict
-        // section 3) — raised well above 10, like Insights' own cap (`testF_insights`), so
-        // `captureScreenfuls`' own "unchanged screenshot" rule is what actually stops it, not this
-        // count.
+        // section 3). Raising it to 40 (matching Insights' own cap, `testF_insights`) was still not
+        // enough: dispatched for real (Audit tour run 38828098145), proMax's two AX5 legs reached
+        // their own true end at scroll35 (the next swipe produced no change), but smallest's two
+        // legs were still changing by ~2,000 rows a screenful at scroll40, the cap, not an
+        // unchanged body — the sample To-Do list (`planner_items.page1`/`page2.json`: 178 items
+        // total) is genuinely long, and the smallest device's narrower rows show fewer of them per
+        // screenful than proMax's. Raised to 70, comfortably above the ~50-57 screens that count
+        // implies for the smallest device, so `captureScreenfuls`' own "unchanged screenshot" rule
+        // is again what actually stops it, not this count.
         if Self.isAX5Leg {
             scrollToTop(app)
-            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 40)
+            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 70)
         }
 
         app.terminate()
