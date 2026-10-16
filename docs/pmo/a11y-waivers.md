@@ -88,14 +88,19 @@ element's frame and the screenshot taken at the audit moment, and decides each o
     both screens: To-Do's 4 AX5 legs all hit the 10-screenful cap still scrolling (1,483–2,124 rows
     changing on each of the last 3 steps), and Parent Mode's smallest-light-ax5 leg never left the
     Settings sheet (`goScrolling`'s own tap landed without the screen actually becoming Parent
-    Mode, so every "family" capture on that leg was the Settings sheet, mislabelled). MVP-2f:
-    To-Do's cap is now 40 (`captureScreenfuls`' own "unchanged screenshot" rule is meant to stop it
-    first, as it does for Insights below); Parent Mode's entry is now confirmed by `family.switcher`
-    existing before any capture, filing a failed entry as `missing-parentDashboard` instead of
-    mislabelling it. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run's own
-    per-leg counts. Insights previously hit its 10-screenful cap before reaching its true end at
-    AX5 on the smallest device (`smallest-light-ax5/86-insights-scroll10` ended mid-card); its cap
-    is 20, matching Settings' own, and reaches the end on all 4 AX5 legs (MVP-2e).
+    Mode, so every "family" capture on that leg was the Settings sheet, mislabelled). **MVP-2f:**
+    To-Do's cap, raised twice following live evidence each time (40, then 60; the sample list draws
+    on 178 `planner_items` total) — the final tour run (38862770329) reaches a genuine, confirmed
+    end on every AX5 leg: Pro Max 33–36 screens, the smallest device 45–58 (one Pro Max leg still
+    hit the 60-screenful cap there, but only because of a separate, pre-existing flake in
+    `captureScreenfuls`'s own stop condition, not missing coverage — `docs/pmo/reviews/
+    mvp2b-report.md`'s MVP-2f section, "Open items", has the full diagnosis). Parent Mode's entry
+    is now confirmed by `family.switcher` existing before any capture, filing a failed entry as
+    `missing-parentDashboard` instead of mislabelling it — all 4 AX5 legs entered Parent Mode for
+    real on every dispatch since (each leg's own `family.switcher 'Viewing Rowan'` label).
+    Insights previously hit its 10-screenful cap before reaching its true end at AX5 on the
+    smallest device (`smallest-light-ax5/86-insights-scroll10` ended mid-card); its cap is 20,
+    matching Settings' own, and reaches the end on all 4 AX5 legs (MVP-2e).
 
   No further attempt to re-page the accessibility audit API itself is expected without a method
   that does not relayout the list mid-measurement (for example, measuring each row's text at the
