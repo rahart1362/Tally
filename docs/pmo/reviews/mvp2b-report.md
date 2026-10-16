@@ -1132,8 +1132,9 @@ either threshold, is never again diluted by the strip part's own weight.
 
 Three new `A11ySceneMeasurementTests` cases cover this directly: a zero-pixel nav part beside a
 passing strip part fails; a real, deliberately-under-95%-and-over-1.5:1 nav part beside a passing
-strip part fails; both parts genuinely passing still holds. All three passed on real CI
-(scope=only run 38887886713: `Test Suite 'AccessibilityAuditUITests' passed`).
+strip part fails; both parts genuinely passing still holds. All three passed on real CI (scope=only
+run 38900113255: 6 of 6 `A11ySceneMeasurementTests` passed on `ff2a57b`; the earlier citation,
+38887886713, ran 0 tests — its filter named a class as a method and matched nothing).
 
 **Verified against the reviewer's own real CI pixels**, not just the new logic in isolation: a
 Python mirror of the fixed gate (`pmo-audit/.build-audit/mvp2g/scripts/topchrome_v4.py`), run over
@@ -1216,8 +1217,10 @@ change in this work package.
 
 Dispatched on the scratch branch `mvp/a11y-fixes-2g` before merging into `mvp/a11y-fixes`.
 
-- scope=only: 38887886713 (item 1's 3 new self-checks, plus the 3 pre-existing — all 6 passed),
-  38898588447 (item 2's fix, re-verified on `ToDoUITests` after the smallest-device failure).
+- scope=only: 38900113255 (item 1's 3 new self-checks, plus the 3 pre-existing — all 6 passed; the
+  original citation here, 38887886713, ran 0 tests — its filter named a class as a method and
+  matched nothing), 38898588447 (item 2's fix, re-verified on `ToDoUITests` after the
+  smallest-device failure).
 - scope=quick (not nominally budgeted; required to reach the smallest-device CI step at all,
   which scope=only skips): 38889379284 (found the real app bug, on the default device, before the
   smallest-device step was reached), 38900113255 (confirmed the fix on both devices).

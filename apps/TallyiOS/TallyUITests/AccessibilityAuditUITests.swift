@@ -1514,12 +1514,18 @@ struct A11yScene {
         // header, keeps exactly the nav-bar-alone check above it always has.
         if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame {
             // MVP-2f (PMO ruling): the union path only applies when the issue actually touches the
-            // navigation bar (`!navBar.intersection(frame).isNull`) — an element entirely under the
+            // navigation bar with a POSITIVE-height intersection — an element entirely under the
             // pinned header, away from the nav bar, is not straddling anything and still needs the
             // existing pinned-bar rule below (>= 1/3 overlap, above the selected heading), not this
             // one; falling into this branch instead would skip that rule's own, different
-            // precondition.
-            if let pinnedHeader = pinned.first, !navBar.intersection(frame).isNull {
+            // precondition. MVP-2h (narrow re-check carry-over, `review/verdict.md` fix list item
+            // 3): `!navBar.intersection(frame).isNull` alone let a frame that only TOUCHES the nav
+            // bar's bottom edge (a zero-height intersection; `CGRect.intersection` is never `.null`
+            // there) into this branch — held on the strip's own construction alone, bypassing the
+            // pinned-bar rule's own "ends above the selected heading" precondition below. A real
+            // overlap needs positive height, matching `measureTopChromeCoverage`'s own `navPresent`
+            // precondition (this file, above) exactly.
+            if let pinnedHeader = pinned.first, navBar.intersection(frame).height > 0 {
                 if Self.overlapsByAtLeastTwoThirds(navBar, pinnedHeader, frame),
                    let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: frame,
                                                             excluding: chromeOwnContent + navBarButtonGlassExtent),
@@ -1765,8 +1771,12 @@ struct A11yScene {
     /// sites (`heldReason`) now also pass `navBarButtonGlassExtent` (MVP-2e ruling 1(a)): the glass
     /// buttons' own drawn extent, which reaches beyond their reported frames and so is never caught
     /// by `chromeOwnContent` alone (this type's own doc comment, point 1a).
+    // MVP-2h (narrow re-check carry-over, fix list item 2): `measuredPixels` is `total` verbatim —
+    // 0 only on the `opaqueByConstruction` shortcut just below, where nothing was actually read
+    // from the buffer. `topChromeMeasurementDetail` uses it to say so, instead of printing a
+    // coverage number as though a real measurement produced it.
     func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect, excluding: [CGRect] = [],
-                               opaqueByConstruction: Bool) -> (coverage: Double, maxGlyphContrast: Double)? {
+                               opaqueByConstruction: Bool) -> (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)? {
         guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
         let x0 = max(0, Int((regionFrame.minX * pixelScale).rounded()))
         let y0 = max(0, Int((regionFrame.minY * pixelScale).rounded()))
@@ -1826,9 +1836,9 @@ struct A11yScene {
         // `A11ySceneMeasurementTests` (below) is this ruling's own required self-check.
         guard total > 0 else {
             guard opaqueByConstruction else { return nil }
-            return (coverage: 1.0, maxGlyphContrast: 1.0)
+            return (coverage: 1.0, maxGlyphContrast: 1.0, measuredPixels: 0)
         }
-        return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
+        return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast, measuredPixels: total)
     }
 
     /// MVP-2f (PMO ruling): `measureTopChromeCoverage`'s own result — the combined numbers the gate
@@ -1837,8 +1847,8 @@ struct A11yScene {
     /// (the PMO's own requirement: "record the union overlap and the per-part coverage").
     struct TopChromeMeasurement {
         let overlapFraction: Double
-        let navBarPart: (coverage: Double, maxGlyphContrast: Double)?
-        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)?
+        let navBarPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)?
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)?
         let coverage: Double
         let maxGlyphContrast: Double
     }
@@ -1900,11 +1910,11 @@ struct A11yScene {
         // (`measureNavBarCoverage`'s own parameter has none) and never inferred from anything else
         // at this call site. See that method's own doc comment for why each bar gets the value it
         // does.
-        let navPart: (coverage: Double, maxGlyphContrast: Double)? = navPresent
+        let navPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)? = navPresent
             ? measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding,
                                     opaqueByConstruction: false)
             : nil
-        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? = pinnedPresent
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)? = pinnedPresent
             ? measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding,
                                     opaqueByConstruction: true)
             : nil
@@ -2012,7 +2022,10 @@ struct A11yScene {
     /// without recomputing anything. MVP-2d's own text said "within colourTolerance", which the
     /// gate-2 final review found false (coverage was never checked against `colourTolerance` alone
     /// — the tolerance actually used is now named here).
-    static func navBarHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double), noElement: Bool = false) -> String {
+    // MVP-2h: takes the same 3-field tuple `measureNavBarCoverage` now returns (its own doc
+    // comment, fix list item 2) — `measuredPixels` unused here: the nav bar always passes
+    // `opaqueByConstruction: false`, so this is never the synthetic, zero-pixel case.
+    static func navBarHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int), noElement: Bool = false) -> String {
         let coveragePct = String(format: "%.1f", measured.coverage * 100)
         let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
         let contrast = String(format: "%.2f", measured.maxGlyphContrast)
@@ -2036,9 +2049,28 @@ struct A11yScene {
             parts.append("nav bar \(String(format: "%.1f", navBarPart.coverage * 100))%/\(String(format: "%.2f", navBarPart.maxGlyphContrast)):1")
         }
         if let pinnedPart = measured.pinnedPart {
-            parts.append("pinned header \(String(format: "%.1f", pinnedPart.coverage * 100))%/\(String(format: "%.2f", pinnedPart.maxGlyphContrast)):1")
+            // MVP-2h (narrow re-check carry-over, `review/verdict.md` fix list item 2): the strip's
+            // own `opaqueByConstruction` shortcut (`measureNavBarCoverage`'s `total == 0` branch)
+            // reads no real pixel at all — every live hold's own evidence
+            // (`calendar-*-audit.json`) printed "pinned header 100.0%/1.00:1" there regardless,
+            // which the narrow re-check's ruling 2(a) called false: say what was actually
+            // measured instead.
+            if pinnedPart.measuredPixels > 0 {
+                parts.append("pinned header \(String(format: "%.1f", pinnedPart.coverage * 100))%/\(String(format: "%.2f", pinnedPart.maxGlyphContrast)):1")
+            } else {
+                parts.append("pinned header opaque by construction, 0 px measured")
+            }
         }
         let perPart = parts.joined(separator: ", ")
+        // MVP-2h (fix list item 2's second bullet): "measured X% of its pixels" is dropped when no
+        // present part actually measured a real pixel — the strip's own opaque-by-construction
+        // shortcut alone never earns that claim, even though `coverage` still reads 100% (its own
+        // gate-passing default, never a second gate here — this type's own doc comment above).
+        let anyPixelsMeasured = (measured.navBarPart?.measuredPixels ?? 0) > 0 || (measured.pinnedPart?.measuredPixels ?? 0) > 0
+        guard anyPixelsMeasured else {
+            return "\(overlapPct)% of its height inside the navigation bar/pinned header union (\(perPart)), " +
+                   "max glyph row contrast \(contrast):1 against it"
+        }
         return "\(overlapPct)% of its height inside the navigation bar/pinned header union, measured \(coveragePct)% of its " +
                "pixels within \(tolerance):1 contrast of each part's own colour (\(perPart)), max glyph row contrast " +
                "\(contrast):1 against it"
@@ -2221,5 +2253,33 @@ final class A11ySceneMeasurementTests: XCTestCase {
                                                        excluding: [])
         XCTAssertNotNil(measured)
         XCTAssertEqual(measured?.coverage, 1.0)
+    }
+
+    /// MVP-2h (narrow re-check carry-over, `review/verdict.md` fix list item 3): `heldReason`'s own
+    /// required self-check for the union-path precondition — a frame that only touches the
+    /// navigation bar's bottom edge (a zero-height intersection; `CGRect.intersection` is never
+    /// `.null` for two rects that merely touch) must not enter the top-chrome union path at all.
+    /// It has no real overlap with the nav bar to measure anything about, and entering it anyway
+    /// bypasses the separate pinned-bar rule's own "ends above the selected heading" precondition
+    /// below — not satisfied here (no day heading, no selected day, on screen).
+    ///
+    /// Before this fix, `!navBar.intersection(frame).isNull` read `true` for this exact geometry,
+    /// so a solid-colour frame sitting entirely under the pinned header (and so passing the strip's
+    /// own measurement trivially) was held via the union branch alone, although it never touched
+    /// the navigation bar with any real area.
+    func testZeroHeightNavBarTouchDoesNotEnterUnionPath() {
+        let navBar = CGRect(x: 0, y: 0, width: 100, height: 50)
+        // Starts exactly at the nav bar's own bottom edge: a zero-height touch, not a real overlap.
+        let frame = CGRect(x: 0, y: 50, width: 100, height: 30)
+        var touchingScene = solidScene(width: 100, height: 100)
+        touchingScene.window = CGRect(x: 0, y: 0, width: 100, height: 100)
+        touchingScene.chrome = [(frame: navBar, kind: .navigationBar)]
+        touchingScene.pinned = [frame]
+        touchingScene.scrolling = [(label: "row", frame: frame, container: touchingScene.window,
+                                    axis: .vertical, insidePinned: false)]
+        let held = touchingScene.heldReason(auditType: "contrast", label: "row", elementIdentifier: "",
+                                            frame: frame, variant: "test")
+        XCTAssertNil(held?.reason, "a zero-height touch on the navigation bar must not be held via " +
+                     "the top-chrome union path")
     }
 }
