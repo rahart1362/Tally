@@ -110,23 +110,21 @@ final class ToDoUITests: TallyUITestCase {
         // `ToDoScreen.swift`'s own exit (`withAnimation { editMode = .inactive }` right after
         // `setDone`) is the standard iOS pattern already; `todo.select`'s toggle and the tab bar's
         // return already confirm `editMode` really did flip. What the tour could not tell was
-        // whether the List's own leading selection accessory actually let go too — the three
-        // checks below are state-verified, identifier- and geometry-based proof of exactly that:
+        // whether the List's own leading selection accessory actually let go too.
+        //
+        // MVP-2h (narrow re-check, `review/verdict.md` section 2.2): two of the three checks that
+        // used to run here — by identifier (one `todo.complete` per visible row) and by trait (a
+        // marked row does not read `isSelected`) — both still pass in the stuck, broken state
+        // (the review's own table: `editMode` reads `.inactive` either way, so every row still
+        // draws its own `todo.complete`, and no `todo.row.*` element ever carries `Selected` in
+        // that state either). They proved nothing about this defect and are dropped. Only the
+        // geometry check below ever actually failed on the real bug (run 38889379284), so it is
+        // the one kept.
         XCTAssertFalse(app.buttons["todo.markDone"].exists, "batch Mark Done did not exit selection mode")
         let visibleRows = elementsWithPrefix("todo.row", in: app)
-        // (a) by identifier: `todo.complete` only draws `if editMode?.wrappedValue.isEditing !=
-        // true` (`ToDoScreen.swift:159`) — one must exist per visible row, not merely somewhere.
-        XCTAssertEqual(app.buttons.matching(identifier: "todo.complete").count, visibleRows.count,
-                      "not every visible row shows its own completion control after batch Mark " +
-                      "Done. Hierarchy: \(app.debugDescription)")
-        // (b) by trait: a row the batch action marked done must not still read as selected.
-        for label in picked {
-            let row = rows.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
-            if row.exists { XCTAssertFalse(row.isSelected, "'\(label)' still reads as selected after Mark Done") }
-        }
-        // (c) by geometry: every visible row's own leading inset must match the normal list's —
-        // the List's own selection accessory, stuck or not, is what shifts it (verdict.md §B: 65
-        // pt on the smallest device, both AX5 legs, never resolving).
+        // By geometry: every visible row's own leading inset must match the normal list's — the
+        // List's own selection accessory, stuck or not, is what shifts it (verdict.md §B: 65 pt on
+        // the smallest device, both AX5 legs, never resolving).
         for index in 0..<min(visibleRows.count, 5) {
             let row = visibleRows.element(boundBy: index)
             guard row.exists else { continue }
@@ -134,5 +132,89 @@ final class ToDoUITests: TallyUITestCase {
                           "row \(index) is not at its normal leading inset after batch Mark Done — " +
                           "the List's own selection accessory may still be showing. Hierarchy: \(app.debugDescription)")
         }
+    }
+
+    /// MVP-2h (PMO direction, binding — `review/verdict.md` fix list item 1's own required
+    /// assertion): the leading-inset check above only ever caught the stuck-selection-accessory
+    /// defect; it says nothing about the narrow re-check's own finding against MVP-2g's fix for
+    /// it (`.id(listGeneration)`) — that the List was rebuilt from scratch on every exit from
+    /// select mode, resetting its scroll position to the top every time (6 of 6 scrolled tour
+    /// legs). This scrolls to a row that needs scrolling to reach, selects only that row, taps
+    /// Mark Done, and — with NO swipe anywhere after that tap, which would hide exactly this
+    /// regression (the verdict's own note on the swipe-to-find loop above: "would hide a
+    /// reset") — checks the SAME row is still on screen, within one row height of where it was,
+    /// and clear of both bars.
+    @MainActor
+    func testBatchMarkDoneKeepsAMidListRowOnScreen() throws {
+        let app = launchSample()
+        openTab("To-Do", in: app)
+        let weekHeader = text("Due this week", in: app)
+        XCTAssertTrue(scrollUntilHittable(weekHeader, in: app, maxSwipes: 10),
+                      "could not scroll to 'Due this week'. Hierarchy: \(app.debugDescription)")
+
+        let rows = elementsWithPrefix("todo.row", in: app)
+        // A row under "Due this week": reaching it needs the scroll above, which is the whole
+        // point — a reset to the top would put it off screen again. Found by reading each row's
+        // own `.frame` directly (no geometry predicate: nothing else in this file trusts
+        // `NSPredicate` against a CGRect key, and there is no simulator here to check it would
+        // even match).
+        var midRow: XCUIElement?
+        for index in 0..<rows.count {
+            let candidate = rows.element(boundBy: index)
+            if candidate.exists, candidate.frame.minY > weekHeader.frame.maxY {
+                midRow = candidate
+                break
+            }
+        }
+        guard let midRow else {
+            XCTFail("no row under 'Due this week'. Hierarchy: \(app.debugDescription)")
+            return
+        }
+        let label = midRow.label
+
+        tapWhenHittable(app.buttons["todo.select"], in: app)
+        let row = rows.matching(NSPredicate(format: "label == %@", label)).firstMatch
+        XCTAssertTrue(bringClearOfTheBottom(row, in: app), "'\(label)' is not clear of the bottom bar. Hierarchy: \(app.debugDescription)")
+        bringClearOfTheTop(row, in: app)
+        waitUntilRowAtRest(row, in: app)
+        clearTapPoint(row, in: app).tap()
+        if !eventually(timeout: 3, { row.isSelected }) {
+            waitUntilRowAtRest(row, in: app)
+            if !row.isSelected { clearTapPoint(row, in: app).tap() }
+        }
+        XCTAssertTrue(eventually(timeout: 2) { row.isSelected }, "'\(label)' was not selected after a retry. Hierarchy: \(app.debugDescription)")
+
+        // The resting position right before Mark Done, not before Select was even tapped — so the
+        // pre-tap positioning just above (clear of both bars) is already accounted for, and only
+        // Mark Done's own exit can move it from here. "Within one row height" (the brief's own
+        // tolerance) uses this row's own measured height, not a hard-coded guess.
+        waitUntilRowAtRest(row, in: app)
+        let rowHeight = row.frame.height
+        let originalY = row.frame.minY
+
+        tapWhenHittable(app.buttons["todo.markDone"], in: app)
+        XCTAssertFalse(app.buttons["todo.markDone"].exists, "Mark Done did not exit selection mode")
+
+        // No swipe anywhere below: if the list reset to the top, this row is simply gone (or at
+        // the wrong y), not merely scrolled-to.
+        let after = rows.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        guard eventually(timeout: 5, { after.exists }) else {
+            XCTFail("'\(label)' is gone after Mark Done, with no swipe — the list likely reset " +
+                    "to the top. Hierarchy: \(app.debugDescription)")
+            return
+        }
+        XCTAssertEqual(after.frame.minY, originalY, accuracy: rowHeight,
+                      "'\(label)' moved by more than one row height after Mark Done, with no " +
+                      "swipe — the list likely reset to the top. Hierarchy: \(app.debugDescription)")
+        // Still on screen, clear of both bars — not merely present somewhere off the visible area.
+        let navBar = app.navigationBars.firstMatch
+        if navBar.exists {
+            XCTAssertGreaterThanOrEqual(after.frame.minY + 0.5, navBar.frame.maxY,
+                                        "'\(label)' sits under the navigation bar after Mark Done. Hierarchy: \(app.debugDescription)")
+        }
+        let tabBar = app.tabBars.firstMatch
+        let bottomEdge = tabBar.exists ? tabBar.frame.minY : app.frame.maxY
+        XCTAssertLessThanOrEqual(after.frame.maxY, bottomEdge + 0.5,
+                                 "'\(label)' sits under the tab bar after Mark Done. Hierarchy: \(app.debugDescription)")
     }
 }

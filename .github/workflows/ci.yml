@@ -369,9 +369,10 @@ jobs:
         # never resolving across the rest of that tour leg. `ToDoScreen.swift`'s own exit
         # (`editMode = .inactive` right after `setDone`) reads correct in the source, so this
         # proves or disproves it for real, on the exact device the tour found it on, rather than
-        # leaving it a hypothesis: `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect`'s own
-        # post-Mark-Done assertions (identifier, trait and leading-inset checks) re-run here,
-        # unchanged, against `steps.small.outputs.udid`.
+        # leaving it a hypothesis. `ToDoUITests`'s own post-Mark-Done leading-inset check (MVP-2h,
+        # `pmo-audit/.build-audit/mvp2g/review/verdict.md` section 2.2: the only one of the old
+        # three that ever actually caught this) and its own no-swipe scroll-position check both
+        # run here, unchanged, against `steps.small.outputs.udid` — the whole `ToDoUITests` class.
         if: ${{ inputs.scope != 'unit' && inputs.scope != 'only' }}
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
