@@ -656,7 +656,7 @@ extension TallyUITestCase {
             // Both outcomes share the same cap (at most 3 candidates per pass, already applied
             // above, before either branch runs).
             var recurredOnRetry: Set<String> = []
-            var retryMeasured: (coverage: Double, maxGlyphContrast: Double)?
+            var retryMeasured: A11yScene.TopChromeMeasurement?
             if !noElementTypesSeen.isEmpty {
                 a11yWaitUntilSettled(app, timeout: 2)
                 _ = try? app.performAccessibilityAudit(for: pass) { retryIssue in
@@ -675,10 +675,16 @@ extension TallyUITestCase {
                 // measurement against the actual pixels it ran on. Taken and recorded whether or
                 // not the issue recurred — branch (i) cites it too, as evidence the settled screen
                 // really is clean, not as a second pass/fail gate.
+                //
+                // MVP-2f (PMO ruling): against the union of the nav bar and the pinned header, the
+                // same as the initial measurement this retry is reproducing (`heldReason`'s own
+                // elementless branch) — never the nav bar alone, now that the two can touch.
                 let retryScene = a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-retry")
-                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame {
-                    retryMeasured = retryScene.measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
-                                                                     excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent)
+                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame,
+                   let pinnedHeader = retryScene.pinned.first {
+                    retryMeasured = retryScene.measureTopChromeCoverage(
+                        navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: navBar.union(pinnedHeader),
+                        excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent)
                 }
             }
             let retryPixelProofPasses = retryMeasured.map {
@@ -1433,14 +1439,23 @@ struct A11yScene {
             // measurement, on THIS screenshot, only ever matters again if the retry finds the same
             // issue recurring; if the retry does not re-report it at all, the retry's OWN fresh
             // measurement is what gets recorded instead, not this one.
+            //
+            // MVP-2f (PMO ruling, following the "9:00 PM – 10:15 PM" gate-2 finding): checked
+            // against the UNION of the nav bar and the pinned header, not the nav bar alone — on
+            // Calendar's today variant (this branch's only domain, `!pinned.isEmpty` just below)
+            // the two always touch, and an elementless issue has no frame of its own to tell which
+            // one it would have sat under, so both must read clean (`measureTopChromeCoverage`,
+            // `navBar.union(pinnedHeader)` as the region: each bar's own full frame).
             guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                   !pinned.isEmpty, !variant.contains("firstDay"),
                   let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-                  let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
-                                                       excluding: chromeOwnContent + navBarButtonGlassExtent),
+                  let pinnedHeader = pinned.first,
+                  let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader,
+                                                           regionFrame: navBar.union(pinnedHeader),
+                                                           excluding: chromeOwnContent + navBarButtonGlassExtent),
                   measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold
             else { return nil }
-            return HeldResult(Self.navBarHoldReason(measured, noElement: true), isElementlessNavBarHold: true)
+            return HeldResult(Self.topChromeHoldReason(measured, noElement: true), isElementlessNavBarHold: true)
         }
         if keyboards.contains(where: { $0.insetBy(dx: -0.5, dy: -0.5).contains(frame) }) {
             return HeldResult("on the system keyboard")
@@ -1469,12 +1484,30 @@ struct A11yScene {
         // NEVER the elementless case above (it has its own frame), so `isElementlessNavBarHold`
         // stays `false` — ruling 1(d)'s cap and retry are not ruling 1(a)–(c)'s, which stay
         // unchanged.
-        if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
-           Self.overlapsByAtLeastTwoThirds(navBar, frame),
-           let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
-                                                excluding: chromeOwnContent + navBarButtonGlassExtent),
-           measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
-            return HeldResult(Self.navBarHoldReason(measured))
+        //
+        // MVP-2f (PMO ruling, following scope=a11y run 38841944682's own "9:00 PM – 10:15 PM"
+        // finding): on Calendar, where the nav bar and the pinned header touch, a row can straddle
+        // both — which rows do depends on the day's own date — and checking only its own share of
+        // the nav bar undercounted it below two thirds even while the row sits entirely under
+        // opaque chrome. Wherever there is a pinned header to straddle into (`pinned.first`), the
+        // precondition and the pixel proof both run against the UNION of the two bars instead
+        // (`overlapsByAtLeastTwoThirds(_:_:_:)`, `measureTopChromeCoverage`, each part sampled
+        // against its own bar's own colour, never the other's). Every other screen, with no pinned
+        // header, keeps exactly the nav-bar-alone check above it always has.
+        if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame {
+            if let pinnedHeader = pinned.first {
+                if Self.overlapsByAtLeastTwoThirds(navBar, pinnedHeader, frame),
+                   let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: frame,
+                                                            excluding: chromeOwnContent + navBarButtonGlassExtent),
+                   measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                    return HeldResult(Self.topChromeHoldReason(measured))
+                }
+            } else if Self.overlapsByAtLeastTwoThirds(navBar, frame),
+                      let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
+                                                           excluding: chromeOwnContent + navBarButtonGlassExtent),
+                      measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                return HeldResult(Self.navBarHoldReason(measured))
+            }
         }
         // Item 3 (gate-2 round 3): narrowed to >= 1/3 overlap (like the chrome case above), and
         // only for an element that ENDS ABOVE the selected day's own heading — content genuinely
@@ -1516,6 +1549,23 @@ struct A11yScene {
         let overlap = bar.intersection(frame)
         guard !overlap.isNull, frame.height > 0 else { return false }
         return overlap.height / frame.height >= 2.0 / 3.0
+    }
+
+    /// MVP-2f (PMO ruling, following the "9:00 PM – 10:15 PM" gate-2 `scope=a11y` finding, run
+    /// 38841944682): the same two-thirds precondition as `overlapsByAtLeastTwoThirds`, but against
+    /// the UNION of the navigation bar and the pinned header (Calendar's week strip) when both are
+    /// present and touch, rather than the bar alone. A row that straddles both — which rows do
+    /// depends on the day's own date — was undercounted before: only its own share of the bar was
+    /// measured, so a row mostly under the strip but a little under the bar could fall under two
+    /// thirds even while fully covered by opaque chrome. `navBar` and `pinnedHeader` do not overlap
+    /// each other (they touch), so their own overlaps with `frame` cannot double-count.
+    static func overlapsByAtLeastTwoThirds(_ navBar: CGRect, _ pinnedHeader: CGRect, _ frame: CGRect) -> Bool {
+        guard frame.height > 0 else { return false }
+        let navOverlap = navBar.intersection(frame)
+        let pinnedOverlap = pinnedHeader.intersection(frame)
+        let navHeight = navOverlap.isNull ? 0 : navOverlap.height
+        let pinnedHeight = pinnedOverlap.isNull ? 0 : pinnedOverlap.height
+        return (navHeight + pinnedHeight) / frame.height >= 2.0 / 3.0
     }
 
     /// Item 4: outside the visible area along the container's own scroll axis only (a vertical
@@ -1740,6 +1790,70 @@ struct A11yScene {
         return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
     }
 
+    /// MVP-2f (PMO ruling): `measureTopChromeCoverage`'s own result — the combined numbers the gate
+    /// itself uses, plus each part on its own (`nil` when `regionFrame` does not actually reach that
+    /// part), recorded in the held reason so a reviewer can check both without recomputing anything
+    /// (the PMO's own requirement: "record the union overlap and the per-part coverage").
+    struct TopChromeMeasurement {
+        let overlapFraction: Double
+        let navBarPart: (coverage: Double, maxGlyphContrast: Double)?
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)?
+        let coverage: Double
+        let maxGlyphContrast: Double
+    }
+
+    /// MVP-2f (PMO ruling, following the gate-2 `scope=a11y` finding on "9:00 PM – 10:15 PM", run
+    /// 38841944682): `measureNavBarCoverage` extended to a region that straddles BOTH the
+    /// navigation bar and the pinned header (Calendar's week strip) when the two touch — which
+    /// rows straddle depends on the day's own date, so a check against the nav bar alone
+    /// undercounts a row that is really mostly under the strip. Reuses `measureNavBarCoverage`
+    /// itself once per part, each against its own bar's own background colour, on the slice of
+    /// `regionFrame` that actually overlaps that bar — never cross-checked against the other bar's
+    /// colour, never a new per-pixel routing to risk diverging from the single-bar method
+    /// `measureNavBarCoverage` itself (unchanged, still used alone wherever there is no pinned
+    /// header to straddle into). `excluding` (the glass buttons' own drawn extent plus
+    /// `chromeOwnContent`) is passed to both calls: the glass buttons sit only inside the nav bar's
+    /// own rows, so they can never match anything in the pinned header's own slice, and
+    /// `chromeOwnContent` already carries both bars' own content (`insidePinned` entries included).
+    /// The two parts are combined by their own pixel count (equal to their own slice's height,
+    /// `regionFrame`'s width being the same for both, read from each call's own `coverage`
+    /// fraction over that height) for the combined coverage, and by the worse of the two for the
+    /// combined max glyph contrast — a single bad glyph row in either part still fails the whole
+    /// region, the same "every core pixel" rule `measureNavBarCoverage` already applies within one
+    /// bar. `nil` when `regionFrame` reaches neither bar at all.
+    func measureTopChromeCoverage(navBar: CGRect, pinnedHeader: CGRect, regionFrame: CGRect,
+                                  excluding: [CGRect]) -> TopChromeMeasurement? {
+        let overlapFraction: Double = {
+            guard regionFrame.height > 0 else { return 0 }
+            let navOverlap = navBar.intersection(regionFrame)
+            let pinnedOverlap = pinnedHeader.intersection(regionFrame)
+            let navHeight = navOverlap.isNull ? 0 : navOverlap.height
+            let pinnedHeight = pinnedOverlap.isNull ? 0 : pinnedOverlap.height
+            return (navHeight + pinnedHeight) / regionFrame.height
+        }()
+        let navRegion = navBar.intersection(regionFrame)
+        let pinnedRegion = pinnedHeader.intersection(regionFrame)
+        let navPart: (coverage: Double, maxGlyphContrast: Double)? =
+            (navRegion.isNull || navRegion.height <= 0) ? nil
+            : measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding)
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? =
+            (pinnedRegion.isNull || pinnedRegion.height <= 0) ? nil
+            : measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding)
+        guard navPart != nil || pinnedPart != nil else { return nil }
+        let navWeight = navRegion.isNull ? 0 : max(0, navRegion.height)
+        let pinnedWeight = pinnedRegion.isNull ? 0 : max(0, pinnedRegion.height)
+        let totalWeight = navWeight + pinnedWeight
+        let coverage: Double
+        if totalWeight > 0 {
+            coverage = ((navPart?.coverage ?? 0) * navWeight + (pinnedPart?.coverage ?? 0) * pinnedWeight) / totalWeight
+        } else {
+            coverage = navPart?.coverage ?? pinnedPart?.coverage ?? 0
+        }
+        let maxGlyphContrast = max(navPart?.maxGlyphContrast ?? 1.0, pinnedPart?.maxGlyphContrast ?? 1.0)
+        return TopChromeMeasurement(overlapFraction: overlapFraction, navBarPart: navPart, pinnedPart: pinnedPart,
+                                    coverage: coverage, maxGlyphContrast: maxGlyphContrast)
+    }
+
     /// MVP-2d ruling 1: the densest colour across every pixel of `frame` — the navigation bar's
     /// own background, sampled from the bar outside any text, since text is always the smaller
     /// share of its pixels. `nil` when `frame` is off the image or has no pixels at all.
@@ -1831,25 +1945,52 @@ struct A11yScene {
                "of the bar's own colour, max glyph row contrast \(contrast):1 against it"
     }
 
+    /// MVP-2f (PMO ruling): the measured numbers shared by `topChromeHoldReason` and
+    /// `navBarTransientHoldReason` — the union overlap fraction, each part's own coverage/glyph
+    /// (when `regionFrame` reached it), and the combined numbers the gate itself used. Recording
+    /// every one of them (the PMO's own requirement) lets a reviewer check each against the
+    /// attached screenshot without recomputing anything.
+    private static func topChromeMeasurementDetail(_ measured: TopChromeMeasurement) -> String {
+        let overlapPct = String(format: "%.1f", measured.overlapFraction * 100)
+        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
+        let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
+        var parts: [String] = []
+        if let navBarPart = measured.navBarPart {
+            parts.append("nav bar \(String(format: "%.1f", navBarPart.coverage * 100))%/\(String(format: "%.2f", navBarPart.maxGlyphContrast)):1")
+        }
+        if let pinnedPart = measured.pinnedPart {
+            parts.append("pinned header \(String(format: "%.1f", pinnedPart.coverage * 100))%/\(String(format: "%.2f", pinnedPart.maxGlyphContrast)):1")
+        }
+        let perPart = parts.joined(separator: ", ")
+        return "\(overlapPct)% of its height inside the navigation bar/pinned header union, measured \(coveragePct)% of its " +
+               "pixels within \(tolerance):1 contrast of each part's own colour (\(perPart)), max glyph row contrast " +
+               "\(contrast):1 against it"
+    }
+
+    /// MVP-2f (PMO ruling): `navBarHoldReason`'s own text, for a hold proven against the UNION of
+    /// the navigation bar and the pinned header (`measureTopChromeCoverage`).
+    static func topChromeHoldReason(_ measured: TopChromeMeasurement, noElement: Bool = false) -> String {
+        let suffix = noElement ? " (no element of its own; both bars' whole frames measured instead)" : ""
+        return "under the top chrome\(suffix), " + topChromeMeasurementDetail(measured)
+    }
+
     /// MVP-2f (the PMO's clarification of ruling 1(d), branch (i)): the held reason for an
     /// elementless nav-bar `textClipped` issue that the settled retry did NOT re-report at all —
     /// read as a transient, one-off artifact of the audit's own first measurement (this file's
     /// long-standing "list-rebuild instability" pattern), not a real, recurring issue. `measured`
-    /// is the retry's own fresh navigation-bar measurement, recorded here as supporting evidence
-    /// that the settled screen really does read clean — never as a second gate: this branch holds
-    /// regardless of what it reads, because the determining fact is that the issue itself did not
-    /// recur. `nil` only when the retry's own screenshot had no navigation bar to measure at all
-    /// (should not happen on a Calendar today variant, which is this hold's only domain, but
-    /// degrades to a plain statement rather than a crash or a fabricated number).
-    static func navBarTransientHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double)?) -> String {
+    /// is the retry's own fresh top-chrome measurement (`measureTopChromeCoverage`, the union
+    /// ruling below), recorded here as supporting evidence that the settled screen really does read
+    /// clean — never as a second gate: this branch holds regardless of what it reads, because the
+    /// determining fact is that the issue itself did not recur. `nil` only when the retry's own
+    /// screenshot had no navigation bar or pinned header to measure at all (should not happen on a
+    /// Calendar today variant, which is this hold's only domain, but degrades to a plain statement
+    /// rather than a crash or a fabricated number).
+    static func navBarTransientHoldReason(_ measured: TopChromeMeasurement?) -> String {
         guard let measured else {
-            return "transient: not re-reported on the settled retry (its own navigation-bar measurement could not be taken)"
+            return "transient: not re-reported on the settled retry (its own top-chrome measurement could not be taken)"
         }
-        let coveragePct = String(format: "%.1f", measured.coverage * 100)
-        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
-        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
-        return "transient: not re-reported on the settled retry, measured \(coveragePct)% of its navigation bar's pixels within " +
-               "\(tolerance):1 contrast of the bar's own colour on that fresh screenshot, max glyph row contrast \(contrast):1 against it"
+        return "transient: not re-reported on the settled retry, " + topChromeMeasurementDetail(measured)
     }
 
     /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the
