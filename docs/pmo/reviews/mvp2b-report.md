@@ -1109,3 +1109,127 @@ took more than one attempt to get right — each attempt's own evidence is cited
   package's own scope. Not fixed here; flagged for the PMO.
 - Device checks (VoiceOver, Large Content Viewer, a real Increase Contrast setting), carried over
   from MVP-2e, still pending — this host has no simulator.
+
+## MVP-2g (the gate-2 final re-check's fix list, closing PR #56)
+
+Author: Accessibility Engineer (work package MVP-2g), Claude Sonnet 5. From `d21d07b`, scratch
+branch `mvp/a11y-fixes-2g`. This host has no Xcode: every iOS claim below cites a CI run whose job
+log or exported attachments were read here. Evidence: `pmo-audit/.build-audit/mvp2g/`. Verdict:
+`pmo-audit/.build-audit/mvp2f/review/verdict.md` (the gate-2 final re-check of `5145d3d`), plus a
+binding PMO direction issued mid-pass on item 2 (never let a relaunch hide a real defect; prove or
+disprove it with a device-matched assertion, not a conclusion from the code alone).
+
+### 1. The top-chrome proof is now gated per part, never blended
+
+`AccessibilityAuditUITests.swift` (`measureTopChromeCoverage`). The verdict found the nav-bar and
+pinned-header parts combined by a height-weighted blend: the pinned header's own
+`opaqueByConstruction` constant (100%, 0 measured pixels) could dilute a failing, or entirely
+unmeasured, nav-bar part into a passing hold (rulings 2 and 3). Every part present (a positive-
+height intersection with the issue's own frame) must now pass `measureNavBarCoverage`'s own floor
+(>= 95% within 1.2:1) and ceiling (no glyph row above 1.5:1) **on its own measured pixels**, or the
+whole region fails — a nav-bar part that measures zero pixels, or measures real pixels under
+either threshold, is never again diluted by the strip part's own weight.
+
+Three new `A11ySceneMeasurementTests` cases cover this directly: a zero-pixel nav part beside a
+passing strip part fails; a real, deliberately-under-95%-and-over-1.5:1 nav part beside a passing
+strip part fails; both parts genuinely passing still holds. All three passed on real CI
+(scope=only run 38887886713: `Test Suite 'AccessibilityAuditUITests' passed`).
+
+**Verified against the reviewer's own real CI pixels**, not just the new logic in isolation: a
+Python mirror of the fixed gate (`pmo-audit/.build-audit/mvp2g/scripts/topchrome_v4.py`), run over
+the exact screenshots and element JSON the gate-2 review downloaded
+(`pmo-audit/.build-audit/mvp2f/runs/a11y-38856965773/`), reproduces the fix's effect on real
+pixels:
+- The verdict's own zero-pixel probe (a small nav slice synthetically fully excluded) now fails —
+  held before.
+- The verdict's own faint-text probe (alpha 0.12, nav part 93.1% coverage) now fails — held at
+  99.0% combined before.
+- **No live hold is affected**: all 5 real holds (`calendar-light-std-audit` contrast and
+  elementless ×2, `calendar-dark-std-audit` elementless, `calendar-contrast-audit` contrast) and
+  both branch-(ii) retry holds still pass, to the digit, under the fixed gate.
+
+The code comment and `docs/pmo/a11y-waivers.md` (both said "combined by their own pixel count")
+now state the per-part rule.
+
+### 2. To-Do's stuck selection accessory: a real app bug, proven and fixed
+
+The gate-2 final review found every AX5 capture on the smallest device's two legs still showing
+the List's own selection circle on every row after a batch Mark Done, 65 pt narrower than the
+normal list, never resolving across the rest of that tour leg (verdict section B) — flagged as an
+unverified hypothesis (no simulator at review time).
+
+**Reading `ToDoScreen.swift` first:** the standard iOS exit pattern is already there
+(`model.local.setDone(...); selection.removeAll(); withAnimation { editMode = .inactive }}`), and
+three independent, identifier-driven signals (`todo.select`'s own label, the tab bar's return, and
+`todo.markDone`'s absence) all confirm `editMode` really does flip back to `.inactive`. That alone
+was not proof either way, so this work package did not conclude from it.
+
+**PMO direction (binding), mid-pass:** a tour relaunch must never hide a real defect, and the
+question needs proof, not a conclusion from the code. Two changes followed:
+- `AuditTourUITests.testE_toDo` keeps an unconditional `afterMarkDone` capture on every leg (the
+  real post-Mark-Done state, whatever it is), and labels the AX5 relaunch's own captures
+  `todo-afterRelaunch` — chip evidence only, never a replacement for that real-state capture.
+- `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect` gained a three-part, state-verified
+  post-Mark-Done assertion (identifier: `todo.complete` per visible row; trait: a marked row does
+  not read `isSelected`; geometry: every visible row's leading inset matches the pre-Select
+  baseline), and `ci.yml` gained a step that runs this same test, unchanged, against the smallest
+  iPhone the "Welcome CTAs" step already picks (`steps.small.outputs.udid`) — the same device the
+  tour found stuck.
+
+**Dispatched for real (run 38889379284, `scope=quick`): it failed, on the DEFAULT device, before
+the dedicated smallest-device step was even reached** — `ToDoScreen.swift:133`:
+`XCTAssertEqualWithAccuracy failed: ("124.0") is not equal to ("84.0") +/- ("1.0")`, reproduced
+identically on both retry attempts (56.6 s and 60.5 s). The failure's own element hierarchy made
+the mechanism visible directly: every row (done or not, batch-selected or never touched) carried an
+extra `Other, Disabled > Image, identifier: 'circle'` ahead of the row's own `todo.complete` button
+— the system's own multi-select accessory, left behind, disabled but still occupying its 40 pt
+leading slot, on every row, permanently. **This is a real app bug, reproducible on CI, not limited
+to the smallest device or AX5** — `List(selection:)` never drops that accessory on a plain state
+change once `editMode` has been `.active` at least once; only a full teardown and rebuild of the
+List does.
+
+**Fix (`ToDoScreen.swift`), minimal:** a `listGeneration` counter, bumped on every exit from edit
+mode (the Select/Cancel toggle and Mark Done), keyed into the List's own `.id` to force that
+rebuild. Known trade-off, stated plainly: scroll position resets on every edit-mode transition (a
+List built from a new `.id` has no memory of the old offset) — accepted against a permanently
+misaligned, hyphenating list.
+
+**Re-verified for real, twice:**
+- scope=only run 38898588447 (default device): `Test Case
+  '-[TallyUITests.ToDoUITests testMissingFirstDoneCopySwipeAndBatchSelect]' passed (184.745
+  seconds)`.
+- scope=quick run 38900113255 (both devices in one dispatch): passed on the default device's own
+  main test pass (58.315 s) **and** on the dedicated smallest-iPhone step (99.922 s) — the exact
+  device and assertion the PMO asked for.
+
+**Conclusion: an app bug, not a harness bug — found and fixed, with CI evidence on both the
+default and the smallest device.**
+
+### 3. To-Do at xxxLarge
+
+`audit-tour.yml`'s xxxLarge leg now also runs `testE_toDo` (alongside `testB`/`testD`/`testI`,
+unaffected), giving `StatusChipRow`'s xxxLarge branch its first tour evidence. Courses does not use
+`StatusChipRow` (only `StatusChip` directly, `ScreenComponents.swift`) and is untouched by any
+change in this work package.
+
+### 4. CI runs
+
+Dispatched on the scratch branch `mvp/a11y-fixes-2g` before merging into `mvp/a11y-fixes`.
+
+- scope=only: 38887886713 (item 1's 3 new self-checks, plus the 3 pre-existing — all 6 passed),
+  38898588447 (item 2's fix, re-verified on `ToDoUITests` after the smallest-device failure).
+- scope=quick (not nominally budgeted; required to reach the smallest-device CI step at all,
+  which scope=only skips): 38889379284 (found the real app bug, on the default device, before the
+  smallest-device step was reached), 38900113255 (confirmed the fix on both devices).
+- scope=a11y, Audit tour and Release gate: see the hand-off reply for the final run IDs.
+
+### 5. Open items
+
+- The `listGeneration` fix resets the To-Do list's scroll position on every edit-mode transition
+  (entering Select, exiting via Cancel, exiting via Mark Done) — a List rebuilt from a new `.id`
+  has no memory of the old offset. Not fixed here (a smaller, targeted fix would need to restore
+  scroll position after the rebuild); flagged for the PMO against the alternative, a permanently
+  misaligned list.
+- `captureScreenfuls`'s own stop condition (MVP-2f's open item) is unchanged.
+- Device checks (VoiceOver, Large Content Viewer, a real Increase Contrast setting), still
+  pending — this host has no simulator.
