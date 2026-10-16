@@ -1793,7 +1793,16 @@ struct A11yScene {
                 maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
             }
         }
-        guard total > 0 else { return nil }
+        // MVP-2f (PMO ruling): `total == 0` means every pixel of `regionFrame` was excluded, not
+        // that the region could not be read — a clean pass (everything here is already-identified,
+        // trusted content, nothing else to find), not a failure to measure. Never reachable for the
+        // navigation bar alone (its own content is a small fraction of its area, confirmed by every
+        // held nav-bar issue to date measuring a specific, non-trivial percentage); reachable for
+        // the pinned header (`measureTopChromeCoverage`, below), whose own `calendar.day` buttons
+        // can tile its entire frame edge to edge (this file's own evidence: 7 buttons spanning
+        // 386 pt of the header's own 386 pt width) — diagnosed from the `-chrome`/`-pinned`
+        // attachments this hold's own retry evidence now always carries.
+        guard total > 0 else { return (coverage: 1.0, maxGlyphContrast: 1.0) }
         return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
     }
 
