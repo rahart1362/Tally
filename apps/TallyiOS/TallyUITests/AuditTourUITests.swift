@@ -349,7 +349,7 @@ final class AuditTourUITests: TallyUITestCase {
         stepNumber = 60
         resetAppState()
 
-        let app = launchSignedIn()
+        var app = launchSignedIn()
         openTabInTour(Self.tabLabel(.toDo), in: app)
         // L10N-04: was text("Missing & overdue", in: app) — the English section header, which
         // Spanish changes; any row is an equally good "the To-Do projection landed" signal.
@@ -453,6 +453,36 @@ final class AuditTourUITests: TallyUITestCase {
         // `tourAllowance` (560 s) at this file's own observed ~6 s/screenful rate (60 × 6 ≈ 360 s,
         // well short of 560 even before the rest of this test method's own budget).
         if Self.isAX5Leg {
+            // MVP-2g (item 2; gate-2 final review, `pmo-audit/.build-audit/mvp2f/review/verdict.md`
+            // section B): on both smallest-device AX5 legs, every capture from here to the list's
+            // own end showed the List's own selection circle on every row, beside the row's own
+            // done circle, 65 pt narrower than the normal list ("Miss-/ing" hyphenated mid-word) —
+            // never resolving across the full ~50-screen scroll below. `ToDoScreen.swift` already
+            // exits selection mode the standard way right after a batch Mark Done
+            // (`model.local.setDone(...); selection.removeAll(); withAnimation { editMode =
+            // .inactive }}`), and three independent, identifier-driven signals right above already
+            // confirm that happened here too: `todo.select`'s own toggle switched its label back
+            // (its "Cancel"/"Select" text is keyed on `editMode.isEditing`), the tab bar returned
+            // (`.toolbarVisibility(editMode.isEditing ? .hidden : .automatic, ...)`, the same key),
+            // and `todo.markDone` is gone (shown only `if editMode.isEditing`). So this is not the
+            // app forgetting to exit selection mode — `editMode` really is `.inactive` — it is the
+            // List's own selection accessory failing to follow that state back on this device, a
+            // genuine rendering defect (an app ticket, not a tour artifact: a real person doing a
+            // batch Mark Done on this device would see the same stuck double circle). No simulator
+            // is available here to chase that rendering defect itself, so the harness instead never
+            // lets the chip-evidence capture below depend on it resolving: a fresh launch rebuilds
+            // the List from scratch, before it has ever been in edit mode, and a state-verified
+            // check (never a coordinate guess) confirms the normal list before capturing.
+            app.terminate()
+            app = launchSignedIn()
+            openTabInTour(Self.tabLabel(.toDo), in: app)
+            _ = elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
+            let normalList = eventually(timeout: 10) {
+                !app.buttons["todo.markDone"].exists && elementsWithPrefix("todo.complete", in: app).firstMatch.exists
+            }
+            if !normalList {
+                snap(app, screen: "todo", state: "missing-normalListAfterRelaunch", reachedVia: "fresh launch, To-Do tab")
+            }
             scrollToTop(app)
             captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 60)
         }

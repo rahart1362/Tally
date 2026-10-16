@@ -94,5 +94,16 @@ final class ToDoUITests: TallyUITestCase {
             }
             XCTAssertTrue(found, "batch Mark Done did not mark '\(label)'. Hierarchy: \(app.debugDescription)")
         }
+
+        // MVP-2g (item 2): the standard iOS pattern — exit selection mode once a batch action
+        // completes (`ToDoScreen.swift`'s own `withAnimation { editMode = .inactive }` right after
+        // `setDone`) — asserted structurally, not by `todo.markDone`'s own absence alone. The
+        // gate-2 final review found that guard blind to a List whose own selection circles can
+        // persist even once `editMode` reads inactive (verdict §B: the smallest device's AX5 legs
+        // only; no simulator here to reproduce that device-specific case). This is the general
+        // assertion the fix list asked for on whatever device this suite actually runs on.
+        XCTAssertFalse(app.buttons["todo.markDone"].exists, "batch Mark Done did not exit selection mode")
+        XCTAssertTrue(app.buttons.matching(identifier: "todo.complete").firstMatch.exists,
+                      "no row shows its own completion control after exiting selection mode")
     }
 }

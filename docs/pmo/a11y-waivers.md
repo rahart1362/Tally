@@ -320,21 +320,35 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
     uses the separate pinned-bar rule below (>= 1/3 overlap, above the selected heading), unchanged.
     Each part is measured against **its own** bar's own background colour, by
     `A11yScene.measureNavBarCoverage` itself, called once per part, never cross-checked against the
-    other bar's colour; the two are combined by their own pixel count for the coverage the gate
-    uses, and by the worse of the two for the max glyph contrast. **`opaqueByConstruction`
+    other bar's colour. **MVP-2g (the PMO's binding fix, gate-2 final review): the element is held
+    only if every part present passes on its own measured pixels — never combined into one blended
+    number.** MVP-2f's own first attempt combined the two parts by their own slice height (a
+    constant-weighted average), which the gate-2 final review found let the pinned header's own
+    constant 100% (next paragraph) dilute a failing, or entirely unmeasured, nav-bar part into a
+    passing blend (`pmo-audit/.build-audit/mvp2f/review/verdict.md`, rulings 2 and 3: a nav-bar
+    part with zero measurable pixels held at 93–99% combined coverage; a real 92.7–93.5%-coverage
+    nav-bar part, faint text pasted into it, held at 98.95–99.06% combined). Each part present (a
+    positive-height intersection with the issue's own frame) must now clear `measureNavBarCoverage`'s
+    own floor (>= 95% within 1.2:1) and ceiling (no glyph row above 1.5:1) by itself: a nav-bar part
+    of positive height that measures zero pixels, or that measures real pixels under either
+    threshold, fails the whole region — the recorded coverage and max glyph contrast (above) are the
+    worse of the parts present, never a second, re-diluted gate. **`opaqueByConstruction`
     (binding, narrower than this ruling's own first attempt):** the pinned header's own
     `calendar.day` buttons can tile its entire frame edge to edge (measured: 7 buttons spanning
     386 of the header's own 386 pt width), so excluding the bar's own content can leave nothing
     left to measure there — a clean pass, since `calendar.pinnedHeader` is opaque by construction
     (`CalendarScreen.swift:128`, `.background(TallyColor.bgCanvas)` on the week strip, so nothing
-    else could show through once its own identified content is excluded). The navigation bar is
-    **never** granted this: `measureNavBarCoverage`'s `opaqueByConstruction` parameter has no
-    default and is passed `false` at both the nav-bar-alone call site and the nav-bar part of the
-    union — with nothing left to measure there, there is no proof, so it fails like any other
-    unproven issue, never a generic "nothing to measure" shortcut to a pass.
+    else could show through once its own identified content is excluded) — needing no measured
+    pixel of its own to pass. The navigation bar is **never** granted this: `measureNavBarCoverage`'s
+    `opaqueByConstruction` parameter has no default and is passed `false` at both the nav-bar-alone
+    call site and the nav-bar part of the union — with nothing left to measure there, there is no
+    proof, so it fails like any other unproven issue, never a generic "nothing to measure" shortcut
+    to a pass, and (MVP-2g) never diluted away by the other part's own weight either.
     `A11ySceneMeasurementTests` (`AccessibilityAuditUITests.swift`, fast logic-only tests, no
     simulator) is this ruling's own required self-check: a synthetic region entirely under a
-    non-opaque bar, fully excluded, must fail.
+    non-opaque bar, fully excluded, must fail; MVP-2g adds the `measureTopChromeCoverage`-level
+    cases (a zero-pixel nav part, and a sub-95% nav part, each beside a passing strip part, must
+    both fail the whole region).
   Both measured numbers (plus, for the union case, the overlap fraction and each part's own
   numbers) are recorded in the held reason (`A11yScene.navBarHoldReason` /
   `A11yScene.topChromeHoldReason`; MVP-2e: the text now names the actual tolerance, 1.2:1 —

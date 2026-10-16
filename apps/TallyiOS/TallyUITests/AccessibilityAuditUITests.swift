@@ -1856,12 +1856,26 @@ struct A11yScene {
     /// `chromeOwnContent`) is passed to both calls: the glass buttons sit only inside the nav bar's
     /// own rows, so they can never match anything in the pinned header's own slice, and
     /// `chromeOwnContent` already carries both bars' own content (`insidePinned` entries included).
-    /// The two parts are combined by their own pixel count (equal to their own slice's height,
-    /// `regionFrame`'s width being the same for both, read from each call's own `coverage`
-    /// fraction over that height) for the combined coverage, and by the worse of the two for the
-    /// combined max glyph contrast — a single bad glyph row in either part still fails the whole
-    /// region, the same "every core pixel" rule `measureNavBarCoverage` already applies within one
-    /// bar. `nil` when `regionFrame` reaches neither bar at all.
+    ///
+    /// MVP-2g (the PMO's binding fix, gate-2 final review — `pmo-audit/.build-audit/mvp2f/review/
+    /// verdict.md` rulings 2 and 3): **every part present (a positive-height intersection with
+    /// `regionFrame`) must pass `measureNavBarCoverage`'s own floor (>= 95% within 1.2:1) and
+    /// ceiling (no glyph row above 1.5:1) ON ITS OWN MEASURED PIXELS, or the whole region fails** —
+    /// never blended. MVP-2f's own first attempt combined the two parts by their own slice height
+    /// (`coverage = (nav.cov * navHeight + pinned.cov * pinnedHeight) / (navHeight + pinnedHeight)`):
+    /// since the pinned part is `opaqueByConstruction` and so reads a constant 100% from zero
+    /// measured pixels every time its own content tiles the slice, that constant diluted a failing
+    /// — or entirely unmeasured — nav-bar part into a passing blend (verdict: a zero-pixel nav part
+    /// held at 93–99%; a real 92.7–93.5%-coverage nav part, faint text pasted into it, held at
+    /// 98.95–99.06%). The nav-bar part's own `opaqueByConstruction` is always `false` (see that
+    /// method's own doc comment), so a nav-bar part of positive height that measures zero pixels
+    /// returns `nil` from `measureNavBarCoverage` itself — here, that `nil`, or a non-`nil` result
+    /// under either threshold, now fails this method outright, rather than being read as "coverage
+    /// 0 at this part's own weight". The strip part keeps its own `opaqueByConstruction: true`
+    /// shortcut unchanged: it needs no measured pixel of its own to pass (nothing excludes its
+    /// content less than the whole slice today, by construction), but if a slice of it ever does
+    /// carry real, non-excluded pixels, those are held to the exact same floor and ceiling as any
+    /// other measurement — never a free pass just because the bar is the pinned header.
     func measureTopChromeCoverage(navBar: CGRect, pinnedHeader: CGRect, regionFrame: CGRect,
                                   excluding: [CGRect]) -> TopChromeMeasurement? {
         let overlapFraction: Double = {
@@ -1874,29 +1888,43 @@ struct A11yScene {
         }()
         let navRegion = navBar.intersection(regionFrame)
         let pinnedRegion = pinnedHeader.intersection(regionFrame)
+        // MVP-2g: a part "present" needs a positive-height intersection — a zero-height touch (the
+        // frame starting exactly at the nav bar's own bottom edge, `CGRect.intersection` never
+        // `.null` there) is not a part to enter, require or measure at all, same precondition the
+        // PMO's own ruling already used for the union-overlap precondition above.
+        let navPresent = !navRegion.isNull && navRegion.height > 0
+        let pinnedPresent = !pinnedRegion.isNull && pinnedRegion.height > 0
+        guard navPresent || pinnedPresent else { return nil }
         // MVP-2f (PMO ruling): `opaqueByConstruction` is `false` for the nav-bar part and `true`
         // for the pinned-header part, structurally, every time — never left to a default
         // (`measureNavBarCoverage`'s own parameter has none) and never inferred from anything else
         // at this call site. See that method's own doc comment for why each bar gets the value it
         // does.
-        let navPart: (coverage: Double, maxGlyphContrast: Double)? =
-            (navRegion.isNull || navRegion.height <= 0) ? nil
-            : measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding,
+        let navPart: (coverage: Double, maxGlyphContrast: Double)? = navPresent
+            ? measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding,
                                     opaqueByConstruction: false)
-        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? =
-            (pinnedRegion.isNull || pinnedRegion.height <= 0) ? nil
-            : measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding,
+            : nil
+        let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? = pinnedPresent
+            ? measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding,
                                     opaqueByConstruction: true)
-        guard navPart != nil || pinnedPart != nil else { return nil }
-        let navWeight = navRegion.isNull ? 0 : max(0, navRegion.height)
-        let pinnedWeight = pinnedRegion.isNull ? 0 : max(0, pinnedRegion.height)
-        let totalWeight = navWeight + pinnedWeight
-        let coverage: Double
-        if totalWeight > 0 {
-            coverage = ((navPart?.coverage ?? 0) * navWeight + (pinnedPart?.coverage ?? 0) * pinnedWeight) / totalWeight
-        } else {
-            coverage = navPart?.coverage ?? pinnedPart?.coverage ?? 0
+            : nil
+        // MVP-2g: the per-part gate itself — every part present must clear both thresholds on its
+        // own measured numbers, never diluted by (or into) the other part's. A present part that
+        // measured no pixels at all (`nil`) fails here exactly like one that measured real pixels
+        // under either threshold; this is the only place either fact can hide behind the other
+        // part's own passing numbers.
+        if navPresent {
+            guard let navPart, navPart.coverage >= Self.navBarCoverageThreshold,
+                  navPart.maxGlyphContrast <= Self.navBarGlyphContrastThreshold else { return nil }
         }
+        if pinnedPresent {
+            guard let pinnedPart, pinnedPart.coverage >= Self.navBarCoverageThreshold,
+                  pinnedPart.maxGlyphContrast <= Self.navBarGlyphContrastThreshold else { return nil }
+        }
+        // Every part present already passed its own floor and ceiling above; these combined
+        // numbers are only what the held reason records for a reviewer (the worse of the two
+        // present parts), never a second, re-diluted gate.
+        let coverage = min(navPart?.coverage ?? 1.0, pinnedPart?.coverage ?? 1.0)
         let maxGlyphContrast = max(navPart?.maxGlyphContrast ?? 1.0, pinnedPart?.maxGlyphContrast ?? 1.0)
         return TopChromeMeasurement(overlapFraction: overlapFraction, navBarPart: navPart, pinnedPart: pinnedPart,
                                     coverage: coverage, maxGlyphContrast: maxGlyphContrast)
@@ -2131,6 +2159,67 @@ final class A11ySceneMeasurementTests: XCTestCase {
         let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
         let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [],
                                                     opaqueByConstruction: false)
+        XCTAssertEqual(measured?.coverage, 1.0)
+    }
+
+    /// MVP-2g (the PMO's binding fix, gate-2 final review, `pmo-audit/.build-audit/mvp2f/review/
+    /// verdict.md` ruling 3): `measureTopChromeCoverage`'s own required self-check — a nav-bar part
+    /// with zero measurable pixels must fail the WHOLE region, never be diluted by a passing strip
+    /// part's own constant 100%. Before this fix, this exact shape (fully excluded nav part beside
+    /// an opaque-by-construction strip part) was held.
+    func testTopChromeUnionNavPartZeroMeasurablePixelsFails() {
+        let scene = solidScene(width: 20, height: 20)
+        let navBar = CGRect(x: 0, y: 0, width: 20, height: 10)
+        let pinnedHeader = CGRect(x: 0, y: 10, width: 20, height: 10)
+        let region = CGRect(x: 0, y: 0, width: 20, height: 20)
+        let measured = scene.measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: region,
+                                                       excluding: [navBar])
+        XCTAssertNil(measured, "a nav-bar part with zero measurable pixels must fail the whole region, " +
+                     "never be diluted by a passing strip part")
+    }
+
+    /// MVP-2g: the mirror case on real measured numbers instead of total exclusion — a nav-bar part
+    /// under the 95% coverage floor (here, also over the glyph ceiling) must fail the whole region.
+    /// Verdict ruling 2's own faint-text probe found a real 92.7–93.5% nav-bar part held at
+    /// 98.95–99.06% combined before this fix.
+    func testTopChromeUnionNavPartUnder95PercentFails() {
+        var pixels = [UInt8](repeating: 0xFF, count: 20 * 20 * 4)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            pixels[i] = 0xEF
+            pixels[i + 1] = 0xF1
+            pixels[i + 2] = 0xF5
+        }
+        // The nav bar's own top 2 of its 10 rows painted black: 20% of its own pixels, far outside
+        // 1.2:1 of its own (otherwise uniform) background colour.
+        for y in 0..<2 {
+            for x in 0..<20 {
+                let offset = (y * 20 + x) * 4
+                pixels[offset] = 0x00
+                pixels[offset + 1] = 0x00
+                pixels[offset + 2] = 0x00
+            }
+        }
+        let scene = A11yScene(pixels: pixels, pixelWidth: 20, pixelHeight: 20, pixelScale: 1)
+        let navBar = CGRect(x: 0, y: 0, width: 20, height: 10)
+        let pinnedHeader = CGRect(x: 0, y: 10, width: 20, height: 10)
+        let region = CGRect(x: 0, y: 0, width: 20, height: 20)
+        let measured = scene.measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: region,
+                                                       excluding: [])
+        XCTAssertNil(measured, "a nav-bar part under the 95% coverage floor must fail the whole region, " +
+                     "never be diluted by a passing strip part")
+    }
+
+    /// MVP-2g: the positive control — both parts present and genuinely passing still holds (no
+    /// regression from the per-part gate on the ordinary, fully-clean case every live hold actually
+    /// measures, verdict section A's table).
+    func testTopChromeUnionBothPartsPassingHolds() {
+        let scene = solidScene(width: 20, height: 20)
+        let navBar = CGRect(x: 0, y: 0, width: 20, height: 10)
+        let pinnedHeader = CGRect(x: 0, y: 10, width: 20, height: 10)
+        let region = CGRect(x: 0, y: 0, width: 20, height: 20)
+        let measured = scene.measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: region,
+                                                       excluding: [])
+        XCTAssertNotNil(measured)
         XCTAssertEqual(measured?.coverage, 1.0)
     }
 }
