@@ -1236,3 +1236,133 @@ Dispatched on the scratch branch `mvp/a11y-fixes-2g` before merging into `mvp/a1
 - `captureScreenfuls`'s own stop condition (MVP-2f's open item) is unchanged.
 - Device checks (VoiceOver, Large Content Viewer, a real Increase Contrast setting), still
   pending — this host has no simulator.
+
+## MVP-2h (the narrow re-check's fix list, closing PR #56)
+
+Author: iOS Engineer (work package MVP-2h), Claude Sonnet 5. From `c9f73d5`, scratch branch
+`mvp/a11y-fixes-2h`. This host has no Xcode: every iOS claim below cites a CI run whose job log or
+exported attachments were read here. Verdict: `pmo-audit/.build-audit/mvp2g/review/verdict.md`
+(the gate-2 narrow re-check of `ff2a57b`).
+
+### 1. The scroll reset: fixed by binding the List's selection only while editing (approach A)
+
+`ToDoScreen.swift`. The verdict's alternative A worked on the first try: dropped `listGeneration`
+and `.id(listGeneration)` entirely, and changed `List(selection: $selection)` to
+`List(selection: editMode.isEditing ? $selection : nil)` — the selection binding is `nil` outside
+edit mode, not merely emptied. The List's identity never changes now, so its own `UICollectionView`
+and scroll offset survive exiting select mode by construction; `selection.removeAll()` on both
+exits (`:77`, `:87`) is unchanged.
+
+Both properties hold on real CI pixels:
+- **The stuck accessory is still gone.** `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect`
+  (the leading-inset check, the one check that actually caught the original bug) passed on the
+  default device (scope=only 38947556385, 77.6 s) and on the smallest iPhone (scope=quick
+  38963648894, 59.1 s).
+- **The scroll position is kept.** The tour's `afterMarkDone` capture now sits at the same place as
+  `batchSelect`, inline title, no jump to the top — checked on the two legs the narrow re-check
+  named directly: smallest/light/ax5 (the row stayed in place; previously "Worksheet 3" title y
+  −156 → +354.3) and smallest/light/xxxLarge ("Quiz 5: Cellular Respiration" stayed under "Due
+  this week", checked; previously the screen showed "Missing & overdue" with Quiz 5 off screen).
+  All 12 `testE_toDo` legs (std/ax5/xxxLarge × proMax/smallest × light/dark) passed, Audit tour run
+  38974818587.
+
+### 2. `ToDoUITests`: dropped the two checks that don't discriminate, kept the one that does, added a no-swipe scroll-position check
+
+The verdict's own table (section 2.2): the identifier check (one `todo.complete` per visible row)
+and the trait check (a marked row does not read `isSelected`) both still pass in the stuck, broken
+state — `editMode` reads `.inactive` either way, so every row draws its own `todo.complete`, and no
+`todo.row.*` element ever carries `Selected` in that state. Both are dropped. The leading-inset
+geometry check — the one that actually failed on the real bug (run 38889379284) — is kept,
+unchanged.
+
+Added `testBatchMarkDoneKeepsAMidListRowOnScreen`: scrolls to a row under "Due this week", selects
+only that row, taps Mark Done, and — with no swipe anywhere after that tap (the existing
+`swipeDown` recovery loop in the other test would hide exactly this regression) — asserts the same
+row is still on screen, within one row height of where it rested right before Mark Done (the row's
+own measured height, not a hard-coded guess), and clear of both the navigation bar and the tab bar.
+Both tests run on the default device (`ci.yml`'s main pass) and the smallest iPhone (`ci.yml`'s
+dedicated `ToDoUITests` step) without any filter change needed — the new method just joins the same
+class.
+
+CI: scope=only 38947556385 (both methods ran; `testBatchMarkDoneKeepsAMidListRowOnScreen` failed
+twice on an app-launch timeout — `Failed to launch ... via Xcode: Timed out`, no Tally crash report,
+only a host `UsageTrackingAgent` one — a CI flake, not a code defect: `testMissingFirst...` passed
+in the same run), retried alone in 38949774396 (passed, 72.3 s). Confirmed again inside the full
+default-device suite and the smallest-iPhone step in scope=quick 38963648894 (both methods passed
+on both devices, 0 failed attempts; `xcresult` for the smallest-device step:
+`totalTestCount=2, passedTests=2, failedTests=0`). An earlier scope=quick dispatch, 38954370246,
+had already run `ToDoUITests` cleanly on the default device but never reached the smallest-device
+step: an unrelated test, `PaywallUITests/testNoPurchaseControlOnWelcomeOrSchoolNotEnabled`, hung
+past its 4-minute allowance and failed the job first.
+
+### 3. The two audit-rule carry-overs from MVP-2g's own item 1
+
+`AccessibilityAuditUITests.swift`.
+
+- **The held-reason text now says what was measured.** `measureNavBarCoverage` returns a third
+  field, `measuredPixels` (`total` verbatim — 0 only on the `opaqueByConstruction` shortcut, where
+  nothing was read from the buffer); `TopChromeMeasurement`'s `navBarPart`/`pinnedPart` and
+  `measureTopChromeCoverage`'s locals carry it through. `topChromeMeasurementDetail` now prints
+  "pinned header opaque by construction, 0 px measured" instead of a fabricated "100.0%/1.00:1" for
+  that case, and drops the lead-in "measured X% of its pixels within …" entirely when no present
+  part measured a real pixel (previously printed even when the only present part was the strip's
+  own zero-pixel shortcut — the exact wording the verdict's own evidence quoted). `navBarHoldReason`
+  took the same 3-field tuple type change (its one caller, the nav-bar-only branch, now passes the
+  updated `measureNavBarCoverage` result directly); it never hits the zero-pixel case itself (the
+  nav bar is never `opaqueByConstruction`).
+- **The union path now requires a positive-height nav-bar intersection**, not merely a non-null
+  one (`navBar.intersection(frame).height > 0`, was `!navBar.intersection(frame).isNull`) — a frame
+  that only touches the nav bar's bottom edge (a zero-height intersection, never `.null`) no longer
+  enters the union branch, where it had been held on the strip's own construction alone, bypassing
+  the separate pinned-bar rule's own "ends above the selected heading" precondition.
+- **Self-check added**, `A11ySceneMeasurementTests.testZeroHeightNavBarTouchDoesNotEnterUnionPath`:
+  builds an `A11yScene` with a nav bar and a frame that touches its bottom edge exactly (zero
+  height) but fully overlaps a solid-colour pinned header, and asserts `heldReason` returns `nil`.
+  Traced by hand against both branches: pre-fix, `!isNull` is true for a zero-height touch, the
+  strip's own trivial pass (solid colour against itself) holds it; post-fix, the branch is never
+  entered and the fixture falls through to `return nil` (no selected day on screen for the separate
+  pinned-bar rule to hold it under).
+
+Verified against the real screen, not only the unit tests: `A11ySceneMeasurementTests` (now 7
+cases, scope=only, corrected filter — the first attempt used
+`TallyUITests/AccessibilityAuditUITests/A11ySceneMeasurementTests`, which names
+`A11ySceneMeasurementTests` as a method of `AccessibilityAuditUITests` exactly as the verdict's own
+item 4(c) flagged against a different run; it ran 0 tests and went green on nothing, run
+38951305941; the corrected filter, `TallyUITests/A11ySceneMeasurementTests`, ran 7/7 in
+38952827161) and `AccessibilityAuditUITests.testToDo`/`testToDoAX5` (scope=only 38973541930, real
+audits — 75.4 s and 79.5 s — both passed, confirming the live To-Do screen's own top-chrome and
+pinned-bar checks are unaffected).
+
+### 4. The report's citation fix
+
+`docs/pmo/reviews/mvp2b-report.md` §4 (MVP-2g) and the self-checks paragraph in §1 (MVP-2g): both
+cited scope=only run 38887886713 as the run where item 1's self-checks passed. That run executed 0
+tests (`totalTestCount=0`) — its filter, `TallyUITests/AccessibilityAuditUITests/
+A11ySceneMeasurementTests`, named a class as a method of a different class and matched nothing. Both
+citations now point to 38900113255 (6 of 6 `A11ySceneMeasurementTests` passed on `ff2a57b`) and say
+why the original citation was wrong.
+
+### 5. CI runs
+
+Dispatched on the scratch branch `mvp/a11y-fixes-2h` before merging into `mvp/a11y-fixes`.
+
+- scope=only: 38947556385 (`ToDoUITests`, one flaked launch, see §2), 38949774396 (the flaked test
+  alone, retried, passed), 38951305941 (invalid filter, 0 tests — see §3), 38952827161 (corrected
+  filter, `A11ySceneMeasurementTests` 7/7), 38973541930 (`AccessibilityAuditUITests.testToDo` and
+  `testToDoAX5`, 2/2, real audits).
+- scope=quick: 38954370246 (unrelated `PaywallUITests` timeout before the smallest-device step, see
+  §2), 38963648894 (clean: default-device suite and the smallest-iPhone step both green, `ToDoUITests`
+  2/2 on each).
+- Audit tour: 38974818587, `tests=testE_toDo sizes=["std","ax5","xxxLarge"]` — all 12 legs passed;
+  §1 above has the two legs read by hand against the verdict's own named regressions.
+- PR run: in the hand-off reply, after the single push to `mvp/a11y-fixes`.
+
+### 6. Open items
+
+- The List's exit animation (the selection circles sliding out) was not re-checked: no simulator to
+  watch it, and the tour's own stills cannot show an animation either way. The verdict's own
+  reasoning (approach A keeps the List's identity, so SwiftUI's default removal transition should
+  apply) is unverified beyond that reasoning.
+- VoiceOver focus after Mark Done and Cancel, Large Content Viewer and a real Increase Contrast
+  setting remain pending from MVP-2e/2g — this host still has no simulator.
+- The exit-animation and `captureScreenfuls` stop-condition items from MVP-2f/2g are unchanged.
