@@ -281,8 +281,8 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
     third, since the navigation bar still never satisfies that one);
   - an elementless `textClipped` issue (no frame of its own) is checked over the bar's **whole**
     frame instead, the strictest version of the same proof, **and only on Calendar's own today
-    variants, at most 3 per pass, confirmed by `runA11yAudit`'s own retry** (MVP-2e ruling 1(d) —
-    the position-free exception the PMO has accepted; see the Calendar note above);
+    variants, at most 3 per pass** (MVP-2e/2f ruling 1(d) — the position-free exception the PMO
+    has accepted; see the Calendar note above for its own retry-confirmed definition);
   - either way, the region must measure **at least 95%** of its pixels within **1.2:1 contrast**
     (`A11yScene.navBarCoverageContrastThreshold`) of the bar's own background colour (its densest
     colour, sampled across its whole frame — text is always the smaller share of a navigation
@@ -300,10 +300,44 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
     row's *exact*-colour pixel count against 8, not the grouped share the colour-picking itself
     used, which could drop a real glyph's own rows; the buttons' drawn extent being excluded
     structurally now does the floor's one real job.
-  Both measured numbers are recorded in the held reason (`A11yScene.navBarHoldReason`; MVP-2e:
-  the text now names the actual tolerance, 1.2:1 — MVP-2d's own text said "within colourTolerance",
-  which the gate-2 final review found false). See the Calendar note above for the issues this was
-  written for and their measured values.
+  - **MVP-2f (PMO ruling): extended to the UNION of the navigation bar and the pinned header when
+    the issue actually touches the nav bar.** Gate-2's own `scope=a11y` run (38841944682) found
+    "9:00 PM – 10:15 PM" failing the two-thirds test: the row straddles both the nav bar and the
+    pinned week strip (which the PMO's own ruling describes as touching; measured in practice they
+    come 4 pt short, `A11yScene.pinned.first`'s own frame starting at y = 174 against the nav bar's
+    own bottom edge at y = 170 — the gap's own pixels count toward neither part, making the test
+    strictly more conservative, never less), and only the nav-bar share of the row was being
+    measured — undercounting it below two thirds even though the row sits entirely under opaque
+    chrome. `A11yScene.overlapsByAtLeastTwoThirds(_:_:_:)` and `A11yScene.measureTopChromeCoverage`
+    (the three-argument overload) now run against both bars' frames together wherever
+    `pinned.first` exists AND the issue's own frame overlaps the navigation bar at all — an issue
+    entirely under the pinned header, away from the nav bar, is not straddling anything and still
+    uses the separate pinned-bar rule below (>= 1/3 overlap, above the selected heading), unchanged.
+    Each part is measured against **its own** bar's own background colour, by
+    `A11yScene.measureNavBarCoverage` itself, called once per part, never cross-checked against the
+    other bar's colour; the two are combined by their own pixel count for the coverage the gate
+    uses, and by the worse of the two for the max glyph contrast. **`opaqueByConstruction`
+    (binding, narrower than this ruling's own first attempt):** the pinned header's own
+    `calendar.day` buttons can tile its entire frame edge to edge (measured: 7 buttons spanning
+    386 of the header's own 386 pt width), so excluding the bar's own content can leave nothing
+    left to measure there — a clean pass, since `calendar.pinnedHeader` is opaque by construction
+    (`CalendarScreen.swift:128`, `.background(TallyColor.bgCanvas)` on the week strip, so nothing
+    else could show through once its own identified content is excluded). The navigation bar is
+    **never** granted this: `measureNavBarCoverage`'s `opaqueByConstruction` parameter has no
+    default and is passed `false` at both the nav-bar-alone call site and the nav-bar part of the
+    union — with nothing left to measure there, there is no proof, so it fails like any other
+    unproven issue, never a generic "nothing to measure" shortcut to a pass.
+    `A11ySceneMeasurementTests` (`AccessibilityAuditUITests.swift`, fast logic-only tests, no
+    simulator) is this ruling's own required self-check: a synthetic region entirely under a
+    non-opaque bar, fully excluded, must fail.
+  Both measured numbers (plus, for the union case, the overlap fraction and each part's own
+  numbers) are recorded in the held reason (`A11yScene.navBarHoldReason` /
+  `A11yScene.topChromeHoldReason`; MVP-2e: the text now names the actual tolerance, 1.2:1 —
+  MVP-2d's own text said "within colourTolerance", which the gate-2 final review found false).
+  `<prefix>-chrome` and `<prefix>-pinned` (MVP-2f) attach the navigation bar's and the pinned
+  header's own actual frames alongside every audit screenshot, so a reviewer never has to guess at
+  either. See the Calendar note above for the issues this was written for and their measured
+  values.
 - Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
   own, not the app's (run 38357314250: Find School in Dark, three empty
   `TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").

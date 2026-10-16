@@ -1277,6 +1277,17 @@ struct A11yScene {
 
     init() {}
 
+    /// MVP-2f (the PMO's required self-check, `A11ySceneMeasurementTests` below): builds a scene
+    /// directly from a raw pixel buffer, bypassing the `XCUIApplication` snapshot/screenshot
+    /// pipeline the other initializer needs — there is no simulator on this host to run one, and
+    /// `measureNavBarCoverage`/`measureTopChromeCoverage` need only `pixels`, not a live app.
+    init(pixels: [UInt8], pixelWidth: Int, pixelHeight: Int, pixelScale: CGFloat) {
+        self.pixels = pixels
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+        self.pixelScale = pixelScale
+    }
+
     @MainActor
     init(_ app: XCUIApplication, screenshot: UIImage? = nil) {
         guard let root = try? app.snapshot() else { return }
@@ -1502,16 +1513,23 @@ struct A11yScene {
         // against its own bar's own colour, never the other's). Every other screen, with no pinned
         // header, keeps exactly the nav-bar-alone check above it always has.
         if let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame {
-            if let pinnedHeader = pinned.first {
+            // MVP-2f (PMO ruling): the union path only applies when the issue actually touches the
+            // navigation bar (`!navBar.intersection(frame).isNull`) — an element entirely under the
+            // pinned header, away from the nav bar, is not straddling anything and still needs the
+            // existing pinned-bar rule below (>= 1/3 overlap, above the selected heading), not this
+            // one; falling into this branch instead would skip that rule's own, different
+            // precondition.
+            if let pinnedHeader = pinned.first, !navBar.intersection(frame).isNull {
                 if Self.overlapsByAtLeastTwoThirds(navBar, pinnedHeader, frame),
                    let measured = measureTopChromeCoverage(navBar: navBar, pinnedHeader: pinnedHeader, regionFrame: frame,
                                                             excluding: chromeOwnContent + navBarButtonGlassExtent),
                    measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
                     return HeldResult(Self.topChromeHoldReason(measured))
                 }
-            } else if Self.overlapsByAtLeastTwoThirds(navBar, frame),
+            } else if pinned.first == nil, Self.overlapsByAtLeastTwoThirds(navBar, frame),
                       let measured = measureNavBarCoverage(barFrame: navBar, regionFrame: frame,
-                                                           excluding: chromeOwnContent + navBarButtonGlassExtent),
+                                                           excluding: chromeOwnContent + navBarButtonGlassExtent,
+                                                           opaqueByConstruction: false),
                       measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
                 return HeldResult(Self.navBarHoldReason(measured))
             }
@@ -1747,8 +1765,8 @@ struct A11yScene {
     /// sites (`heldReason`) now also pass `navBarButtonGlassExtent` (MVP-2e ruling 1(a)): the glass
     /// buttons' own drawn extent, which reaches beyond their reported frames and so is never caught
     /// by `chromeOwnContent` alone (this type's own doc comment, point 1a).
-    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect,
-                               excluding: [CGRect] = []) -> (coverage: Double, maxGlyphContrast: Double)? {
+    func measureNavBarCoverage(barFrame: CGRect, regionFrame: CGRect, excluding: [CGRect] = [],
+                               opaqueByConstruction: Bool) -> (coverage: Double, maxGlyphContrast: Double)? {
         guard !pixels.isEmpty, let background = modalColour(in: barFrame) else { return nil }
         let x0 = max(0, Int((regionFrame.minX * pixelScale).rounded()))
         let y0 = max(0, Int((regionFrame.minY * pixelScale).rounded()))
@@ -1793,16 +1811,23 @@ struct A11yScene {
                 maxGlyphContrast = max(maxGlyphContrast, Self.navBarContrastRatio(glyph, background))
             }
         }
-        // MVP-2f (PMO ruling): `total == 0` means every pixel of `regionFrame` was excluded, not
-        // that the region could not be read — a clean pass (everything here is already-identified,
-        // trusted content, nothing else to find), not a failure to measure. Never reachable for the
-        // navigation bar alone (its own content is a small fraction of its area, confirmed by every
-        // held nav-bar issue to date measuring a specific, non-trivial percentage); reachable for
-        // the pinned header (`measureTopChromeCoverage`, below), whose own `calendar.day` buttons
-        // can tile its entire frame edge to edge (this file's own evidence: 7 buttons spanning
-        // 386 pt of the header's own 386 pt width) — diagnosed from the `-chrome`/`-pinned`
-        // attachments this hold's own retry evidence now always carries.
-        guard total > 0 else { return (coverage: 1.0, maxGlyphContrast: 1.0) }
+        // MVP-2f (PMO ruling, binding and narrower than this method's own first attempt): `total ==
+        // 0` means every pixel of `regionFrame` was excluded. That is a clean pass ONLY when
+        // `opaqueByConstruction` says the caller's own bar is opaque by construction wherever its
+        // own identified content sits, so nothing else could possibly show through once that
+        // content is excluded — true today only for `calendar.pinnedHeader`
+        // (`CalendarScreen.swift:128`, `.background(TallyColor.bgCanvas)` on the week strip; its
+        // `calendar.day` buttons can tile that opaque background edge to edge, this file's own
+        // evidence: 7 buttons spanning 386 of the header's own 386 pt width, diagnosed from the
+        // `-chrome`/`-pinned` attachments this hold's own retry evidence now always carries). The
+        // navigation bar passes `opaqueByConstruction: false` always: with nothing left to measure
+        // there, there is no proof the bar's own background is what is underneath, so it fails like
+        // any other unproven issue — never a generic "nothing to measure" shortcut to a pass.
+        // `A11ySceneMeasurementTests` (below) is this ruling's own required self-check.
+        guard total > 0 else {
+            guard opaqueByConstruction else { return nil }
+            return (coverage: 1.0, maxGlyphContrast: 1.0)
+        }
         return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast)
     }
 
@@ -1849,12 +1874,19 @@ struct A11yScene {
         }()
         let navRegion = navBar.intersection(regionFrame)
         let pinnedRegion = pinnedHeader.intersection(regionFrame)
+        // MVP-2f (PMO ruling): `opaqueByConstruction` is `false` for the nav-bar part and `true`
+        // for the pinned-header part, structurally, every time — never left to a default
+        // (`measureNavBarCoverage`'s own parameter has none) and never inferred from anything else
+        // at this call site. See that method's own doc comment for why each bar gets the value it
+        // does.
         let navPart: (coverage: Double, maxGlyphContrast: Double)? =
             (navRegion.isNull || navRegion.height <= 0) ? nil
-            : measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding)
+            : measureNavBarCoverage(barFrame: navBar, regionFrame: navRegion, excluding: excluding,
+                                    opaqueByConstruction: false)
         let pinnedPart: (coverage: Double, maxGlyphContrast: Double)? =
             (pinnedRegion.isNull || pinnedRegion.height <= 0) ? nil
-            : measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding)
+            : measureNavBarCoverage(barFrame: pinnedHeader, regionFrame: pinnedRegion, excluding: excluding,
+                                    opaqueByConstruction: true)
         guard navPart != nil || pinnedPart != nil else { return nil }
         let navWeight = navRegion.isNull ? 0 : max(0, navRegion.height)
         let pinnedWeight = pinnedRegion.isNull ? 0 : max(0, pinnedRegion.height)
@@ -2046,5 +2078,59 @@ struct A11yScene {
 
     static func json(_ frame: CGRect) -> [String: Double] {
         ["x": Double(frame.minX), "y": Double(frame.minY), "width": Double(frame.width), "height": Double(frame.height)]
+    }
+}
+
+/// MVP-2f (the PMO's required self-check on `measureNavBarCoverage`'s `opaqueByConstruction`
+/// ruling): fast, logic-only tests of `A11yScene`'s own pixel measurement — no `XCUIApplication`,
+/// no simulator, built from `A11yScene`'s own test-only pixel-buffer initializer. The one case the
+/// PMO's own ruling requires: a synthetic element entirely under the navigation bar, with every
+/// pixel excluded, must fail — "nothing left to measure" is a clean pass only where the PMO's
+/// ruling says a bar is opaque by construction (`calendar.pinnedHeader`,
+/// `CalendarScreen.swift:128`), never for the navigation bar, where it would otherwise hide a real
+/// "no proof" case behind a false pass.
+final class A11ySceneMeasurementTests: XCTestCase {
+    /// A small, solid-colour RGBA8 buffer (one flat colour, 1:1 pixel scale) — `measureNavBarCoverage`
+    /// only ever reads `pixels`/`pixelWidth`/`pixelHeight`/`pixelScale`, never a real screenshot.
+    private func solidScene(width: Int = 10, height: Int = 10, colour: (UInt8, UInt8, UInt8) = (0xEF, 0xF1, 0xF5)) -> A11yScene {
+        var pixels = [UInt8](repeating: 0xFF, count: width * height * 4)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            pixels[i] = colour.0
+            pixels[i + 1] = colour.1
+            pixels[i + 2] = colour.2
+        }
+        return A11yScene(pixels: pixels, pixelWidth: width, pixelHeight: height, pixelScale: 1)
+    }
+
+    /// The PMO's own required case: a region entirely under the navigation bar, excluded entirely,
+    /// must fail (no proof), never pass as though "opaque by construction" applied to it too.
+    func testNavBarRegionFullyExcludedFails() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [bar],
+                                                    opaqueByConstruction: false)
+        XCTAssertNil(measured, "a fully excluded navigation-bar region must fail, not pass")
+    }
+
+    /// The mirror case: the SAME geometry, but for a bar the caller has declared opaque by
+    /// construction (the pinned header's own `opaqueByConstruction: true`) — a clean pass, exactly
+    /// because nothing is left that could possibly show through.
+    func testOpaqueByConstructionRegionFullyExcludedPasses() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [bar],
+                                                    opaqueByConstruction: true)
+        XCTAssertEqual(measured?.coverage, 1.0)
+        XCTAssertEqual(measured?.maxGlyphContrast, 1.0)
+    }
+
+    /// A sanity check that the buffer itself measures normally when nothing is excluded: a solid
+    /// colour against itself is 100% within tolerance, regardless of `opaqueByConstruction`.
+    func testUnexcludedSolidRegionPasses() {
+        let scene = solidScene()
+        let bar = CGRect(x: 0, y: 0, width: 10, height: 10)
+        let measured = scene.measureNavBarCoverage(barFrame: bar, regionFrame: bar, excluding: [],
+                                                    opaqueByConstruction: false)
+        XCTAssertEqual(measured?.coverage, 1.0)
     }
 }
