@@ -779,6 +779,13 @@ extension TallyUITestCase {
         let scene = A11yScene(app, screenshot: finalScreenshot.image)
         attachA11yJSON(A11yScene.json(scene.window), name: "\(prefix)-window")
         attachA11yJSON(scene.elements, name: "\(prefix)-elements")
+        // MVP-2f (PMO ruling): the chrome bars `heldReason` actually measured against — neither
+        // `chrome` (tab bar/nav bar/toolbar frames) nor `pinned` (the pinned header's own frame)
+        // was attached anywhere before, so the union ruling's own geometry could only be guessed at
+        // after the fact. Recorded here, once per screen, regardless of what held or failed.
+        attachA11yJSON(scene.chrome.map { ["kind": "\($0.kind)", "frame": A11yScene.json($0.frame)] },
+                       name: "\(prefix)-chrome")
+        attachA11yJSON(scene.pinned.map { A11yScene.json($0) }, name: "\(prefix)-pinned")
         return scene
     }
 
