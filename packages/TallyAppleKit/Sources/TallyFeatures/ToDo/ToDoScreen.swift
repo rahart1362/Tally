@@ -13,6 +13,17 @@ struct ToDoScreen: View {
     @State private var sortOrder: ToDoSortOrder = .dueDate
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<CanvasID<Assignment>>()
+    /// MVP-2g (PMO direction, binding — `ToDoUITests` own structural proof, confirmed on real CI:
+    /// a batch Mark Done leaves every row's own content 40 pt further right than before Select was
+    /// ever tapped, including rows never themselves selected). `List(selection:)` leaves its
+    /// leading multi-select accessory permanently reserved on every row once `editMode` has been
+    /// `.active` at least once — a disabled `circle` image stays in the element tree even once
+    /// `editMode` reads `.inactive` again, and nothing about it ever reverts for the rest of the
+    /// screen's life (confirmed: the Audit tour's own smallest-device AX5 legs never recovered
+    /// across a ~50-screen scroll). A plain state change does not drop it; only a full teardown
+    /// and rebuild of the List does. This counter is bumped on every exit from edit mode (both
+    /// buttons below) and keyed into the List's own `.id` to force exactly that rebuild.
+    @State private var listGeneration = 0
 
     var body: some View {
         Group {
@@ -34,6 +45,10 @@ struct ToDoScreen: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                // MVP-2g: see `listGeneration`'s own doc comment — forces the List to rebuild
+                // fully on every exit from edit mode, the only way found to actually drop its own
+                // stuck leading selection accessory.
+                .id(listGeneration)
                 .environment(\.editMode, $editMode)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
                 // Select mode's bottom bar (Mark Done) takes the tab bar's place, as in Photos; with
@@ -65,8 +80,11 @@ struct ToDoScreen: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button(editMode.isEditing ? String(localized: L10n.ToDo.selectModeCancel()) : String(localized: L10n.ToDo.selectModeSelect())) {
+                        let wasEditing = editMode.isEditing
                         selection.removeAll()
-                        withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                        withAnimation { editMode = wasEditing ? .inactive : .active }
+                        // MVP-2g: see `listGeneration`'s own doc comment.
+                        if wasEditing { listGeneration += 1 }
                     }
                     .accessibilityIdentifier("todo.select")
                 }
@@ -77,6 +95,8 @@ struct ToDoScreen: View {
                         model.local.setDone(selection, done: true)
                         selection.removeAll()
                         withAnimation { editMode = .inactive }
+                        // MVP-2g: see `listGeneration`'s own doc comment.
+                        listGeneration += 1
                     }
                     .disabled(selection.isEmpty)
                     .accessibilityIdentifier("todo.markDone")
