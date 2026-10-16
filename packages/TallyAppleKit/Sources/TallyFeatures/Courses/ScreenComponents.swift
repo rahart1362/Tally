@@ -132,24 +132,31 @@ struct StatusChip: View {
         // scope=a11y run 38357314250; both show word chips. Whether this was that is in MVP-2b's
         // report, not assumed here.)
         .labelStyle(.tallyCompact)
-        .lineLimit(isValue ? 1 : 2)
-        .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
         // MVP-2f gate-2 (fix list item 3): the gate-2 final review's own evidence (verdict §3) was
         // still "Not subm…"/"High priori…" truncated at AX5 even once `StatusChipRow` stopped using
         // `ViewThatFits` there (a prior attempt that wrapped only the ROW in `.frame(maxWidth:
         // .infinity)`, which this doc comment's own earlier wording wrongly assumed would reach
         // each chip — dispatched for real, Audit tour run 38828098145, it did not: the chip is
-        // still its own "ideal"-sized pill). Two things were missing, both on the chip itself:
+        // still its own "ideal"-sized pill). Three things were missing, all on the chip itself:
         // - `.fixedSize(horizontal: false, vertical: true)`: without it, nothing guarantees this
-        //   `Label` is actually GIVEN the height its own wrapped second line needs inside a `List`
-        //   row's own (separate) height-measurement pass — always on, value chips included, since a
-        //   value chip's own single line already equals its ideal height (this costs it nothing).
+        //   `Label` is actually GIVEN the height its own wrapped lines need inside a `List` row's
+        //   own (separate) height-measurement pass — always on, value chips included, since a value
+        //   chip's own single line already equals its ideal height (this costs it nothing).
         // - `.frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)`: only when
         //   `fullWidth` (`StatusChipRow`'s own flag, this type's own doc comment) — stretches the
         //   chip itself to the row's width, handing its `Text` a definite width to wrap against,
         //   instead of the chip's own natural, compact pill width (too narrow for "High priority"
-        //   on one line, and with nothing wider offered, two lines either). `nil` elsewhere (every
-        //   other call site: Courses, CourseDetail, Calendar) keeps the plain pill unchanged.
+        //   on one line, and with nothing wider offered either way). `nil` elsewhere (every other
+        //   call site: Courses, CourseDetail, Calendar) keeps the plain pill unchanged.
+        // - The line limit itself, 2 → 3 (below): re-dispatched with the two fixes above (Audit
+        //   tour run 38834373248), "High priority" and "Missing" both wrapped clean, but "Not
+        //   submitted" alone still truncated to "Not subm…" on the smallest device, AX5 — Pro Max's
+        //   wider row fits "Not"/"submitted" as 2 full lines (confirmed: the same item's capture,
+        //   both devices), but the smallest device's own narrower row needs "submitted" itself
+        //   hyphenated across 2 lines ("sub-"/"mitted"), 3 total with "Not" — one more than the
+        //   limit allowed, so the 2nd rendered line (of 2) truncated. 3 lines covers it.
+        .lineLimit(isValue ? 1 : 3)
+        .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
         .font(TallyTypography.caption.weight(.semibold))
