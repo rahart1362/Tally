@@ -419,6 +419,13 @@ final class AuditTourUITests: TallyUITestCase {
                 app.buttons["todo.select"].tap()
                 _ = waitUntilAtRest(app)
             }
+            // MVP-2g (PMO direction, binding): capture the REAL post-Mark-Done state on every leg,
+            // whatever it is — a relaunch must never hide a real defect from the tour's own
+            // evidence trail. This is the capture gate-2's final review actually found the
+            // smallest-device defect in (verdict.md section B); it stays, unconditionally, even
+            // though the AX5-only block below now also relaunches for separate, clean chip
+            // evidence (its own doc comment just below).
+            snap(app, screen: "todo", state: "afterMarkDone", reachedVia: "tapped Mark Done, settled")
         }
 
         // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — To-Do's
@@ -457,22 +464,16 @@ final class AuditTourUITests: TallyUITestCase {
             // section B): on both smallest-device AX5 legs, every capture from here to the list's
             // own end showed the List's own selection circle on every row, beside the row's own
             // done circle, 65 pt narrower than the normal list ("Miss-/ing" hyphenated mid-word) —
-            // never resolving across the full ~50-screen scroll below. `ToDoScreen.swift` already
-            // exits selection mode the standard way right after a batch Mark Done
-            // (`model.local.setDone(...); selection.removeAll(); withAnimation { editMode =
-            // .inactive }}`), and three independent, identifier-driven signals right above already
-            // confirm that happened here too: `todo.select`'s own toggle switched its label back
-            // (its "Cancel"/"Select" text is keyed on `editMode.isEditing`), the tab bar returned
-            // (`.toolbarVisibility(editMode.isEditing ? .hidden : .automatic, ...)`, the same key),
-            // and `todo.markDone` is gone (shown only `if editMode.isEditing`). So this is not the
-            // app forgetting to exit selection mode — `editMode` really is `.inactive` — it is the
-            // List's own selection accessory failing to follow that state back on this device, a
-            // genuine rendering defect (an app ticket, not a tour artifact: a real person doing a
-            // batch Mark Done on this device would see the same stuck double circle). No simulator
-            // is available here to chase that rendering defect itself, so the harness instead never
-            // lets the chip-evidence capture below depend on it resolving: a fresh launch rebuilds
-            // the List from scratch, before it has ever been in edit mode, and a state-verified
-            // check (never a coordinate guess) confirms the normal list before capturing.
+            // never resolving across the full ~50-screen scroll below (the `afterMarkDone` capture
+            // above is this same, real state — kept, unconditionally, so this relaunch can never
+            // hide it: a `ToDoUITests` assertion, run on the smallest iPhone by `ci.yml`'s own
+            // "To-Do batch Mark Done exits selection mode" step, is what actually proves or
+            // disproves the defect — see that file and the report's own MVP-2g section for which).
+            //
+            // PMO direction (binding): the relaunch below is ONLY a way to get clean chip evidence
+            // for item 3 (To-Do outside select mode, at AX5, on this device) — never a way to
+            // decide or hide whether the defect is real. Every capture from here down is named
+            // `todo-afterRelaunch`, never plain `todo`, so it reads as what it is.
             app.terminate()
             app = launchSignedIn()
             openTabInTour(Self.tabLabel(.toDo), in: app)
@@ -481,10 +482,11 @@ final class AuditTourUITests: TallyUITestCase {
                 !app.buttons["todo.markDone"].exists && elementsWithPrefix("todo.complete", in: app).firstMatch.exists
             }
             if !normalList {
-                snap(app, screen: "todo", state: "missing-normalListAfterRelaunch", reachedVia: "fresh launch, To-Do tab")
+                snap(app, screen: "todo-afterRelaunch", state: "missing-normalList", reachedVia: "fresh launch, To-Do tab")
             }
             scrollToTop(app)
-            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 60)
+            captureScreenfuls(app, screen: "todo-afterRelaunch", reachedVia: "To-Do tab, AX5 scroll after a fresh relaunch " +
+                              "(item 3 chip evidence only — afterMarkDone above is the real state)", maxScreens: 60)
         }
 
         app.terminate()

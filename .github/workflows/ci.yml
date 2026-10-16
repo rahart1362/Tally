@@ -362,6 +362,21 @@ jobs:
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
+      - name: To-Do batch Mark Done exits selection mode (smallest iPhone, MVP-2g)
+        # PMO direction (MVP-2g, binding): the gate-2 final review's audit tour found To-Do's
+        # List still showing its own selection accessory on every row after a batch Mark Done, on
+        # the smallest device only (`pmo-audit/.build-audit/mvp2f/review/verdict.md` section B) —
+        # never resolving across the rest of that tour leg. `ToDoScreen.swift`'s own exit
+        # (`editMode = .inactive` right after `setDone`) reads correct in the source, so this
+        # proves or disproves it for real, on the exact device the tour found it on, rather than
+        # leaving it a hypothesis: `ToDoUITests.testMissingFirstDoneCopySwipeAndBatchSelect`'s own
+        # post-Mark-Done assertions (identifier, trait and leading-inset checks) re-run here,
+        # unchanged, against `steps.small.outputs.udid`.
+        if: ${{ inputs.scope != 'unit' && inputs.scope != 'only' }}
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/ToDoUITests IOS_RESULT_NAME=Tally-small-todo
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         # The floor run below runs even after a red test above, so a failure there never

@@ -24,6 +24,12 @@ final class ToDoUITests: TallyUITestCase {
         let rows = elementsWithPrefix("todo.row", in: app)
         XCTAssertGreaterThanOrEqual(rows.count, 3)
         let first = rows.element(boundBy: 0)
+        // MVP-2g (PMO direction, binding): the normal list's own leading inset, captured before
+        // Select is ever tapped — the baseline the post-Mark-Done check below reads against. The
+        // gate-2 final review's own evidence for the smallest-device defect (verdict.md §B) was
+        // exactly this: every row sat 65 pt further right than this baseline, the List's own
+        // selection accessory never having let go, even once `editMode` read `.inactive`.
+        let normalLeadingInset = first.frame.minX
         XCTAssertTrue(Self.codes.contains { first.label.contains($0) }, "row: '\(first.label)'")
         XCTAssertTrue(first.label.contains("Missing"), "the first row is missing work: '\(first.label)'")
         for index in 0..<min(rows.count, 6) {
@@ -95,15 +101,38 @@ final class ToDoUITests: TallyUITestCase {
             XCTAssertTrue(found, "batch Mark Done did not mark '\(label)'. Hierarchy: \(app.debugDescription)")
         }
 
-        // MVP-2g (item 2): the standard iOS pattern — exit selection mode once a batch action
-        // completes (`ToDoScreen.swift`'s own `withAnimation { editMode = .inactive }` right after
-        // `setDone`) — asserted structurally, not by `todo.markDone`'s own absence alone. The
-        // gate-2 final review found that guard blind to a List whose own selection circles can
-        // persist even once `editMode` reads inactive (verdict §B: the smallest device's AX5 legs
-        // only; no simulator here to reproduce that device-specific case). This is the general
-        // assertion the fix list asked for on whatever device this suite actually runs on.
+        // MVP-2g (PMO direction, binding): prove or disprove the smallest-device defect the
+        // gate-2 final review flagged (verdict.md §B), structurally — never assumed from
+        // `todo.markDone`'s own absence alone, and never a coordinate guess. This method runs
+        // again, unchanged, on the smallest iPhone via `ci.yml`'s own "To-Do batch Mark Done exits
+        // selection mode" step (`steps.small.outputs.udid`), the same device the tour found stuck.
+        //
+        // `ToDoScreen.swift`'s own exit (`withAnimation { editMode = .inactive }` right after
+        // `setDone`) is the standard iOS pattern already; `todo.select`'s toggle and the tab bar's
+        // return already confirm `editMode` really did flip. What the tour could not tell was
+        // whether the List's own leading selection accessory actually let go too — the three
+        // checks below are state-verified, identifier- and geometry-based proof of exactly that:
         XCTAssertFalse(app.buttons["todo.markDone"].exists, "batch Mark Done did not exit selection mode")
-        XCTAssertTrue(app.buttons.matching(identifier: "todo.complete").firstMatch.exists,
-                      "no row shows its own completion control after exiting selection mode")
+        let visibleRows = elementsWithPrefix("todo.row", in: app)
+        // (a) by identifier: `todo.complete` only draws `if editMode?.wrappedValue.isEditing !=
+        // true` (`ToDoScreen.swift:159`) — one must exist per visible row, not merely somewhere.
+        XCTAssertEqual(app.buttons.matching(identifier: "todo.complete").count, visibleRows.count,
+                      "not every visible row shows its own completion control after batch Mark " +
+                      "Done. Hierarchy: \(app.debugDescription)")
+        // (b) by trait: a row the batch action marked done must not still read as selected.
+        for label in picked {
+            let row = rows.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+            if row.exists { XCTAssertFalse(row.isSelected, "'\(label)' still reads as selected after Mark Done") }
+        }
+        // (c) by geometry: every visible row's own leading inset must match the normal list's —
+        // the List's own selection accessory, stuck or not, is what shifts it (verdict.md §B: 65
+        // pt on the smallest device, both AX5 legs, never resolving).
+        for index in 0..<min(visibleRows.count, 5) {
+            let row = visibleRows.element(boundBy: index)
+            guard row.exists else { continue }
+            XCTAssertEqual(row.frame.minX, normalLeadingInset, accuracy: 1,
+                          "row \(index) is not at its normal leading inset after batch Mark Done — " +
+                          "the List's own selection accessory may still be showing. Hierarchy: \(app.debugDescription)")
+        }
     }
 }
