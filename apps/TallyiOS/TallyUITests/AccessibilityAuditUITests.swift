@@ -568,11 +568,14 @@ extension TallyUITestCase {
     ///   elementless hold left (`heldReason`'s "no frame" branch, Calendar's own today variants) now
     ///   carries an explicit flag (`HeldResult.isElementlessNavBarHold`), set only there — never
     ///   inferred from the reason string — so this method's cap and retry apply to exactly that
-    ///   case. It is capped at 3 per pass, and confirmed only when BOTH hold on the retry, after the
-    ///   list settles: the same elementless issue of the same type is found again (stable, not a
-    ///   transient list-rebuild artifact), AND the navigation-bar pixel proof (rulings 1(a)–(c),
-    ///   unchanged) passes again, measured fresh on the retry's own new screenshot, not the first
-    ///   one. Anything short of both fails like any other issue.
+    ///   case, at most 3 per pass. The PMO's own "retry-confirmed" definition (clarified after an
+    ///   initial gap — the first version covered only the recurring branch) has two outcomes, after
+    ///   the list settles: **(i)** the retry does NOT re-report the issue at all — held as
+    ///   transient (`A11yScene.navBarTransientHoldReason`), the retry's own measurement recorded as
+    ///   evidence, not a second gate; **(ii)** it recurs — held only when the navigation-bar pixel
+    ///   proof (rulings 1(a)–(c), unchanged) ALSO passes again, measured fresh on the retry's own
+    ///   new screenshot, not the first one; otherwise it is a real, recurring problem and fails like
+    ///   any other issue.
     @MainActor
     func runA11yAudit(_ app: XCUIApplication, for types: XCUIAccessibilityAuditType = .all, screen: String, variant: String,
                       file: StaticString = #filePath, line: UInt = #line) {
@@ -638,16 +641,22 @@ extension TallyUITestCase {
                     unwaived.append("performAccessibilityAudit itself threw with no issue captured: \(error)")
                 }
             }
-            // MVP-2f (gate-2 final review, ruling 1(d), "retry-confirmed" as the PMO defined it):
-            // one retry, after the list settles, decides whether each elementless nav-bar type stays
-            // held. Unlike the old (dead) `-paged` mechanism this replaces — which held a hold only
-            // when the type did NOT recur (confirmed transient) — this ruling needs the OPPOSITE:
-            // the issue must recur (confirmed stable, not a one-off list-rebuild artifact), AND the
-            // navigation-bar pixel proof (rulings 1(a)–(c), unchanged) must pass again, measured on
-            // a fresh screenshot taken after this same settle — never the first audit's own
-            // screenshot, which the retry's wait has by now moved past.
+            // MVP-2f (gate-2 final review, ruling 1(d)): one retry, after the list settles, decides
+            // whether each elementless nav-bar candidate stays held. The PMO's own definition of
+            // "retry-confirmed" (binding, as clarified — the first version covered only the second
+            // branch below) has two outcomes:
+            // (i) the retry does NOT re-report the issue at all: the first observation was
+            //     transient and the settled screen reads clean — PASS, with its own reason
+            //     (`A11yScene.navBarTransientHoldReason`), carrying the retry's own measurement as
+            //     supporting evidence, never as a second gate;
+            // (ii) it recurs: held only if the navigation-bar pixel proof (rulings 1(a)–(c),
+            //     unchanged) ALSO passes again, measured fresh on the retry's own new screenshot —
+            //     never the first audit's own, which the retry's wait has by now moved past;
+            //     otherwise it is a real, recurring problem and fails like any other issue.
+            // Both outcomes share the same cap (at most 3 candidates per pass, already applied
+            // above, before either branch runs).
             var recurredOnRetry: Set<String> = []
-            var retryPixelProofPasses = false
+            var retryMeasured: (coverage: Double, maxGlyphContrast: Double)?
             if !noElementTypesSeen.isEmpty {
                 a11yWaitUntilSettled(app, timeout: 2)
                 _ = try? app.performAccessibilityAudit(for: pass) { retryIssue in
@@ -663,24 +672,33 @@ extension TallyUITestCase {
                 // The retry's own fresh scene and screenshot — `a11yAttachScreen` settles again
                 // (near-instant: the wait just above already settled it) and attaches
                 // `<screen>-<variant>-audit-retry-*` evidence, so a reviewer can check this
-                // measurement against the actual pixels it ran on.
+                // measurement against the actual pixels it ran on. Taken and recorded whether or
+                // not the issue recurred — branch (i) cites it too, as evidence the settled screen
+                // really is clean, not as a second pass/fail gate.
                 let retryScene = a11yAttachScreen(app, name: "\(screen)-\(variant)-audit-retry")
-                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame,
-                   let measured = retryScene.measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
-                                                                    excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent),
-                   measured.coverage >= A11yScene.navBarCoverageThreshold,
-                   measured.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold {
-                    retryPixelProofPasses = true
+                if let navBar = retryScene.chrome.first(where: { $0.kind == .navigationBar })?.frame {
+                    retryMeasured = retryScene.measureNavBarCoverage(barFrame: navBar, regionFrame: navBar,
+                                                                     excluding: retryScene.chromeOwnContent + retryScene.navBarButtonGlassExtent)
                 }
             }
+            let retryPixelProofPasses = retryMeasured.map {
+                $0.coverage >= A11yScene.navBarCoverageThreshold && $0.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold
+            } ?? false
             for item in pending {
                 var record = item.record
                 var held = (record["held"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                 if item.isNoElementHold, held != nil {
-                    let confirmed = recurredOnRetry.contains(item.typeName) && retryPixelProofPasses
-                    if !confirmed {
-                        held = nil
-                        record["held"] = ""
+                    if recurredOnRetry.contains(item.typeName) {
+                        // (ii) Recurred: held only on the retry's own passing pixel proof.
+                        if !retryPixelProofPasses {
+                            held = nil
+                            record["held"] = ""
+                        }
+                    } else {
+                        // (i) Transient: never re-reported on the settled retry. Always held, with
+                        // its own reason — never the nav-bar-proof text, which ruling (ii) owns.
+                        held = A11yScene.navBarTransientHoldReason(retryMeasured)
+                        record["held"] = held ?? ""
                     }
                 }
                 issues.append(record)
@@ -1132,13 +1150,26 @@ extension TallyUITestCase {
 ///     the navigation bar …", so the cap never incremented and the retry never ran (gate-2 final
 ///     review verdict, section 1). `heldReason` now returns an explicit `HeldResult` carrying
 ///     `isElementlessNavBarHold`, set only here, so `runA11yAudit` never has to infer it from a
-///     string. The PMO's own definition of "retry-confirmed" for this case (gate-2 final review,
-///     binding): held only when, after the list settles, a retry of the same audit (1) shows the
-///     same elementless issue again — stable, not the audit's own transient list-rebuild artifact —
-///     and (2) the navigation-bar pixel proof above (1a–1c, unchanged) passes again, measured fresh
-///     on the retry's own new screenshot; still capped at 3 per pass (`runA11yAudit`). Anything
-///     short of both fails like any other issue. `docs/pmo/a11y-waivers.md` documents it as the
-///     position-free exception the PMO has accepted.
+///     string.
+///
+///     **The PMO's definition of "retry-confirmed" for this case (binding, clarified).** The first
+///     version covered only the recurring branch below, which a live CI run then showed could turn
+///     Calendar red on a candidate whose own navigation-bar pixels were PROVEN unchanged between
+///     the two measurements (100% coverage, 1.07:1 max glyph, both times) — the audit API's own
+///     issue-detection simply did not re-report it, exposing exactly the gap the PMO's
+///     clarification closes. After the list settles, a retry of the same audit:
+///     - **(i) does not re-report the issue at all**: the first observation was transient (the
+///       audit's own list-rebuild instability, this file's long-standing pattern) and the settled
+///       screen reads clean — **held**, with its own reason
+///       (`A11yScene.navBarTransientHoldReason`) recording the retry's own fresh measurement as
+///       supporting evidence, never as a second gate;
+///     - **(ii) it recurs**: held only when the navigation-bar pixel proof above (1a–1c, unchanged)
+///       ALSO passes again, measured fresh on the retry's own new screenshot, never the first
+///       audit's; anything short of that is a real, recurring problem and fails like any other
+///       issue.
+///
+///     Both outcomes share the same cap, at most 3 candidates per pass (`runA11yAudit`).
+///     `docs/pmo/a11y-waivers.md` documents it as the position-free exception the PMO has accepted.
 /// 2. **The long screens' `test<Screen>AX5` audits no longer page**: `a11yPageToEnd` (MVP-2c) is
 ///    removed, and each covers its first page only. Rows below that fold are covered by the Audit
 ///    tour's AX5 layout checks at every scroll step and the gate-2 visual review at 200%, an
@@ -1396,9 +1427,12 @@ struct A11yScene {
             // bar at the agenda's resting scroll position, and the audit returns no element for some
             // of them once the list is away from its top.
             //
-            // MVP-2f: this measurement, on THIS screenshot, is the proof `runA11yAudit`'s retry
-            // must reproduce fresh (its own doc comment) before this hold is kept; `isElementlessNavBarHold`
-            // is the explicit flag that routes it there, not this reason string's own wording.
+            // MVP-2f: `isElementlessNavBarHold` is the explicit flag that routes this candidate to
+            // `runA11yAudit`'s own cap and retry (its own doc comment has the PMO's two-branch
+            // "retry-confirmed" definition) — never this reason string's own wording. This
+            // measurement, on THIS screenshot, only ever matters again if the retry finds the same
+            // issue recurring; if the retry does not re-report it at all, the retry's OWN fresh
+            // measurement is what gets recorded instead, not this one.
             guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                   !pinned.isEmpty, !variant.contains("firstDay"),
                   let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,
@@ -1795,6 +1829,27 @@ struct A11yScene {
         let suffix = noElement ? " (no element of its own; the bar's whole frame measured instead)" : ""
         return "under the navigation bar\(suffix), measured \(coveragePct)% of its pixels within \(tolerance):1 contrast " +
                "of the bar's own colour, max glyph row contrast \(contrast):1 against it"
+    }
+
+    /// MVP-2f (the PMO's clarification of ruling 1(d), branch (i)): the held reason for an
+    /// elementless nav-bar `textClipped` issue that the settled retry did NOT re-report at all —
+    /// read as a transient, one-off artifact of the audit's own first measurement (this file's
+    /// long-standing "list-rebuild instability" pattern), not a real, recurring issue. `measured`
+    /// is the retry's own fresh navigation-bar measurement, recorded here as supporting evidence
+    /// that the settled screen really does read clean — never as a second gate: this branch holds
+    /// regardless of what it reads, because the determining fact is that the issue itself did not
+    /// recur. `nil` only when the retry's own screenshot had no navigation bar to measure at all
+    /// (should not happen on a Calendar today variant, which is this hold's only domain, but
+    /// degrades to a plain statement rather than a crash or a fabricated number).
+    static func navBarTransientHoldReason(_ measured: (coverage: Double, maxGlyphContrast: Double)?) -> String {
+        guard let measured else {
+            return "transient: not re-reported on the settled retry (its own navigation-bar measurement could not be taken)"
+        }
+        let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
+        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
+        return "transient: not re-reported on the settled retry, measured \(coveragePct)% of its navigation bar's pixels within " +
+               "\(tolerance):1 contrast of the bar's own colour on that fresh screenshot, max glyph row contrast \(contrast):1 against it"
     }
 
     /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the

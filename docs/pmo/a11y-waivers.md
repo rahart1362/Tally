@@ -172,12 +172,29 @@ element's frame and the screenshot taken at the audit moment, and decides each o
     previously said; the previous review's run 38727620004 (section 3.4) had the same mismatch, so
     its own retry never ran either. `heldReason` now returns this hold flagged explicitly
     (`A11yScene.HeldResult.isElementlessNavBarHold`), never inferred from the string, so
-    `runA11yAudit`'s cap and retry apply for real. The PMO's own definition of "retry-confirmed"
-    for this case (binding): held only when, after the list settles, a retry of the same audit (1)
-    finds the same elementless issue again — stable, not the audit's own transient list-rebuild
-    artifact — **and** (2) the navigation-bar pixel proof above passes again, measured fresh on the
-    retry's own new screenshot, never the first audit's. Anything short of both fails like any other
-    issue. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run evidence.
+    `runA11yAudit`'s cap and retry apply for real, capped at 3 candidates per pass either way.
+
+    **The PMO's definition of "retry-confirmed" for this case (binding, clarified).** The first
+    version of this definition covered only the recurring branch below; dispatching it for real
+    (scope=only run 38825045671, `mvp/a11y-fixes-2f`) found one light-ax5 candidate whose own
+    navigation-bar pixels measured identically on both the first screenshot and the retry's fresh
+    one (100.0% coverage, 1.07:1 max glyph, both times) — provably unchanged — yet the accessibility
+    audit API itself did not re-report the issue on the retry, which the first definition read as
+    "not confirmed" and failed. The PMO closed that gap: after the list settles, a retry of the same
+    audit now has two outcomes:
+    - **(i) it does not re-report the issue at all**: the first observation was transient (this
+      file's own long-standing "list-rebuild instability" pattern, not a real, recurring defect) and
+      the settled screen reads clean — **held**, with its own reason text
+      (`A11yScene.navBarTransientHoldReason`: "transient: not re-reported on the settled retry …"),
+      recording the retry's own fresh navigation-bar measurement as supporting evidence, never as a
+      second gate (the light-ax5 case above: "measured 100.0% … max glyph row contrast 1.07:1", held
+      this way once the clarification shipped);
+    - **(ii) it recurs**: held only when the navigation-bar pixel proof above ALSO passes again,
+      measured fresh on the retry's own new screenshot, never the first audit's; anything short of
+      that is a real, recurring problem and fails like any other issue.
+
+    Anything outside Calendar's today variants, or an issue with an element, is unchanged — it
+    fails as before. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run evidence.
 
   **The D01 protection stays**: anything the pixel check finds actually visible — any row above
   1.5:1, or under 95% coverage — still fails, exactly as it would have failed before either ruling.
