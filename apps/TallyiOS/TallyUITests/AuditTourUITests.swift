@@ -433,12 +433,28 @@ final class AuditTourUITests: TallyUITestCase {
         // legs were still changing by ~2,000 rows a screenful at scroll40, the cap, not an
         // unchanged body — the sample To-Do list (`planner_items.page1`/`page2.json`: 178 items
         // total) is genuinely long, and the smallest device's narrower rows show fewer of them per
-        // screenful than proMax's. Raised to 70, comfortably above the ~50-57 screens that count
-        // implies for the smallest device, so `captureScreenfuls`' own "unchanged screenshot" rule
-        // is again what actually stops it, not this count.
+        // screenful than proMax's.
+        //
+        // Re-dispatched twice more at `maxScreens: 70` while fixing item 3 (runs 38834373248,
+        // 38837025127): smallest's own true end is consistently 45-52 screens, comfortably inside
+        // 70. But the SECOND of those runs also surfaced a separate, pre-existing flake in
+        // `captureScreenfuls`'s own stop condition, unrelated to this count: proMax's own true end
+        // is consistently ~34-35 (three runs agree, including this one — `99-todo-scroll34.png` was
+        // already byte-identical to every scroll after it, `35` through `70`), yet that run's loop
+        // never broke, recording 36 duplicate screenshots up to the cap. The raw-PNG equality check
+        // (`pngRepresentation ==`, shared with `waitUntilAtRest`) must be seeing some difference
+        // between consecutive full-screen captures even once the scrollable content has stopped —
+        // a status-bar or glass-chrome animation is the likely source, not scroll content — but
+        // reproducing and fixing that check itself is a separate concern from this ruling, and risks
+        // changing `waitUntilAtRest`'s own behaviour everywhere else it is used (every capture in
+        // this file). Flagged for the PMO rather than guessed at here. Lowered to 60 instead of
+        // raising further: comfortably above every observed true end (34-35, 45-52), while keeping
+        // the worst case (the loop running to the cap without breaking, as it did here) safely under
+        // `tourAllowance` (560 s) at this file's own observed ~6 s/screenful rate (60 × 6 ≈ 360 s,
+        // well short of 560 even before the rest of this test method's own budget).
         if Self.isAX5Leg {
             scrollToTop(app)
-            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 70)
+            captureScreenfuls(app, screen: "todo", reachedVia: "To-Do tab, AX5 scroll", maxScreens: 60)
         }
 
         app.terminate()
