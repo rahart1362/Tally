@@ -1132,7 +1132,7 @@ either threshold, is never again diluted by the strip part's own weight.
 
 Three new `A11ySceneMeasurementTests` cases cover this directly: a zero-pixel nav part beside a
 passing strip part fails; a real, deliberately-under-95%-and-over-1.5:1 nav part beside a passing
-strip part fails; both parts genuinely passing still holds. All three passed on real CI (scope=only
+strip part fails; both parts genuinely passing still holds. All three passed on real CI (scope=quick
 run 38900113255: 6 of 6 `A11ySceneMeasurementTests` passed on `ff2a57b`; the earlier citation,
 38887886713, ran 0 tests — its filter named a class as a method and matched nothing).
 
@@ -1178,16 +1178,16 @@ question needs proof, not a conclusion from the code. Two changes followed:
   tour found stuck.
 
 **Dispatched for real (run 38889379284, `scope=quick`): it failed, on the DEFAULT device, before
-the dedicated smallest-device step was even reached** — `ToDoScreen.swift:133`:
+the dedicated smallest-device step was even reached** — `ToDoUITests.swift:133`:
 `XCTAssertEqualWithAccuracy failed: ("124.0") is not equal to ("84.0") +/- ("1.0")`, reproduced
 identically on both retry attempts (56.6 s and 60.5 s). The failure's own element hierarchy made
 the mechanism visible directly: every row (done or not, batch-selected or never touched) carried an
 extra `Other, Disabled > Image, identifier: 'circle'` ahead of the row's own `todo.complete` button
 — the system's own multi-select accessory, left behind, disabled but still occupying its 40 pt
 leading slot, on every row, permanently. **This is a real app bug, reproducible on CI, not limited
-to the smallest device or AX5** — `List(selection:)` never drops that accessory on a plain state
-change once `editMode` has been `.active` at least once; only a full teardown and rebuild of the
-List does.
+to the smallest device or AX5** — `List(selection:)` does not reliably drop that accessory on a
+plain state change once `editMode` has been `.active` at least once; only a full teardown and
+rebuild of the List does so reliably.
 
 **Fix (`ToDoScreen.swift`), minimal:** a `listGeneration` counter, bumped on every exit from edit
 mode (the Select/Cancel toggle and Mark Done), keyed into the List's own `.id` to force that
@@ -1217,22 +1217,21 @@ change in this work package.
 
 Dispatched on the scratch branch `mvp/a11y-fixes-2g` before merging into `mvp/a11y-fixes`.
 
-- scope=only: 38900113255 (item 1's 3 new self-checks, plus the 3 pre-existing — all 6 passed; the
-  original citation here, 38887886713, ran 0 tests — its filter named a class as a method and
-  matched nothing), 38898588447 (item 2's fix, re-verified on `ToDoUITests` after the
-  smallest-device failure).
+- scope=only: 38898588447 (item 2's fix, re-verified on `ToDoUITests` after the smallest-device
+  failure); the original citation for item 1's self-checks, 38887886713, ran 0 tests — its filter
+  named a class as a method and matched nothing.
 - scope=quick (not nominally budgeted; required to reach the smallest-device CI step at all,
   which scope=only skips): 38889379284 (found the real app bug, on the default device, before the
-  smallest-device step was reached), 38900113255 (confirmed the fix on both devices).
+  smallest-device step was reached), 38900113255 (item 1's 3 new self-checks, plus the 3
+  pre-existing — all 6 passed — and confirmed the To-Do fix on both devices).
 - scope=a11y, Audit tour and Release gate: see the hand-off reply for the final run IDs.
 
 ### 5. Open items
 
-- The `listGeneration` fix resets the To-Do list's scroll position on every edit-mode transition
-  (entering Select, exiting via Cancel, exiting via Mark Done) — a List rebuilt from a new `.id`
-  has no memory of the old offset. Not fixed here (a smaller, targeted fix would need to restore
-  scroll position after the rebuild); flagged for the PMO against the alternative, a permanently
-  misaligned list.
+- The `listGeneration` fix reset the To-Do list's scroll position on every exit from edit mode
+  (via Cancel or via Mark Done) — a List rebuilt from a new `.id` has no memory of the old offset.
+  **Resolved by MVP-2h** (`review/verdict.md` §A): `listGeneration`/`.id` are gone, the List's
+  type and identity no longer change, and its scroll offset survives a plain state change.
 - `captureScreenfuls`'s own stop condition (MVP-2f's open item) is unchanged.
 - Device checks (VoiceOver, Large Content Viewer, a real Increase Contrast setting), still
   pending — this host has no simulator.
@@ -1275,14 +1274,21 @@ state — `editMode` reads `.inactive` either way, so every row draws its own `t
 geometry check — the one that actually failed on the real bug (run 38889379284) — is kept,
 unchanged.
 
-Added `testBatchMarkDoneKeepsAMidListRowOnScreen`: scrolls to a row under "Due this week", selects
-only that row, taps Mark Done, and — with no swipe anywhere after that tap (the existing
-`swipeDown` recovery loop in the other test would hide exactly this regression) — asserts the same
-row is still on screen, within one row height of where it rested right before Mark Done (the row's
+Added `testBatchMarkDoneKeepsAMidListRowOnScreen`: looked for a row under "Due this week", selected
+only that row, tapped Mark Done, and — with no swipe anywhere after that tap (the existing
+`swipeDown` recovery loop in the other test would hide exactly this regression) — asserted the same
+row stayed on screen, within one row height of where it rested right before Mark Done (the row's
 own measured height, not a hard-coded guess), and clear of both the navigation bar and the tab bar.
 Both tests run on the default device (`ci.yml`'s main pass) and the smallest iPhone (`ci.yml`'s
 dedicated `ToDoUITests` step) without any filter change needed — the new method just joins the same
 class.
+
+**Correction (MVP-2i, `review/verdict.md` §B):** at the default text size on both CI devices, "Due
+this week" was already hittable before any swipe, so `scrollUntilHittable` never actually scrolled
+and Mark Done was tapped with the list still at its resting top — a state indistinguishable from
+MVP-2g's own `.id(listGeneration)` regression (a rebuilt List landing back at offset zero also
+looks like this), so this test proved nothing about the scroll-position regression it was written
+for, despite passing on both devices. MVP-2i's fix (`ToDoUITests.swift`) is below.
 
 CI: scope=only 38947556385 (both methods ran; `testBatchMarkDoneKeepsAMidListRowOnScreen` failed
 twice on an app-launch timeout — `Failed to launch ... via Xcode: Timed out`, no Tally crash report,
@@ -1299,17 +1305,25 @@ past its 4-minute allowance and failed the job first.
 
 `AccessibilityAuditUITests.swift`.
 
-- **The held-reason text now says what was measured.** `measureNavBarCoverage` returns a third
-  field, `measuredPixels` (`total` verbatim — 0 only on the `opaqueByConstruction` shortcut, where
-  nothing was read from the buffer); `TopChromeMeasurement`'s `navBarPart`/`pinnedPart` and
-  `measureTopChromeCoverage`'s locals carry it through. `topChromeMeasurementDetail` now prints
-  "pinned header opaque by construction, 0 px measured" instead of a fabricated "100.0%/1.00:1" for
-  that case, and drops the lead-in "measured X% of its pixels within …" entirely when no present
-  part measured a real pixel (previously printed even when the only present part was the strip's
-  own zero-pixel shortcut — the exact wording the verdict's own evidence quoted). `navBarHoldReason`
-  took the same 3-field tuple type change (its one caller, the nav-bar-only branch, now passes the
-  updated `measureNavBarCoverage` result directly); it never hits the zero-pixel case itself (the
-  nav bar is never `opaqueByConstruction`).
+- **The held-reason text now says what was measured — partially.** `measureNavBarCoverage` returns
+  a third field, `measuredPixels` (`total` verbatim — 0 only on the `opaqueByConstruction`
+  shortcut, where nothing was read from the buffer); `TopChromeMeasurement`'s
+  `navBarPart`/`pinnedPart` and `measureTopChromeCoverage`'s locals carry it through.
+  `topChromeMeasurementDetail` now prints "pinned header opaque by construction, 0 px measured"
+  instead of a fabricated "100.0%/1.00:1" for that case. `navBarHoldReason` took the same 3-field
+  tuple type change (its one caller, the nav-bar-only branch, now passes the updated
+  `measureNavBarCoverage` result directly); it never hits the zero-pixel case itself (the nav bar
+  is never `opaqueByConstruction`).
+
+  **Correction (MVP-2i, `review/verdict.md` §B/C):** this did NOT drop the lead-in "measured X% of
+  its pixels within …" for the verdict's own quoted evidence, contrary to what this report said.
+  The guard added here (`anyPixelsMeasured`) dropped that clause only when NEITHER present part
+  measured a real pixel — but a present nav-bar part always does (`measureNavBarCoverage`'s own
+  `opaqueByConstruction: false` for it means a zero-pixel nav part returns `nil`, which fails the
+  whole measurement before `topChromeMeasurementDetail` is ever reached), so every live Calendar
+  hold kept reading "measured 100.0% of its pixels …" regardless — exactly the wording the
+  verdict's own evidence quoted, unchanged. MVP-2i's fix, below, scopes that claim to the part(s)
+  that actually measured something, rather than checking whether *any* part did.
 - **The union path now requires a positive-height nav-bar intersection**, not merely a non-null
   one (`navBar.intersection(frame).height > 0`, was `!navBar.intersection(frame).isNull`) — a frame
   that only touches the nav bar's bottom edge (a zero-height intersection, never `.null`) no longer
