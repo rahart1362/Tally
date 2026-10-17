@@ -36,6 +36,13 @@ public struct TallyScreenChrome: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .scrollEdgeEffectStyle(.hard, for: .top)
+            // MVP-3 gate-2 review (I1, owner decision 2026-10-17, binding): at rest, a tab root's
+            // content can sit directly under the floating tab bar (the gap between cards, about
+            // 9 pt, is far shorter than the bar's own band, about 65 pt), and the bar's Liquid
+            // Glass material ghosts that content through rather than hiding it — the same D01
+            // problem `.hard` already solves for the top bar, now at the bottom. No scroll offset
+            // can avoid it, so it needs this edge treatment, not a test-side workaround.
+            .scrollEdgeEffectStyle(.hard, for: .bottom)
             .toolbarBackground(TallyColor.bgCanvas, for: .navigationBar)
             .toolbarBackgroundVisibility(barBackground, for: .navigationBar)
     }

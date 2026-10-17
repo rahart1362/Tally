@@ -190,9 +190,14 @@ extension FamilyModel {
             makeHome: { student in
                 let observee = roster.observees[student.canvasUserID]
                     ?? ObservedUser(canvasUserID: student.canvasUserID, name: student.name, avatarURL: nil)
+                // MVP-3 gate-2 review (I2): without `clock:` here, this HomeModel kept its own
+                // SystemDateProvider() default (Home/HomeModel.swift:93) and projected with the
+                // live clock (HomeModel.swift:310,315) regardless of the sample family's own
+                // `clock` above — the same bug class AppModel.swift:353 had (e3822fc). Parent
+                // mode's "Week ahead" started on the live "today" instead of the fixed one.
                 return HomeModel(source: SampleSession(clock: clock, makeGateway: {
                     SampleFamilyStudentGateway(replay: replay, student: observee)
-                }))
+                }), clock: clock)
             })
         return model
     }

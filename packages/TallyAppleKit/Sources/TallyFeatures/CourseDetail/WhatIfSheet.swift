@@ -262,6 +262,11 @@ private struct WhatIfItemRow: View {
                                 + Text(verbatim: ", ") + Text(verbatim: item.title)
                         )
                         .accessibilityHint(Text(L10n.CourseDetail.whatIfQuickFillAccessibility(item.title, Int(percent))))
+                        // MVP-3 gate-2 review (I3): identifies each row's own quick-fill chips (one
+                        // set per ungraded item, so this repeats — the same pattern `whatif.field`
+                        // already uses), so a UI test can exercise What-If's own feature instead of
+                        // capturing its untouched, all-placeholders initial state.
+                        .accessibilityIdentifier("whatif.quickFill.\(Int(percent))")
                 }
             }
             .sensoryFeedback(.selection, trigger: model.scores[item.id])

@@ -78,8 +78,10 @@ jobs:
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$udid" 2>/dev/null || true
           xcrun simctl bootstatus "$udid" -b
+          # MVP-3 gate-2 review (N1): a plain full battery, no charging bolt -- the glyph Apple's
+          # own marketing shots use -- in place of the green "charged" state this had before.
           xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active \
-            --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+            --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState discharging --batteryLevel 100
           # XCUIDevice.shared.appearance alone did not take for AuditTourUITests (run 37649050231:
           # every "dark" capture was light), so the appearance is set on the device before the
           # tests run, the same fix.
