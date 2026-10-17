@@ -57,6 +57,24 @@ extension TallyUITestCase {
         return element.exists && element.isHittable
     }
 
+    /// Swipes up, slowly, until `condition` holds. `true` once it does.
+    ///
+    /// MVP-2i (`review/verdict.md` §B, narrow re-check of MVP-2h): `scrollUntilHittable` is a
+    /// no-op whenever its own target is already hittable before the first swipe — which proves
+    /// nothing about a test that means to scroll for real. This lets a caller name the scrolled
+    /// state it actually needs (for example, "this header is no longer hittable AND that one now
+    /// is"), so a run that did not need to scroll — or could not reach that state at all — is
+    /// told apart from one that did.
+    @MainActor
+    @discardableResult
+    func scrollUntil(_ condition: () -> Bool, in app: XCUIApplication, maxSwipes: Int = 10) -> Bool {
+        for _ in 0..<maxSwipes {
+            if condition() { return true }
+            app.swipeUp(velocity: .slow)
+        }
+        return condition()
+    }
+
     /// Swipes up until `element` is hittable and its bottom edge sits `bottomMargin` points above the
     /// screen's bottom, clear of a bottom bar (a tap near that edge can land on the bar instead:
     /// run 36463736410's To-Do batch select). `true` when it does.
