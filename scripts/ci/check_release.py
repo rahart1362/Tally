@@ -35,6 +35,9 @@ same gate and stay PENDING here until they land.
         MVP-2: REL.a11y.audit, from `AccessibilityAuditUITests`/`-DarkUITests`/`-ContrastUITests`'
         combined `xcresulttool get test-results tests` JSON (each RESULTS a path, like --flows).
         --waivers is the waiver count the CI step read from A11yWaivers.waived.
+    python3 scripts/ci/check_release.py --screenshots MANIFEST [--due M] --json OUT
+        MVP-3: REL.store.screenshots, from `scripts/release/screenshots.py --raw`'s own manifest.json
+        (8 scenes x Light/Dark x en/es, each exactly 1320x2868). MANIFEST is that file's path.
     python3 scripts/ci/check_release.py --merge OUT IN [IN ...]
         Combines the jobs' reports into one compliance JSON, prints the table and decides.
     python3 scripts/ci/check_release.py --self-test
@@ -567,6 +570,12 @@ FLOWS = (
     Flow("REL.flow.school-search", "Find My School reaches search, and a failed search is reported",
          ("SchoolSearchUITests/testFindMySchoolNavigatesToSearchWithIdleHelperText",
           "SchoolSearchUITests/testTypingAQueryEventuallyReportsASearchFailure"), "Release", "M2", ""),
+    # MVP-3 (MVP-4 gate-2 review, S4-6): the App Review path (O6, dossier.md) -- every screen,
+    # Sample Data, no sign-in, no network -- merged in PR #57 (ReviewPathUITests.swift). It uses
+    # `TestHooks.trapAllNetwork`, a DEBUG-only hook, so it runs against the Debug build like the
+    # other DEBUG_FLOWS entries above (release-gate.yml), not the Release flows.
+    Flow("REL.flow.15-review-path", "The review path shows every screen with no sign-in and no network (O6)",
+         ("ReviewPathUITests/testReviewPathShowsEveryScreenWithNoSignInAndNoNetwork",), "Debug", "MVP", ""),
 )
 
 
@@ -653,6 +662,45 @@ def _lookup(results: dict[str, str], test: str) -> str:
         if identifier == test or identifier.endswith("/" + test):
             return result
     return "missing (did not run)"
+
+
+# ------------------------------------------------------------------------------------------------
+# App Store screenshots (MVP-3, ASC-12, R14; UX-WP-23)
+# ------------------------------------------------------------------------------------------------
+
+STORE_SCREENSHOT_SCENES = ("dashboard", "courses", "course-detail", "what-if", "todo", "calendar", "insights",
+                           "parent-mode")
+STORE_SCREENSHOT_MODES = ("light", "dark")
+STORE_SCREENSHOT_LANGUAGES = ("en", "es")
+STORE_SCREENSHOT_SIZE = (1320, 2868)
+
+
+def screenshot_checks(manifest: dict, due: str = "MVP") -> list[Check]:
+    """One check, REL.store.screenshots: passes only when `manifest` (`scripts/release/
+    screenshots.py --raw`'s own manifest.json) has all 8 scenes x 2 appearances x 2 languages,
+    each exactly 1320x2868, and the script recorded no error. No manifest, a missing combination,
+    or any recorded error is a failing check -- the same "nothing passes by being missing" rule
+    `a11y_audit_checks` and `flow_checks` use."""
+    if not manifest:
+        return [Check("REL.store.screenshots", "App Store screenshots: 8 scenes x Light/Dark x en/es, 1320x2868, no alpha",
+                      "ERROR", due, False, "no screenshots.py manifest was given")]
+    expected = {(scene, mode, language) for scene in STORE_SCREENSHOT_SCENES for mode in STORE_SCREENSHOT_MODES
+                for language in STORE_SCREENSHOT_LANGUAGES}
+    images = manifest.get("images", [])
+    found = {(img.get("scene"), img.get("mode"), img.get("language")) for img in images}
+    bad_size = [img["file"] for img in images if (img.get("width"), img.get("height")) != STORE_SCREENSHOT_SIZE]
+    missing = sorted(f"{scene}-{mode}-{language}" for scene, mode, language in expected - found)
+    errors = manifest.get("errors", [])
+    ok = not missing and not bad_size and not errors and len(images) == len(expected)
+    detail = [f"{len(images)}/{len(expected)} images"]
+    if missing:
+        detail.append("missing: " + ", ".join(missing[:8]) + (f" (+{len(missing) - 8})" if len(missing) > 8 else ""))
+    if bad_size:
+        detail.append("wrong size: " + ", ".join(bad_size[:8]))
+    if errors:
+        detail.append("errors: " + "; ".join(errors[:5]) + (f" (+{len(errors) - 5})" if len(errors) > 5 else ""))
+    return [Check("REL.store.screenshots", "App Store screenshots: 8 scenes x Light/Dark x en/es, 1320x2868, no alpha",
+                  "ERROR", due, ok, "; ".join(detail))]
 
 
 # ------------------------------------------------------------------------------------------------
@@ -759,7 +807,26 @@ def self_test() -> int:
     assert a11y_fail_check.status == "FAIL", "a failed audit test fails the gate at MVP"
     assert "testDashboard: Failed" in a11y_fail_check.detail, a11y_fail_check.detail
     assert a11y_audit_checks({}, waivers=0)[0].settle().status == "FAIL", "no results is a failing check, not a silent pass"
-    print("check_release self-test: 24 checks passed")
+    # MVP-3: REL.store.screenshots.
+    full_images = [{"file": f"{n:02d}-{s}-{m}-{l}.png", "scene": s, "number": n, "mode": m, "language": l,
+                    "width": 1320, "height": 2868, "sha256": "x", "hadAlpha": False}
+                   for n, s in enumerate(STORE_SCREENSHOT_SCENES, start=1)
+                   for m in STORE_SCREENSHOT_MODES for l in STORE_SCREENSHOT_LANGUAGES]
+    assert len(full_images) == 32, len(full_images)
+    full_manifest = {"images": full_images, "missing": [], "errors": []}
+    shots_pass = screenshot_checks(full_manifest)[0].settle()
+    assert shots_pass.status == "PASS", shots_pass
+    missing_one = {"images": full_images[1:], "missing": [], "errors": []}
+    shots_missing = screenshot_checks(missing_one)[0].settle()
+    assert shots_missing.status == "FAIL", "a missing scene/mode/language combination must fail"
+    assert "missing: " in shots_missing.detail, shots_missing.detail
+    bad_size_images = [dict(full_images[0], width=100, height=100)] + full_images[1:]
+    shots_bad_size = screenshot_checks({"images": bad_size_images, "missing": [], "errors": []})[0].settle()
+    assert shots_bad_size.status == "FAIL", "a wrong-sized image must fail, even with every combination present"
+    shots_with_errors = screenshot_checks({"images": full_images, "missing": [], "errors": ["leg x: broke"]})[0].settle()
+    assert shots_with_errors.status == "FAIL", "any recorded screenshots.py error must fail the check"
+    assert screenshot_checks({})[0].settle().status == "FAIL", "no manifest is a failing check, not a silent pass"
+    print("check_release self-test: 29 checks passed")
     return 0
 
 
@@ -818,6 +885,10 @@ def main(argv: list[str]) -> int:
             waivers = int(options.get("--waivers") or "0")
             due = options.get("--due") or "MVP"
             return write(a11y_audit_checks(results, waivers, due), out, "a11y-audit", report_only)
+        if "--screenshots" in options:
+            manifest = json.loads(pathlib.Path(options["--screenshots"]).read_text(encoding="utf-8"))
+            due = options.get("--due") or "MVP"
+            return write(screenshot_checks(manifest, due), out, "screenshots", report_only)
     except (InputError, OSError, KeyError, ValueError, json.JSONDecodeError) as error:
         print(f"RELEASE | ERROR | input | {error}")
         return 2
