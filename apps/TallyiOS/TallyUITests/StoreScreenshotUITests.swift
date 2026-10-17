@@ -48,6 +48,14 @@ final class StoreScreenshotUITests: TallyUITestCase {
         language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_US"] : pinnedLocaleArguments
     }
 
+    /// MVP-2i's own fixed-date hook (`TallyUITestCase.defaultTestHookArguments`'s doc comment
+    /// named this suite as an expected adopter once it landed): the sample fixtures' dates are
+    /// relative to today, so a Store-bound capture against the real clock would never repeat and
+    /// would drift out of date on every run. `TestHooks.fixedNowWednesday` pins every scene to the
+    /// same instant `AuditTourUITests` and the accessibility audit already use (a Wednesday,
+    /// mid-week, chosen for representativeness).
+    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
+
     private static var appearance: XCUIDevice.Appearance {
         ProcessInfo.processInfo.environment["STORE_SHOTS_APPEARANCE"] == "dark" ? .dark : .light
     }
