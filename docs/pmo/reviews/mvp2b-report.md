@@ -1459,6 +1459,41 @@ itself (item 2 below) is confirmed fixed and stable. The layout-changes-daily pr
 exists to solve is solved; the one thing left unsettled is a narrower, pre-existing, orthogonal
 audit-engine timing gap that only ever touches `-firstDay`.
 
+### 0a. Ruling 1(d)-firstDay: the `-firstDay` gap closed, determinism re-checked and achieved
+
+PMO ruling, following §0's determinism finding: give the elementless `textClipped` candidate on
+Calendar's `-firstDay` variants the transient branch only (no pixel proof exists there, unlike the
+today variant) — not re-reported on the settled retry, held as transient; recurs, fails. Same
+shared cap of 3 per pass as the today variant's own `isElementlessNavBarHold` candidates (the two
+are mutually exclusive on `variant`, never double-count).
+
+Implemented as `A11yScene.HeldResult.isTransientCandidateOnly`, set only in `heldReason`'s own new
+`-firstDay` branch (no measurement — a `-firstDay` variant has no pinned header engaged to measure
+against), and threaded through `runA11yAudit`'s existing cap/retry exactly like
+`isElementlessNavBarHold`, with its own two-branch retry outcome (recurs → fails unconditionally;
+no re-check possible). `docs/pmo/a11y-waivers.md` documents both branches alongside the existing
+ruling 1(d). Today variants are entirely unchanged — verified by inspection (the two flags are
+set from mutually exclusive `variant` conditions) and by both validation runs below, where every
+non-`-firstDay` Calendar finding stayed byte-identical to §0's own evidence.
+
+**Validated on a scratch branch** (`mvp2i-firstday-ruling-scratch`, from `mvp/a11y-test-followups`
+@ `e09bc3a`, one commit, `bbd028a`) before landing here, per the ruling's own instruction — two
+`scope=a11y` dispatches on that one commit:
+- Run 39008932260: `testCalendar` passed on all three appearance classes (Light 219.3 s, Dark
+  124.0 s, Contrast 87.7 s) — no `-firstDay` elementless candidate appeared at all this time (an
+  inherently intermittent artifact, same as across §0's three runs). The job's own overall
+  conclusion was `failure`, but from one unrelated test, `testPaywallAX5` ("Continue did not open
+  the paywall") — a known class of CI flake elsewhere in this suite, nothing to do with Calendar or
+  this change; `scope=a11y` runs with no retry by design (`IOS_RETRY=`, binding rules §4), so one
+  unrelated flake fails the whole job outright.
+- Run 39014582339: fully clean — every class passed, nothing failed anywhere, including
+  `testPaywallAX5` this time (confirming run 1's failure there was transient, not a regression).
+
+**Both runs agree on the thing this ruling targets**: Calendar's `testCalendar` passed cleanly, on
+every appearance class, in both runs. Determinism for Calendar — the actual subject of item 0 — is
+now achieved. Evidence: `pmo-audit/.build-audit/mvp2i/run-39008932260-ruling-check-1/` and
+`run-39014582339-ruling-check-2-clean/`.
+
 ### 1. `testBatchMarkDoneKeepsAMidListRowOnScreen` now really scrolls
 
 Narrow re-check of MVP-2h (verdict.md §B): at the default text size on both CI devices, "Due this
@@ -1539,21 +1574,22 @@ Dispatched on `mvp/a11y-test-followups`, from `origin/main` @ `1460e40`.
   (mutation branch, red — see §1; branch deleted after).
 - scope=a11y (2 of 2 budgeted, the determinism check): 39001111413 (clean), 39004707610
   (`AccessibilityAuditUITests.testCalendar` failed on `light-std-firstDay`'s elementless
-  `textClipped`) — see §0; the two do not agree.
-- PR run: in the hand-off reply, after the push to `mvp/a11y-test-followups`.
+  `textClipped`) — see §0; the two did not agree, which produced the PMO's ruling 1(d)-firstDay.
+- PR run 1 (pre-ruling, items 0-4 as reported above): 39008535027 — all required jobs passed
+  (hygiene, core-linux, lint, core-sanitizers, ios-build, ios-asan, ios-tsan, ios-perf); the
+  a11y-audit job is dispatch-only, correctly skipped on a PR run.
+- Ruling 1(d)-firstDay, validated on a scratch branch before landing (§0a): 2 more `scope=a11y`
+  dispatches (the budget the ruling gave) — 39008932260, 39014582339; both agree on Calendar (see
+  §0a). 1 `scope=only` reserve was not needed.
+- PR run 2 (post-ruling, this push): in the hand-off reply.
 
 ### 5. Open items
 
-- **Calendar's `-firstDay` elementless `textClipped` issue (item 0, §0 above) is open, and the two
-  `scope=a11y` determinism runs do not agree** (39001111413 clean; 39004707610 failed on
-  `light-std-firstDay`; an isolated scope=only probe, 38994560670, failed on `dark-std-firstDay`
-  instead) — reported to the PMO, not fixed: it is a pre-existing, timing-sensitive gap in the
-  elementless-nav-bar-hold rule's own `-firstDay` exclusion (the same class of issue its cap-and-
-  retry mechanism already exists to absorb for the "today" variant, never extended to cover
-  `-firstDay`), not something date-pinning caused — the date and every other Calendar finding are
-  confirmed identical across all three runs; only this one candidate's appearance and presence vary.
-  Not something this test-only work package may change (no app code changes beyond the clock seam;
-  the cap and the date are unchanged per the brief).
+- **Resolved**: Calendar's `-firstDay` elementless `textClipped` issue (item 0, §0/§0a) — the PMO's
+  ruling 1(d)-firstDay gives it the same transient-retry treatment the today variant's own
+  `isElementlessNavBarHold` already has, closing the gap that caused the two original `scope=a11y`
+  determinism runs to disagree. Validated with two more `scope=a11y` runs on a scratch branch,
+  both agreeing on Calendar, before landing on `mvp/a11y-test-followups` in one push (§0a).
 - The `listGeneration`/scroll-reset open item from MVP-2g (§5 there) stays corrected to "resolved
   by MVP-2h" (fix list item 4, §4's citation note above); MVP-2i adds no new open item there.
 - Every open item carried from MVP-2b through MVP-2h (VoiceOver focus, Large Content Viewer, a real
