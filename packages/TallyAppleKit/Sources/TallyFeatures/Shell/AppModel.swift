@@ -227,10 +227,17 @@ public final class AppModel {
 
     /// Welcome's (and "school not enabled"'s) "Explore with Sample Data": a root switch, never a
     /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
+    ///
+    /// MVP-2i: `self.clock` (from `accountEnvironment?.clock`, `SystemDateProvider()` in
+    /// production — `LaunchTestHooks.fixedNow` in the a11y audit) threads through to both the
+    /// session's own fetch and the projector's `now`, so Sample Data's dates, and every screen
+    /// built from them (the Calendar layout foremost), are pinned together. Before this, both
+    /// defaulted to a fresh `SystemDateProvider()` of their own — never this model's — so a
+    /// `fixedNow` hook never reached Sample Data at all.
     public func enterSample() {
         guard route == .welcome else { return }
         reminders.tipDismissalStore = nil
-        home = HomeModel(source: SampleSession(logger: logger))
+        home = HomeModel(source: SampleSession(clock: clock, logger: logger), clock: clock)
         route = .sample
     }
 
@@ -258,7 +265,11 @@ public final class AppModel {
         isEnteringFamily = true
         defer { isEnteringFamily = false }
         guard let roster = try? await SampleFamilyRoster.load(), route == .sample, family == nil else { return }
-        let family = FamilyModel.sample(roster)
+        // MVP-2i: the same clock `enterSample()` now threads through (`FamilyModel.sample`'s own
+        // `clock` parameter otherwise defaults to a fresh `SystemDateProvider()`, never this
+        // model's) — Parent Mode's own dashboard is a `HomeModel` over the same Sample Data clock
+        // seam, and the a11y audit's `testParentMode`/`-AX5` reach it through here.
+        let family = FamilyModel.sample(roster, clock: clock)
         self.family = family
         #if DEBUG || TALLY_TEST_HOOKS
         await family.applyScriptedOutcome()

@@ -89,6 +89,17 @@ public nonisolated struct AccountEnvironment: Sendable {
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
     }
 
+    /// A copy with the clock replaced (MVP-2i: `LaunchTestHooks.fixedNow`, the a11y audit's
+    /// determinism fix — pins "now" at the one seam every account path and Sample Data already
+    /// read `clock` through, never a shipping-code change: production always passes
+    /// `SystemDateProvider()` here and nothing calls this outside `LaunchTestHooks`).
+    public func replacingClock(_ clock: any DateProviding) -> AccountEnvironment {
+        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+                           lockPreferences: lockPreferences, transport: transport, notifications: notifications,
+                           reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
+                           removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
+    }
+
     /// The account's sealed snapshot store (its `glance` and `snapshot` files).
     func snapshotStore(for account: AccountKey, root: URL) -> SnapshotStore {
         SnapshotStore(root: root, accountKey: account, sealer: sealer(for: account))

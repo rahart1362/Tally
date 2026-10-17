@@ -136,38 +136,89 @@ final class ToDoUITests: TallyUITestCase {
 
     /// MVP-2h (PMO direction, binding — `review/verdict.md` fix list item 1's own required
     /// assertion): the leading-inset check above only ever caught the stuck-selection-accessory
-    /// defect; it says nothing about the narrow re-check's own finding against MVP-2g's fix for
+    /// defect; it said nothing about the narrow re-check's own finding against MVP-2g's fix for
     /// it (`.id(listGeneration)`) — that the List was rebuilt from scratch on every exit from
     /// select mode, resetting its scroll position to the top every time (6 of 6 scrolled tour
-    /// legs). This scrolls to a row that needs scrolling to reach, selects only that row, taps
-    /// Mark Done, and — with NO swipe anywhere after that tap, which would hide exactly this
-    /// regression (the verdict's own note on the swipe-to-find loop above: "would hide a
-    /// reset") — checks the SAME row is still on screen, within one row height of where it was,
-    /// and clear of both bars.
+    /// legs).
+    ///
+    /// MVP-2i (`review/verdict.md` §B, narrow re-check of MVP-2h): at the default text size on
+    /// both CI devices, "Due this week" is already hittable at launch, so `scrollUntilHittable`
+    /// never swiped and Mark Done was tapped with the list still at its resting top — a state
+    /// MVP-2g's own `.id(listGeneration)` regression (a rebuilt List landing back at offset zero)
+    /// is indistinguishable from, so the test proved nothing about it (verdict's own table: would
+    /// it fail on MVP-2g's `.id`? No — "no scroll happens at std on either device"). This version
+    /// scrolls for real first, in small nudges (never a full `app.swipeUp()`, which overshoots
+    /// "Due this week" entirely — this method's own doc comment at the nudge loop has the
+    /// evidence), until the large title has collapsed, "Missing & overdue" is no longer hittable,
+    /// and "Due this week" sits near the top — and ASSERTS that precondition, so a run that did
+    /// not scroll fails loudly instead of silently passing. It then picks the first row
+    /// fully between the bars, selects only that row, taps Mark Done, and — with NO swipe
+    /// anywhere after that tap, which would hide exactly this regression — checks both that the
+    /// row is still on screen within one row height of where it was, AND that the list did not
+    /// jump to the top: "Missing & overdue" is still not hittable, and the navigation bar's large
+    /// title has not reappeared (its height stays collapsed).
     @MainActor
     func testBatchMarkDoneKeepsAMidListRowOnScreen() throws {
         let app = launchSample()
         openTab("To-Do", in: app)
+        let missingHeader = text("Missing & overdue", in: app)
         let weekHeader = text("Due this week", in: app)
-        XCTAssertTrue(scrollUntilHittable(weekHeader, in: app, maxSwipes: 10),
-                      "could not scroll to 'Due this week'. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(missingHeader.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(weekHeader.waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        let navBar = app.navigationBars.firstMatch
+        XCTAssertTrue(navBar.exists, "Hierarchy: \(app.debugDescription)")
+        let largeTitleHeight = navBar.frame.height
 
-        let rows = elementsWithPrefix("todo.row", in: app)
-        // A row under "Due this week": reaching it needs the scroll above, which is the whole
-        // point — a reset to the top would put it off screen again. Found by reading each row's
-        // own `.frame` directly (no geometry predicate: nothing else in this file trusts
+        // Scroll for real: `scrollUntilHittable(weekHeader, …)` is a no-op here — "Due this week"
+        // is already hittable before any swipe (verdict.md §B). A *full* `app.swipeUp()` is the
+        // wrong tool to replace it with: it travels nearly the whole screen in one gesture, enough
+        // to jump straight past "Due this week" into "Later" (run 38997367491: 10 full swipes
+        // landed on December-due rows with neither header anywhere in the hierarchy, and the
+        // compound "both hittable" condition below never matched because `weekHeader` had
+        // overshot too, not because the scroll never happened). This nudges up in small steps
+        // instead — about a sixth of the screen's own height per step, well short of the ~300 pt
+        // that separates "Due this week" from where it starts — checking after each one, until
+        // "Due this week"'s own top is near the nav bar's (by then collapsed) bottom edge.
+        // Asserted, not assumed: a run that did not reach that position fails loudly right here,
+        // rather than going on to a test that never scrolled.
+        func nudgeUp() {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72 - 1.0 / 6))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        var scrolled = false
+        for _ in 0..<20 {
+            if weekHeader.exists, weekHeader.frame.minY > 0, weekHeader.frame.minY <= navBar.frame.maxY + 60 {
+                scrolled = true
+                break
+            }
+            nudgeUp()
+        }
+        XCTAssertTrue(scrolled, "did not scroll 'Due this week' near the top. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(missingHeader.isHittable,
+                       "'Missing & overdue' is still hittable after scrolling. Hierarchy: \(app.debugDescription)")
+        let collapsedNavBarHeight = navBar.frame.height
+        XCTAssertLessThan(collapsedNavBarHeight, largeTitleHeight,
+                          "the large title did not collapse. Hierarchy: \(app.debugDescription)")
+
+        // The first row fully between the bars: below "Due this week" and clear of the tab bar —
+        // reaching it needs the scroll above, which is the whole point. Found by reading each
+        // row's own `.frame` directly (no geometry predicate: nothing else in this file trusts
         // `NSPredicate` against a CGRect key, and there is no simulator here to check it would
         // even match).
+        let tabBar = app.tabBars.firstMatch
+        let bottomEdge = tabBar.exists ? tabBar.frame.minY : app.frame.maxY
+        let rows = elementsWithPrefix("todo.row", in: app)
         var midRow: XCUIElement?
         for index in 0..<rows.count {
             let candidate = rows.element(boundBy: index)
-            if candidate.exists, candidate.frame.minY > weekHeader.frame.maxY {
+            if candidate.exists, candidate.frame.minY > weekHeader.frame.maxY, candidate.frame.maxY <= bottomEdge {
                 midRow = candidate
                 break
             }
         }
         guard let midRow else {
-            XCTFail("no row under 'Due this week'. Hierarchy: \(app.debugDescription)")
+            XCTFail("no row fully between the bars under 'Due this week'. Hierarchy: \(app.debugDescription)")
             return
         }
         let label = midRow.label
@@ -207,14 +258,23 @@ final class ToDoUITests: TallyUITestCase {
                       "'\(label)' moved by more than one row height after Mark Done, with no " +
                       "swipe — the list likely reset to the top. Hierarchy: \(app.debugDescription)")
         // Still on screen, clear of both bars — not merely present somewhere off the visible area.
-        let navBar = app.navigationBars.firstMatch
         if navBar.exists {
             XCTAssertGreaterThanOrEqual(after.frame.minY + 0.5, navBar.frame.maxY,
                                         "'\(label)' sits under the navigation bar after Mark Done. Hierarchy: \(app.debugDescription)")
         }
-        let tabBar = app.tabBars.firstMatch
-        let bottomEdge = tabBar.exists ? tabBar.frame.minY : app.frame.maxY
         XCTAssertLessThanOrEqual(after.frame.maxY, bottomEdge + 0.5,
                                  "'\(label)' sits under the tab bar after Mark Done. Hierarchy: \(app.debugDescription)")
+
+        // Did not jump to the top (the regression this test targets): "Missing & overdue" must
+        // still be off-screen/not hittable, and the navigation bar's large title must not have
+        // reappeared — either would show only if Mark Done's own exit rebuilt the List from
+        // scratch and reset its scroll offset to zero (verdict.md §B: MVP-2g's own
+        // `.id(listGeneration)`).
+        XCTAssertFalse(missingHeader.isHittable,
+                       "'Missing & overdue' is hittable again after Mark Done — the list jumped " +
+                       "to the top. Hierarchy: \(app.debugDescription)")
+        XCTAssertEqual(navBar.frame.height, collapsedNavBarHeight, accuracy: 1,
+                      "the large title reappeared after Mark Done — the list jumped to the top. " +
+                      "Hierarchy: \(app.debugDescription)")
     }
 }
