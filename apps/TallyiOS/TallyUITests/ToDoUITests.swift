@@ -147,9 +147,11 @@ final class ToDoUITests: TallyUITestCase {
     /// MVP-2g's own `.id(listGeneration)` regression (a rebuilt List landing back at offset zero)
     /// is indistinguishable from, so the test proved nothing about it (verdict's own table: would
     /// it fail on MVP-2g's `.id`? No — "no scroll happens at std on either device"). This version
-    /// scrolls for real first — past the large title, until "Missing & overdue" is no longer
-    /// hittable and "Due this week" sits near the top — and ASSERTS that precondition, so a run
-    /// that did not scroll fails loudly instead of silently passing. It then picks the first row
+    /// scrolls for real first, in small nudges (never a full `app.swipeUp()`, which overshoots
+    /// "Due this week" entirely — this method's own doc comment at the nudge loop has the
+    /// evidence), until the large title has collapsed, "Missing & overdue" is no longer hittable,
+    /// and "Due this week" sits near the top — and ASSERTS that precondition, so a run that did
+    /// not scroll fails loudly instead of silently passing. It then picks the first row
     /// fully between the bars, selects only that row, taps Mark Done, and — with NO swipe
     /// anywhere after that tap, which would hide exactly this regression — checks both that the
     /// row is still on screen within one row height of where it was, AND that the list did not
@@ -168,14 +170,33 @@ final class ToDoUITests: TallyUITestCase {
         let largeTitleHeight = navBar.frame.height
 
         // Scroll for real: `scrollUntilHittable(weekHeader, …)` is a no-op here — "Due this week"
-        // is already hittable before any swipe (verdict.md §B) — so this swipes until the large
-        // title has collapsed, "Missing & overdue" is no longer hittable (scrolled past the nav
-        // bar), and "Due this week" is still on screen near the top. Asserted, not assumed: a run
-        // that somehow did not scroll (a layout change, a different device class) fails loudly
-        // right here, rather than going on to a test that never scrolled.
-        let scrolled = scrollUntil({ !missingHeader.isHittable && weekHeader.isHittable }, in: app, maxSwipes: 10)
-        XCTAssertTrue(scrolled, "did not scroll past the large title — 'Missing & overdue' is " +
-                      "still hittable. Hierarchy: \(app.debugDescription)")
+        // is already hittable before any swipe (verdict.md §B). A *full* `app.swipeUp()` is the
+        // wrong tool to replace it with: it travels nearly the whole screen in one gesture, enough
+        // to jump straight past "Due this week" into "Later" (run 38997367491: 10 full swipes
+        // landed on December-due rows with neither header anywhere in the hierarchy, and the
+        // compound "both hittable" condition below never matched because `weekHeader` had
+        // overshot too, not because the scroll never happened). This nudges up in small steps
+        // instead — about a sixth of the screen's own height per step, well short of the ~300 pt
+        // that separates "Due this week" from where it starts — checking after each one, until
+        // "Due this week"'s own top is near the nav bar's (by then collapsed) bottom edge.
+        // Asserted, not assumed: a run that did not reach that position fails loudly right here,
+        // rather than going on to a test that never scrolled.
+        func nudgeUp() {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72 - 1.0 / 6))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        var scrolled = false
+        for _ in 0..<20 {
+            if weekHeader.exists, weekHeader.frame.minY > 0, weekHeader.frame.minY <= navBar.frame.maxY + 60 {
+                scrolled = true
+                break
+            }
+            nudgeUp()
+        }
+        XCTAssertTrue(scrolled, "did not scroll 'Due this week' near the top. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(missingHeader.isHittable,
+                       "'Missing & overdue' is still hittable after scrolling. Hierarchy: \(app.debugDescription)")
         let collapsedNavBarHeight = navBar.frame.height
         XCTAssertLessThan(collapsedNavBarHeight, largeTitleHeight,
                           "the large title did not collapse. Hierarchy: \(app.debugDescription)")
