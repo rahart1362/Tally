@@ -45,19 +45,43 @@ final class StoreScreenshotUITests: TallyUITestCase {
     }
 
     override class var currentLocaleArguments: [String] {
-        language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_US"] : pinnedLocaleArguments
+        // MVP-3 gate-2 review (I6): the target listing is es-MX (docs/pmo/08-localization-and-
+        // external-grades.md:190), not es-US -- every CLDR Spanish locale renders day-first dates
+        // ("21 oct"), but the capture ran under es_US, which (on this host/runtime) read
+        // month-first instead. es_MX matches the actual listing locale.
+        language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_MX"] : pinnedLocaleArguments
     }
 
-    /// MVP-2i's own fixed-date hook (`TallyUITestCase.defaultTestHookArguments`'s doc comment
-    /// named this suite as an expected adopter once it landed): the sample fixtures' dates are
-    /// relative to today, so a Store-bound capture against the real clock would never repeat and
-    /// would drift out of date on every run. `TestHooks.fixedNowWednesday` pins every scene to the
-    /// same instant `AuditTourUITests` and the accessibility audit already use (a Wednesday,
-    /// mid-week, chosen for representativeness).
-    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
+    /// MVP-3 gate-2 review (I5): a STORE-ONLY fixed instant, not the shared
+    /// `TestHooks.fixedNowWednesday` (which the accessibility audit also uses and which this file
+    /// must not change). `12:00:00Z` is early morning in the flagship persona's own time zone
+    /// (`America/Chicago`, fixtures/canvas/manifest.json), which made "Good afternoon" and
+    /// "Updated Wed 12:00 PM" read as UTC artifacts once the capture ran in that zone (see
+    /// `launchApp(arguments:)` below). `17:00:00Z` is midday (12:00 PM CDT) in Chicago instead.
+    private static let fixedNowChicagoMidday = TestHooks.fixedNow("2026-10-14T17:00:00Z")
+
+    override class var defaultTestHookArguments: [String] { fixedNowChicagoMidday }
 
     private static var appearance: XCUIDevice.Appearance {
         ProcessInfo.processInfo.environment["STORE_SHOTS_APPEARANCE"] == "dark" ? .dark : .light
+    }
+
+    /// MVP-3 gate-2 review (I5): every launch in this suite runs in the flagship persona's own
+    /// time zone instead of the CI runner's UTC, so its fixture deadlines/lecture times (stored
+    /// in UTC, e.g. an 11:59 PM CDT deadline as `T04:59:59Z`) render as the wall-clock times a
+    /// Chicago student actually sees, not raw UTC ("Due Sat at 4:59 AM"). Overrides
+    /// `TallyUITestCase.launchApp(arguments:)` (not wrapped: `app.launchEnvironment` must be set
+    /// before `.launch()`, and the base method launches inline) to add exactly one entry on top of
+    /// its own setup.
+    @MainActor
+    @discardableResult
+    override func launchApp(arguments: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += Self.currentLocaleArguments + TestHooks.entitled + Self.defaultTestHookArguments + arguments
+        app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
+        app.launchEnvironment["TZ"] = "America/Chicago"
+        app.launch()
+        return app
     }
 
     /// The Home shell's tab bar items, by this leg's language (`AuditTourUITests.tabLabel`'s own
@@ -94,11 +118,34 @@ final class StoreScreenshotUITests: TallyUITestCase {
         return app
     }
 
+    /// MVP-3 gate-2 review (I1, fix list item 1's "either way"): fails loudly if any `staticText`
+    /// that is not itself a tab-bar label sits under the floating tab bar's own frame. Scenes with
+    /// no tab bar on screen (the What-If sheet) skip silently. This is a hard check, not a
+    /// heuristic: the owner's binding bar is "no content under the bars" (pmo-ux-common.md), and
+    /// the app-wide `.scrollEdgeEffectStyle(.hard, for: .bottom)` fix (`TallyScreenChrome`) is what
+    /// is actually supposed to prevent it — this just proves it did, on every capture, not only the
+    /// ones a reviewer happens to crop.
+    @MainActor
+    private func assertNothingUnderTheTabBar(_ app: XCUIApplication, scene: String) {
+        let tabBar = app.tabBars.firstMatch
+        guard tabBar.exists else { return }
+        let tabBarFrame = tabBar.frame
+        let tabLabels = Set(app.tabBars.buttons.allElementsBoundByIndex.map(\.label))
+        let offenders = app.staticTexts.allElementsBoundByIndex.filter { text in
+            text.exists && text.frame.intersects(tabBarFrame) && !tabLabels.contains(text.label)
+        }
+        XCTAssertTrue(offenders.isEmpty,
+                     "\(scene): content under the tab bar: " +
+                     "\(offenders.map { "'\($0.label)' \($0.frame)" }). Tab bar frame: \(tabBarFrame). " +
+                     "Hierarchy: \(app.debugDescription)")
+    }
+
     /// Waits at rest (`AuditTourUITests.waitUntilAtRest`'s own rule: two screenshots 0.4 s apart,
-    /// pixel-identical, up to 6 s — pmo-ux-common.md's "captures only at rest"), then attaches the
-    /// screenshot as `NN-<scene>`.
+    /// pixel-identical, up to 6 s — pmo-ux-common.md's "captures only at rest"), checks nothing
+    /// sits under the tab bar (I1), then attaches the screenshot as `NN-<scene>`.
     @MainActor
     private func capture(_ app: XCUIApplication, number: Int, scene: String) {
+        assertNothingUnderTheTabBar(app, scene: scene)
         let settled = waitUntilAtRest(app)
         XCTAssertTrue(settled, "\(scene) never settled before capture. Hierarchy: \(app.debugDescription)")
         let name = String(format: "%02d-%@", number, scene)
@@ -160,8 +207,12 @@ final class StoreScreenshotUITests: TallyUITestCase {
         card.tap()
         XCTAssertTrue(element("courseDetail.hero", in: app).waitForExistence(timeout: 15),
                      "Course detail shows no content. Hierarchy: \(app.debugDescription)")
-        let grades = element("courseDetail.segment.grades", in: app)
-        if scrollUntilHittable(grades, in: app) { grades.tap() }
+        // MVP-3 gate-2 review (I7): the Grades segment (4 summary rows) left about 220 pt of empty
+        // canvas above the tab bar. Assignments is a full list, grouped by category, which fills
+        // the frame; the hero card above the segments still carries the grade and its sparkline
+        // (UX-WP-23's "grades + chart"), on every segment.
+        let assignments = element("courseDetail.segment.assignments", in: app)
+        if scrollUntilHittable(assignments, in: app) { assignments.tap() }
         capture(app, number: 3, scene: "course-detail")
         app.terminate()
     }
@@ -181,9 +232,34 @@ final class StoreScreenshotUITests: TallyUITestCase {
         let whatIf = element("courseDetail.whatIf", in: app)
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "no What-If button. Hierarchy: \(app.debugDescription)")
         whatIf.tap()
-        XCTAssertTrue(element("whatif.projected", in: app).waitForExistence(timeout: 10),
+        let projected = element("whatif.projected", in: app)
+        XCTAssertTrue(projected.waitForExistence(timeout: 10),
                      "What-If opened with no content. Hierarchy: \(app.debugDescription)")
         app.swipeUp() // fully presented, like AuditTourUITests.testB2_firstCourseMenuAndWhatIf.
+
+        // MVP-3 gate-2 review (I3): the scene must show the feature exercised, not the empty
+        // initial state (every field at its placeholder, every slider at 0, Reset disabled,
+        // "Projected" equal to the course's current grade -- CourseDetailUITests' own baseline
+        // phrase, "the same as your current grade", reused here for the same reason it uses it).
+        // Types a score into the first item and taps a quick-fill preset on the second: the same
+        // two input mechanisms CourseDetailUITests exercises separately (slider, typed digits),
+        // here together with presets so the capture shows a genuinely different projection.
+        XCTAssertTrue(eventually(timeout: 10) { projected.label.contains("the same as your current grade") },
+                     "the baseline never landed: '\(projected.label)'")
+        let firstField = elements("whatif.field", in: app).element(boundBy: 0)
+        XCTAssertTrue(firstField.waitForExistence(timeout: 10), "no What-If score field. Hierarchy: \(app.debugDescription)")
+        firstField.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(eventually(timeout: scaled(5)) { app.keyboards.count > 0 },
+                     "the score field never took the keyboard. Hierarchy: \(app.debugDescription)")
+        firstField.typeText("47")
+        let secondPreset = elements("whatif.quickFill.90", in: app).element(boundBy: 1)
+        XCTAssertTrue(secondPreset.waitForExistence(timeout: 5), "no second item's 90% preset. Hierarchy: \(app.debugDescription)")
+        secondPreset.tap() // a tap on a different control dismisses the keyboard.
+        XCTAssertTrue(eventually(timeout: 15) { !projected.label.contains("the same as your current grade") },
+                     "the projection did not move after entering a score and a preset: '\(projected.label)'")
+        let resetButton = element("whatif.reset", in: app)
+        XCTAssertTrue(resetButton.isEnabled, "Reset stayed disabled after exercising What-If. Hierarchy: \(app.debugDescription)")
+
         capture(app, number: 4, scene: "what-if")
         app.terminate()
     }
