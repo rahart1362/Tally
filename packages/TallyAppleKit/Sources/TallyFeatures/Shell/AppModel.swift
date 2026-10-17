@@ -350,7 +350,11 @@ public final class AppModel {
         let localStore = AccountLocalScreenStateStore(access: userState, onDoneMarksChanged: {
             await reminders.reconcileNow()
         })
-        return HomeModel(source: AccountHomeSource(runtime: accountRuntime), localStore: localStore, userState: userState)
+        // MVP-3 (PMO): the account's own clock, as `enterSample()` passes it (MVP-2i). Without it this
+        // `HomeModel` kept a fresh `SystemDateProvider()`, so the fixed-date test hook never reached a
+        // signed-in Home (7 of 8 store scenes showed the live date). The system clock in production.
+        return HomeModel(source: AccountHomeSource(runtime: accountRuntime), clock: clock,
+                         localStore: localStore, userState: userState)
     }
 
     private func accountUserState(_ account: AccountKey, root: URL?) -> any UserStateAccess {

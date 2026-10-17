@@ -115,6 +115,38 @@ struct FamilyModelTests {
         await app.awaitTeardown()
     }
 
+    /// MVP-3 gate-2 review (I2): `FamilyModel.sample`'s `makeHome` closure built each student's
+    /// `HomeModel` without passing `clock:`, so it kept its own fresh `SystemDateProvider()`
+    /// (`Home/HomeModel.swift:93`) regardless of the family model's own injected clock — the same
+    /// bug class `AppModel.swift:353` had before `e3822fc` fixed the signed-in path. Proves the fix
+    /// (`FamilyModel.swift:193`, now `HomeModel(..., clock: clock)`) by constructing the app over a
+    /// fixed clock and checking the parent-mode Home's own "Week ahead" strip starts on that fixed
+    /// day, not whatever day the test happens to run on.
+    @Test("FAM-14 (MVP-3 I2): a sample-family student's Home projects against the injected clock, not a fresh system clock")
+    func sampleFamilyHomeUsesInjectedClock() async throws {
+        let fixedNow = try #require(ISO8601DateFormatter().date(from: "2026-10-14T12:00:00Z"))
+        let harness = try AccountHarness()
+        let fixedEnvironment = AccountEnvironment(
+            storeRoot: harness.environment.storeRoot, credentialStore: harness.credentials, keyring: harness.keyring,
+            lockPreferences: harness.lockPreferences, transport: harness.transport, notifications: harness.notifications,
+            clock: FixedDateProvider(date: fixedNow))
+        let app = AppModel(accountEnvironment: fixedEnvironment)
+        app.bootstrap()
+        app.enterSample()
+        await app.enterSampleFamily()
+        let family = try #require(app.family)
+        let student = try #require(family.students.first)
+        family.select(student.id)
+        let home = try #require(family.activeHome)
+        await home.start()
+        #expect(try await HomeTestSupport.waitUntil { home.phase == .loaded }, "the student's Home never loaded")
+        let calendar = Calendar.autoupdatingCurrent
+        let weekAheadFirst = try #require(home.dashboard.weekAhead.first, "no Week ahead days projected")
+        #expect(calendar.isDate(weekAheadFirst.date, inSameDayAs: fixedNow),
+               "Week ahead started \(weekAheadFirst.date), not the fixed \(fixedNow)")
+        await app.awaitTeardown()
+    }
+
     // MARK: FAM-09: switching
 
     @Test("Switching shows the student everywhere and says so once; an unknown or current student changes nothing")

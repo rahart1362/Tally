@@ -1,0 +1,178 @@
+name: Store screenshots
+# MVP-3 (app-store-compliance.md R14, ASC-12; ux-ui.md UX-WP-23): the App Store screenshot
+# pipeline. `StoreScreenshotUITests` (apps/TallyiOS/TallyUITests) captures 8 scenes on the Pro Max
+# simulator, at rest, in Sample Data / the flagship persona, one leg per appearance x language
+# (Light/Dark x en/es, the same `AUDIT_LANGUAGE` mechanism `AuditTourUITests` uses). The
+# `postprocess` job then runs `scripts/release/screenshots.py` to flatten every capture to RGB,
+# assert the exact 1320x2868 size, name the files, write the manifest (scene, size, mode,
+# SHA-256), build the owner's contact sheets, and turn the result into `REL.store.screenshots`
+# (scripts/ci/check_release.py --screenshots).
+#
+# Dispatchable on its own for iteration (the same budget line as "Audit tour" dispatches):
+#   gh workflow run "Store screenshots" --ref <branch>
+# Also called by "Release gate" (release-gate.yml) as a reusable workflow, via `uses:`, so every
+# release-gate run carries a fresh REL.store.screenshots check without duplicating these steps.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+jobs:
+  capture:
+    name: Capture (${{ matrix.appearance }}, ${{ matrix.language }})
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        appearance: [light, dark]
+        language: [en, es]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick the Pro Max simulator (newest iOS 26), boot it, 9:41 status bar
+        id: sim
+        # The largest "Pro Max" iPhone on the newest iOS 26 runtime -- the same picker
+        # `audit-tour.yml` uses for its own `proMax` device (pick_ios_simulator.py has no
+        # "largest Pro Max" mode).
+        run: |
+          udid="$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          data = json.load(sys.stdin)["devices"]
+          best = None
+          for runtime, devices in data.items():
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m or int(m.group(1)) != 26:
+                  continue
+              for d in devices:
+                  if "Pro Max" in d["name"]:
+                      key = (int(m.group(2)), d["name"])
+                      if best is None or key > best[0]:
+                          best = (key, d["udid"], d["name"], runtime)
+          print(best[1]); print(best[2], best[3], file=sys.stderr)
+          ')"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+          # MVP-3 gate-2 review (N1): a plain full battery, no charging bolt -- the glyph Apple's
+          # own marketing shots use -- in place of the green "charged" state this had before.
+          xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active \
+            --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName "" --batteryState discharging --batteryLevel 100
+          # XCUIDevice.shared.appearance alone did not take for AuditTourUITests (run 37649050231:
+          # every "dark" capture was light), so the appearance is set on the device before the
+          # tests run, the same fix.
+          xcrun simctl ui "$udid" appearance "${{ matrix.appearance }}"
+          echo "appearance now: $(xcrun simctl ui "$udid" appearance)"
+      - name: Build TallyUITests for testing
+        run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      - name: Run StoreScreenshotUITests
+        env:
+          # Read by StoreScreenshotUITests via ProcessInfo; the TEST_RUNNER_ prefix is
+          # xcodebuild's own mechanism for reaching the UI test runner process (the same one
+          # AuditTourUITests already uses for AUDIT_APPEARANCE/AUDIT_LANGUAGE).
+          TEST_RUNNER_TALLY_STORE_SHOTS: "1"
+          TEST_RUNNER_STORE_SHOTS_APPEARANCE: ${{ matrix.appearance }}
+          TEST_RUNNER_STORE_SHOTS_LANGUAGE: ${{ matrix.language }}
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_ONLY_TESTING="-only-testing:TallyUITests/StoreScreenshotUITests" IOS_RESULT_NAME=Tally-store-shots
+      - name: Export the raw screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally-store-shots.xcresult" \
+            --output-path "$RUNNER_TEMP/shots"
+          # Rename each exported attachment to its readable name (drop xcresulttool's _N_<UUID>
+          # suffix), the same rename `audit-tour.yml` already does.
+          python3 - "$RUNNER_TEMP/shots" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          for test in json.load(open(os.path.join(root, "manifest.json"))):
+              for a in test.get("attachments", []):
+                  name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                  name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+                  src, dst = os.path.join(root, a["exportedFileName"]), os.path.join(root, name)
+                  if os.path.exists(src) and not os.path.exists(dst):
+                      os.rename(src, dst)
+          PY
+          find "$RUNNER_TEMP/shots" -maxdepth 1 -iname '*.png' | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: store-shots-${{ matrix.appearance }}-${{ matrix.language }}
+          path: ${{ runner.temp }}/shots/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  postprocess:
+    name: Post-process (flatten, assert size, manifest, contact sheets, REL.store.screenshots)
+    needs: capture
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pillow (the post-processing script needs it)
+        run: python3 -c 'import PIL' 2>/dev/null || pip install --user pillow
+      - name: Self-test the post-processing script first
+        run: python3 scripts/release/screenshots.py --self-test
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        # A leg that produced no screenshots (a failed capture job) still lets the others through;
+        # process_raw's own "missing" / "errors" report what that leg is missing.
+        continue-on-error: true
+        with:
+          pattern: store-shots-*
+          path: ${{ runner.temp }}/raw
+      - name: Flatten, assert size, name the files, write the manifest
+        run: |
+          mkdir -p "$RUNNER_TEMP/final"
+          python3 scripts/release/screenshots.py --raw "$RUNNER_TEMP/raw" --out "$RUNNER_TEMP/final" || true
+          test -f "$RUNNER_TEMP/final/manifest.json"
+      - name: Contact sheets (one per language, under 1.5 MB, under 4000 px tall)
+        run: |
+          mkdir -p "$RUNNER_TEMP/contact-sheets"
+          python3 scripts/release/screenshots.py --contact-sheets "$RUNNER_TEMP/final" --out "$RUNNER_TEMP/contact-sheets"
+      - name: REL.store.screenshots
+        run: |
+          mkdir -p "$RUNNER_TEMP/compliance"
+          python3 scripts/ci/check_release.py --screenshots "$RUNNER_TEMP/final/manifest.json" \
+            --json "$RUNNER_TEMP/compliance/store-screenshots.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: store-screenshots-final
+          path: |
+            ${{ runner.temp }}/final
+            ${{ runner.temp }}/contact-sheets
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: compliance-store-screenshots
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
