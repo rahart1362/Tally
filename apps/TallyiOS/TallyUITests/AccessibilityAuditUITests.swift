@@ -2074,15 +2074,34 @@ struct A11yScene {
             }
         }
         let perPart = parts.joined(separator: ", ")
-        // MVP-2h (fix list item 2's second bullet): "measured X% of its pixels" is dropped when no
-        // present part actually measured a real pixel — the strip's own opaque-by-construction
-        // shortcut alone never earns that claim, even though `coverage` still reads 100% (its own
-        // gate-passing default, never a second gate here — this type's own doc comment above).
-        let anyPixelsMeasured = (measured.navBarPart?.measuredPixels ?? 0) > 0 || (measured.pinnedPart?.measuredPixels ?? 0) > 0
-        guard anyPixelsMeasured else {
+        // MVP-2i (narrow re-check of MVP-2h, `review/verdict.md` §B/C and fix list item 2): the
+        // MVP-2h attempt dropped "measured X% of its pixels" only when NO present part measured a
+        // real pixel — but a present nav-bar part always does (`measureNavBarCoverage`'s own
+        // `opaqueByConstruction` is `false` for it, and a zero-pixel nav part would already have
+        // made `measureTopChromeCoverage` return `nil` before this is ever called), so that guard
+        // never actually dropped the clause on a live Calendar hold: the strip's own
+        // opaque-by-construction shortcut (0 px) rode along under "measured 100.0% of its pixels"
+        // regardless (the verdict's own quoted example). The real condition is which present
+        // part(s) actually measured something — not whether any did.
+        let presentParts = [measured.navBarPart, measured.pinnedPart].compactMap { $0 }
+        let measuredParts = presentParts.filter { $0.measuredPixels > 0 }
+        guard !measuredParts.isEmpty else {
+            // Neither present part measured a real pixel: no "measured X%" claim at all.
             return "\(overlapPct)% of its height inside the navigation bar/pinned header union (\(perPart)), " +
                    "max glyph row contrast \(contrast):1 against it"
         }
+        guard measuredParts.count == presentParts.count else {
+            // Mixed: at least one present part (the strip's own opaque-by-construction shortcut,
+            // the only part that can ever be this case — see the nav-bar note above) measured
+            // nothing. Scope the claim to the part that actually did, by name, rather than claim
+            // it for "its pixels" — the union's own `coverage` already equals that one part's own
+            // number here (`measureTopChromeCoverage`'s `min`, with the unmeasured part's default
+            // coverage of 1.0 never the smaller side).
+            return "\(overlapPct)% of its height inside the navigation bar/pinned header union, measured " +
+                   "\(coveragePct)% of its nav-bar pixels within \(tolerance):1 contrast of its own colour " +
+                   "(\(perPart)), max glyph row contrast \(contrast):1 against it"
+        }
+        // Every present part measured a real pixel: "its pixels" truthfully covers the whole union.
         return "\(overlapPct)% of its height inside the navigation bar/pinned header union, measured \(coveragePct)% of its " +
                "pixels within \(tolerance):1 contrast of each part's own colour (\(perPart)), max glyph row contrast " +
                "\(contrast):1 against it"
