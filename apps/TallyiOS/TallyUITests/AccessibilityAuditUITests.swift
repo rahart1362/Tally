@@ -605,6 +605,7 @@ extension TallyUITestCase {
                 let typeName: String
                 let waived: Bool
                 let isNoElementHold: Bool
+                let isTransientCandidateOnly: Bool
             }
             var pending: [PendingIssue] = []
             var noElementCount = 0
@@ -631,7 +632,11 @@ extension TallyUITestCase {
                     // begins "under the navigation bar …", which a `"no element"` prefix check
                     // (MVP-2e's own attempt) never matched, so the cap and retry below never ran.
                     let isNoElementHold = held?.isElementlessNavBarHold == true
-                    if isNoElementHold {
+                    // MVP-2i (ruling 1(d)-firstDay): the `-firstDay` counterpart, same shared cap
+                    // and counter — a `-firstDay` audit never produces an `isElementlessNavBarHold`
+                    // candidate (mutually exclusive on `variant`), so the two never double-count.
+                    let isTransientCandidateOnly = held?.isTransientCandidateOnly == true
+                    if isNoElementHold || isTransientCandidateOnly {
                         noElementCount += 1
                         noElementTypesSeen.insert(typeName)
                         // Ruling 1(d)'s own cap: at most 3 such holds per pass.
@@ -641,12 +646,13 @@ extension TallyUITestCase {
                                                       label: elementLabel, frame: elementFrame, elementType: elementType)
                     record["held"] = held?.reason ?? ""
                     pending.append(PendingIssue(record: record, elementID: elementID, elementLabel: elementLabel,
-                                                typeName: typeName, waived: waived, isNoElementHold: isNoElementHold))
+                                                typeName: typeName, waived: waived, isNoElementHold: isNoElementHold,
+                                                isTransientCandidateOnly: isTransientCandidateOnly))
                     // A no-element hold's real verdict waits on the retry below — XCTest's own
                     // immediate per-issue failure (this file's top doc comment on
                     // `continueAfterFailure`) must not fire before that retry runs, so it is
                     // always deferred to this method's final `unwaived` check.
-                    return waived || held != nil || isNoElementHold
+                    return waived || held != nil || isNoElementHold || isTransientCandidateOnly
                 }
             } catch {
                 if pending.isEmpty {
@@ -716,6 +722,23 @@ extension TallyUITestCase {
                         // (i) Transient: never re-reported on the settled retry. Always held, with
                         // its own reason — never the nav-bar-proof text, which ruling (ii) owns.
                         held = A11yScene.navBarTransientHoldReason(retryMeasured)
+                        record["held"] = held ?? ""
+                    }
+                } else if item.isTransientCandidateOnly, held != nil {
+                    // MVP-2i (ruling 1(d)-firstDay): the same two-branch retry, but with no
+                    // pinned/nav union proof available to re-check on recurrence — a `-firstDay`
+                    // candidate is held only while the settled retry does not see it again at all.
+                    if recurredOnRetry.contains(item.typeName) {
+                        // (ii) Recurred: no proof to re-check here (unlike the today variant
+                        // above) — a real, recurring problem, fails like any other issue.
+                        held = nil
+                        record["held"] = ""
+                    } else {
+                        // (i) Transient: never re-reported on the settled retry. The retry's own
+                        // screenshot (`<screen>-<variant>-audit-retry-*`) is the evidence; this
+                        // reason makes no pixel claim, since none was ever measured for this branch.
+                        held = "transient: not re-reported on the settled retry (a -firstDay " +
+                               "variant has no pinned/nav union proof to measure)"
                         record["held"] = held ?? ""
                     }
                 }
@@ -1417,20 +1440,30 @@ struct A11yScene {
     }
 
     /// `heldReason`'s own result: the reason text (recorded verbatim in the issue's `held` field,
-    /// unchanged), plus an explicit flag for `runA11yAudit`'s cap and retry.
+    /// unchanged), plus explicit flags for `runA11yAudit`'s cap and retry.
     ///
     /// MVP-2f (gate-2 final review, ruling 1(d)): added because MVP-2e's cap/retry check
     /// (`held?.hasPrefix("no element")`) never matched this hold's own text ("under the navigation
     /// bar …"), so neither the cap nor the retry ever ran (verdict section 1). `isElementlessNavBarHold`
     /// is set `true` only at this type's one elementless-hold return point, below — never inferred
     /// from the reason string anywhere else.
+    ///
+    /// MVP-2i (PMO ruling 1(d)-firstDay, following `scope=a11y` runs 39001111413/39004707610: the
+    /// identical elementless `textClipped` candidate moving between Light and Dark across two runs
+    /// on the same fixed date, never recurring on the same variant twice): `isTransientCandidateOnly`
+    /// is the equivalent flag for Calendar's `-firstDay` variants, which have no pinned/nav union
+    /// proof to measure against (unlike the today variant, `isElementlessNavBarHold`'s own domain)
+    /// — so a firstDay candidate can only ever be held as transient (branch (i) below), never
+    /// re-proved on recurrence (ii): a recurring one simply fails.
     struct HeldResult {
         let reason: String
         let isElementlessNavBarHold: Bool
+        let isTransientCandidateOnly: Bool
 
-        init(_ reason: String, isElementlessNavBarHold: Bool = false) {
+        init(_ reason: String, isElementlessNavBarHold: Bool = false, isTransientCandidateOnly: Bool = false) {
             self.reason = reason
             self.isElementlessNavBarHold = isElementlessNavBarHold
+            self.isTransientCandidateOnly = isTransientCandidateOnly
         }
     }
 
@@ -1456,12 +1489,13 @@ struct A11yScene {
             // note on it). An elementless `textClipped` issue has no frame of its own to check
             // against the navigation bar at two thirds' overlap, so it is checked the strictest way
             // instead — nothing anywhere in the bar's own frame may be visible, not only the
-            // (unknown) row the audit meant — and only on Calendar's own today variants (`pinned` is
-            // non-empty only there, and never on a `-firstDay` variant, the only other Calendar
-            // state this file audits): `docs/pmo/a11y-waivers.md` has the evidence this exists for —
+            // (unknown) row the audit meant — on Calendar's own today variants (`pinned` is
+            // non-empty only there). `docs/pmo/a11y-waivers.md` has the evidence this exists for —
             // Calendar's today state, where the previous day's last rows and heading rest under the
             // bar at the agenda's resting scroll position, and the audit returns no element for some
-            // of them once the list is away from its top.
+            // of them once the list is away from its top. A `-firstDay` variant (the only other
+            // Calendar state this file audits) gets its own, separate transient-only branch below
+            // (MVP-2i, ruling 1(d)-firstDay) — it has no pinned header engaged to measure against.
             //
             // MVP-2f: `isElementlessNavBarHold` is the explicit flag that routes this candidate to
             // `runA11yAudit`'s own cap and retry (its own doc comment has the PMO's two-branch
@@ -1476,6 +1510,20 @@ struct A11yScene {
             // the two always touch, and an elementless issue has no frame of its own to tell which
             // one it would have sat under, so both must read clean (`measureTopChromeCoverage`,
             // `navBar.union(pinnedHeader)` as the region: each bar's own full frame).
+            // MVP-2i (PMO ruling 1(d)-firstDay): a `-firstDay` variant gets no pinned/nav union
+            // proof to measure at all (the branch below is that proof's own domain) — the two
+            // `scope=a11y` determinism runs this ruling answers (39001111413 clean, 39004707610
+            // failed on `light-std-firstDay`) found the identical elementless `textClipped`
+            // candidate moving between appearance classes across runs, never recurring on the same
+            // variant in any one run, the same transient signature `isElementlessNavBarHold`'s own
+            // retry already exists to absorb for the today variant. Marked a transient CANDIDATE
+            // only, never held outright here: `runA11yAudit`'s retry decides for real — not
+            // re-reported on the settled screen, held as transient; recurs, fails (no proof here to
+            // re-check against, unlike branch (ii) below).
+            if elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped", variant.contains("firstDay") {
+                return HeldResult("pending the settled retry (a -firstDay variant has no pinned/nav " +
+                                  "union proof to measure)", isTransientCandidateOnly: true)
+            }
             guard elementIdentifier.isEmpty, label.isEmpty, auditType == "textClipped",
                   !pinned.isEmpty, !variant.contains("firstDay"),
                   let navBar = chrome.first(where: { $0.kind == .navigationBar })?.frame,

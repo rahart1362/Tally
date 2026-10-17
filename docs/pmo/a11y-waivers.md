@@ -138,8 +138,9 @@ element's frame and the screenshot taken at the audit moment, and decides each o
     `textClipped` grew the text, `a11yPasses`, and the recycled row's element did not resolve) is
     checked the strictest way instead, since there is no element frame to apply the two-thirds test
     to: the navigation bar's own whole frame must itself measure clean (>= 95% coverage, no row
-    above 1.5:1) before it is held, **and only on Calendar's own today variants** — never on a
-    `-firstDay` variant, never on any other screen (MVP-2e ruling 1(d), below).
+    above 1.5:1) before it is held, **on Calendar's own today variants** (MVP-2e ruling 1(d),
+    below) — never on any other screen; a `-firstDay` variant gets its own, narrower, transient-
+    only branch instead (MVP-2i ruling 1(d)-firstDay, below), with no pixel proof at all.
 
   **MVP-2e's own narrowing (the gate-2 final review found MVP-2d's proof wider than the ruling):**
   - **Coverage is one bound, not two.** MVP-2d counted a pixel as the bar's own colour within
@@ -200,6 +201,34 @@ element's frame and the screenshot taken at the audit moment, and decides each o
 
     Anything outside Calendar's today variants, or an issue with an element, is unchanged — it
     fails as before. `docs/pmo/reviews/mvp2b-report.md`'s MVP-2f section has the re-run evidence.
+
+    **MVP-2i (PMO ruling 1(d)-firstDay): the `-firstDay` counterpart, transient branch only.**
+    Pinning the sample data's date (MVP-2i, `-TallyTestHooks.fixedNow`) ruled out the Calendar
+    layout changing daily as the cause of two `scope=a11y` runs on the same commit disagreeing
+    (run 39001111413 clean; run 39004707610 failed) — both runs found the identical shape of issue,
+    an elementless `textClipped` issue with no identifier, no label and no frame of its own, but on
+    `calendar-*-std-firstDay`, moving unpredictably between appearance classes and between runs
+    (an isolated scope=only probe, 38994560670, found it on `dark-std-firstDay`; the two
+    `scope=a11y` runs found it on neither, then on `light-std-firstDay`) — the same transient,
+    list-rebuild-instability signature this file's own long-standing pattern already names, just on
+    a variant ruling 1(d) above never covered.
+
+    A `-firstDay` variant has no pinned header engaged (the strip is not pinned/engaged away from
+    "today"), so there is no pinned/nav union to measure against at all — unlike the today variant
+    above, a `-firstDay` candidate can never be proved by pixels, only by the settled retry:
+    - **(i) it does not re-report at all**: held as transient
+      (`"transient: not re-reported on the settled retry (a -firstDay variant has no pinned/nav
+      union proof to measure)"`), the retry's own screenshot attached as evidence, never a pixel
+      claim (none was ever measured for this branch);
+    - **(ii) it recurs**: **fails**, unconditionally — there is no proof to re-check against on
+      `-firstDay`, so a recurring candidate here is a real, recurring problem, exactly like any
+      other issue.
+
+    Shares the same cap (at most 3 candidates per pass) and the same shared counter as the today
+    variant's own `isElementlessNavBarHold` candidates (`A11yScene.HeldResult
+    .isTransientCandidateOnly`, `AccessibilityAuditUITests.swift`) — the two are mutually exclusive
+    on `variant`, so they never double-count within one pass. Today variants are entirely
+    unchanged by this ruling.
 
   **The D01 protection stays**: anything the pixel check finds actually visible — any row above
   1.5:1, or under 95% coverage — still fails, exactly as it would have failed before either ruling.
