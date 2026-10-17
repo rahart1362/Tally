@@ -1380,3 +1380,182 @@ Dispatched on the scratch branch `mvp/a11y-fixes-2h` before merging into `mvp/a1
 - VoiceOver focus after Mark Done and Cancel, Large Content Viewer and a real Increase Contrast
   setting remain pending from MVP-2e/2g — this host still has no simulator.
 - The exit-animation and `captureScreenfuls` stop-condition items from MVP-2f/2g are unchanged.
+
+## MVP-2i (test-quality follow-ups from PR #56, `pmo-audit/.build-audit/mvp2h/review/verdict.md`)
+
+### 0. A fixed-date test hook
+
+The sample data's dates are relative to today, so the Calendar layout (and which rows sit under
+the bars) changes daily; PMO a11y run 38979844131 on the same code failed in two different places
+across its two attempts. Added `-TallyTestHooks.fixedNow <ISO-8601>` (`LaunchTestHooks.swift`),
+parsed with `ISO8601DateFormatter`.
+
+**The real clock seam was not where the hook alone would reach.** `AccountEnvironment.clock` could
+already be overridden (`replacingTransport`/`replacingGateway` show the pattern; a new
+`replacingClock(_:)` joins them), but `AppModel.enterSample()` built `SampleSession(logger: logger)`
+and `HomeModel(source: ...)` with neither given `self.clock` — both defaulted to a *fresh*
+`SystemDateProvider()` of their own, never `AppModel`'s own `clock` (itself already wired from
+`accountEnvironment?.clock`). So Sample Data (and Parent Mode's `enterSampleFamily()` →
+`FamilyModel.sample`, the identical bug) never read a fixed clock even when one was set. Fixed both
+call sites to thread `self.clock` through. No Release behaviour change: `AppModel.clock` already
+equals `SystemDateProvider()` with no hooks active, and the whole `LaunchTestHooks.swift` file
+compiles only under `DEBUG || TALLY_TEST_HOOKS`.
+
+`TallyUITestCase` gained `defaultTestHookArguments` (a `class var`, the same pattern as the
+existing `currentLocaleArguments`), empty by default; `AccessibilityAuditUITests`,
+`-DarkUITests`, `-ContrastUITests` and `AuditTourUITests` override it with
+`TestHooks.fixedNowWednesday` (`2026-10-14T12:00:00Z`, a Wednesday, chosen for representativeness,
+never to make a check pass — the brief's own example date). Every other suite's launches are
+untouched; `ToDoUITests` deliberately does not use it (the brief names only the a11y audit and the
+tour). MVP-3's `StoreScreenshotUITests` is expected to adopt the same hook once this lands (a
+parallel stream, not touched here).
+
+**Determinism, measured honestly: NOT fully achieved, and the fixed-date hook is not the cause.**
+`scope=a11y` run twice on the same commit (`0977c89`): run 39001111413 — Light, Dark and Contrast
+all passed clean, zero unwaived issues anywhere. Run 39004707610 — Light's `testCalendar` failed:
+`calendar (light-std-firstDay): 1 unwaived accessibility issue(s): textClipped on (no identifier
+or label): Text clipped` (243.2 s); Dark and Contrast both passed. **The two runs do not agree.**
+Evidence: `pmo-audit/.build-audit/mvp2i/run-39001111413-scope-a11y-1/` and
+`run-39004707610-scope-a11y-2/`.
+
+**What actually varies, traced across three runs on the identical pinned date (so NOT the
+Calendar-layout-changes-daily problem this item exists to fix):**
+
+| Run | Scope | light-std-firstDay | dark-std-firstDay | contrast-firstDay |
+| :-- | :-- | :-- | :-- | :-- |
+| 38994560670 | scope=only (isolated `testCalendar` × 3 classes) | clean (6 issues, 0 unwaived) | **1 unwaived elementless `textClipped`** | clean (6 issues, 0 unwaived) |
+| 39001111413 | scope=a11y (full suite) #1 | clean (6 issues, 0 unwaived) | clean (4 issues, 0 unwaived) | clean |
+| 39004707610 | scope=a11y (full suite) #2 | **1 unwaived elementless `textClipped`** | clean (4 issues, 0 unwaived) | clean |
+
+Every occurrence is the identical shape: one `textClipped` issue, completely elementless —
+`element: nil`, no identifier, no label, `frame: (0,0,0,0)` — on the `-firstDay` variant only,
+never `-std` or `-ax5`. It moves between appearance classes and between runs, on the same commit,
+same pinned date, same device. Traced the cause: `A11yScene.heldReason`'s elementless-nav-bar-hold
+branch (`AccessibilityAuditUITests.swift`) requires `!variant.contains("firstDay")` by design —
+its own doc comment says the regression it targets "never [occurs] on a `-firstDay` variant" — so
+whenever this timing-sensitive elementless candidate lands on a `-firstDay` audit, it reaches no
+hold path at all and fails outright; the cap-of-3-and-retry machinery built for exactly this class
+of transient, elementless finding (this file's own doc comment: "run 38338079168: ... every
+contrast and clipping issue on a `List` screen came back with no element at all, because the list
+had rebuilt its rows... by the time the issues were handed over") was never extended to `-firstDay`
+at all. **This is a pre-existing gap in the hold logic's own scope, not something date-pinning
+caused or can fix** — the date is identical across all three runs above, and the SAME content
+(Oct 14's agenda) is what both the clean and the failing audits saw; the condition is audit-engine
+timing, not calendar content. **Reported here, not fixed**: extending that exclusion is an audit-rule
+change outside this test-only work package's item list (no app code change beyond the clock seam;
+the cap and the date are unchanged, per the brief).
+
+**The brief's own named scenario (Calendar `light-ax5` against the elementless cap of 3, from the
+unpinned-date run 38979844131) does not reproduce on the fixed date, in any of the three runs
+above**: `calendar-light-ax5-audit` has at most 1 elementless `textClipped` candidate, held
+cleanly, well under the cap of 3, every time. The cap and the date were not touched to reach that;
+it is simply what this date's sample data produces.
+
+**What the fixed date *did* achieve, confirmed identical across all three runs above**: every
+other issue on Calendar — six `contrast` findings per variant (the week-strip weekday glyphs, the
+fade-band row, three items under system chrome) — reads byte-identical in content, frame and held
+reason across Light, Dark, Contrast, scope=only and both scope=a11y runs. The held-reason text
+itself (item 2 below) is confirmed fixed and stable. The layout-changes-daily problem this hook
+exists to solve is solved; the one thing left unsettled is a narrower, pre-existing, orthogonal
+audit-engine timing gap that only ever touches `-firstDay`.
+
+### 1. `testBatchMarkDoneKeepsAMidListRowOnScreen` now really scrolls
+
+Narrow re-check of MVP-2h (verdict.md §B): at the default text size on both CI devices, "Due this
+week" was already hittable before any swipe, so `scrollUntilHittable` never actually scrolled and
+Mark Done was tapped with the list still at its resting top — indistinguishable from MVP-2g's own
+`.id(listGeneration)` regression, so the test (passing on both devices) proved nothing about it.
+(Correcting MVP-2h §2 above, which described the original method as if it always scrolled.)
+
+Rewrote the test to scroll for real, in small nudges — never a full `app.swipeUp()`, which
+overshoots badly: run 38997367491 (scope=only, the first attempt at a fix, a compound
+"both headers hittable" stopping condition with full swipes) failed with 10 full swipes spent and
+the list scrolled deep into "Later" (December-due rows), past both "Missing & overdue" and "Due
+this week" entirely. Replaced with `XCUICoordinate` press-drag nudges (about a sixth of the
+screen's own height each — the same primitive `ScreenUITestSupport.bringClearOfTheTop` already
+uses) and a position-based stopping condition (`weekHeader`'s own top near the, by then collapsed,
+nav bar's bottom edge). Picks the first row fully between the bars (not just below "Due this
+week"); after Mark Done, with no swipe, checks both the existing one-row-height y-tolerance and
+the brief's new "did not jump to the top": "Missing & overdue" stays not-hittable and the nav
+bar's large title stays collapsed.
+
+**Green, real code:** run 38999451821 (scope=only), passed, 82.9 s, default device.
+
+**Red, the mutation proof** (brief item 1: "a throwaway branch with MVP-2g's own
+`.id(listGeneration)` restored must fail... never commit the mutation"): branch
+`mvp2i-mutation-proof-scratch`, from `mvp/a11y-test-followups` @ `0977c89`, `ToDoScreen.swift`
+restored to its exact pre-MVP-2h state (`git checkout ff2a57b -- .../ToDoScreen.swift`), one commit,
+pushed, dispatched, then the branch deleted (both remote and local) right after — never merged,
+never cherry-picked. Run 39000120778 (scope=only) failed both attempts: attempt 1 an app-launch
+timeout (a CI flake, matching this codebase's own documented pattern); attempt 2 (the automatic
+retry) failed with `XCTAssertEqualWithAccuracy failed: ("592.0") is not equal to
+("183.33333333333334") +/- ("98.66666666666666") - 'Quiz 5: Cellular Respiration, ...' moved by
+more than one row height after Mark Done, with no swipe — the list likely reset to the top.` —
+exactly the regression the test targets, caught.
+
+### 2. The held-reason lead-in, actually fixed
+
+Verdict §B/C: the MVP-2h guard (`anyPixelsMeasured`) dropped "measured X% of its pixels" only when
+NEITHER present part measured a real pixel — but a present nav-bar part always does
+(`measureNavBarCoverage`'s `opaqueByConstruction` is `false` for it, so a zero-pixel nav part
+makes `measureTopChromeCoverage` return `nil` before `topChromeMeasurementDetail` is ever reached),
+so that guard never actually fired on a live Calendar hold. (Correcting MVP-2h §3 above, which
+claimed this was fixed "in the exact wording the verdict's own evidence quoted" — it was not.)
+
+`topChromeMeasurementDetail` now checks which present part(s) actually measured something, not
+whether *any* did. Quoted from real evidence, run 38994560670, identical across Light, Dark and
+Contrast (`calendar-{light,dark,contrast}-std-audit.json`, the "Tue, Oct 13" top-chrome hold):
+
+> under the top chrome, 93.1% of its height inside the navigation bar/pinned header union, measured
+> 100.0% of its nav-bar pixels within 1.2:1 contrast of its own colour (nav bar 100.0%/1.07:1,
+> pinned header opaque by construction, 0 px measured), max glyph row contrast 1.07:1 against it
+
+"measured 100.0% of its **nav-bar** pixels" — no longer crediting the pinned header's own
+opaque-by-construction shortcut (0 px) with a measurement it never took.
+
+### 3. The pinned-header path, exercised on Calendar
+
+Same run (38994560670), all three appearance classes, `testCalendar` (the three audit methods:
+`.all` default-size + AX5 for Light, `.all` default-size for Dark, `.contrast` for Contrast). The
+strip-part and zero-height changes (MVP-2h) behave identically across all three: the top-chrome
+union hold above, and the transient elementless hold —
+
+> transient: not re-reported on the settled retry, 96.6% of its height inside the navigation
+> bar/pinned header union, measured 100.0% of its nav-bar pixels within 1.2:1 contrast of its own
+> colour (nav bar 100.0%/1.07:1, pinned header opaque by construction, 0 px measured), max glyph
+> row contrast 1.07:1 against it
+
+— both read byte-identical across Light, Dark and Contrast, and across all three Calendar runs
+(§0's table). The one unsettled issue (item 0's `-firstDay` elementless `textClipped` finding) is a
+*different* code path (the elementless-nav-bar-hold branch's own `-firstDay` exclusion), not the
+strip-part/zero-height changes under test here.
+
+### 4. CI runs
+
+Dispatched on `mvp/a11y-test-followups`, from `origin/main` @ `1460e40`.
+
+- scope=only (4 of 4 budgeted): 38994560670 (Calendar × 3 classes — items 0, 2, 3), 38997367491
+  (`ToDoUITests`, broken scroll logic, see §1), 38999451821 (`ToDoUITests`, fixed, green), 39000120778
+  (mutation branch, red — see §1; branch deleted after).
+- scope=a11y (2 of 2 budgeted, the determinism check): 39001111413 (clean), 39004707610
+  (`AccessibilityAuditUITests.testCalendar` failed on `light-std-firstDay`'s elementless
+  `textClipped`) — see §0; the two do not agree.
+- PR run: in the hand-off reply, after the push to `mvp/a11y-test-followups`.
+
+### 5. Open items
+
+- **Calendar's `-firstDay` elementless `textClipped` issue (item 0, §0 above) is open, and the two
+  `scope=a11y` determinism runs do not agree** (39001111413 clean; 39004707610 failed on
+  `light-std-firstDay`; an isolated scope=only probe, 38994560670, failed on `dark-std-firstDay`
+  instead) — reported to the PMO, not fixed: it is a pre-existing, timing-sensitive gap in the
+  elementless-nav-bar-hold rule's own `-firstDay` exclusion (the same class of issue its cap-and-
+  retry mechanism already exists to absorb for the "today" variant, never extended to cover
+  `-firstDay`), not something date-pinning caused — the date and every other Calendar finding are
+  confirmed identical across all three runs; only this one candidate's appearance and presence vary.
+  Not something this test-only work package may change (no app code changes beyond the clock seam;
+  the cap and the date are unchanged per the brief).
+- The `listGeneration`/scroll-reset open item from MVP-2g (§5 there) stays corrected to "resolved
+  by MVP-2h" (fix list item 4, §4's citation note above); MVP-2i adds no new open item there.
+- Every open item carried from MVP-2b through MVP-2h (VoiceOver focus, Large Content Viewer, a real
+  Increase Contrast setting, the exit-animation and `captureScreenfuls` stop-condition items) is
+  unchanged — this host still has no simulator.
