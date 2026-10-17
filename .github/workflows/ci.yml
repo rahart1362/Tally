@@ -418,7 +418,7 @@ jobs:
           ls -la "$RUNNER_TEMP/ios/attachments"
       - name: Upload the exported screenshots
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ui-test-screenshots
           path: ${{ runner.temp }}/ios/attachments
@@ -460,7 +460,7 @@ jobs:
           find "$out" -type f | sort | head -300
       - name: Upload the scope=only evidence
         if: ${{ always() && inputs.scope == 'only' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: only-evidence
           path: ${{ runner.temp }}/only-evidence
@@ -486,7 +486,7 @@ jobs:
           done
       - name: Upload crash reports and the floor xcresults
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: crash-reports
           path: |
@@ -627,7 +627,7 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :TallyAppGroupID" "$app/Info.plist"
       - name: Upload build logs and .xcresult on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-logs
           path: |
@@ -758,7 +758,7 @@ jobs:
           find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' ! -iname '*audit*.png' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: a11y-audit-evidence
@@ -767,7 +767,7 @@ jobs:
           retention-days: 30
       - name: Upload build/test logs on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: a11y-audit-logs
           path: |
@@ -822,7 +822,7 @@ jobs:
       - name: Upload the full TSan log, its xcresult and crash reports (on failure)
         # The console shows only the Makefile's filtered lines; a crash's stack is in these.
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tsan-logs
           path: |
@@ -1017,7 +1017,7 @@ jobs:
             IOS_ONLY_TESTING=-only-testing:TallyUITests
       - name: Upload build/test logs on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-logs-xcode27
           path: |
