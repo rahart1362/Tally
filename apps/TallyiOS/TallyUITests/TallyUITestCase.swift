@@ -34,6 +34,16 @@ class TallyUITestCase: XCTestCase {
     /// English pin above untouched.
     class var currentLocaleArguments: [String] { pinnedLocaleArguments }
 
+    /// MVP-2i: launch arguments every call to `launchApp(arguments:)` in this class adds, after
+    /// the locale and before the caller's own (so the caller's own always wins — the same "last
+    /// one wins" order `TestHooks.entitlement` already documents). Empty by default; the a11y
+    /// audit (`AccessibilityAuditUITests`/`-DarkUITests`/`-ContrastUITests`) and `AuditTourUITests`
+    /// override it with `TestHooks.fixedNowWednesday`, so Sample Data's dates (and the Calendar
+    /// layout built from them) are the same on every run, on any day — a `class var`, like
+    /// `currentLocaleArguments` above, for the same reason: one suite needs it, every other suite
+    /// must keep today's real date untouched.
+    class var defaultTestHookArguments: [String] { [] }
+
     /// The per-test hang limit for UI tests (`-test-timeouts-enabled`; the command line's
     /// maximum is 300 s). The 120 s default was too tight for this environment: in run
     /// 36370850272 `testSchoolNotEnabledToSampleData` spent 80 s in "Open app" (the app process
@@ -74,7 +84,7 @@ class TallyUITestCase: XCTestCase {
     @discardableResult
     func launchApp(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += Self.currentLocaleArguments + TestHooks.entitled + arguments
+        app.launchArguments += Self.currentLocaleArguments + TestHooks.entitled + Self.defaultTestHookArguments + arguments
         app.launchEnvironment.merge(Self.watchdogEnvironment) { _, armed in armed }
         app.launch()
         return app

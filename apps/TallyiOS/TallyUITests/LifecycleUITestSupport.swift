@@ -26,6 +26,13 @@ enum TestHooks {
     /// `success`, `cancel`, `lockout`, `passcodeNotSet`, `biometryUnavailable`, or a comma-separated
     /// sequence of them.
     static func deviceAuth(_ results: String) -> [String] { ["-TallyTestHooks.deviceAuth", results] }
+    /// MVP-2i: an ISO-8601 instant that pins "now" for Sample Data and every projection built from
+    /// it (the Calendar layout foremost) — the sample fixtures' dates are relative to today, so an
+    /// audit run against the real clock never repeats. `fixedNowWednesday` is the a11y suite's own
+    /// default (`TallyUITestCase.defaultTestHookArguments`): a Wednesday, mid-week, chosen for
+    /// representativeness, never to make a check pass.
+    static func fixedNow(_ iso8601: String) -> [String] { ["-TallyTestHooks.fixedNow", iso8601] }
+    static let fixedNowWednesday = fixedNow("2026-10-14T12:00:00Z")
 
     /// The flagship persona's course codes (fixtures/canvas/personas/flagship/courses.json).
     static let flagshipCourseCodes = ["BIO 101", "MATH 122", "ENG 101", "PSY 101", "HIST 210"]

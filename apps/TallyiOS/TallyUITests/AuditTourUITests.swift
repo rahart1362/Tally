@@ -79,6 +79,12 @@ final class AuditTourUITests: TallyUITestCase {
         language == "es" ? ["-AppleLanguages", "(es)", "-AppleLocale", "es_US"] : pinnedLocaleArguments
     }
 
+    /// MVP-2i: overrides `TallyUITestCase.defaultTestHookArguments` (that type's own doc comment
+    /// has why) — the tour's own Calendar legs are otherwise exactly as date-dependent as the a11y
+    /// audit's, and MVP-3's store scenes (`StoreScreenshotUITests`, a parallel stream, not touched
+    /// here) are expected to adopt this same hook once this lands.
+    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
+
     /// The Home shell's tab bar items, by their current leg's language. Run 38175021381 found that
     /// `.accessibilityIdentifier` on a `Tab(_:systemImage:value:)` (iOS 18's `TabView` content
     /// builder) never reaches the tab bar button XCUITest actually queries ("No matches found …
