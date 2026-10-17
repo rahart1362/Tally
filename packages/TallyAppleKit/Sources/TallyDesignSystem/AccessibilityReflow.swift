@@ -112,6 +112,27 @@ public struct TallyReflowValue: ViewModifier {
     }
 }
 
+/// MVP-2b gate-2 round 2 (verdict item 10): a one-line value already inside pinned chrome capped
+/// at `TallyReflow.pinnedChromeMaximumSize` (`tallyPinnedChromeTextSize()`). `TallyReflowValue`'s
+/// `minimumScaleFactor` is tuned for an UNCAPPED value that can reach AX5 (`valueMinimumScale`,
+/// 0.5, chosen so To-Do's AX5 chips keep their last word); applied to a value the cap already
+/// holds to AX2, it shrank `whatif.summary.projectedValue` to x1.17 ink growth (20.3 to 23.7 pt)
+/// between the default size and AX5, although the cap's own measured pinned elements reach about
+/// x2 with no shrink at all (the banner label, x2.19; D04/D05). The frame this value gets at AX2,
+/// on its own line (`TallyReflowStack`'s stacked layout from AX1 up), is never narrower than the
+/// capped font needs, so it never has to shrink to stay on one line — dropping the minimum scale
+/// lets it reach its full capped size instead of a SwiftUI `minimumScaleFactor` pass that measures
+/// against the device's real (uncapped) category rather than the capped environment value.
+public struct TallyReflowPinnedValue: ViewModifier {
+    public init() {}
+
+    public func body(content: Content) -> some View {
+        content
+            .lineLimit(1)
+            .layoutPriority(1)
+    }
+}
+
 extension TallyReflow {
     /// `valueMinimumScale` at the accessibility sizes, 1 (never shrink) below them.
     public static func minimumScale(at size: DynamicTypeSize) -> CGFloat {
@@ -126,6 +147,13 @@ extension View {
     /// group (dot and code) that holds it.
     public func tallyReflowValue() -> some View {
         modifier(TallyReflowValue())
+    }
+
+    /// MVP-2b gate-2 round 2 (item 10): like `tallyReflowValue()`, but for a value already inside
+    /// pinned chrome capped by `tallyPinnedChromeTextSize()` — never shrinks, so the cap's own
+    /// headroom (about x2) is not hidden behind a minimum scale tuned for the uncapped case.
+    public func tallyReflowPinnedValue() -> some View {
+        modifier(TallyReflowPinnedValue())
     }
 
     /// D04/D05: caps pinned chrome at `TallyReflow.pinnedChromeMaximumSize`. Apply it to the bar

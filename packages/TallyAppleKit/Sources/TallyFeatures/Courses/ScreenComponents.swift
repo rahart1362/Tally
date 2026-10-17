@@ -86,6 +86,14 @@ struct StatusChip: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// MVP-2f gate-2 (fix list item 3): set by an ancestor `StatusChipRow` (via `.environment`,
+    /// never a direct parameter — `StatusChipRow`'s own `content` closure is generic, so it cannot
+    /// reach into its children to set a property on each chip individually). Giving a WRAPPING
+    /// `VStack` its own `.frame(maxWidth: .infinity)` does not, by itself, make each child inside
+    /// it any wider than that child's own natural "pill" size wants to be — a `VStack` positions
+    /// children by `alignment` within its bounds, it does not stretch them; this file's own
+    /// `body` doc comment below has the fix this flag drives.
+    @Environment(\.statusChipFullWidth) private var fullWidth
     /// A value chip (a score) keeps D02's value rule: one line, shrunk at the accessibility sizes.
     private var isValue = false
 
@@ -111,13 +119,46 @@ struct StatusChip: View {
             Image(systemName: symbol).foregroundStyle(tint)
         }
         // ux-fp2 D11: in a `List` row a plain `Label` took the list's icon column (an 18 pt gap
-        // before the words). Words stay full size and, at the accessibility sizes, wrap between
-        // words onto a second line: shrinking them (gate 2, R1) drew the same chip at different
+        // before the words). Words stay full size and, when they no longer fit on one line, wrap
+        // between words onto a second: shrinking them (gate 2, R1) drew the same chip at different
         // sizes side by side. Only a value chip (`valueStyle()`) keeps one line, shrunk at AX
         // sizes, so a score never breaks (D02's value rule, `TallyReflow`).
+        //
+        // MVP-2b: two lines at every size, not only from AX1 up. Between the default size and AX1
+        // (xLarge–xxxLarge) a word chip was held to one line, so a long one in a narrow column
+        // ("Needs attention" beside a course's grade) could only truncate there. Where a chip fits
+        // on one line, as at the default size, nothing changes. (Courses and Calendar each kept one
+        // "may be clipped at larger Dynamic Type sizes" the audit could not attach to an element,
+        // scope=a11y run 38357314250; both show word chips. Whether this was that is in MVP-2b's
+        // report, not assumed here.)
         .labelStyle(.tallyCompact)
-        .lineLimit(isValue || !typeSize.isAccessibilitySize ? 1 : 2)
+        // MVP-2f gate-2 (fix list item 3): the gate-2 final review's own evidence (verdict §3) was
+        // still "Not subm…"/"High priori…" truncated at AX5 even once `StatusChipRow` stopped using
+        // `ViewThatFits` there (a prior attempt that wrapped only the ROW in `.frame(maxWidth:
+        // .infinity)`, which this doc comment's own earlier wording wrongly assumed would reach
+        // each chip — dispatched for real, Audit tour run 38828098145, it did not: the chip is
+        // still its own "ideal"-sized pill). Three things were missing, all on the chip itself:
+        // - `.fixedSize(horizontal: false, vertical: true)`: without it, nothing guarantees this
+        //   `Label` is actually GIVEN the height its own wrapped lines need inside a `List` row's
+        //   own (separate) height-measurement pass — always on, value chips included, since a value
+        //   chip's own single line already equals its ideal height (this costs it nothing).
+        // - `.frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)`: only when
+        //   `fullWidth` (`StatusChipRow`'s own flag, this type's own doc comment) — stretches the
+        //   chip itself to the row's width, handing its `Text` a definite width to wrap against,
+        //   instead of the chip's own natural, compact pill width (too narrow for "High priority"
+        //   on one line, and with nothing wider offered either way). `nil` elsewhere (every other
+        //   call site: Courses, CourseDetail, Calendar) keeps the plain pill unchanged.
+        // - The line limit itself, 2 → 3 (below): re-dispatched with the two fixes above (Audit
+        //   tour run 38834373248), "High priority" and "Missing" both wrapped clean, but "Not
+        //   submitted" alone still truncated to "Not subm…" on the smallest device, AX5 — Pro Max's
+        //   wider row fits "Not"/"submitted" as 2 full lines (confirmed: the same item's capture,
+        //   both devices), but the smallest device's own narrower row needs "submitted" itself
+        //   hyphenated across 2 lines ("sub-"/"mitted"), 3 total with "Not" — one more than the
+        //   limit allowed, so the 2nd rendered line (of 2) truncated. 3 lines covers it.
+        .lineLimit(isValue ? 1 : 3)
         .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
@@ -144,14 +185,65 @@ struct StatusChip: View {
 /// ux-fp2 D11: a row of status chips that wraps instead of squeezing them. Side by side while they
 /// fit on one line at their full size; otherwise one under the other (the smallest iPhone in To-Do's
 /// select mode read "Not sub…" next to "High pri…", and AX5 split them mid-word).
+///
+/// MVP-2f gate-2 (fix list item 3): `ViewThatFits` picks between the two stacks above by each one's
+/// own IDEAL size (every chip at its natural single-line width, `lineLimit` or not — "ideal" means
+/// unconstrained). At accessibility sizes a chip's natural single-line width can exceed the row's
+/// own width on its own, so neither alternative's ideal size ever fits and `ViewThatFits` falls back
+/// to its last alternative, squeezed into the row's width with no definite width handed to the
+/// `Text` inside to wrap against — the gate-2 final review's own evidence (verdict §3): "Not
+/// subm…" on the smallest iPhone at AX5 outside select mode, "Not submi…" and "High priori…" on Pro
+/// Max in select mode. FP-2's rule is that a VALUE never breaks mid-token; these are word chips
+/// (never `.valueStyle()`), so wrapping between words is the correct fix, not shrinking them.
+///
+/// **A first attempt (skip `ViewThatFits` at accessibility sizes, give this row's own `VStack` a
+/// `.frame(maxWidth: .infinity)`) did not actually fix it** — dispatched for real (Audit tour run
+/// 38828098145), Pro Max select mode still read "High priori…". A `VStack` stacks and aligns its
+/// children within its own bounds; stretching the STACK's own frame does not, by itself, stretch
+/// EACH CHILD inside it any wider than that child's own natural "pill" size wants — each `StatusChip`
+/// was still proposed (and fit itself to) its own ideal compact width, the same as before. The real
+/// fix is on `StatusChip` itself (its own doc comment): this row only sets `statusChipFullWidth`
+/// (via `.environment`, since `content` is a generic closure this type cannot reach inside of) —
+/// every chip inside reads that flag and stretches ITSELF.
+///
+/// The Courses xxxLarge precedent (`CourseCardView.usesFullWidthColumn`) is reused for WHEN this
+/// applies: at accessibility sizes and `xxxLarge` (the standard size closest to them), skip
+/// `ViewThatFits` entirely and lay the chips out in a plain, full-width `VStack`.
 struct StatusChipRow<Content: View>: View {
     @ViewBuilder let content: () -> Content
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Same threshold as `CourseCardView.usesFullWidthColumn`, for the same reason (this type's own
+    /// doc comment): a standalone copy, not a shared property, since the two types are otherwise
+    /// unrelated and neither owns the other.
+    private var usesFullRowWidth: Bool { typeSize.isAccessibilitySize || typeSize == .xxxLarge }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: TallySpacing.xs) { content() }
+        if usesFullRowWidth {
             VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.statusChipFullWidth, true)
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: TallySpacing.xs) { content() }
+                VStack(alignment: .leading, spacing: TallySpacing.xs) { content() }
+            }
         }
+    }
+}
+
+/// MVP-2f gate-2 (fix list item 3): `StatusChipRow`'s own "lay chips out full width, not as
+/// compact pills" decision, read by every `StatusChip` in its subtree (`StatusChip`'s own doc
+/// comment on `fullWidth` has why this is an environment value, not a parameter). `fileprivate`:
+/// only `StatusChipRow` sets it and only `StatusChip` reads it, both in this file.
+fileprivate struct StatusChipFullWidthKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    fileprivate var statusChipFullWidth: Bool {
+        get { self[StatusChipFullWidthKey.self] }
+        set { self[StatusChipFullWidthKey.self] = newValue }
     }
 }
 

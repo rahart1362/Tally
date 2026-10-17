@@ -11,8 +11,13 @@ struct SampleDataBanner: View {
         HStack {
             Image(systemName: "sparkles")
                 .accessibilityHidden(true)
+            // MVP-2b: pinned chrome capped at AX2 (below), so both parts offer the Large Content
+            // Viewer, the system's own companion to a capped bar (HIG: a long press shows the
+            // words large), and carry identifiers so the audit's findings on them can be named.
             Text(L10n.SampleData.bannerLabel())
                 .font(TallyTypography.caption.weight(.semibold))
+                .accessibilityShowsLargeContentViewer()
+                .accessibilityIdentifier("sampleData.banner.label")
             Spacer()
             // A 44 × 44 pt target (HIG minimum). The text alone measured 22 × 14 pt in CI's
             // accessibility hierarchy (run 36363360710), too small to tap reliably.
@@ -22,6 +27,8 @@ struct SampleDataBanner: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityShowsLargeContentViewer()
+            .accessibilityIdentifier("sampleData.banner.exit")
         }
         .foregroundStyle(TallyColor.accentOnFill)
         .padding(.horizontal, TallySpacing.screenMargin)

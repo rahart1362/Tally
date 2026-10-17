@@ -62,15 +62,21 @@ final class FamilyUITests: TallyUITestCase {
         XCTAssertFalse(element("family.switcher", in: app).exists)
     }
 
-    /// §7.8: the switcher passes Xcode's accessibility audit; only issues on the family's own
-    /// elements count (the screens behind it have their own suites).
+    /// §7.8: the switcher passes Xcode's accessibility audit.
+    ///
+    /// MVP-2b: this audit used to ignore every issue on an element whose identifier did not start
+    /// with `family.` ("the screens behind it have their own suites"). Logged in scope=a11y runs
+    /// 38338079168 and 38350587735, that prefix filter suppressed 11 issues here (4 at AX5), none on
+    /// the family's own elements: the SAMPLE DATA banner's two capped texts (`dynamicType`) and
+    /// contrast on Dashboard rows under the tab bar and its scroll-edge dimming. Each of them is
+    /// covered by the suite's shared rules — an exact waiver (`A11yWaivers`) or the audit-position
+    /// rule (`A11yScene`) — so the filter is gone and the audit now judges the whole parent-mode
+    /// screen by the same rules as `AccessibilityAuditUITests` (`runA11yAudit`).
     @MainActor
     func testSwitcherPassesTheAccessibilityAudit() throws {
         let app = launchSample()
         enterParentMode(app)
-        try app.performAccessibilityAudit { issue in
-            !Self.isFamilyElement(issue.element)
-        }
+        runA11yAudit(app, for: .all, screen: "family-switcher", variant: "std")
     }
 
     /// §7.1, §7.8: from AX1 up the label shows the initials only; the audit passes at AX5 too.
@@ -85,9 +91,8 @@ final class FamilyUITests: TallyUITestCase {
         // Initials (a 28-point circle) and the chevron only; with the first name it was 104 points
         // wide at the default size (CI run 37065562136).
         XCTAssertLessThan(switcher.frame.width, Self.initialsOnlyMaxWidth, "the first name shows at AX5: \(switcher.frame)")
-        try app.performAccessibilityAudit { issue in
-            !Self.isFamilyElement(issue.element)
-        }
+        // MVP-2b: the shared rules, not a prefix filter (`testSwitcherPassesTheAccessibilityAudit`).
+        runA11yAudit(app, for: .all, screen: "family-switcher", variant: "ax5")
     }
 
     /// D17 (ux-fp1, AX5 regression): the switcher's `Menu` drew "Manage linked students…" over the
@@ -332,11 +337,5 @@ final class FamilyUITests: TallyUITestCase {
     @MainActor
     private func anyElement(containing words: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch
-    }
-
-    @MainActor
-    private static func isFamilyElement(_ element: XCUIElement?) -> Bool {
-        guard let identifier = element?.identifier else { return false }
-        return identifier.hasPrefix("family.")
     }
 }

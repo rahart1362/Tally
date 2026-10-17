@@ -40,37 +40,82 @@ struct CalendarScreen: View {
                     .tallyRow()
                 } else {
                     ForEach(calendar.days) { day in
+                        // MVP-2c: the day's heading is a section of its own, one clear row that is the
+                        // day's scroll target, and its items are the next section, a native card.
+                        // A `List` header is never a `scrollTo` anchor (run 38608671835: with the id
+                        // on the header, the list scrolled to the first row and left the header
+                        // under the strip). Round 3 made the heading the card's own first row, which
+                        // scrolled correctly but squared the card's top corners and shrank the
+                        // heading to footnote size (run 38660677136's screenshot). As its own section
+                        // the card keeps the system's corners and separators, and `DayHeading` keeps
+                        // the system header's measured style.
+                        Section {
+                            DayHeading(text: day.heading)
+                                .id(day.id)
+                        }
                         Section {
                             if day.items.isEmpty {
                                 Text(L10n.Calendar.nothingScheduled())
                                     .font(TallyTypography.subheadline)
                                     .foregroundStyle(TallyColor.textSecondary)
+                                    // MVP-2b round 3: the UI test finds the first row under a heading
+                                    // even on a day with nothing scheduled.
+                                    .accessibilityIdentifier("calendar.nothingScheduled")
                             }
                             ForEach(day.items) { item in
                                 AgendaRow(item: item) { draft = item.draft }
                             }
-                        } header: {
-                            Text(day.heading)
-                                .tallySectionText()
                         }
                         .tallyRow()
-                        .id(day.id)
                     }
                 }
             }
             .listStyle(.insetGrouped)
+            // MVP-2c: the gap above each heading is `DayHeading`'s own top inset (the system's
+            // section spacing plus its header padding), so a heading sits on its card as a header
+            // did, and rests that same gap below the strip once scrolled to.
+            .listSectionSpacing(.custom(0))
             .refreshable { await model.refreshUntilSettledOrDelayed() }
             // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
             .tallyList()
             // D01: content scrolled past the top stayed visible, blurred, under the inline title
-            // and the status bar, even at rest. R4 (round 3): Calendar is a large-title tab root
-            // too (no inline display mode); it usually opens scrolled to today, its title already
-            // collapsed into the bar, but on a day whose row is first it opens at the scroll edge,
-            // where a `.visible` fill would paint over the large title as on the other four roots.
-            .tallyLargeTitleScreenChrome()
-            // The week strip stays in place above the agenda (it is how the student moves through
-            // the week), under the breadcrumb when one shows.
-            .safeAreaInset(edge: .top, spacing: 0) {
+            // and the status bar, even at rest.
+            //
+            // MVP-2e (gate-2 final review S2, fix list item 2): R4 (round 3) made Calendar a
+            // large-title tab root (`tallyLargeTitleScreenChrome`, fill `.automatic`) on the theory
+            // that it usually opens scrolled to today, title already collapsed, and only a day
+            // whose row is first opens at the true scroll edge, where a `.visible` fill would paint
+            // over the large title as it did on the other four roots. That theory was wrong for
+            // this screen specifically: every large-title capture since MVP-2c (scope=a11y and
+            // scope=only, Light/Dark/Increase Contrast, 22 of them) shows "October" and "Updated
+            // just now" in the hierarchy but drawn nowhere (max pixel difference from the canvas 15
+            // in Light, 0 in Dark) — the pre-existing l10n-04 defect (main-era, today a Sunday) is
+            // the same blank band, now reached on every first-day tap instead of only by chance.
+            // The week strip's `.safeAreaBar(edge: .top)`, below, is the one thing that
+            // distinguishes Calendar from the other four large-title roots: pinning content
+            // directly under the bar is apparently enough for `.automatic` to resolve as though the
+            // list had scrolled, even at the List's own true top, so the fill goes opaque and
+            // collapses the title together, leaving nothing drawn in the expanded title's place.
+            // Diagnosing the exact SwiftUI interaction further needs a simulator this host does not
+            // have, so this takes the PMO's own sanctioned fallback instead: an inline title, like
+            // Course Detail's (`CourseDetailView.swift`) and What-If's (`WhatIfSheet.swift`), both
+            // of which already render correctly on `tallyScreenChrome()`'s always-opaque fill — the
+            // same state this screen's own OWN inline (collapsed) title already rendered correctly
+            // in, every time it was reached by scrolling rather than by opening at the top. D01 is
+            // unaffected (content is still never visible under the bar at rest; the fill is simply
+            // always on instead of conditional). Recorded for the owner: a native large title for
+            // Calendar remains open, should the safe-area-bar interaction ever get a real fix.
+            .tallyScreenChrome()
+            // MVP-2c: the week strip is a safe-area bar (iOS 26), so the list's safe area, its scroll
+            // edge effect and `scrollTo(_:anchor: .top)` all start below it. Round 3's diagnosis
+            // ("scrollTo ignores the inset") was the test's: run 38623450627's hierarchy has today's
+            // heading at y = 237.3 under a strip ending at 233.3, with `.safeAreaInset`; the test
+            // measured the previous day's heading, still in the hierarchy under the bars. Round 3's
+            // `.contentMargins` replacement is padding inside the content, which `scrollTo` does
+            // not count (run 38652917902: the heading at the navigation bar's bottom, y = 170).
+            .safeAreaBar(edge: .top, spacing: 0) {
+                // The week strip stays in place above the agenda (it is how the student moves
+                // through the week), under the breadcrumb when one shows.
                 VStack(spacing: 0) {
                     FreshnessBreadcrumb()
                     if !calendar.week.isEmpty {
@@ -83,6 +128,11 @@ struct CalendarScreen: View {
                         .background(TallyColor.bgCanvas)
                     }
                 }
+                // MVP-2b: a container (its children stay their own elements) with an identifier, so
+                // the accessibility audit knows where this opaque pinned bar is: agenda rows above
+                // the selected day pass under it by design (`A11yScene.pinnedBars`).
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("calendar.pinnedHeader")
             }
             .task(id: calendar.todayID) {
                 // Open on today (the agenda starts at the beginning of the week).
@@ -90,6 +140,9 @@ struct CalendarScreen: View {
             }
         }
         .navigationTitle(calendar.monthTitle.isEmpty ? Text(L10n.Calendar.tabTitle()) : Text(calendar.monthTitle))
+        // MVP-2e (S2, fix list item 2): paired with `tallyScreenChrome()` above, like Course
+        // Detail's and What-If's own inline titles.
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -153,6 +206,39 @@ struct CalendarScreen: View {
     }
 }
 
+/// MVP-2c: a day's heading in the agenda, drawn as a row (the day's scroll target) that looks like
+/// the inset-grouped section header it replaces: the system header's measured font
+/// (`TallyTypography.listHeader`), colour (`tallySectionText()`, `#475467` measured) and position
+/// (`Metrics`), on no card, with no separator. It keeps the header's `.isHeader` trait.
+private struct DayHeading: View {
+    /// The system header "Mon, Oct 12" in scope=a11y run 38550012702 (light-std, before round 3's
+    /// change): the previous card ends at y = 476.3, the capitals' tops are at 508.0 and the
+    /// header's own card starts at 534.3, so 31.7 pt from the card above to the capitals and 26.3
+    /// pt from the capitals to the card below. With the section spacing at zero these insets put the
+    /// heading's capitals at those distances (scope=only run 38672964445 measured 31.0 and 27.0 with
+    /// 27.5 and 10, hence 28.2 and 9.3; the 58 pt between the cards is unchanged).
+    enum Metrics {
+        static let top: CGFloat = 28.2
+        static let bottom: CGFloat = 9.3
+        static let horizontal: CGFloat = 16
+    }
+
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(TallyTypography.listHeader)
+            .tallySectionText()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("calendar.dayHeading")
+            .listRowInsets(EdgeInsets(top: Metrics.top, leading: Metrics.horizontal,
+                                      bottom: Metrics.bottom, trailing: Metrics.horizontal))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+    }
+}
+
 /// The week strip: a day letter, the date and up to three dots; today is ringed in the accent. From
 /// the accessibility sizes up, seven columns no longer fit, so the strip scrolls sideways.
 ///
@@ -173,18 +259,27 @@ private struct WeekStrip: View {
     /// 37842950859, every AX5 leg).
     @ScaledMetric(relativeTo: .headline) private var dayMarkDiameter: CGFloat = 32
 
+    /// MVP-2b: one view tree at every text size. The strip used to be a plain row below the
+    /// accessibility sizes and a different, scrolling tree from AX1 up, so its texts were new views
+    /// once the size crossed AX1. Xcode's audit predicts clipping by growing the text and finding
+    /// each text again; one it cannot find seems to come back as "may be clipped" with no element
+    /// (the sign-in hand-off had one such finding while its address tag switched layouts at AX1,
+    /// run 38357314250, and none once the tag kept one layout, run 38363059477). Now the strip is always
+    /// in the scroll view: the screen's own width, not scrolling, below the accessibility sizes (as
+    /// before); a fixed column width, scrolling and centred on the selected day, from AX1 up (D18).
     var body: some View {
-        if typeSize.isAccessibilitySize {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal) {
-                    strip.frame(width: columnWidth * CGFloat(days.count))
-                }
-                .scrollIndicatorsFlash(onAppear: true)
-                .onAppear { centre(selected, with: proxy, animated: false) }
-                .onChange(of: selected) { _, day in centre(day, with: proxy, animated: true) }
+        let scrolls = typeSize.isAccessibilitySize
+        let scrollingWidth = columnWidth * CGFloat(days.count)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                strip
+                    .containerRelativeFrame(.horizontal) { length, _ in scrolls ? scrollingWidth : length }
             }
-        } else {
-            strip
+            .scrollDisabled(!scrolls)
+            .scrollIndicators(scrolls ? .automatic : .hidden)
+            .scrollIndicatorsFlash(onAppear: scrolls)
+            .onAppear { if scrolls { centre(selected, with: proxy, animated: false) } }
+            .onChange(of: selected) { _, day in if scrolls { centre(day, with: proxy, animated: true) } }
         }
     }
 
@@ -208,6 +303,9 @@ private struct WeekStrip: View {
                         Text(day.weekdayLetter)
                             .font(TallyTypography.caption)
                             .foregroundStyle(TallyColor.textSecondary)
+                            // MVP-2b: names the letter for its measured contrast waiver
+                            // (`docs/pmo/a11y-waivers.md`).
+                            .accessibilityIdentifier("calendar.weekStrip.weekday")
                         Text(day.dayNumber)
                             .font(TallyTypography.cardTitle)
                             .foregroundStyle(TallyColor.textPrimary)
@@ -283,11 +381,9 @@ private struct AgendaRow: View {
                         }
                         .tallyReflowValue()
                         if let location = item.location {
-                            if typeSize.isAccessibilitySize {
-                                Text(verbatim: location)
-                            } else {
-                                Text("· \(location)")
-                            }
+                            // MVP-2b: one text whose words change at AX1, not two texts (the week
+                            // strip's note: the audit loses a text that is replaced as it grows).
+                            Text(verbatim: typeSize.isAccessibilitySize ? location : "· " + location)
                         }
                     }
                     .font(TallyTypography.footnote)

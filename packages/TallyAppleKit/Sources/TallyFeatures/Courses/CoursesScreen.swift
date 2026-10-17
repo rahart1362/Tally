@@ -118,18 +118,33 @@ struct CourseCardView: View {
     var isInfoPresented: Binding<Bool> = .constant(false)
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    /// MVP-2b gate-2 round 3 (verdict item 9). `xxxLarge` (the largest *standard* size, one step
+    /// below the accessibility sizes) kept the HStack layout below, which squeezes this column
+    /// against the sparkline's and the grade's own fixed widths — on the smallest iPhone, the
+    /// health chip ("Needs attention") truncated to "Needs atte…" with room to its right that
+    /// belonged to those siblings' columns, not to this one (gate-2 round 2 verdict, Courses at
+    /// xxxLarge). The owner's bar forbids truncation. The VStack layout already proven at AX1 and
+    /// up gives this column the row's own full width; starting it one step earlier, at `xxxLarge`
+    /// too, is the same layout this app already ships, not a new one.
+    private var usesFullWidthColumn: Bool { typeSize.isAccessibilitySize || typeSize == .xxxLarge }
+
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
             CourseColorMark(paletteIndex: card.paletteIndex, style: .bar)
-            let layout = typeSize.isAccessibilitySize
+            let layout = usesFullWidthColumn
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.sm))
                 : AnyLayout(HStackLayout(alignment: .top, spacing: TallySpacing.md))
             layout {
                 VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                    // MVP-2b: no line limit at any size. Two lines below the accessibility sizes
+                    // could only cut a long name at xLarge–xxxLarge ("Introduction to Psych…").
+                    // Xcode's audit reported two "may be clipped at larger Dynamic Type sizes" on
+                    // Courses that it could not attach to an element (scope=a11y runs 38338079168,
+                    // 38350587735), with two names on two lines at the default size; the next run
+                    // reported one. At the default size every sample name fits in two lines.
                     Text(card.name)
                         .font(TallyTypography.cardTitle)
                         .foregroundStyle(TallyColor.textPrimary)
-                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                     Text(card.code)
                         .font(TallyTypography.subheadline)
                         .foregroundStyle(TallyColor.textSecondary)
@@ -167,7 +182,7 @@ struct CourseCardView: View {
     @ViewBuilder
     private var sparklineColumn: some View {
         if let sparkline {
-            if typeSize.isAccessibilitySize {
+            if usesFullWidthColumn {
                 CourseSparklineView(points: sparkline, width: nil, height: CourseSparklineView.courseCardSize.height,
                                     tint: TallyColor.accent, background: .card)
                     .frame(maxWidth: .infinity)
@@ -186,7 +201,7 @@ struct CourseCardView: View {
         if let notInCanvas = card.notInCanvas {
             GradeNotInCanvasValue(notInCanvas: notInCanvas, infoButtonLabel: card.infoButtonLabel,
                                   isInfoPresented: isInfoPresented,
-                                  alignment: typeSize.isAccessibilitySize ? .leading : .trailing)
+                                  alignment: usesFullWidthColumn ? .leading : .trailing)
         } else {
             gradeInCanvas
         }
@@ -197,7 +212,7 @@ struct CourseCardView: View {
     /// UX-SPARK.
     @ViewBuilder
     private var gradeInCanvas: some View {
-        VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: TallySpacing.xs) {
+        VStack(alignment: usesFullWidthColumn ? .leading : .trailing, spacing: TallySpacing.xs) {
             if let letter = card.letter {
                 Text(letter)
                     .font(.system(.title2).bold())

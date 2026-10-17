@@ -245,7 +245,16 @@ struct SettingsView: View {
                 }
             } else {
                 if !home.account.host.isEmpty {
-                    LabeledContent(String(localized: L10n.Settings.schoolLabel()), value: home.account.host)
+                    // MVP-2b gate-2 round 2 (item 14): the plain `value:` form drew the host as one
+                    // unbreakable word, so at AX5 it broke mid-token ("canvas.north- / field.example",
+                    // pre-existing S3, all 4 AX5 legs) — the same fix the sign-in hand-off's tag
+                    // already uses (`SignInHandoffView.swift`): line breaks only at the host's own
+                    // separators, invisible on screen and silent to VoiceOver.
+                    LabeledContent {
+                        Text(verbatim: TallyTokenBreaks.breakable(home.account.host))
+                    } label: {
+                        Text(L10n.Settings.schoolLabel())
+                    }
                 }
                 if let name = home.account.displayName {
                     LabeledContent(String(localized: L10n.Settings.signedInAsLabel()), value: name)
@@ -261,6 +270,8 @@ struct SettingsView: View {
         } header: {
             Text(L10n.Settings.accountHeader())
                 .tallySectionText()
+                // MVP-2b: names the header for its measured contrast waiver (`docs/pmo/a11y-waivers.md`).
+                .accessibilityIdentifier("settings.accountHeader")
         } footer: {
             // EB-17 (dossier.md §12 P3): only where Sign Out & Erase itself shows -- sample mode
             // has nothing to sign out of, and nothing says "your school" for it.

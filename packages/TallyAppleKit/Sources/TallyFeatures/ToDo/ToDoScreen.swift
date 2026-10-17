@@ -19,7 +19,16 @@ struct ToDoScreen: View {
             if model.toDoScreen.sections.isEmpty {
                 emptyState
             } else {
-                List(selection: $selection) {
+                // MVP-2h: the selection binding is `nil` outside edit mode, not merely emptied.
+                // MVP-2g's `List(selection: $selection)` left its leading multi-select accessory
+                // permanently reserved on every row once `editMode` had been `.active` at least
+                // once — a disabled `circle` image stayed in the element tree even once `editMode`
+                // read `.inactive` again. MVP-2g's own Pro Max AX5 legs did release the accessory
+                // on a normal exit, so the accessory is tied to the List holding a live selection
+                // binding, not to the List's identity; binding only while editing removes it the
+                // same way, without rebuilding the List (and so without resetting its scroll
+                // position — the narrow re-check's finding against `.id(listGeneration)`).
+                List(selection: editMode.isEditing ? $selection : nil) {
                     ForEach(model.toDoScreen.sections) { section in
                         Section {
                             ForEach(section.items(sortedBy: sortOrder)) { item in

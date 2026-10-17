@@ -544,7 +544,10 @@ extension L10n.CourseDetail {
     public static func whatIfQuickFillAccessibility(_ title: String, _ percent: Int) -> LocalizedStringResource {
         LocalizedStringResource(
             "courseDetail.whatIf.quickFillAccessibility", defaultValue: "Set \(title) to \(percent) percent", bundle: #bundle,
-            comment: "The what-if sheet's quick-fill chip, accessibility label.")
+            // MVP-2b gate-2 round 2: the chip's accessibility label is now its own visible text
+            // plus the item title ("100%, Lab Report 4"), composed in code with no string of its
+            // own; this sentence moved to the hint (WhatIfSheet.swift).
+            comment: "The what-if sheet's quick-fill chip, accessibility hint.")
     }
 
     public static func whatIfLowerByOnePoint(_ title: String) -> LocalizedStringResource {

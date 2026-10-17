@@ -43,10 +43,24 @@ final class AuditTourUITests: TallyUITestCase {
         ProcessInfo.processInfo.environment["AUDIT_APPEARANCE"] == "dark" ? .dark : .light
     }
 
+    /// MVP-2b gate-2 round 2 (item 16): `xxxLarge` is the largest *standard* size, one step below
+    /// the accessibility sizes — where the week strip and day marks first switch their scrolling
+    /// layout (D18, `CalendarScreen.swift`) and the hand-off tag changes shape (ux-fp1 round 3),
+    /// but below AX1 the audit tests of this target need no AX5-only launch hook. The workflow
+    /// (`audit-tour.yml`) scopes this size's own leg to Courses, Calendar and the hand-off only.
     private static var textSizeArguments: [String] {
+        switch ProcessInfo.processInfo.environment["AUDIT_TEXT_SIZE"] {
+        case "ax5": return ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        case "xxxLarge": return ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"]
+        default: return []
+        }
+    }
+
+    /// MVP-2e (ruling 2's coverage made real, fix list item 3): true on the leg `textSizeArguments`
+    /// above launches at AX5 — the only size the PMO asked for To-Do's, Parent Mode's and Insights'
+    /// own below-the-fold scroll coverage at.
+    private static var isAX5Leg: Bool {
         ProcessInfo.processInfo.environment["AUDIT_TEXT_SIZE"] == "ax5"
-            ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-            : []
     }
 
     /// Plan 08 L10N-04: the leg's language, from the `Audit tour` workflow's own `language` input
@@ -285,6 +299,26 @@ final class AuditTourUITests: TallyUITestCase {
         _ = elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15)
         snap(app, screen: "calendar", state: "weekStripAndAgenda", reachedVia: "Calendar tab")
 
+        // MVP-2e (gate-2 final review S2, fix list item 2): the large title is reachable (not
+        // collapsed) only once the agenda is at its true top, which the week's first day's own
+        // heading guarantees (`CalendarUITests`' own `a11yReachCalendar`/`AccessibilityAuditUITests`'
+        // own `-firstDay` variants use the same tap) — the state the blank-title defect needed and
+        // this tour never captured before. From AX1 up the week strip scrolls, centred on today
+        // (`AccessibilityAuditUITests.a11yReachCalendar`'s own doc comment, D18), so the first day
+        // is swiped back into reach the same way that helper does, before `go` taps it (found
+        // missing on all 4 AX5 legs of the first dispatch, run 38799743647: the strip's own
+        // `calendar.pinnedHeader` needed swiping right first).
+        let firstDay = elements("calendar.day", in: app).firstMatch
+        let weekStripHeader = element("calendar.pinnedHeader", in: app)
+        var firstDaySwipes = 0
+        while !firstDay.isHittable, firstDaySwipes < 6 {
+            weekStripHeader.swipeRight()
+            firstDaySwipes += 1
+        }
+        if go(firstDay, app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day") {
+            snap(app, screen: "calendar", state: "firstDay", reachedVia: "tapped the week strip's first day")
+        }
+
         if go(app.buttons["calendar.options"], app, screen: "calendar", state: "optionsMenu", reachedVia: "toolbar options button") {
             snap(app, screen: "calendar", state: "optionsMenu", reachedVia: "tapped calendar.options")
             // L10N-04: was `app.buttons["Subscribe to Canvas Calendar…"]`, `app.alerts["Subscribing
@@ -315,7 +349,7 @@ final class AuditTourUITests: TallyUITestCase {
         stepNumber = 60
         resetAppState()
 
-        let app = launchSignedIn()
+        var app = launchSignedIn()
         openTabInTour(Self.tabLabel(.toDo), in: app)
         // L10N-04: was text("Missing & overdue", in: app) — the English section header, which
         // Spanish changes; any row is an equally good "the To-Do projection landed" signal.
@@ -371,6 +405,88 @@ final class AuditTourUITests: TallyUITestCase {
             }
             snap(app, screen: "todo", state: "batchSelect", reachedVia: "Select, then two rows tapped")
             if app.buttons["todo.markDone"].exists { app.buttons["todo.markDone"].tap() }
+            // MVP-2f (fix list item 2): `todo.markDone`'s own `withAnimation { editMode = .inactive }`
+            // (`ToDoScreen.swift`) can still be in flight when the capture below starts — the
+            // gate-2 final review's own evidence: both Pro Max AX5 legs were captured with the
+            // "Cancel" bar and the "Mark Done" pill still on screen (verdict section 3). `todo.select`
+            // is the SAME toggle button in both states ("Select"/"Cancel", switched on
+            // `editMode.isEditing` — never matched by its label, which L10N translates), so once the
+            // screen settles, if `todo.markDone` is still there, batch-select mode never actually
+            // closed (for example, no "Not Done" row existed on this leg to select and mark), and
+            // tapping `todo.select` again forces it shut before the AX5 capture below.
+            _ = waitUntilAtRest(app)
+            if app.buttons["todo.markDone"].exists {
+                app.buttons["todo.select"].tap()
+                _ = waitUntilAtRest(app)
+            }
+            // MVP-2g (PMO direction, binding): capture the REAL post-Mark-Done state on every leg,
+            // whatever it is — a relaunch must never hide a real defect from the tour's own
+            // evidence trail. This is the capture gate-2's final review actually found the
+            // smallest-device defect in (verdict.md section B); it stays, unconditionally, even
+            // though the AX5-only block below now also relaunches for separate, clean chip
+            // evidence (its own doc comment just below).
+            snap(app, screen: "todo", state: "afterMarkDone", reachedVia: "tapped Mark Done, settled")
+        }
+
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — To-Do's
+        // rows below the AX5 fold had no tour evidence at all (verdict section 4). Gated on the
+        // AX5 leg only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        //
+        // MVP-2f (fix list item 2): the gate-2 final review found all 4 AX5 legs still scrolling at
+        // `maxScreens: 10` (1,483-2,124 rows still changing on each of the last 3 steps, verdict
+        // section 3). Raising it to 40 (matching Insights' own cap, `testF_insights`) was still not
+        // enough: dispatched for real (Audit tour run 38828098145), proMax's two AX5 legs reached
+        // their own true end at scroll35 (the next swipe produced no change), but smallest's two
+        // legs were still changing by ~2,000 rows a screenful at scroll40, the cap, not an
+        // unchanged body — the sample To-Do list (`planner_items.page1`/`page2.json`: 178 items
+        // total) is genuinely long, and the smallest device's narrower rows show fewer of them per
+        // screenful than proMax's.
+        //
+        // Re-dispatched twice more at `maxScreens: 70` while fixing item 3 (runs 38834373248,
+        // 38837025127): smallest's own true end is consistently 45-52 screens, comfortably inside
+        // 70. But the SECOND of those runs also surfaced a separate, pre-existing flake in
+        // `captureScreenfuls`'s own stop condition, unrelated to this count: proMax's own true end
+        // is consistently ~34-35 (three runs agree, including this one — `99-todo-scroll34.png` was
+        // already byte-identical to every scroll after it, `35` through `70`), yet that run's loop
+        // never broke, recording 36 duplicate screenshots up to the cap. The raw-PNG equality check
+        // (`pngRepresentation ==`, shared with `waitUntilAtRest`) must be seeing some difference
+        // between consecutive full-screen captures even once the scrollable content has stopped —
+        // a status-bar or glass-chrome animation is the likely source, not scroll content — but
+        // reproducing and fixing that check itself is a separate concern from this ruling, and risks
+        // changing `waitUntilAtRest`'s own behaviour everywhere else it is used (every capture in
+        // this file). Flagged for the PMO rather than guessed at here. Lowered to 60 instead of
+        // raising further: comfortably above every observed true end (34-35, 45-52), while keeping
+        // the worst case (the loop running to the cap without breaking, as it did here) safely under
+        // `tourAllowance` (560 s) at this file's own observed ~6 s/screenful rate (60 × 6 ≈ 360 s,
+        // well short of 560 even before the rest of this test method's own budget).
+        if Self.isAX5Leg {
+            // MVP-2g (item 2; gate-2 final review, `pmo-audit/.build-audit/mvp2f/review/verdict.md`
+            // section B): on both smallest-device AX5 legs, every capture from here to the list's
+            // own end showed the List's own selection circle on every row, beside the row's own
+            // done circle, 65 pt narrower than the normal list ("Miss-/ing" hyphenated mid-word) —
+            // never resolving across the full ~50-screen scroll below (the `afterMarkDone` capture
+            // above is this same, real state — kept, unconditionally, so this relaunch can never
+            // hide it: a `ToDoUITests` assertion, run on the smallest iPhone by `ci.yml`'s own
+            // "To-Do batch Mark Done exits selection mode" step, is what actually proves or
+            // disproves the defect — see that file and the report's own MVP-2g section for which).
+            //
+            // PMO direction (binding): the relaunch below is ONLY a way to get clean chip evidence
+            // for item 3 (To-Do outside select mode, at AX5, on this device) — never a way to
+            // decide or hide whether the defect is real. Every capture from here down is named
+            // `todo-afterRelaunch`, never plain `todo`, so it reads as what it is.
+            app.terminate()
+            app = launchSignedIn()
+            openTabInTour(Self.tabLabel(.toDo), in: app)
+            _ = elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15)
+            let normalList = eventually(timeout: 10) {
+                !app.buttons["todo.markDone"].exists && elementsWithPrefix("todo.complete", in: app).firstMatch.exists
+            }
+            if !normalList {
+                snap(app, screen: "todo-afterRelaunch", state: "missing-normalList", reachedVia: "fresh launch, To-Do tab")
+            }
+            scrollToTop(app)
+            captureScreenfuls(app, screen: "todo-afterRelaunch", reachedVia: "To-Do tab, AX5 scroll after a fresh relaunch " +
+                              "(item 3 chip evidence only — afterMarkDone above is the real state)", maxScreens: 60)
         }
 
         app.terminate()
@@ -390,7 +506,12 @@ final class AuditTourUITests: TallyUITestCase {
         let app = launchSignedIn()
         openTabInTour(Self.tabLabel(.insights), in: app)
         _ = element("chart.trend", in: app).waitForExistence(timeout: 30)
-        captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 10)
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): raised from 10 — the smallest
+        // device's AX5 leg hit the 10-screenful cap before `captureScreenfuls`' own "unchanged
+        // screenshot" stop condition (`smallest-light-ax5/86-insights-scroll10` ended mid-card,
+        // verdict section 4). 20 matches Settings' own cap (`testG_settingsSignedIn`), the other
+        // screen long enough to need one that high.
+        captureScreenfuls(app, screen: "insights", reachedVia: "Insights tab", maxScreens: 20)
 
         app.terminate()
         finish("F")
@@ -490,8 +611,27 @@ final class AuditTourUITests: TallyUITestCase {
         stepNumber = 120
         resetAppState()
 
-        let app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
-        _ = element("account.findMySchool", in: app).waitForExistence(timeout: 30)
+        var app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
+        // MVP-2b gate-2 round 3 (verdict item 7): round 2's `xxxLarge` leg on the smallest iPhone
+        // reached the Dashboard directly, bypassing Welcome. `resetAppState()` above asserts it
+        // reached Welcome (`LifecycleUITestSupport`), but with `continueAfterFailure = true` already
+        // set, that assertion failing would not stop this method — it would fall straight into
+        // `signInToDemoSchool`'s own cascade of "missing-<state>" screenshots, each one actually
+        // showing the Dashboard, which is how the review could tell where this had landed without
+        // this method naming it itself. One extra reset-and-relaunch, only when Welcome is not
+        // there, is cheap and self-healing; if it still is not there, a dedicated screenshot names
+        // the real state once, instead of that cascade.
+        if !element("account.findMySchool", in: app).waitForExistence(timeout: 30) {
+            app.terminate()
+            resetAppState()
+            app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.signOutButton + Self.textSizeArguments)
+            if !element("account.findMySchool", in: app).waitForExistence(timeout: 30) {
+                snap(app, screen: "demoSignIn", state: "missing-welcome", reachedVia: "reset twice, Welcome still did not appear")
+                app.terminate()
+                finish("I")
+                return
+            }
+        }
         signInToDemoSchool(app)
 
         // First sync progress, once its content is stable — racing the root switch to Home, so this
@@ -687,7 +827,30 @@ final class AuditTourUITests: TallyUITestCase {
             app.terminate()
             return
         }
+        // MVP-2f (fix list item 2): `goScrolling`'s own tap only confirms the button was hittable
+        // and tapped (this file's own doc comment on `go`), never that Parent Mode actually opened.
+        // The gate-2 final review found smallest-light-ax5 never left the Settings sheet: every
+        // "family" capture below it — `top` and `scroll1-3` — was still "Dana Sample, Explore
+        // Parent Mode, Version, Privacy Policy", mislabelled as Parent Mode (verdict section 3).
+        // `family.switcher` (the student switcher) is on screen whenever Parent Mode really is, so
+        // its absence files this leg's entry as `missing-parentDashboard`, and the rest of this
+        // screen's steps — which all assume Parent Mode — are skipped, rather than capturing and
+        // labelling the wrong screen without noticing.
+        guard element("family.switcher", in: app).waitForExistence(timeout: 10) else {
+            snap(app, screen: "family", state: "missing-parentDashboard", reachedVia: "Settings -> Explore Parent Mode")
+            if element("settings.done", in: app).exists { element("settings.done", in: app).tap() }
+            finish("N")
+            app.terminate()
+            return
+        }
         snap(app, screen: "family", state: "parentDashboard", reachedVia: "Settings -> Explore Parent Mode")
+
+        // MVP-2e (ruling 2's coverage made real, fix list item 3): AX5 scroll captures — Parent
+        // Mode had exactly one capture, never scrolled (verdict section 4). Gated on the AX5 leg
+        // only, like `textSizeArguments`' own switch, so the other seven legs are unchanged.
+        if Self.isAX5Leg {
+            captureScreenfuls(app, screen: "family", reachedVia: "Settings -> Explore Parent Mode, AX5 scroll", maxScreens: 10)
+        }
 
         let switchers = elements("family.switcher", in: app)
         let visibleSwitcher = (0..<switchers.count).map { switchers.element(boundBy: $0) }.first { $0.exists && $0.isHittable }
@@ -844,11 +1007,25 @@ final class AuditTourUITests: TallyUITestCase {
         guard go(element("account.findMySchool", in: app), app, screen: "demoSignIn", state: "schoolSearch", reachedVia: "Find My School")
         else { return }
         let searchField = schoolSearchField(app)
-        guard go(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field", timeout: 5)
+        // MVP-2b gate-2 round 3 (verdict item 7): round 2's xxxLarge leg recorded
+        // "missing-searchField" on Pro Max — the plain system `.searchable` field this size still
+        // uses (below AX1, `SchoolSearchView.swift`'s own `isAccessibilitySize` gate), under a
+        // large navigation title with xxxLarge's own large text, did not become hittable inside
+        // `go`'s plain 5 s wait. `goScrolling` degrades to the same "missing" recording if it still
+        // cannot be found, so raising the timeout and allowing a scroll (the same reasoning already
+        // applied to `continueTo` below) can only help, never regress.
+        guard goScrolling(searchField, app, screen: "demoSignIn", state: "searchField", reachedVia: "search field")
         else { return }
         searchField.typeText(Self.demoHost)
         guard go(element("schoolSearch.useAddress", in: app), app, screen: "demoSignIn", state: "useSchool",
                  reachedVia: "typed \(Self.demoHost)") else { return }
+        // MVP-2b gate-2 round 2 (item 16): `go`/`goScrolling` only screenshot on *failure*
+        // ("missing-<state>"), so the hand-off screen's own look (the school tag, "Choose a
+        // Different School") had never been captured by this tour on any device — only by the
+        // a11y audit suite's one fixed device (402 pt, `AccessibilityAuditUITests.a11yReachHandoff`).
+        // Captured here, before the tap below, so it is on screen regardless of whether
+        // `continueTo` itself needs a scroll to reach (AX5).
+        snap(app, screen: "demoSignIn", state: "handoff", reachedVia: "typed \(Self.demoHost)")
         // CI run 37639511433: `go` alone missed this at AX5 on every leg (the confirmation screen's
         // button is below the fold at that text size) — `goScrolling` degrades to the same
         // "missing" recording if it still can't be found, so this can only help, never regress.

@@ -6,10 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). compat: only ios-xcode27-forward-compat, to dispatch it without a full run. a11y: only ios-a11y-audit (AccessibilityAuditUITests/-DarkUITests/-ContrastUITests; MVP-2, run 38280762497: bundled into a plain scope=quick they hit CI's own 110-minute job cap). Pull requests run the required jobs; the PR run is the hand-off run."
+        description: "full: every job, report-only ones included. quick: Linux jobs plus ios-build, for iteration. unit: quick without the UI tests, smallest-iPhone and floor runs (about 18 min, not 47). compat: only ios-xcode27-forward-compat, to dispatch it without a full run. a11y: only ios-a11y-audit (AccessibilityAuditUITests/-DarkUITests/-ContrastUITests; MVP-2, run 38280762497: bundled into a plain scope=quick they hit CI's own 110-minute job cap). only: just ios-build's build-for-testing and the `only` input's -only-testing target(s), for a 15-20 minute iteration loop. Pull requests run the required jobs; the PR run is the hand-off run."
         type: choice
-        options: [full, quick, unit, compat, a11y]
+        options: [full, quick, unit, compat, a11y, only]
         default: full
+      only:
+        description: "scope=only: the -only-testing target(s), space-separated, e.g. TallyUITests/CalendarUITests or TallyUITests/AccessibilityAuditUITests/testToDoAX5 (check every class name against its file first). The accessibility audit classes run too when named (TALLY_A11Y_AUDIT is set; the simulator stays in Light)."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -28,9 +32,9 @@ jobs:
     name: Hygiene gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request (this
-    # is always true for both, same as having no `if:` at all).
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit, only just ios-build's filtered tests;
+    # unaffected on push or pull_request (this is always true for both, same as having no `if:` at all).
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y' && inputs.scope != 'only') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: App icon is 1024x1024 with no alpha
@@ -158,8 +162,9 @@ jobs:
     name: TallyCore tests (Linux, Swift 6.4)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit, only just ios-build's filtered tests;
+    # unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y' && inputs.scope != 'only') }}
     container:
       image: docker.io/library/swift@sha256:3fd7537e088df14007e5c9dd71a1b4d91b19067df727b17294ae0f6ea79f6423 # 6.4.0-noble; same digest as `make core-test`
     steps:
@@ -175,8 +180,9 @@ jobs:
     name: Crash-safety lint (SwiftLint 0.59.1, pinned)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit, only just ios-build's filtered tests;
+    # unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y' && inputs.scope != 'only') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make lint (force_unwrapping, force_try, force_cast, implicitly_unwrapped_optional)
@@ -186,8 +192,9 @@ jobs:
     name: TallyCore sanitizers (TSan + ASan/LSan, Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit, only just ios-build's filtered tests;
+    # unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y' && inputs.scope != 'only') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # TSan needs a memory layout that high ASLR entropy breaks. The Makefile already
@@ -213,8 +220,9 @@ jobs:
     # Timing on shared runners is noisy. Report-only until the PMO has seen five
     # green runs on main (perf-app-runtime.md D-P3); after that it becomes required.
     continue-on-error: true
-    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
+    # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit, only just ios-build's filtered tests;
+    # unaffected on push or pull_request.
+    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y' && inputs.scope != 'only') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: make core-perf (median of >= 5, release)
@@ -256,6 +264,8 @@ jobs:
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
     timeout-minutes: 110 # ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
     # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
+    # MVP-2c: scope=only runs this job with just the build-for-testing and the `only` input's filter
+    # (each step below that it skips says so in its own `if:`).
     if: ${{ github.event_name != 'workflow_dispatch' || (inputs.scope != 'compat' && inputs.scope != 'a11y') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -264,6 +274,7 @@ jobs:
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
       - name: TallyCore tests (Xcode 26.6 Swift toolchain)
+        if: ${{ inputs.scope != 'only' }}
         working-directory: packages/TallyCore
         env:
           # Debug builds on this runner are much slower than on Linux: the extreme-points
@@ -283,6 +294,8 @@ jobs:
         working-directory: apps/TallyiOS
         run: xcodegen generate --spec project.yml
       - name: Build for iOS Simulator (Debug)
+        # scope=only: the build-for-testing below builds the app as its test host anyway.
+        if: ${{ inputs.scope != 'only' }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
@@ -302,11 +315,34 @@ jobs:
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
       - name: Run TallyAppTests and TallyUITests (every failure printed in full)
         id: main_tests
+        if: ${{ inputs.scope != 'only' }}
         # `test-without-building` prints "** TEST EXECUTE SUCCEEDED **", not plain "TEST
         # SUCCEEDED" (run 36330806691); the target accepts both.
         run: |
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" ${{ inputs.scope == 'unit' && 'IOS_ONLY_TESTING=-only-testing:TallyAppTests' || '' }}
+      - name: Run only the dispatch's -only-testing targets (scope=only)
+        id: only_tests
+        # MVP-2c: a 15-20 minute loop on one class or method instead of a 75-minute PR run. The
+        # same `ios-test` target (hang limits, one retry, every failure printed). TALLY_A11Y_AUDIT
+        # is set so a named accessibility audit class runs instead of skipping; the simulator is
+        # left in its default Light appearance (the Dark class needs scope=a11y).
+        if: ${{ inputs.scope == 'only' }}
+        env:
+          ONLY: ${{ inputs.only }}
+          TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
+        run: |
+          # Free text from the dispatch form: test identifiers only (letters, digits, _ and /,
+          # space-separated), so nothing else reaches the command line.
+          if ! printf '%s' "$ONLY" | grep -Eq '^[A-Za-z0-9_/]+( [A-Za-z0-9_/]+)*$'; then
+            echo "::error::scope=only needs the 'only' input: space-separated -only-testing targets, e.g. TallyUITests/CalendarUITests"
+            exit 1
+          fi
+          flags=""
+          for target in $ONLY; do flags="$flags -only-testing:$target"; done
+          echo "scope=only filter:$flags"
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_ONLY_TESTING="$flags"
       - name: Main-thread watchdog stalls during the UI tests (phase, length)
         # Calibration evidence for the DEBUG watchdog (perf-app-runtime.md §5.1: calibrate before
         # it becomes required): every stall past 250 ms, launch-phase ones included. Needs the
@@ -315,24 +351,40 @@ jobs:
         run: make ios-watchdog-log IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
       - name: Pick the smallest iOS 26 iPhone simulator
         id: small
-        if: ${{ inputs.scope != 'unit' }}
+        if: ${{ inputs.scope != 'unit' && inputs.scope != 'only' }}
         run: python3 scripts/ci/pick_ios_simulator.py --smallest >> "$GITHUB_OUTPUT"
       - name: Welcome CTAs on the smallest iPhone (hittable at launch and at AX XXXL)
         # perf-app-runtime.md §7 step 3: both pinned CTAs are hittable right after launch on
         # the smallest available iPhone, at the default size and at the largest text size.
-        if: ${{ inputs.scope != 'unit' }}
+        if: ${{ inputs.scope != 'unit' && inputs.scope != 'only' }}
         run: |
           echo "Smallest iPhone: ${{ steps.small.outputs.name }} on ${{ steps.small.outputs.runtime }}"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
             IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/WelcomeCTAUITests IOS_RESULT_NAME=Tally-small
+      - name: To-Do batch Mark Done exits selection mode (smallest iPhone, MVP-2g)
+        # PMO direction (MVP-2g, binding): the gate-2 final review's audit tour found To-Do's
+        # List still showing its own selection accessory on every row after a batch Mark Done, on
+        # the smallest device only (`pmo-audit/.build-audit/mvp2f/review/verdict.md` section B) —
+        # never resolving across the rest of that tour leg. `ToDoScreen.swift`'s own exit
+        # (`editMode = .inactive` right after `setDone`) reads correct in the source, so this
+        # proves or disproves it for real, on the exact device the tour found it on, rather than
+        # leaving it a hypothesis. `ToDoUITests`'s own post-Mark-Done leading-inset check (MVP-2h,
+        # `pmo-audit/.build-audit/mvp2g/review/verdict.md` section 2.2: the only one of the old
+        # three that ever actually caught this) and its own no-swipe scroll-position check both
+        # run here, unchanged, against `steps.small.outputs.udid` — the whole `ToDoUITests` class.
+        if: ${{ inputs.scope != 'unit' && inputs.scope != 'only' }}
+        run: |
+          make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
+            IOS_SIM_UDID="${{ steps.small.outputs.udid }}" \
+            IOS_ONLY_TESTING=-only-testing:TallyUITests/ToDoUITests IOS_RESULT_NAME=Tally-small-todo
       - name: Pick the oldest iOS 26 simulator (deployment floor)
         id: floor
         # The floor run below runs even after a red test above, so a failure there never
         # hides the floor's own result (run 36378109668 skipped it). It needs the built tests:
         # after an earlier failure (the TallyCore step, the project, the build) it is skipped,
         # not run against nothing (app-core report O11, run 36411999390).
-        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' && inputs.scope != 'unit' }}
+        if: ${{ !cancelled() && steps.build_for_testing.outcome == 'success' && inputs.scope != 'unit' && inputs.scope != 'only' }}
         run: |
           xcrun simctl list runtimes | grep -E "^iOS" || true
           python3 scripts/ci/pick_ios_simulator.py --oldest >> "$GITHUB_OUTPUT"
@@ -372,6 +424,48 @@ jobs:
           path: ${{ runner.temp }}/ios/attachments
           if-no-files-found: ignore
           retention-days: 7
+      - name: Export every kept attachment under its readable name (scope=only evidence; no videos)
+        # MVP-2c: an iteration run's evidence without Xcode: screenshots, the audit's issue JSON and
+        # each failure's full description (the element hierarchy the console log truncates). The
+        # rename-from-manifest logic is ios-a11y-audit's own (run 38306768609's note), prefixed
+        # with the test's name; a repeated name gets a counter instead of overwriting.
+        if: ${{ always() && inputs.scope == 'only' }}
+        run: |
+          out="$RUNNER_TEMP/only-evidence"
+          mkdir -p "$out"
+          if [ -d "$RUNNER_TEMP/ios/Tally.xcresult" ]; then
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios/Tally.xcresult" --output-path "$out" || true
+          fi
+          python3 - "$out" <<'PY'
+          import json, os, re, sys
+          root = sys.argv[1]
+          manifest = os.path.join(root, "manifest.json")
+          if os.path.isfile(manifest):
+              for test in json.load(open(manifest)):
+                  prefix = re.sub(r"[^A-Za-z0-9._-]", "_", test.get("testIdentifier", "test"))
+                  for a in test.get("attachments", []):
+                      name = re.sub(r"_\d+_[0-9A-F-]{36}(\.\w+)$", r"\1", a["suggestedHumanReadableName"])
+                      name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+                      src = os.path.join(root, a["exportedFileName"])
+                      dst = os.path.join(root, prefix + "__" + name)
+                      stem, ext = os.path.splitext(dst)
+                      n = 2
+                      while os.path.exists(dst):
+                          dst = f"{stem}-{n}{ext}"
+                          n += 1
+                      if os.path.exists(src):
+                          os.rename(src, dst)
+          PY
+          find "$out" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -delete
+          find "$out" -type f | sort | head -300
+      - name: Upload the scope=only evidence
+        if: ${{ always() && inputs.scope == 'only' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: only-evidence
+          path: ${{ runner.temp }}/only-evidence
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Collect simulator crash reports
         # perf-app-runtime.md §6: a crash (for example the DEBUG main-thread watchdog's
         # deliberate one) leaves an .ips report. ReportCrash writes it a few seconds after the
@@ -404,8 +498,8 @@ jobs:
       - name: Build for iOS device (Release, unsigned)
         id: device_build
         # Also after a test failure, so a red test never hides a link or nm regression below;
-        # but not without a generated project (O11).
-        if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
+        # but not without a generated project (O11). Not for scope=only (a filtered test loop).
+        if: ${{ !cancelled() && steps.generate.outcome == 'success' && inputs.scope != 'only' }}
         working-directory: apps/TallyiOS
         run: |
           set -o pipefail
@@ -524,6 +618,8 @@ jobs:
           # How the production Keychain group behaved on this runner (WidgetGlanceKeychainTests).
           grep -h "WIDGET-KEYCHAIN" "$RUNNER_TEMP/ios/Tally-test.log" || echo "no WIDGET-KEYCHAIN line in the test log"
       - name: Verify built app identity
+        # Reads the Release device build, which scope=only skips.
+        if: ${{ inputs.scope != 'only' }}
         run: |
           app="$(find "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist"
@@ -583,14 +679,20 @@ jobs:
           xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
       - name: Build TallyAppTests + TallyUITests for testing
         run: make ios-build-for-testing IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd"
+      # MVP-2b: `IOS_RETRY=` (no retry) in this dispatch-only measurement scope. An audit finding
+      # is deterministic, so a retry re-reports the same issues and doubles a failing class's time
+      # (run 38313859274: 72 min of a 90-min cap); the release gate keeps its own retry. The Light
+      # step also runs FamilyUITests' two switcher audits, which judge the parent-mode screen by the
+      # suite's shared rules since MVP-2b (they used a prefix filter; docs/pmo/a11y-waivers.md).
       - name: "Accessibility audit: Light (default size, all types; AX5, dynamicType+textClipped)"
         env:
           TEST_RUNNER_TALLY_A11Y_AUDIT: "1"
         run: |
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
-            IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditUITests IOS_RESULT_NAME=Tally-a11y-light
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
+            IOS_ONLY_TESTING="-only-testing:TallyUITests/AccessibilityAuditUITests -only-testing:TallyUITests/FamilyUITests/testSwitcherPassesTheAccessibilityAudit -only-testing:TallyUITests/FamilyUITests/testSwitcherAtAX5ShowsInitialsAndPassesTheAudit" \
+            IOS_RESULT_NAME=Tally-a11y-light
       - name: "Accessibility audit: Dark (default size, all types)"
         if: ${{ !cancelled() }}
         env:
@@ -598,7 +700,7 @@ jobs:
         run: |
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditDarkUITests IOS_RESULT_NAME=Tally-a11y-dark
       - name: "Accessibility audit: Increase Contrast (default size, .contrast only)"
         # ux-ui.md §3.9 "Harness": `simctl ui`'s `increase_contrast` subcommand is UNVERIFIED on
@@ -612,7 +714,7 @@ jobs:
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast enabled \
             || echo "simctl ui increase_contrast not available on this runner; relying on the suite's own launch-argument fallback"
           make ios-test IOS_OUT="$RUNNER_TEMP/ios" IOS_DERIVED="$RUNNER_TEMP/dd" \
-            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" \
+            IOS_SIM_UDID="${{ steps.sim.outputs.udid }}" IOS_RETRY= \
             IOS_ONLY_TESTING=-only-testing:TallyUITests/AccessibilityAuditContrastUITests IOS_RESULT_NAME=Tally-a11y-contrast
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" increase_contrast disabled 2>/dev/null || true
       - name: Export the audit's issue JSON (evidence, not just a pass/fail count)
@@ -651,7 +753,9 @@ jobs:
                       if os.path.exists(src) and not os.path.exists(dst):
                           os.rename(src, dst)
           PY
-          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' -delete
+          # MVP-2b: keep the audit-moment screenshots (`*-audit-screen.png`) too, so every
+          # contrast issue can be measured from its own pixels without a device.
+          find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' ! -iname '*audit*.png' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

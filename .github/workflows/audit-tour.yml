@@ -23,7 +23,12 @@ on:
         description: 'JSON list: light, dark'
         default: '["light","dark"]'
       sizes:
-        description: 'JSON list: std, ax5 (AccessibilityXXXL)'
+        description: >-
+          JSON list: std, ax5 (AccessibilityXXXL), xxxLarge (the largest standard size, one step
+          below AX1 — MVP-2b gate-2 round 2 item 16; this size's own leg always runs only
+          testB_coursesAndFirstCourseDetail, testD_calendar, testI_demoSignInProgress and (MVP-2g,
+          item 3: StatusChipRow's new xxxLarge branch had no evidence) testE_toDo, regardless of
+          the tests input, so adding it to std/ax5's default coverage is cheap)
         default: '["std","ax5"]'
       tests:
         description: 'Comma-separated AuditTourUITests methods (e.g. testA_dashboard,testE_toDo); empty = all'
@@ -124,8 +129,21 @@ jobs:
           TEST_RUNNER_AUDIT_LANGUAGE: ${{ inputs.language }}
         run: |
           TESTS=""
-          for t in $(echo "${{ inputs.tests }}" | tr ',' ' '); do TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/$t"; done
-          [ -n "$TESTS" ] || TESTS="-only-testing:TallyUITests/AuditTourUITests"
+          # MVP-2b gate-2 round 2 (item 16): the xxxLarge leg always captures only Courses,
+          # Calendar and the hand-off (ignoring the `tests` input), so one dispatch can add
+          # `xxxLarge` to `sizes` alongside std/ax5 ("all methods, 8 legs, plus the new size
+          # option for the listed screens") without tripling every leg's own runtime.
+          if [ "${{ matrix.textSize }}" = "xxxLarge" ]; then
+            TESTS="-only-testing:TallyUITests/AuditTourUITests/testB_coursesAndFirstCourseDetail"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testD_calendar"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testI_demoSignInProgress"
+            # MVP-2g (item 3): StatusChipRow's new xxxLarge branch (ScreenComponents.swift,
+            # usesFullRowWidth) had no tour evidence anywhere (gate-2 final review, verdict §C).
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testE_toDo"
+          else
+            for t in $(echo "${{ inputs.tests }}" | tr ',' ' '); do TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/$t"; done
+            [ -n "$TESTS" ] || TESTS="-only-testing:TallyUITests/AuditTourUITests"
+          fi
           if [ "${{ inputs.widgets }}" = "true" ] && [ "${{ matrix.device }}" = "proMax" ] && [ "${{ matrix.appearance }}" = "light" ] && [ "${{ matrix.textSize }}" = "std" ]; then
             TESTS="$TESTS -only-testing:TallyAppTests/WidgetFamilyRenderTests"
           fi
