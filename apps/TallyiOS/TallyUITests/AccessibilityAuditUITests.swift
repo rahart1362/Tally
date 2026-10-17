@@ -47,6 +47,12 @@ import XCTest
 final class AccessibilityAuditUITests: TallyUITestCase {
     private var runs = false
 
+    /// MVP-2i: every launch in this suite pins Sample Data's "now" (`TallyUITestCase`'s own doc
+    /// comment on `defaultTestHookArguments` has why) — the sample fixtures' dates are relative to
+    /// today, and this suite's elementless-hold cap (Calendar's own 3, below) must read the same
+    /// candidates on any day the audit runs.
+    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         try skipUnlessA11yAuditScopeIsSet()
@@ -243,6 +249,9 @@ final class AccessibilityAuditUITests: TallyUITestCase {
 final class AccessibilityAuditDarkUITests: TallyUITestCase {
     private var runs = false
 
+    /// MVP-2i: see `AccessibilityAuditUITests`' own doc comment on this override.
+    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         try skipUnlessA11yAuditScopeIsSet()
@@ -303,6 +312,9 @@ final class AccessibilityAuditDarkUITests: TallyUITestCase {
 /// two-mechanism rationale).
 final class AccessibilityAuditContrastUITests: TallyUITestCase {
     private var runs = false
+
+    /// MVP-2i: see `AccessibilityAuditUITests`' own doc comment on this override.
+    override class var defaultTestHookArguments: [String] { TestHooks.fixedNowWednesday }
 
     override func setUpWithError() throws {
         try super.setUpWithError()

@@ -64,6 +64,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         /// active account's refresh record says its last refresh was attempted then (O5). The launch
         /// refresh runs after a stale attempt and waits out `minAutoRefreshInterval` after a recent one.
         public static let lastRefreshAttempt = "TallyTestHooks.lastRefreshAttempt"
+        /// An ISO-8601 instant (e.g. `2026-10-14T12:00:00Z`): pins "now" at the account
+        /// environment's own clock seam, which every account path and Sample Data (`AppModel.
+        /// enterSample()`/`enterSampleFamily()`) already read `clock` through. MVP-2i: the sample
+        /// data's dates (and so the Calendar layout, and which rows sit under the bars) are
+        /// relative to today, so an a11y audit run against the real clock never repeats; this pins
+        /// the day the audit runs against, so two runs on the same commit agree. Parsed with
+        /// `ISO8601DateFormatter`; an unparsable value is ignored (the real clock keeps running).
+        public static let fixedNow = "TallyTestHooks.fixedNow"
     }
 
     /// The demo school's registration (the flagship persona's host; a synthetic client ID).
@@ -82,6 +90,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public let signOutButton: Bool
     public let emptyScene: Bool
     public let lastRefreshAttempt: String?
+    public let fixedNow: Date?
 
     /// Parses `-TallyTestHooks.<name> <value>` pairs; anything else is ignored.
     public init(arguments: [String]) {
@@ -111,12 +120,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         signOutButton = flag(Key.signOutButton)
         emptyScene = flag(Key.emptyScene)
         lastRefreshAttempt = values[Key.lastRefreshAttempt]
+        fixedNow = values[Key.fixedNow].flatMap { ISO8601DateFormatter().date(from: $0) }
     }
 
     /// Whether any hook is on. `AppEnvironment` keeps no hooks object when none is.
     public var isActive: Bool {
         seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork
             || trapAllNetwork || demoSignIn || signOutButton || emptyScene || lastRefreshAttempt != nil
+            || fixedNow != nil
     }
 
     private static func authResult(_ name: String) -> AppLockPolicy.AuthResult? {
@@ -133,15 +144,19 @@ public nonisolated struct LaunchTestHooks: Sendable {
     // MARK: - Overrides (the composition root applies them before building the app model)
 
     /// The account's gateway and transport: a blocked network, or the flagship replay behind a
-    /// stubbed token endpoint.
+    /// stubbed token endpoint. `fixedNow` is applied first, so the replay gateway below (and every
+    /// other reader of `AccountEnvironment.clock`: Sample Data's `AppModel.enterSample()`/
+    /// `enterSampleFamily()`, the signed-in account's own coordinator) reads the pinned clock, not
+    /// the real one.
     public func configure(_ environment: AccountEnvironment) -> AccountEnvironment {
         var configured = environment
+        if let fixedNow { configured = configured.replacingClock(FixedDateProvider(date: fixedNow)) }
         if demoSignIn { configured = configured.replacingTransport(DemoCanvasTransport()) }
         if trapAllNetwork { configured = configured.replacingTransport(TrapTransport()) }
         if blockNetwork {
             configured = configured.replacingGateway { _ in BlockedNetworkGateway() }
         } else if replayAccounts || demoSignIn {
-            let clock = environment.clock
+            let clock = configured.clock
             configured = configured.replacingGateway { account in ReplayAccountGateway(account: account.accountKey, clock: clock) }
         }
         return configured
@@ -251,6 +266,13 @@ extension CanvasSnapshot {
 }
 
 // MARK: - Stand-ins
+
+/// `fixedNow`: one instant for every clock read reached through `AccountEnvironment.clock`
+/// (`DateProviding` stand-in).
+nonisolated struct FixedDateProvider: DateProviding {
+    let date: Date
+    func now() -> Date { date }
+}
 
 /// The account's Canvas as the bundled flagship replay (the sample-mode pipeline, no network),
 /// stamped with the account's key. The replay is built on the first fetch.
