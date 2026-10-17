@@ -117,7 +117,14 @@ check for a Debug-configuration flow), 0 FAIL, 0 WARN.**
   failedTests=0` from the xcresult; the other three legs the same shape), `postprocess` green
   (self-test passed, then `--raw`/`--contact-sheets`/`REL.store.screenshots` all green).
 
-This satisfies **Gate 1**: the release-gate run shows `REL.store.screenshots` PASS and 0 FAIL.
+**Release gate 2/2** (post-merge, with the fixed-date hook adopted):
+[39029927385](https://github.com/rahart1362/Tally/actions/runs/39029927385) (commit `72f75d4`).
+Same clean result: **90 PASS, 16 PENDING, 0 FAIL, 0 WARN**; `REL.store.screenshots` PASS (32/32);
+`REL.flow.15-review-path` PASS. See §8 for why this run's captures still are not the FINAL set.
+
+This satisfies **Gate 1** as specified (`REL.store.screenshots` PASS, 0 FAIL) in both runs. §8
+explains why the capture *content* (dates) still needs an upstream fix before these are
+Store-ready.
 
 ## 6. Gate 1's own 200% review (this engineer's evidence)
 
@@ -133,40 +140,103 @@ calendar in both appearances; insights in Spanish; parent mode in light). Findin
   is cut mid-word; it reads as "there's more below").
 - Light and dark both render with correct contrast; Spanish text (Insights, verified) reads
   correctly with no truncation in the sampled scene.
-- Dates are the live clock (e.g. "Today · Sat, Oct 17"), not a fixed date — expected: see "Open
-  items" below.
+- Dates are the live clock (e.g. "Today · Sat, Oct 17"), not a fixed date — expected at this point
+  (MVP-2i's hook had not merged yet). **Update, §8: after adopting the hook, the dates are STILL
+  live for 7 of 8 scenes** — not expected, and not a defect in this pipeline. See §8 for the root
+  cause and the fix this needs (outside this package).
 
 ## 7. The gallery
 
 `scripts/release/screenshots.py --contact-sheets`: one `owner-sheet-<language>.jpg` per language,
 light|dark per scene row, each under 1.5 MB and under 4000 px tall (split into numbered parts).
-From release gate 1/2's `store-screenshots-final` artifact
-(`pmo-audit/.build-audit/mvp3/release-gate-1/store-screenshots-final/contact-sheets/`):
+Current (most recent, fixed-date-hook-adopted, but see §8 for the still-live dates on 7/8 scenes)
+evidence is release gate 2/2's `store-screenshots-final` artifact, downloaded to
+`pmo-audit/.build-audit/mvp3/release-gate-2/store-screenshots-final/contact-sheets/`:
 
 | File | Size | Dimensions |
 | :-- | :-- | :-- |
-| `owner-sheet-en-1.jpg` | 321,114 bytes | 631×3400 |
-| `owner-sheet-en-2.jpg` | 173,283 bytes | 631×2040 |
-| `owner-sheet-es-1.jpg` | 328,880 bytes | 631×3400 |
-| `owner-sheet-es-2.jpg` | 179,349 bytes | 631×2040 |
+| `owner-sheet-en-1.jpg` | 318,759 bytes | 631×3400 |
+| `owner-sheet-en-2.jpg` | 174,482 bytes | 631×2040 |
+| `owner-sheet-es-1.jpg` | 324,671 bytes | 631×3400 |
+| `owner-sheet-es-2.jpg` | 181,524 bytes | 631×2040 |
 
-All 32 final images: `pmo-audit/.build-audit/mvp3/release-gate-1/store-screenshots-final/final/`
-(`manifest.json` alongside them: 32 images, 0 missing, 0 errors).
+All 32 final images: `pmo-audit/.build-audit/mvp3/release-gate-2/store-screenshots-final/final/`
+(`manifest.json` alongside them: 32 images, 0 missing, 0 errors). Release gate 1/2's equivalent
+(pre-fixed-date-hook, live clock throughout) is kept at
+`pmo-audit/.build-audit/mvp3/release-gate-1/store-screenshots-final/` for comparison.
 
-## 8. Open items
+## 8. FINAL-capture attempt (2026-10-17, after MVP-2i merged) — a blocking upstream defect found
 
-1. **Not the FINAL captures.** The scenes above use the live clock (today's real date), as the
-   brief directs — MVP-2i's fixed-date hook (`mvp/a11y-test-followups`) has not merged yet per the
-   PMO. Once the PMO confirms the merge, `origin/main` will be merged into this branch and the
-   FINAL captures taken with that hook; no second date hook was built here.
+Per the PMO: MVP-2i (PR #58) merged (`main @ f3fcea0`). Merged `origin/main` into this branch
+(commit `72f75d4`) and adopted the fixed-date hook: `StoreScreenshotUITests` now overrides
+`defaultTestHookArguments` with `TestHooks.fixedNowWednesday`
+(`-TallyTestHooks.fixedNow 2026-10-14T12:00:00Z`), the same mechanism `AuditTourUITests` already
+uses. Verified against the actual code before changing anything (not taken on faith): `LaunchTestHooks.Key.fixedNow`,
+`TallyUITestCase.defaultTestHookArguments`, and `TestHooks.fixedNowWednesday` all read exactly as
+described. Re-ran release gate 2/2 ([39029927385](https://github.com/rahart1362/Tally/actions/runs/39029927385)):
+same clean result as gate 1 — **90 PASS, 16 PENDING, 0 FAIL, 0 WARN**, `REL.store.screenshots`
+PASS (32/32), `REL.flow.15-review-path` PASS.
+
+**But the 200% re-review found the dates are still wrong for 7 of the 8 scenes.** Calendar
+(`06-calendar-light-en.png`) still headers "Today · Sat, Oct 17" with the 17 ringed in the week
+strip — the real device date, not the fixed Wednesday Oct 14. Every scene reached through
+`launchSignedIn()` (scenes 1–7: Dashboard, Courses, Course detail, What-If, To-Do, Calendar,
+Insights) shows the same live-clock "today." Only scene 8 (parent mode, reached through "Explore
+with Sample Data") is correctly pinned.
+
+**Root cause, traced and confirmed by reading the code (not guessed):**
+- `packages/TallyAppleKit/Sources/TallyFeatures/Shell/AppModel.swift:353` —
+  `makeSignedInHome(_:root:)` (the path every signed-in launch takes, including
+  `TestHooks.replayAccounts`/`seedFlagship`, used by `launchSignedIn()` here) constructs
+  `HomeModel(source: AccountHomeSource(runtime: accountRuntime), localStore: localStore,
+  userState: userState)` — **with no `clock:` argument.**
+- `packages/TallyAppleKit/Sources/TallyFeatures/Home/HomeModel.swift:66,93` — `clock` is `private
+  let`, defaulted in the initializer to `SystemDateProvider()`. Omitting the argument at the call
+  site permanently locks that `HomeModel` instance to the real system clock; there is no way to
+  change it after construction.
+- Contrast with `AppModel.swift:240`, `enterSample()` (scene 8's own path): `home = HomeModel(source:
+  SampleSession(clock: clock, logger: logger), clock: clock)` — passes `clock:` explicitly. That
+  function's own doc comment (written by the MVP-2i engineer) names exactly this bug class: *"Before
+  this, both defaulted to a fresh `SystemDateProvider()` of their own — never this model's — so a
+  `fixedNow` hook never reached Sample Data at all."* MVP-2i fixed it for Sample Data's own
+  `HomeModel` construction but did not touch `makeSignedInHome`, so the identical bug remains on the
+  signed-in account path.
+- The fix (unverified, not applied — see below) is almost certainly adding `clock: clock` to the
+  `HomeModel(...)` call at `AppModel.swift:353`, mirroring line 240. One line, in a file this work
+  package does not own.
+
+**Not fixed here.** `AppModel.swift` is shared Shell/account-lifecycle code, not part of this
+package's ownership (`StoreScreenshotUITests.swift`, `scripts/release/screenshots.py`,
+`check_release.py`, the two workflow files), and the brief is explicit: "If a scene needs a UI fix,
+report it; don't make it." Recorded here with exact `file:line` instead, per rule 8.
+
+**Consequence for this work package:** `REL.store.screenshots` still PASSES — it only checks scene
+count, size and format, not date content, so the gate itself is unaffected and accurately describes
+what it was built to check. But these are **not yet the FINAL, ship-ready captures**: 7 of 8 scenes
+still carry the live capture date, which will drift on every future run until `AppModel.swift:353`
+gets its `clock:` argument. The captures in `pmo-audit/.build-audit/mvp3/release-gate-2/` (release
+gate 2/2, commit `72f75d4`) are the most recent, correctly-hooked-on-the-test-side evidence, but
+should not be treated as the final Store submission set until that one-line fix lands and this
+pipeline re-captures.
+
+## 9. Open items
+
+1. **BLOCKING for the FINAL submission set — not this work package's fix.** 7 of 8 scenes
+   (everything but parent mode) still show the live capture date, not the fixed Wednesday Oct 14,
+   because of a one-line gap in shared Shell code: `AppModel.swift:353`'s `makeSignedInHome`
+   never passes `clock:` into its `HomeModel(...)` call, so that model permanently defaults to
+   `SystemDateProvider()` regardless of the `fixedNow` launch hook. See §8 for the full trace. The
+   likely fix is `clock: clock` added at that call site (mirroring `AppModel.swift:240`'s
+   `enterSample()`), but that file belongs to another lane and was not touched here. Re-dispatching
+   this pipeline after that fix lands is the remaining step to a true FINAL capture set.
 2. **DEBUG band / Release-like build — unresolved, as flagged by the brief.** `make
    ios-build-for-testing` (what both `audit-tour.yml` and `store-screenshots.yml` use) builds the
    scheme's `test` configuration, pinned to Debug in `project.yml` — the same configuration the
    Audit tour already runs under, since neither workflow supports a Release-like UI-test build
    today (that is M5's own UITest-configuration work; `check_release.py`'s existing
-   `flow.*.release-config` checks already track it). No DEBUG band was visible in the 200% review
-   above, but this was not verified against a Release build, per the brief's own instruction to
-   record it as an open item rather than build one.
+   `flow.*.release-config` checks already track it). No DEBUG band was visible in the 200% review,
+   but this was not verified against a Release build, per the brief's own instruction to record it
+   as an open item rather than build one.
 3. **Scene 8 shows the "SAMPLE DATA" banner; scenes 1–7 do not.** Scenes 1–7 use the seeded
    flagship replay persona (`TestHooks.seedFlagship`), which carries no banner. Scene 8 (parent
    mode) is reached only through "Explore with Sample Data," which shows the persistent `SAMPLE
@@ -180,9 +250,12 @@ All 32 final images: `pmo-audit/.build-audit/mvp3/release-gate-1/store-screensho
 5. **"2 screenshot dispatches" budget line could not be used as written** — see §3's platform-
    constraint note. The pipeline was verified through the release-gate dispatch instead.
 
-## 9. CI budget used
+## 10. CI budget used
 
-- `scope=quick`: 1 of 2 (run 38994296813).
-- Standalone screenshot dispatch: 0 of 2 (blocked pre-merge; see §3 and open item 5).
-- Release gate: 1 of 2 (run 39001547219, 0 FAIL).
-- PR run: pending (hand-off).
+- `scope=quick`: 1 of 2 (run 38994296813); the PR run also re-triggered automatically after the
+  merge (runs 39008921631, 39024476560 — both green), which is not a separate budgeted dispatch.
+- Standalone screenshot dispatch: 0 of 2 (blocked pre-merge and post-merge alike; see §3 and open
+  item 5 — `store-screenshots.yml` only becomes independently dispatchable once this PR merges).
+- Release gate: 2 of 2 (run 39001547219 before the fixed-date hook, run 39029927385 after — both
+  0 FAIL; the second is the one with the hook adopted, still showing the §8 date defect).
+- PR run: pending final push (hand-off).
