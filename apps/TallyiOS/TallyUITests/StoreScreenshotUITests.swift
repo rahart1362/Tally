@@ -118,38 +118,89 @@ final class StoreScreenshotUITests: TallyUITestCase {
         return app
     }
 
-    /// MVP-3 gate-2 review (I1, fix list item 1's "either way"): fails loudly if any `staticText`
-    /// that is not itself a tab-bar label sits under the floating tab bar's own frame. Scenes with
-    /// no tab bar on screen (the What-If sheet) skip silently. This is a hard check, not a
-    /// heuristic: the owner's binding bar is "no content under the bars" (pmo-ux-common.md), and
-    /// the app-wide `.scrollEdgeEffectStyle(.hard, for: .bottom)` fix (`TallyScreenChrome`) is what
-    /// is actually supposed to prevent it — this just proves it did, on every capture, not only the
-    /// ones a reviewer happens to crop.
+    /// MVP-3b (branch audit's clean plan, F1 — rewrites 2acdbee's own version, which failed every
+    /// scene: `AccessibilityAuditUITests.swift`'s `A11yScene` tab-label-text filter missed every
+    /// row genuinely hidden by the bar's hard scroll edge, since a scrolled row's accessibility
+    /// frame reaching into the tab bar's Y-range does not by itself mean it is visible there — the
+    /// bar's own now-opaque chrome can cover it at rest. Runs on the SAME `XCUIScreenshot` attached
+    /// as the store image (measure exactly what was captured), building an `A11yScene` from it for
+    /// structural exclusion (`chromeOwnContent`: the bar's own descendants, never a label-text
+    /// guess) and the pixel proof (`measureBottomChromeCoverage`, `measureHardEdgeBandTop` —
+    /// `AccessibilityAuditUITests.swift`'s own type, the same one `scope=a11y` already proves the
+    /// top chrome with).
+    ///
+    /// The union is the tab bar's own frame plus `TallyScreenChrome`'s hard bottom scroll-edge's
+    /// own measured gradient band directly above it. A `staticText` with a positive but partial
+    /// overlap (under two thirds of its own on-screen height) inside that union fails outright — a
+    /// real straddle, half shown and half cut off, which the pixel proof below is not meant to
+    /// excuse. One at least two thirds inside still needs that proof on each part it reaches: at
+    /// least 95% of its own pixels within 1.2:1 of that part's own colour, and no pixel row above
+    /// 1.5:1 — genuinely invisible, not merely "mostly" under the bar.
+    ///
+    /// Skips entirely while a sheet with no tab bar of its own is on screen (What-If, the only
+    /// sheet this suite ever captures): the tab bar's own element can still report `exists` from
+    /// underneath a presented sheet (it never leaves the hierarchy, only the screen), so rows
+    /// behind the sheet must never be judged against it. Detected structurally, by the sheet's own
+    /// "Done" identifier, not by counting bars or guessing at presentation state.
     @MainActor
-    private func assertNothingUnderTheTabBar(_ app: XCUIApplication, scene: String) {
+    private func assertNothingUnderTheTabBar(_ app: XCUIApplication, screenshot: XCUIScreenshot, scene: String) {
+        guard !element("whatif.done", in: app).exists else { return }
         let tabBar = app.tabBars.firstMatch
         guard tabBar.exists else { return }
         let tabBarFrame = tabBar.frame
-        let tabLabels = Set(app.tabBars.buttons.allElementsBoundByIndex.map(\.label))
-        let offenders = app.staticTexts.allElementsBoundByIndex.filter { text in
-            text.exists && text.frame.intersects(tabBarFrame) && !tabLabels.contains(text.label)
+        let a11yScene = A11yScene(app, screenshot: screenshot.image)
+        let band = a11yScene.measureHardEdgeBandTop(aboveBar: tabBarFrame).map { bandTop in
+            CGRect(x: tabBarFrame.minX, y: bandTop, width: tabBarFrame.width, height: tabBarFrame.minY - bandTop)
         }
-        XCTAssertTrue(offenders.isEmpty,
-                     "\(scene): content under the tab bar: " +
-                     "\(offenders.map { "'\($0.label)' \($0.frame)" }). Tab bar frame: \(tabBarFrame). " +
+        let union = band.map { tabBarFrame.union($0) } ?? tabBarFrame
+        var straddling: [String] = []
+        var hidden: [String] = []
+        for text in app.staticTexts.allElementsBoundByIndex {
+            guard text.exists else { continue }
+            let rawFrame = text.frame
+            // Structural exclusion (not label text): the bar's own descendants (its tab labels),
+            // recorded by true tree ancestry during the same snapshot `a11yScene` was built from.
+            guard !a11yScene.chromeOwnContent.contains(where: { A11yScene.same($0, rawFrame) }) else { continue }
+            let frame = rawFrame.intersection(a11yScene.window)
+            guard frame.height > 0, frame.width > 0 else { continue }
+            let overlap = union.intersection(frame)
+            let overlapHeight = overlap.isNull ? 0 : overlap.height
+            guard overlapHeight > 0 else { continue }
+            let fraction = overlapHeight / frame.height
+            guard fraction >= 2.0 / 3.0 else {
+                straddling.append("'\(text.label)' \(frame), \(String(format: "%.0f", fraction * 100))% inside the union")
+                continue
+            }
+            let measured = a11yScene.measureBottomChromeCoverage(tabBar: tabBarFrame, band: band, regionFrame: frame,
+                                                                   excluding: a11yScene.chromeOwnContent)
+            let passes = measured.map { $0.coverage >= A11yScene.navBarCoverageThreshold
+                && $0.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold } ?? false
+            guard passes else {
+                let detail = measured.map { "coverage \(String(format: "%.1f", $0.coverage * 100))%, max glyph contrast " +
+                    "\(String(format: "%.2f", $0.maxGlyphContrast)):1" } ?? "no measurable pixels"
+                hidden.append("'\(text.label)' \(frame), \(String(format: "%.0f", fraction * 100))% inside the union, \(detail)")
+                continue
+            }
+        }
+        XCTAssertTrue(straddling.isEmpty && hidden.isEmpty,
+                     "\(scene): content under the tab bar/hard-edge band union (\(union)). " +
+                     "Straddling (positive overlap, under two thirds inside): \(straddling). " +
+                     "Not proven hidden (two thirds or more inside, but the pixel proof failed): \(hidden). " +
                      "Hierarchy: \(app.debugDescription)")
     }
 
     /// Waits at rest (`AuditTourUITests.waitUntilAtRest`'s own rule: two screenshots 0.4 s apart,
-    /// pixel-identical, up to 6 s — pmo-ux-common.md's "captures only at rest"), checks nothing
-    /// sits under the tab bar (I1), then attaches the screenshot as `NN-<scene>`.
+    /// pixel-identical, up to 6 s — pmo-ux-common.md's "captures only at rest"), then checks
+    /// nothing sits under the tab bar/hard-edge band union (I1) on the SAME screenshot before
+    /// attaching it as `NN-<scene>`.
     @MainActor
     private func capture(_ app: XCUIApplication, number: Int, scene: String) {
-        assertNothingUnderTheTabBar(app, scene: scene)
         let settled = waitUntilAtRest(app)
         XCTAssertTrue(settled, "\(scene) never settled before capture. Hierarchy: \(app.debugDescription)")
+        let screenshot = app.screenshot()
+        assertNothingUnderTheTabBar(app, screenshot: screenshot, scene: scene)
         let name = String(format: "%02d-%@", number, scene)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: screenshot)
         shot.name = name
         shot.lifetime = .keepAlways
         add(shot)
@@ -237,26 +288,26 @@ final class StoreScreenshotUITests: TallyUITestCase {
                      "What-If opened with no content. Hierarchy: \(app.debugDescription)")
         app.swipeUp() // fully presented, like AuditTourUITests.testB2_firstCourseMenuAndWhatIf.
 
-        // MVP-3 gate-2 review (I3): the scene must show the feature exercised, not the empty
-        // initial state (every field at its placeholder, every slider at 0, Reset disabled,
-        // "Projected" equal to the course's current grade -- CourseDetailUITests' own baseline
-        // phrase, "the same as your current grade", reused here for the same reason it uses it).
-        // Types a score into the first item and taps a quick-fill preset on the second: the same
-        // two input mechanisms CourseDetailUITests exercises separately (slider, typed digits),
-        // here together with presets so the capture shows a genuinely different projection.
-        XCTAssertTrue(eventually(timeout: 10) { projected.label.contains("the same as your current grade") },
-                     "the baseline never landed: '\(projected.label)'")
-        let firstField = elements("whatif.field", in: app).element(boundBy: 0)
-        XCTAssertTrue(firstField.waitForExistence(timeout: 10), "no What-If score field. Hierarchy: \(app.debugDescription)")
-        firstField.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertTrue(eventually(timeout: scaled(5)) { app.keyboards.count > 0 },
-                     "the score field never took the keyboard. Hierarchy: \(app.debugDescription)")
-        firstField.typeText("47")
+        // MVP-3b (branch audit's clean plan, F3): the scene must show the feature exercised, not
+        // the empty initial state. The gate-2 fix (`2acdbee`) matched the baseline against an
+        // English phrase ("the same as your current grade"), which every es leg failed (gates
+        // 39093421442, 39104275778, 39111609633): compares `whatif.projected`'s own label against
+        // itself, before and after, which is locale-free by construction -- whatever the sentence
+        // says, in any language, it changes once the projection actually moves. Two quick-fill
+        // presets (not the text field) move it without ever bringing up the keyboard: the branch
+        // audit's own finding was that the decimal pad has no dismiss key and stays up through the
+        // capture (`evidence/E4`), which this avoids rather than works around.
+        let baselineLabel = projected.label
+        XCTAssertFalse(baselineLabel.isEmpty, "the What-If baseline never landed. Hierarchy: \(app.debugDescription)")
+        let firstPreset = elements("whatif.quickFill.90", in: app).element(boundBy: 0)
+        XCTAssertTrue(firstPreset.waitForExistence(timeout: 10), "no first item's 90% preset. Hierarchy: \(app.debugDescription)")
+        firstPreset.tap()
         let secondPreset = elements("whatif.quickFill.90", in: app).element(boundBy: 1)
         XCTAssertTrue(secondPreset.waitForExistence(timeout: 5), "no second item's 90% preset. Hierarchy: \(app.debugDescription)")
-        secondPreset.tap() // a tap on a different control dismisses the keyboard.
-        XCTAssertTrue(eventually(timeout: 15) { !projected.label.contains("the same as your current grade") },
-                     "the projection did not move after entering a score and a preset: '\(projected.label)'")
+        secondPreset.tap()
+        XCTAssertTrue(eventually(timeout: 15) { projected.label != baselineLabel },
+                     "the projection did not move after two quick-fill presets: '\(projected.label)'")
+        XCTAssertEqual(app.keyboards.count, 0, "the keyboard must not be up for the capture. Hierarchy: \(app.debugDescription)")
         let resetButton = element("whatif.reset", in: app)
         XCTAssertTrue(resetButton.isEnabled, "Reset stayed disabled after exercising What-If. Hierarchy: \(app.debugDescription)")
 
