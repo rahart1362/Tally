@@ -431,10 +431,36 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
   (`testBottomChromeStripReadabilityHoldPassesAtOrAbove4Point5To1`); a row at about 3:1 must still
   fail (`testBottomChromeStripReadabilityHoldFailsBelow4Point5To1`).
 
-  **Evidence (filled in once dispatched — UNVERIFIED until then).** Both measured numbers (plus
-  the overlap fraction and each part's own numbers for rule 1) are recorded in the held reason
-  (`A11yScene.bottomChromeHoldReason`). The measured band top on each device, and the run IDs that
-  measured it, go here once the `scope=a11y` dispatch for this work package (MVP-3b) has run.
+  **Evidence.** Both measured numbers (plus the overlap fraction and each part's own numbers for
+  rule 1) are recorded in the held reason (`A11yScene.bottomChromeHoldReason`).
+
+  - **Round 1 (scope=a11y run 39121000046, `mvp/screenshots-v2`) failed**: `testCourses` (Light),
+    "87.2%" (y 765–783) under the tab bar (y 791–874 on the 402×874 a11y device) was not held.
+    Downloaded and measured that run's own screenshot directly: the gradient is far gentler and
+    taller than estimated — (250,250,250) at the bar's own top edge fading to pure
+    (255,255,255) only around y 751–754 (37–40 pt above the bar), one RGB unit per step — and a
+    single-row WCAG-luminance comparison against a single-row reference broke on the very first
+    row, because a bare one-row compression blip (252,252,252, sitting between two
+    (255,255,255) rows well inside the plain canvas) made that one reference row read almost as
+    soft as the real signal. `measureHardEdgeBandTop` now samples a 20 pt reference block and
+    requires a sustained 10-row streak within 1 RGB unit, channel-wise, before ending the scan.
+  - **Round 2 (scope=a11y run 39125970518, same branch, after the fix) passed all three legs**:
+    `AccessibilityAuditUITests` 26/26 (Light), `AccessibilityAuditDarkUITests` 16/16 (Dark),
+    `AccessibilityAuditContrastUITests` 16/16 (Increase Contrast). The measured band top on the
+    402×874 a11y device: **y = 754** (37 pt above the tab bar's own top at y = 791). All 10 of
+    the gate-2 fix list's own originally-flagged rows are now held by this rule, each re-measured
+    on this run's own screenshots and matching the branch audit's own citations closely:
+
+    | Screen | Element | Light | Increase Contrast |
+    | :-- | :-- | :-- | :-- |
+    | Courses | "87.2%" | 7.61:1 | 10.30:1 |
+    | Calendar | "9:00 PM – 10:15 PM" | 7.61:1 | 10.28:1 |
+    | Course detail | "Exam 1" | 20.73:1 | 20.65:1 |
+    | Course detail | "93.2/100" | 14.57:1 | 14.16:1 |
+    | First Sync | "MATH 122 · still accepted" | 7.61:1 | 10.27:1 |
+
+    This run did not cover the smallest-iPhone device (`scope=a11y` runs one simulator class);
+    its own band top is UNVERIFIED and would need its own measurement before being cited.
 
 Nothing else is held.
 
