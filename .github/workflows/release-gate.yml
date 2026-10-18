@@ -85,7 +85,7 @@ jobs:
             "$([ $code -eq 0 ] && echo pass || echo fail)" "check_widget_isolation.py --sources exit $code (log above)" \
             --title "The widget links no TallyFeatures and its code reads the glance only (plan 06 step 11)" \
             --json "$RUNNER_TEMP/compliance/widget-sources.json" || [ $? -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compliance-static
           path: ${{ runner.temp }}/compliance/*.json
@@ -345,7 +345,7 @@ jobs:
           find "$RUNNER_TEMP/a11y-evidence" -type f ! -iname '*audit*.json' ! -iname '*audit*.png' -delete
           find "$RUNNER_TEMP/a11y-evidence" -type d -empty -delete
           find "$RUNNER_TEMP/a11y-evidence" -type f | sort
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: a11y-audit-evidence
@@ -372,13 +372,13 @@ jobs:
           python3 scripts/ci/check_release.py \
             --app "$RUNNER_TEMP/Tally.xcarchive/Products/Applications/Tally.app" --label device \
             --json "$RUNNER_TEMP/compliance/app-device.json" || [ $? -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: compliance-ios-gate
           path: ${{ runner.temp }}/compliance/*.json
           retention-days: 30
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: ios-gate-results
@@ -466,7 +466,7 @@ jobs:
           fi
           python3 scripts/ci/check_release.py --flows "Release=$RUNNER_TEMP/flows-release-27-tests.json" --label ios27 \
             --only-given --report-only --json "$RUNNER_TEMP/compliance/ios27-flows.json" || [ $? -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: compliance-ios-gate-27
@@ -491,7 +491,7 @@ jobs:
           python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
             "not implemented: XCTApplicationLaunchMetric against a stored baseline, failing on a regression over 20%" \
             --title "Launch time within 20% of the baseline" --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compliance-m5-stubs
           path: ${{ runner.temp }}/compliance/*.json
@@ -552,7 +552,7 @@ jobs:
         if: ${{ always() }}
         run: |
           python3 scripts/ci/check_release.py --merge "$RUNNER_TEMP/compliance.json" "$RUNNER_TEMP"/compliance/*.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: compliance

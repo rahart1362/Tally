@@ -120,7 +120,7 @@ jobs:
                       os.rename(src, dst)
           PY
           find "$RUNNER_TEMP/shots" -maxdepth 1 -iname '*.png' | sort
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: store-shots-${{ matrix.appearance }}-${{ matrix.language }}
@@ -164,7 +164,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/compliance"
           python3 scripts/ci/check_release.py --screenshots "$RUNNER_TEMP/final/manifest.json" \
             --json "$RUNNER_TEMP/compliance/store-screenshots.json" || [ $? -eq 1 ]
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: store-screenshots-final
@@ -173,7 +173,7 @@ jobs:
             ${{ runner.temp }}/contact-sheets
           if-no-files-found: warn
           retention-days: 30
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: compliance-store-screenshots
