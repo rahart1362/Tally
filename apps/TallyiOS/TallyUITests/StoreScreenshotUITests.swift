@@ -220,6 +220,94 @@ final class StoreScreenshotUITests: TallyUITestCase {
         add(shot)
     }
 
+    /// MVP-3b (owner decision 2026-10-18, "nudge 3, keep Dashboard"): the hard bottom edge cuts
+    /// content off at the tab bar's top, and in release gate 39146374513 that line ran through a
+    /// text row on Course Detail ("Lab Report 6"), Calendar ("Due 8:00 AM") and To-Do (Journal 5's
+    /// "Not submitted" chip). From the scene's own resting layout, this finds the smallest upward
+    /// scroll, at most `maxNudge` (which keeps the screen's own top where it is), after which every
+    /// text either ends `room` above the cut (room for a status chip's own capsule) or starts no
+    /// more than `leading` above it (a line box's empty top, never glyphs), then scrolls that far
+    /// with held drags, measured on a text whose label is unique. It is measured on every run,
+    /// never a fixed offset, since the es legs wrap differently from en. A combined row (a text
+    /// whose frame holds other texts) is judged by its own lines, not as one block, and the tab
+    /// bar's own labels never count. If there is no such scroll, or the drags miss it, the scene
+    /// is left as it is and the reason is attached for the gate-2 visual review.
+    @MainActor
+    private func nudgeTheCutLineIntoAGap(_ app: XCUIApplication, scene: String) {
+        let room: CGFloat = 5, leading: CGFloat = 2, maxNudge: CGFloat = 24, minimumGap: CGFloat = 1
+        _ = waitUntilAtRest(app)
+        let tabBar = app.tabBars.firstMatch
+        guard tabBar.exists else { return }
+        let cut = tabBar.frame.minY
+        let chrome = tabBar.descendants(matching: .staticText).allElementsBoundByIndex.map { $0.frame }
+        func isChrome(_ frame: CGRect) -> Bool {
+            chrome.contains { abs($0.minX - frame.minX) < 0.5 && abs($0.minY - frame.minY) < 0.5
+                && abs($0.width - frame.width) < 0.5 && abs($0.height - frame.height) < 0.5 }
+        }
+        var texts: [(label: String, frame: CGRect)] = []
+        for text in app.staticTexts.allElementsBoundByIndex where text.exists {
+            let label = text.label
+            let frame = text.frame
+            guard frame.height > 0, frame.width > 0, !label.isEmpty, !isChrome(frame) else { continue }
+            texts.append((label, frame))
+        }
+        let lines = texts.filter { outer in
+            !texts.contains { inner in inner.frame != outer.frame && outer.frame.contains(inner.frame) }
+        }
+        // The offsets at which a line is cut: past the point of hiding it, short of showing all of it.
+        let blocked = lines.compactMap { line -> (from: CGFloat, to: CGFloat)? in
+            let from = max(0, line.frame.minY - (cut - leading))
+            let to = line.frame.maxY - (cut - room)
+            return to > from ? (from, to) : nil
+        }.sorted { $0.from < $1.from }
+        // Nothing is cut at rest (no line starts more than `leading` above the cut and runs past it).
+        guard blocked.contains(where: { $0.from == 0 }) else { return }
+        var gapStart: CGFloat = 0
+        var target: CGFloat?
+        for interval in blocked {
+            if interval.from - gapStart >= minimumGap { break }
+            gapStart = max(gapStart, interval.to)
+        }
+        let gapEnd = blocked.first { $0.from >= gapStart }?.from ?? .greatestFiniteMagnitude
+        if gapStart == 0 { return }
+        if gapStart <= maxNudge, gapEnd - gapStart >= minimumGap {
+            target = min(gapStart + min(3, (gapEnd - gapStart) / 2), maxNudge)
+        }
+        let counts = Dictionary(lines.map { ($0.label, 1) }, uniquingKeysWith: +)
+        let anchorLine = lines.first { counts[$0.label] == 1 && $0.frame.minY > 300 && $0.frame.maxY < cut - 40 }
+        guard let target, let anchorLine else {
+            note("\(scene): no nudge. Cut at y \(cut); gap from \(gapStart) pt; anchor found: \(anchorLine != nil)")
+            return
+        }
+        let anchor = app.staticTexts.matching(NSPredicate(format: "label == %@", anchorLine.label)).firstMatch
+        let startY = anchorLine.frame.minY
+        let centre = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        var slop: CGFloat = 10
+        for _ in 0..<5 {
+            guard anchor.exists else { break }
+            let before = anchor.frame.minY
+            let error = target - (startY - before)
+            if abs(error) <= 0.5 { return }
+            let distance = abs(error) + slop
+            let end = centre.withOffset(CGVector(dx: 0, dy: error > 0 ? -distance : distance))
+            centre.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+            _ = waitUntilAtRest(app)
+            let actual = abs(before - anchor.frame.minY)
+            slop = actual > 0 ? max(0, distance - actual) : slop + 8
+        }
+        let moved = anchor.exists ? startY - anchor.frame.minY : -1
+        note("\(scene): the nudge to \(target) pt ended at \(moved) pt (cut at y \(cut))")
+    }
+
+    /// Attaches `text` beside the scene's capture, for the gate-2 visual review.
+    @MainActor
+    private func note(_ text: String) {
+        let attachment = XCTAttachment(string: text)
+        attachment.name = "cut-line-note"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     @MainActor
     private func waitUntilAtRest(_ app: XCUIApplication, timeout: TimeInterval = 6, interval: TimeInterval = 0.4) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -278,6 +366,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
         // (UX-WP-23's "grades + chart"), on every segment.
         let assignments = element("courseDetail.segment.assignments", in: app)
         if scrollUntilHittable(assignments, in: app) { assignments.tap() }
+        nudgeTheCutLineIntoAGap(app, scene: "course-detail")
         capture(app, number: 3, scene: "course-detail")
         app.terminate()
     }
@@ -338,6 +427,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
         openTab(Self.tabLabel("toDo"), in: app)
         XCTAssertTrue(elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15),
                      "To-Do shows no content. Hierarchy: \(app.debugDescription)")
+        nudgeTheCutLineIntoAGap(app, scene: "todo")
         capture(app, number: 5, scene: "todo")
         app.terminate()
     }
@@ -351,6 +441,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
         openTab(Self.tabLabel("calendar"), in: app)
         XCTAssertTrue(elements("calendar.day", in: app).firstMatch.waitForExistence(timeout: 15),
                      "Calendar shows no content. Hierarchy: \(app.debugDescription)")
+        nudgeTheCutLineIntoAGap(app, scene: "calendar")
         capture(app, number: 6, scene: "calendar")
         app.terminate()
     }
