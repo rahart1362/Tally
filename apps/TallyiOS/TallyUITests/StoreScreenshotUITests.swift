@@ -118,6 +118,9 @@ final class StoreScreenshotUITests: TallyUITestCase {
         return app
     }
 
+    /// Report-only since the PMO ruling of 2026-10-18 (the comment at the end of this function has
+    /// the measured reason): it attaches its findings beside each capture and never fails a test.
+    ///
     /// MVP-3b (branch audit's clean plan, F1 — rewrites 2acdbee's own version, which failed every
     /// scene: `AccessibilityAuditUITests.swift`'s `A11yScene` tab-label-text filter missed every
     /// row genuinely hidden by the bar's hard scroll edge, since a scrolled row's accessibility
@@ -143,7 +146,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
     /// behind the sheet must never be judged against it. Detected structurally, by the sheet's own
     /// "Done" identifier, not by counting bars or guessing at presentation state.
     @MainActor
-    private func assertNothingUnderTheTabBar(_ app: XCUIApplication, screenshot: XCUIScreenshot, scene: String) {
+    private func recordWhatIsUnderTheTabBar(_ app: XCUIApplication, screenshot: XCUIScreenshot, scene: String) {
         guard !element("whatif.done", in: app).exists else { return }
         let tabBar = app.tabBars.firstMatch
         guard tabBar.exists else { return }
@@ -177,16 +180,27 @@ final class StoreScreenshotUITests: TallyUITestCase {
                 && $0.maxGlyphContrast <= A11yScene.navBarGlyphContrastThreshold } ?? false
             guard passes else {
                 let detail = measured.map { "coverage \(String(format: "%.1f", $0.coverage * 100))%, max glyph contrast " +
-                    "\(String(format: "%.2f", $0.maxGlyphContrast)):1" } ?? "no measurable pixels"
+                    "\(String(format: "%.2f", $0.maxGlyphContrast)):1" } ?? "a part failed the per-part proof (measureBottomChromeCoverage returns nil for that)"
                 hidden.append("'\(text.label)' \(frame), \(String(format: "%.0f", fraction * 100))% inside the union, \(detail)")
                 continue
             }
         }
-        XCTAssertTrue(straddling.isEmpty && hidden.isEmpty,
-                     "\(scene): content under the tab bar/hard-edge band union (\(union)). " +
-                     "Straddling (positive overlap, under two thirds inside): \(straddling). " +
-                     "Not proven hidden (two thirds or more inside, but the pixel proof failed): \(hidden). " +
-                     "Hierarchy: \(app.debugDescription)")
+        // PMO ruling 2026-10-18 (release gate 39137674623): report-only. Measured on the tour's own
+        // Pro Max captures (run 39130267292), the hard edge cuts content off at the tab bar's top and
+        // nothing shows through the glass below it, yet the per-part proof failed every tab-rooted
+        // scene in all four legs: the floating capsule's own rim and highlight measure 1.5-1.9:1
+        // against the bar's modal colour (above the 1.2:1 limit), and the band scan ran to its full
+        // 80 pt window on Calendar and parent mode, counting visible content above the bar as
+        // "under" it. A measurement check never gates (owner, 2026-09-28); these findings are
+        // attached beside each capture, and the gate-2 visual review at 200% decides "no text
+        // through or under the tab bar".
+        let findings = "\(scene): tab bar/hard-edge band union \(union)\n" +
+            "Straddling (positive overlap, under two thirds inside): \(straddling)\n" +
+            "Not proven hidden (two thirds or more inside, but the pixel proof failed): \(hidden)\n"
+        let attachment = XCTAttachment(string: findings)
+        attachment.name = "\(scene)-bottom-chrome"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     /// Waits at rest (`AuditTourUITests.waitUntilAtRest`'s own rule: two screenshots 0.4 s apart,
@@ -198,7 +212,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
         let settled = waitUntilAtRest(app)
         XCTAssertTrue(settled, "\(scene) never settled before capture. Hierarchy: \(app.debugDescription)")
         let screenshot = app.screenshot()
-        assertNothingUnderTheTabBar(app, screenshot: screenshot, scene: scene)
+        recordWhatIsUnderTheTabBar(app, screenshot: screenshot, scene: scene)
         let name = String(format: "%02d-%@", number, scene)
         let shot = XCTAttachment(screenshot: screenshot)
         shot.name = name
