@@ -46,10 +46,14 @@ env:
   # Flow 13's test, testAccountRowsThenSignOutAndErase, is in SettingsSignedInUITests (the second
   # class in SettingsUITests.swift), not SettingsUITests: runs 38244355050 and 38250326627 selected
   # the wrong class (1 test, then 0). Pinned to the method in its real class.
+  # MVP-3 (MVP-4 gate-2 review, S4-6): ReviewPathUITests/testReviewPathShowsEveryScreenWithNoSignInAndNoNetwork
+  # (apps/TallyiOS/TallyUITests/ReviewPathUITests.swift, class name checked against the file) uses
+  # `TestHooks.trapAllNetwork`, a DEBUG-only hook, so it runs here, not in RELEASE_FLOWS.
   DEBUG_FLOWS: >-
     -only-testing:TallyUITests/SlowRefreshUITests -only-testing:TallyUITests/LaunchFromCacheUITests
     -only-testing:TallyUITests/RemindersUITests -only-testing:TallyUITests/PaywallUITests
     -only-testing:TallyUITests/SettingsSignedInUITests/testAccountRowsThenSignOutAndErase
+    -only-testing:TallyUITests/ReviewPathUITests/testReviewPathShowsEveryScreenWithNoSignInAndNoNetwork
 
 jobs:
   static-linux:
@@ -470,36 +474,39 @@ jobs:
           retention-days: 30
 
   a11y-perf-shots:
-    name: Launch metric and screenshots (stub, M5)
+    name: Launch metric (stub, M5)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # M5 (ASC-12, R14): XCTApplicationLaunchMetric against a stored baseline (fail on > 20%);
-    # screenshot scenes at 1320x2868 (and 2064x2752 if iPad ships), status bar overridden, RGB, no
-    # alpha. Until then this job records each as PENDING, so the report shows what M5 still owes.
+    # M5 (perf): XCTApplicationLaunchMetric against a stored baseline (fail on > 20%). Until then
+    # this job records it as PENDING, so the report shows what M5 still owes.
     # MVP-2 (UX-WP-22): the accessibility-audit line this job used to stub (REL.m5.accessibility-audit)
-    # is REL.a11y.audit now, due MVP, a real check from `ios-gate`'s own "Accessibility audit" step —
-    # not pending, not here.
+    # is REL.a11y.audit now, due MVP, a real check from `ios-gate`'s own "Accessibility audit" step.
+    # MVP-3 (ASC-12, R14): the screenshot line this job used to stub (REL.m5.screenshots) is
+    # REL.store.screenshots now, due MVP, a real check from the `store-screenshots` job below.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Record the M5 checks as pending
+      - name: Record the M5 launch-metric check as pending
         run: |
           mkdir -p "$RUNNER_TEMP/compliance"
           python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
             "not implemented: XCTApplicationLaunchMetric against a stored baseline, failing on a regression over 20%" \
             --title "Launch time within 20% of the baseline" --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
-          python3 scripts/ci/check_release.py --pending REL.m5.screenshots M5 "M5 (ASC-12 screenshot pipeline)" \
-            "not implemented: deterministic sample-data scenes, 1320x2868, status bar 9:41, flattened to RGB" \
-            --title "App Store screenshots generated at the required sizes, no alpha" \
-            --json "$RUNNER_TEMP/compliance/m5-screenshots.json" || [ $? -eq 1 ]
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compliance-m5-stubs
           path: ${{ runner.temp }}/compliance/*.json
           retention-days: 30
 
+  store-screenshots:
+    name: Store screenshots (MVP-3, ASC-12, R14)
+    # Calls store-screenshots.yml as a reusable workflow: its jobs run inside THIS run, so its
+    # compliance-store-screenshots artifact lands here for compliance-report to download, with no
+    # duplicated capture/post-process steps.
+    uses: ./.github/workflows/store-screenshots.yml
+
   compliance-report:
     name: Compliance report (one JSON artifact; fails only on a check due now)
-    needs: [static-linux, core-tests, ios-gate, ios-gate-27, a11y-perf-shots]
+    needs: [static-linux, core-tests, ios-gate, ios-gate-27, a11y-perf-shots, store-screenshots]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -523,6 +530,7 @@ jobs:
             ios-gate=${{ needs.ios-gate.result }}
             ios-gate-27=${{ needs.ios-gate-27.result }}
             a11y-perf-shots=${{ needs.a11y-perf-shots.result }}
+            store-screenshots=${{ needs.store-screenshots.result }}
         run: |
           dir="$RUNNER_TEMP/compliance"
           mkdir -p "$dir"
@@ -535,7 +543,7 @@ jobs:
               "job result: $result" --title "The $job job ran to completion" $extra --json "$dir/job-$job.json" > /dev/null || true
           done
           for report in source widget-sources toolchain build-release-simulator flows build-device-archive \
-                        a11y-audit m5-launch m5-screenshots; do
+                        a11y-audit m5-launch store-screenshots; do
             [ -f "$dir/$report.json" ] && continue
             python3 scripts/ci/check_release.py --result "REL.report.$report" fail "no $report.json was produced" \
               --title "The $report report exists" --json "$dir/missing-$report.json" > /dev/null || true

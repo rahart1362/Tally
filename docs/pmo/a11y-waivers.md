@@ -389,6 +389,78 @@ Every name below is in `apps/TallyiOS/TallyUITests/AccessibilityAuditUITests.swi
 - Any audit type, an element wholly inside the **system keyboard** (unchanged): the keyboard's
   own, not the app's (run 38357314250: Find School in Dark, three empty
   `TUIPredictionViewCell`s of the predictive bar, "missing useful accessibility information").
+- **A `contrast` issue under the bottom chrome** (MVP-3b, PMO ruling 2026-10-18, resolving the
+  branch audit's own Q1/Q2 at `pmo-audit/.build-audit/mvp3/branch-audit/verdict.md`; the I1 owner
+  decision restored `.hard` for the bottom edge, `TallyScreenChrome`, so this is the bottom's own
+  counterpart of the navigation-bar bullet above) — two independent rules, neither widening the
+  other:
+  1. **The bottom-chrome union proof** (`A11yScene.measureBottomChromeCoverage`): the floating tab
+     bar plus the hard scroll edge's own gradient band directly above it
+     (`A11yScene.measureHardEdgeBandTop`, found from the capture itself — "measure the band's top
+     ... don't assume it", never a fixed height). Needs the issue's own frame at least **two
+     thirds** inside that union (`A11yScene.overlapsByAtLeastTwoThirds`), then, for each part the
+     frame actually reaches (bar, band, or both), at least **95%** of that part's own pixels
+     within **1.2:1** of its own colour and no pixel row above **1.5:1** — every present part
+     measured on its own pixels, never blended, exactly the per-part gate the navigation-bar union
+     already uses (MVP-2g). Neither part is opaque by construction (`opaqueByConstruction: false`
+     for both — the band is a fade toward the canvas colour, not a distinct opaque layer with
+     nothing of its own underneath), so "nothing measurable" is never a free pass here either. This
+     is an invisibility proof: it holds a row genuinely hidden by the bar's now-opaque chrome, the
+     same as the navigation bar's own union rule, never on position alone.
+  2. **The hard-edge strip's own readability hold** (Q1, approved): the existing fade-band proof
+     (`A11yScene.measureFadeBandContrast`, unchanged — the row median against each row's own
+     background, always **4.5:1**) now also triggers on the measured band region directly, not
+     only on an `AdditionalDimmingOverlay` element — `.hard` draws no such element (the branch
+     audit's own section 2.1: `dimming` is always empty under `.hard`), so the trigger is
+     structural instead. This is a readability hold, not an invisibility proof: "that text is
+     readable, so the audit's flag is a false positive" (the PMO's own words) — the underlying
+     `contrast` issue is a false positive because the text's real, measured contrast against its
+     own visible background clears 4.5:1, not because anything is hidden. Anything measured below
+     4.5:1 still fails, exactly as it always has.
+
+  **Q2 (the branch audit's own open question) is left unanswered by this ruling** — "This is the
+  only addition" (the PMO's own words, 2026-10-18). The pre-existing generic "under system chrome"
+  hold (`ChromeKind.canHoldContrast`, the first bullet of this list) still applies to the tab bar
+  geometrically, >= 1/3 overlap, no pixel proof, exactly as before; this ruling adds the two rules
+  above beside it, for the band the tab bar's own frame alone never covered, and touches nothing
+  else.
+
+  `A11ySceneMeasurementTests` is both rules' own required self-check: a visible patch of pixels
+  pasted under the tab bar must fail the union proof (`testBottomChromeUnionVisibleTextUnderTabBarFails`);
+  a row measured at about 7:1 in a synthetic hard-edge band must be held as readable
+  (`testBottomChromeStripReadabilityHoldPassesAtOrAbove4Point5To1`); a row at about 3:1 must still
+  fail (`testBottomChromeStripReadabilityHoldFailsBelow4Point5To1`).
+
+  **Evidence.** Both measured numbers (plus the overlap fraction and each part's own numbers for
+  rule 1) are recorded in the held reason (`A11yScene.bottomChromeHoldReason`).
+
+  - **Round 1 (scope=a11y run 39121000046, `mvp/screenshots-v2`) failed**: `testCourses` (Light),
+    "87.2%" (y 765–783) under the tab bar (y 791–874 on the 402×874 a11y device) was not held.
+    Downloaded and measured that run's own screenshot directly: the gradient is far gentler and
+    taller than estimated — (250,250,250) at the bar's own top edge fading to pure
+    (255,255,255) only around y 751–754 (37–40 pt above the bar), one RGB unit per step — and a
+    single-row WCAG-luminance comparison against a single-row reference broke on the very first
+    row, because a bare one-row compression blip (252,252,252, sitting between two
+    (255,255,255) rows well inside the plain canvas) made that one reference row read almost as
+    soft as the real signal. `measureHardEdgeBandTop` now samples a 20 pt reference block and
+    requires a sustained 10-row streak within 1 RGB unit, channel-wise, before ending the scan.
+  - **Round 2 (scope=a11y run 39125970518, same branch, after the fix) passed all three legs**:
+    `AccessibilityAuditUITests` 26/26 (Light), `AccessibilityAuditDarkUITests` 16/16 (Dark),
+    `AccessibilityAuditContrastUITests` 16/16 (Increase Contrast). The measured band top on the
+    402×874 a11y device: **y = 754** (37 pt above the tab bar's own top at y = 791). All 10 of
+    the gate-2 fix list's own originally-flagged rows are now held by this rule, each re-measured
+    on this run's own screenshots and matching the branch audit's own citations closely:
+
+    | Screen | Element | Light | Increase Contrast |
+    | :-- | :-- | :-- | :-- |
+    | Courses | "87.2%" | 7.61:1 | 10.30:1 |
+    | Calendar | "9:00 PM – 10:15 PM" | 7.61:1 | 10.28:1 |
+    | Course detail | "Exam 1" | 20.73:1 | 20.65:1 |
+    | Course detail | "93.2/100" | 14.57:1 | 14.16:1 |
+    | First Sync | "MATH 122 · still accepted" | 7.61:1 | 10.27:1 |
+
+    This run did not cover the smallest-iPhone device (`scope=a11y` runs one simulator class);
+    its own band top is UNVERIFIED and would need its own measurement before being cited.
 
 Nothing else is held.
 

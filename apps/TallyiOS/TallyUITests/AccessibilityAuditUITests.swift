@@ -1600,6 +1600,28 @@ struct A11yScene {
                 return HeldResult(Self.navBarHoldReason(measured))
             }
         }
+        // MVP-3b (PMO ruling 2026-10-18; branch audit's clean plan, F5): the bottom-chrome
+        // analogue of the navigation-bar union proof just above — the floating tab bar plus
+        // `TallyScreenChrome`'s own hard bottom scroll-edge band (`measureHardEdgeBandTop`, this
+        // type's own doc comment), proven the same way: at least two thirds of the issue's own
+        // frame height inside the union, AND a passing pixel proof on each present part, each
+        // against its own colour (`measureBottomChromeCoverage`). Neither part is opaque by
+        // construction (the branch audit's own instruction, F1: "opaqueByConstruction: false …
+        // once per part") — the band is a fade toward the canvas colour, not a distinct opaque
+        // layer with nothing of its own underneath, so "nothing measurable" is never a free pass
+        // here either.
+        if let tabBar = chrome.first(where: { $0.kind == .tabBar })?.frame, tabBar.intersection(frame).height > 0 {
+            let band = measureHardEdgeBandTop(aboveBar: tabBar).map { bandTop in
+                CGRect(x: tabBar.minX, y: bandTop, width: tabBar.width, height: tabBar.minY - bandTop)
+            }
+            let overlaps = band.map { Self.overlapsByAtLeastTwoThirds(tabBar, $0, frame) }
+                ?? Self.overlapsByAtLeastTwoThirds(tabBar, frame)
+            if overlaps, let measured = measureBottomChromeCoverage(tabBar: tabBar, band: band, regionFrame: frame,
+                                                                     excluding: chromeOwnContent),
+               measured.coverage >= Self.navBarCoverageThreshold, measured.maxGlyphContrast <= Self.navBarGlyphContrastThreshold {
+                return HeldResult(Self.bottomChromeHoldReason(measured))
+            }
+        }
         // Item 3 (gate-2 round 3): narrowed to >= 1/3 overlap (like the chrome case above), and
         // only for an element that ENDS ABOVE the selected day's own heading — content genuinely
         // scrolled past and now under the strip. The heading itself, and its own rows (which start
@@ -1614,7 +1636,22 @@ struct A11yScene {
            frame.maxY <= heading.minY + 0.5 {
             return HeldResult("under the screen's pinned bar")
         }
-        if dimming.contains(where: { $0.intersects(frame) }), let measured = measureFadeBandContrast(frame: frame) {
+        // MVP-3b (PMO ruling 2026-10-18, resolving the branch audit's own Q1): the hard bottom
+        // scroll-edge's own gradient strip, directly above the tab bar, draws no
+        // `AdditionalDimmingOverlay` element to anchor on the way the SOFT edge does — `dimming`
+        // is always empty under `.hard` — so the trigger extends to the measured band region
+        // itself (`measureHardEdgeBandTop`), structural rather than element-based. The proof it
+        // feeds is UNCHANGED: `measureFadeBandContrast`'s own row median, always 4.5:1, never
+        // loosened or widened for this case. The PMO's own words: "that text is readable, so the
+        // audit's flag is a false positive" — a readability hold on a `contrast` issue, not an
+        // invisibility proof (the bottom-chrome union just above is that one).
+        var hardEdgeBand: CGRect?
+        if let tabBar = chrome.first(where: { $0.kind == .tabBar })?.frame,
+           let bandTop = measureHardEdgeBandTop(aboveBar: tabBar) {
+            hardEdgeBand = CGRect(x: tabBar.minX, y: bandTop, width: tabBar.width, height: tabBar.minY - bandTop)
+        }
+        if dimming.contains(where: { $0.intersects(frame) }) || (hardEdgeBand?.intersects(frame) ?? false),
+           let measured = measureFadeBandContrast(frame: frame) {
             // Item 4: 4.5:1 always — the frame-height large-text exception is dropped (a two-line
             // caption is not 18 pt bold; `isLargeText` is gone).
             if measured >= 4.5 {
@@ -1901,6 +1938,113 @@ struct A11yScene {
         return (coverage: Double(withinTolerance) / Double(total), maxGlyphContrast: maxGlyphContrast, measuredPixels: total)
     }
 
+    /// MVP-3b (PMO ruling 2026-10-18, resolving the branch audit's own Q1; clean plan F1/F5): the
+    /// top of `TallyScreenChrome`'s hard bottom scroll-edge band, measured from the capture itself
+    /// rather than assumed at a fixed height (the branch audit's own words: "measure the band's
+    /// top from the capture and record it, don't assume it"). Unlike the SOFT scroll edge, `.hard`
+    /// draws no `AdditionalDimmingOverlay` image to anchor on — `dimming` is always empty under
+    /// `.hard` (the branch audit's own section 2.1) — so the band is found the way
+    /// `measureFadeBandContrast` already finds a row's own background (`modalColour`, this type's
+    /// own proven helper, unchanged and reused as-is): scanning upward from the tab bar's own top
+    /// row, one `hardEdgeBandRowStep`-tall row at a time, comparing each row's own modal colour
+    /// against a reference block safely clear of the bar — `hardEdgeBandMaxSearch` +
+    /// `hardEdgeBandReferenceGap` points above the bar's own top, comfortably inside plain
+    /// scrolled content on every scene this suite captures (every tab root is a scrolling list far
+    /// taller than that offset).
+    ///
+    /// **Round 2 (after scope=a11y run 39121000046's own evidence: `testCourses` failed on
+    /// "87.2%", y 765–783, tab bar top at y 791 — the same row the branch audit's own gate-2
+    /// review cited at 7.62:1).** Round 1 compared ONE row at a time, by WCAG luminance, against
+    /// ONE reference row, and broke on the first row reading back within tolerance. That row's own
+    /// screenshot (kept out of the repo; measured directly, not guessed) showed why both choices
+    /// were too fragile to use here:
+    /// - the gradient itself is far gentler and taller than the roughly 20 pt the branch audit's
+    ///   own owner-sheet crop suggested — (250,250,250) at the bar's own top edge, fading to pure
+    ///   (255,255,255) only around 37–40 pt above it, each step a single RGB unit;
+    /// - a single-row reference, and a single-row "clean" check, are both exactly as noisy as the
+    ///   rows they measure: one bare (252,252,252) row sits between two (255,255,255) rows well
+    ///   inside the plain canvas, far from any gradient, and round 1's own reference row happened
+    ///   to land on a similarly soft value — so the very first row scanned already read back
+    ///   "within tolerance" of a reference that was itself off by about as much as the real signal.
+    ///
+    /// The reference is now the modal colour of a `hardEdgeBandReferenceHeight`-tall block (not
+    /// one row), which such a single noisy row cannot skew, and a row only ends the scan once
+    /// `hardEdgeBandRequiredCleanStreak` CONSECUTIVE rows all read back within
+    /// `hardEdgeBandCleanTolerance` RGB units of it (channel-wise, not a luminance ratio) — a
+    /// sustained run is what actually tells "past the gradient" apart from a one-row compression
+    /// blip inside it, which immediately resumed being just as clean on every side.
+    ///
+    /// Returns the topmost row still read as part of the gradient — `nil` when the row immediately
+    /// above the bar already starts a clean streak (no band on this capture), when there is no
+    /// screenshot, or when there is not enough headroom above the bar to sample the reference
+    /// block at all — never a band the caller cannot show evidence for; the caller then uses the
+    /// bar's own frame alone. A generous `hardEdgeBandMaxSearch` costs nothing in correctness: the
+    /// per-pixel coverage proof (`measureNavBarCoverage`) and the fade-band readability proof
+    /// (`measureFadeBandContrast`), not this bound, are what actually decide whether anything shows
+    /// through or reads legibly.
+    func measureHardEdgeBandTop(aboveBar tabBarFrame: CGRect) -> CGFloat? {
+        guard !pixels.isEmpty else { return nil }
+        let rowHeight = Self.hardEdgeBandRowStep
+        let referenceY = tabBarFrame.minY - Self.hardEdgeBandMaxSearch - Self.hardEdgeBandReferenceGap
+            - Self.hardEdgeBandReferenceHeight
+        guard referenceY >= 0,
+              let reference = modalColour(in: CGRect(x: tabBarFrame.minX, y: referenceY, width: tabBarFrame.width,
+                                                      height: Self.hardEdgeBandReferenceHeight))
+        else { return nil }
+        func isClean(_ colour: UInt32) -> Bool {
+            for shift in [UInt32(16), 8, 0] {
+                let a = (colour >> shift) & 0xFF
+                let b = (reference >> shift) & 0xFF
+                if (a > b ? a - b : b - a) > Self.hardEdgeBandCleanTolerance { return false }
+            }
+            return true
+        }
+        var bandTop: CGFloat?
+        var cleanRun = 0
+        var y = tabBarFrame.minY - rowHeight
+        let floor = tabBarFrame.minY - Self.hardEdgeBandMaxSearch
+        while y >= floor {
+            guard let rowColour = modalColour(in: CGRect(x: tabBarFrame.minX, y: y, width: tabBarFrame.width, height: rowHeight))
+            else { break }
+            if isClean(rowColour) {
+                cleanRun += 1
+                if cleanRun >= Self.hardEdgeBandRequiredCleanStreak { break }
+            } else {
+                cleanRun = 0
+                bandTop = y
+            }
+            y -= rowHeight
+        }
+        return bandTop
+    }
+
+    /// MVP-3b: the hard-edge band scan's own bounds and tolerance (PMO ruling 2026-10-18; widened
+    /// in round 2 — this type's own doc comment on `measureHardEdgeBandTop` has the measured
+    /// evidence). `hardEdgeBandRowStep`: the row height sampled at each step (1 pt — plenty of
+    /// pixels at this app's usual 3x point scale, and fine enough that even a short band is
+    /// several steps).
+    static let hardEdgeBandRowStep: CGFloat = 1
+    /// The reference block sits this many points clear of the farthest point the scan will ever
+    /// call part of the band, so the reference itself is never inside the search window.
+    static let hardEdgeBandReferenceGap: CGFloat = 8
+    /// Round 2: the reference is now a block, not one row — tall enough that a single noisy row
+    /// inside it cannot make it the modal colour (`modalColour`'s own `densest` helper already
+    /// discounts a minority value; height 20 gives it far more rows to outvote one).
+    static let hardEdgeBandReferenceHeight: CGFloat = 20
+    /// How far above the bar's own top the scan looks before giving up — round 2's own measured
+    /// gradient reached about 37–40 pt; this leaves a comfortable margin above that, found, not
+    /// assumed (this type's own doc comment on `measureHardEdgeBandTop`).
+    static let hardEdgeBandMaxSearch: CGFloat = 80
+    /// Round 2: a row's own modal colour within this many RGB units, on every channel, of the
+    /// reference block's own modal colour — channel-wise, not a WCAG luminance ratio (round 1's
+    /// own mistake: luminance compresses a tiny RGB step near white into an even tinier ratio,
+    /// which made the real signal read as smaller than ordinary single-row noise).
+    static let hardEdgeBandCleanTolerance: UInt32 = 1
+    /// Round 2: how many CONSECUTIVE clean rows, scanning upward from the bar, end the scan. Round
+    /// 1 broke on the very first clean-looking row; a sustained run is what actually tells "past
+    /// the gradient" apart from a one-row compression blip inside it.
+    static let hardEdgeBandRequiredCleanStreak = 10
+
     /// MVP-2f (PMO ruling): `measureTopChromeCoverage`'s own result — the combined numbers the gate
     /// itself uses, plus each part on its own (`nil` when `regionFrame` does not actually reach that
     /// part), recorded in the held reason so a reviewer can check both without recomputing anything
@@ -1998,6 +2142,68 @@ struct A11yScene {
         let maxGlyphContrast = max(navPart?.maxGlyphContrast ?? 1.0, pinnedPart?.maxGlyphContrast ?? 1.0)
         return TopChromeMeasurement(overlapFraction: overlapFraction, navBarPart: navPart, pinnedPart: pinnedPart,
                                     coverage: coverage, maxGlyphContrast: maxGlyphContrast)
+    }
+
+    /// MVP-3b (branch audit's clean plan, F1/F5): `measureBottomChromeCoverage`'s own result — the
+    /// bottom-chrome analogue of `TopChromeMeasurement`.
+    struct BottomChromeMeasurement {
+        let overlapFraction: Double
+        let tabBarPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)?
+        let bandPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)?
+        let coverage: Double
+        let maxGlyphContrast: Double
+    }
+
+    /// MVP-3b (branch audit's clean plan, F1/F5 — the bottom-chrome analogue of
+    /// `measureTopChromeCoverage`): the floating tab bar and the hard bottom scroll-edge's own
+    /// gradient band directly above it (`measureHardEdgeBandTop`), measured as two parts of one
+    /// union, exactly the way the navigation bar and the pinned header already are above — reusing
+    /// `measureNavBarCoverage` itself, once per part, never a new per-pixel routine. Unlike the
+    /// pinned header, the band is never opaque by construction: it is `TallyScreenChrome`'s own
+    /// `.scrollEdgeEffectStyle(.hard, for: .bottom)` fading plain scrolled content toward the
+    /// canvas colour, not a distinct opaque layer with nothing of its own underneath, so both parts
+    /// pass `opaqueByConstruction: false` (the branch audit's own instruction, F1: "call
+    /// measureNavBarCoverage(…, opaqueByConstruction: false) once per part"). The same per-part
+    /// gate as `measureTopChromeCoverage` (MVP-2g): a present part must pass on its OWN measured
+    /// pixels, or the whole region fails — never blended, and never a free pass for a part that
+    /// measures zero pixels (`A11ySceneMeasurementTests
+    /// .testBottomChromeUnionVisibleTextUnderTabBarFails` is this ruling's own required
+    /// self-check).
+    func measureBottomChromeCoverage(tabBar: CGRect, band: CGRect?, regionFrame: CGRect,
+                                     excluding: [CGRect]) -> BottomChromeMeasurement? {
+        let overlapFraction: Double = {
+            guard regionFrame.height > 0 else { return 0 }
+            let tabOverlap = tabBar.intersection(regionFrame)
+            let bandOverlap = band.map { $0.intersection(regionFrame) }
+            let tabHeight = tabOverlap.isNull ? 0 : tabOverlap.height
+            let bandHeight = (bandOverlap == nil || bandOverlap!.isNull) ? 0 : bandOverlap!.height
+            return (tabHeight + bandHeight) / regionFrame.height
+        }()
+        let tabRegion = tabBar.intersection(regionFrame)
+        let bandRegion = band?.intersection(regionFrame)
+        let tabPresent = !tabRegion.isNull && tabRegion.height > 0
+        let bandPresent = bandRegion != nil && !bandRegion!.isNull && bandRegion!.height > 0
+        guard tabPresent || bandPresent else { return nil }
+        let tabPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)? = tabPresent
+            ? measureNavBarCoverage(barFrame: tabBar, regionFrame: tabRegion, excluding: excluding,
+                                    opaqueByConstruction: false)
+            : nil
+        let bandPart: (coverage: Double, maxGlyphContrast: Double, measuredPixels: Int)? = bandPresent
+            ? measureNavBarCoverage(barFrame: band!, regionFrame: bandRegion!, excluding: excluding,
+                                    opaqueByConstruction: false)
+            : nil
+        if tabPresent {
+            guard let tabPart, tabPart.coverage >= Self.navBarCoverageThreshold,
+                  tabPart.maxGlyphContrast <= Self.navBarGlyphContrastThreshold else { return nil }
+        }
+        if bandPresent {
+            guard let bandPart, bandPart.coverage >= Self.navBarCoverageThreshold,
+                  bandPart.maxGlyphContrast <= Self.navBarGlyphContrastThreshold else { return nil }
+        }
+        let coverage = min(tabPart?.coverage ?? 1.0, bandPart?.coverage ?? 1.0)
+        let maxGlyphContrast = max(tabPart?.maxGlyphContrast ?? 1.0, bandPart?.maxGlyphContrast ?? 1.0)
+        return BottomChromeMeasurement(overlapFraction: overlapFraction, tabBarPart: tabPart, bandPart: bandPart,
+                                       coverage: coverage, maxGlyphContrast: maxGlyphContrast)
     }
 
     /// MVP-2d ruling 1: the densest colour across every pixel of `frame` — the navigation bar's
@@ -2180,6 +2386,36 @@ struct A11yScene {
         return "transient: not re-reported on the settled retry, " + topChromeMeasurementDetail(measured)
     }
 
+    /// MVP-3b (branch audit's clean plan, F1/F5): `measured`'s own numbers, recorded the ruling's
+    /// own requirement for a reviewer to check against the attached screenshot without
+    /// recomputing anything. Unlike `topChromeMeasurementDetail`, both parts always measure real
+    /// pixels (`opaqueByConstruction: false` for each — `measureBottomChromeCoverage`'s own doc
+    /// comment), so there is no opaque-by-construction shortcut to word around.
+    private static func bottomChromeMeasurementDetail(_ measured: BottomChromeMeasurement) -> String {
+        let overlapPct = String(format: "%.1f", measured.overlapFraction * 100)
+        let tolerance = String(format: "%.1f", navBarCoverageContrastThreshold)
+        let coveragePct = String(format: "%.1f", measured.coverage * 100)
+        let contrast = String(format: "%.2f", measured.maxGlyphContrast)
+        var parts: [String] = []
+        if let tabBarPart = measured.tabBarPart {
+            parts.append("tab bar \(String(format: "%.1f", tabBarPart.coverage * 100))%/" +
+                         "\(String(format: "%.2f", tabBarPart.maxGlyphContrast)):1")
+        }
+        if let bandPart = measured.bandPart {
+            parts.append("hard-edge band \(String(format: "%.1f", bandPart.coverage * 100))%/" +
+                         "\(String(format: "%.2f", bandPart.maxGlyphContrast)):1")
+        }
+        return "\(overlapPct)% of its height inside the tab bar/hard-edge band union, measured \(coveragePct)% of its " +
+               "pixels within \(tolerance):1 contrast of each part's own colour (\(parts.joined(separator: ", "))), " +
+               "max glyph row contrast \(contrast):1 against it"
+    }
+
+    /// MVP-3b: `bottomChromeMeasurementDetail`'s own text, for a hold proven against the union of
+    /// the tab bar and the hard-edge band (`measureBottomChromeCoverage`).
+    static func bottomChromeHoldReason(_ measured: BottomChromeMeasurement) -> String {
+        "under the bottom chrome, " + bottomChromeMeasurementDetail(measured)
+    }
+
     /// MVP-2c: two colours (0xRRGGBB) within `colourTolerance` of each other on every channel, the
     /// scroll-edge blur's own spread (`measureFadeBandContrast`). 3 of 255 is far below any visible
     /// difference: it moves a contrast ratio by about 1%.
@@ -2360,5 +2596,83 @@ final class A11ySceneMeasurementTests: XCTestCase {
                                             frame: frame, variant: "test")
         XCTAssertNil(held?.reason, "a zero-height touch on the navigation bar must not be held via " +
                      "the top-chrome union path")
+    }
+
+    // MARK: - MVP-3b (branch audit's clean plan, F1/F5; PMO ruling 2026-10-18): the bottom-chrome
+    // union proof and the hard-edge strip's own readability hold, each required to carry a
+    // self-check of its own (the binding brief's own three cases).
+
+    /// The brief's own first self-check: "visible text pasted under the tab bar must fail".
+    /// Mirrors `testTopChromeUnionNavPartUnder95PercentFails` — a real, visible patch of pixels
+    /// inside the tab-bar part (far from the bar's own, otherwise uniform white) must fail the
+    /// whole union proof, never be excused by the band part's own clean reading.
+    func testBottomChromeUnionVisibleTextUnderTabBarFails() {
+        var pixels = [UInt8](repeating: 0xFF, count: 20 * 20 * 4) // 20x20, white throughout.
+        for y in 16..<20 {
+            for x in 8..<12 {
+                let offset = (y * 20 + x) * 4
+                pixels[offset] = 0x20; pixels[offset + 1] = 0x20; pixels[offset + 2] = 0x20
+            }
+        }
+        let scene = A11yScene(pixels: pixels, pixelWidth: 20, pixelHeight: 20, pixelScale: 1)
+        let tabBar = CGRect(x: 0, y: 10, width: 20, height: 10)
+        let band = CGRect(x: 0, y: 0, width: 20, height: 10)
+        let region = CGRect(x: 0, y: 0, width: 20, height: 20)
+        let measured = scene.measureBottomChromeCoverage(tabBar: tabBar, band: band, regionFrame: region, excluding: [])
+        XCTAssertNil(measured, "visible text pasted under the tab bar must fail the union proof, " +
+                     "never be excused by the band part's own clean reading")
+    }
+
+    /// A synthetic capture with a real, measurable hard-edge band, sized for round 2's own
+    /// parameters (`A11yScene.hardEdgeBandMaxSearch`/`...ReferenceGap`/`...ReferenceHeight`):
+    /// plain reference rows (255, untouched, including the reference block at y 52..<72), the
+    /// band itself (230, y 140..<160 — far outside `A11yScene.hardEdgeBandCleanTolerance` of the
+    /// reference, so `measureHardEdgeBandTop`'s sustained-streak scan reads its top at y = 140),
+    /// the tab bar (y >= 160), and a 5-row, 8 px "text" patch inside the band (y 145..<150,
+    /// x 2..<10: six of its eight columns keep the band's own 230, two carry `foreground` —
+    /// `measureFadeBandContrast`'s own row-background rule needs a clear majority). `foreground`
+    /// is chosen so the WCAG contrast ratio against 230 is approximately the caller's own target.
+    private func gradientStripScene(foreground: UInt8) -> (scene: A11yScene, tabBar: CGRect, frame: CGRect) {
+        let width = 20, height = 200
+        var pixels = [UInt8](repeating: 0xFF, count: width * height * 4)
+        func setRow(_ y: Int, _ x0: Int, _ x1: Int, _ v: UInt8) {
+            for x in x0..<x1 {
+                let offset = (y * width + x) * 4
+                pixels[offset] = v; pixels[offset + 1] = v; pixels[offset + 2] = v
+            }
+        }
+        for y in 140..<160 { setRow(y, 0, width, 230) }
+        for y in 145..<150 {
+            setRow(y, 2, 10, 230)
+            setRow(y, 2, 4, foreground)
+        }
+        let scene = A11yScene(pixels: pixels, pixelWidth: width, pixelHeight: height, pixelScale: 1)
+        return (scene, CGRect(x: 0, y: 160, width: 20, height: 20), CGRect(x: 2, y: 145, width: 8, height: 5))
+    }
+
+    /// The brief's own second self-check: "a ≥ 4.5:1 row in the strip passes". `foreground = 75`
+    /// measures approximately 7.0:1 against the band's own 230 background (WCAG relative
+    /// luminance, computed by hand) — comfortably over the 4.5:1 floor.
+    func testBottomChromeStripReadabilityHoldPassesAtOrAbove4Point5To1() {
+        var (scene, tabBar, frame) = gradientStripScene(foreground: 75)
+        scene.window = CGRect(x: 0, y: 0, width: 20, height: 200)
+        scene.chrome = [(frame: tabBar, kind: .tabBar)]
+        scene.scrolling = [(label: "strip text", frame: frame, container: scene.window, axis: .vertical, insidePinned: false)]
+        let held = scene.heldReason(auditType: "contrast", label: "strip text", elementIdentifier: "",
+                                    frame: frame, variant: "test")
+        XCTAssertNotNil(held?.reason, "a row measured at about 7:1 in the hard-edge band must be held as readable")
+    }
+
+    /// The brief's own third self-check: "a < 4.5:1 row in the strip fails". `foreground = 132`
+    /// measures approximately 3.0:1 against the band's own 230 background — comfortably under the
+    /// 4.5:1 floor, so the issue must still fail like any other.
+    func testBottomChromeStripReadabilityHoldFailsBelow4Point5To1() {
+        var (scene, tabBar, frame) = gradientStripScene(foreground: 132)
+        scene.window = CGRect(x: 0, y: 0, width: 20, height: 200)
+        scene.chrome = [(frame: tabBar, kind: .tabBar)]
+        scene.scrolling = [(label: "strip text", frame: frame, container: scene.window, axis: .vertical, insidePinned: false)]
+        let held = scene.heldReason(auditType: "contrast", label: "strip text", elementIdentifier: "",
+                                    frame: frame, variant: "test")
+        XCTAssertNil(held, "a row measured at about 3:1 in the hard-edge band must still fail")
     }
 }
