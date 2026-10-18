@@ -1946,57 +1946,104 @@ struct A11yScene {
     /// `.hard` (the branch audit's own section 2.1) — so the band is found the way
     /// `measureFadeBandContrast` already finds a row's own background (`modalColour`, this type's
     /// own proven helper, unchanged and reused as-is): scanning upward from the tab bar's own top
-    /// row, one `hardEdgeBandRowStep`-tall row at a time, comparing each row's own modal colour,
-    /// by WCAG luminance, against a reference row safely clear of the bar —
-    /// `hardEdgeBandMaxSearch` + `hardEdgeBandReferenceGap` points above the bar's own top,
-    /// comfortably inside plain scrolled content on every scene this suite captures (every tab
-    /// root is a scrolling list far taller than that offset).
+    /// row, one `hardEdgeBandRowStep`-tall row at a time, comparing each row's own modal colour
+    /// against a reference block safely clear of the bar — `hardEdgeBandMaxSearch` +
+    /// `hardEdgeBandReferenceGap` points above the bar's own top, comfortably inside plain
+    /// scrolled content on every scene this suite captures (every tab root is a scrolling list far
+    /// taller than that offset).
     ///
-    /// Returns the topmost row, within `hardEdgeBandMaxSearch` points of the bar's own top, that
-    /// is still measurably different from the reference (`hardEdgeBandLuminanceTolerance`, the
-    /// PMO ruling's own 2% figure) continuously down to the bar — the scan stops, and the band
-    /// ends, at the first row (working upward from the bar) that reads back within tolerance of
-    /// the reference. `nil` when the row immediately above the bar already reads within
-    /// tolerance (no band on this capture), when there is no screenshot, or when there is not
-    /// enough headroom above the bar to sample a reference row at all — never a band the caller
-    /// cannot show evidence for; the caller then uses the bar's own frame alone.
+    /// **Round 2 (after scope=a11y run 39121000046's own evidence: `testCourses` failed on
+    /// "87.2%", y 765–783, tab bar top at y 791 — the same row the branch audit's own gate-2
+    /// review cited at 7.62:1).** Round 1 compared ONE row at a time, by WCAG luminance, against
+    /// ONE reference row, and broke on the first row reading back within tolerance. That row's own
+    /// screenshot (kept out of the repo; measured directly, not guessed) showed why both choices
+    /// were too fragile to use here:
+    /// - the gradient itself is far gentler and taller than the roughly 20 pt the branch audit's
+    ///   own owner-sheet crop suggested — (250,250,250) at the bar's own top edge, fading to pure
+    ///   (255,255,255) only around 37–40 pt above it, each step a single RGB unit;
+    /// - a single-row reference, and a single-row "clean" check, are both exactly as noisy as the
+    ///   rows they measure: one bare (252,252,252) row sits between two (255,255,255) rows well
+    ///   inside the plain canvas, far from any gradient, and round 1's own reference row happened
+    ///   to land on a similarly soft value — so the very first row scanned already read back
+    ///   "within tolerance" of a reference that was itself off by about as much as the real signal.
+    ///
+    /// The reference is now the modal colour of a `hardEdgeBandReferenceHeight`-tall block (not
+    /// one row), which such a single noisy row cannot skew, and a row only ends the scan once
+    /// `hardEdgeBandRequiredCleanStreak` CONSECUTIVE rows all read back within
+    /// `hardEdgeBandCleanTolerance` RGB units of it (channel-wise, not a luminance ratio) — a
+    /// sustained run is what actually tells "past the gradient" apart from a one-row compression
+    /// blip inside it, which immediately resumed being just as clean on every side.
+    ///
+    /// Returns the topmost row still read as part of the gradient — `nil` when the row immediately
+    /// above the bar already starts a clean streak (no band on this capture), when there is no
+    /// screenshot, or when there is not enough headroom above the bar to sample the reference
+    /// block at all — never a band the caller cannot show evidence for; the caller then uses the
+    /// bar's own frame alone. A generous `hardEdgeBandMaxSearch` costs nothing in correctness: the
+    /// per-pixel coverage proof (`measureNavBarCoverage`) and the fade-band readability proof
+    /// (`measureFadeBandContrast`), not this bound, are what actually decide whether anything shows
+    /// through or reads legibly.
     func measureHardEdgeBandTop(aboveBar tabBarFrame: CGRect) -> CGFloat? {
         guard !pixels.isEmpty else { return nil }
         let rowHeight = Self.hardEdgeBandRowStep
         let referenceY = tabBarFrame.minY - Self.hardEdgeBandMaxSearch - Self.hardEdgeBandReferenceGap
+            - Self.hardEdgeBandReferenceHeight
         guard referenceY >= 0,
-              let reference = modalColour(in: CGRect(x: tabBarFrame.minX, y: referenceY, width: tabBarFrame.width, height: rowHeight))
+              let reference = modalColour(in: CGRect(x: tabBarFrame.minX, y: referenceY, width: tabBarFrame.width,
+                                                      height: Self.hardEdgeBandReferenceHeight))
         else { return nil }
-        let referenceLuminance = Self.navBarLuminance(reference)
+        func isClean(_ colour: UInt32) -> Bool {
+            for shift in [UInt32(16), 8, 0] {
+                let a = (colour >> shift) & 0xFF
+                let b = (reference >> shift) & 0xFF
+                if (a > b ? a - b : b - a) > Self.hardEdgeBandCleanTolerance { return false }
+            }
+            return true
+        }
         var bandTop: CGFloat?
+        var cleanRun = 0
         var y = tabBarFrame.minY - rowHeight
         let floor = tabBarFrame.minY - Self.hardEdgeBandMaxSearch
         while y >= floor {
             guard let rowColour = modalColour(in: CGRect(x: tabBarFrame.minX, y: y, width: tabBarFrame.width, height: rowHeight))
             else { break }
-            guard abs(Self.navBarLuminance(rowColour) - referenceLuminance) > Self.hardEdgeBandLuminanceTolerance else { break }
-            bandTop = y
+            if isClean(rowColour) {
+                cleanRun += 1
+                if cleanRun >= Self.hardEdgeBandRequiredCleanStreak { break }
+            } else {
+                cleanRun = 0
+                bandTop = y
+            }
             y -= rowHeight
         }
         return bandTop
     }
 
-    /// MVP-3b: the hard-edge band scan's own bounds and tolerance (PMO ruling 2026-10-18).
-    /// `hardEdgeBandRowStep`: the row height sampled at each step (1 pt — plenty of pixels at this
-    /// app's usual 3x point scale, and fine enough that even a short band is several steps).
+    /// MVP-3b: the hard-edge band scan's own bounds and tolerance (PMO ruling 2026-10-18; widened
+    /// in round 2 — this type's own doc comment on `measureHardEdgeBandTop` has the measured
+    /// evidence). `hardEdgeBandRowStep`: the row height sampled at each step (1 pt — plenty of
+    /// pixels at this app's usual 3x point scale, and fine enough that even a short band is
+    /// several steps).
     static let hardEdgeBandRowStep: CGFloat = 1
-    /// The reference row sits this many points clear of the farthest point the scan will ever call
-    /// part of the band, so the reference itself is never inside the search window.
+    /// The reference block sits this many points clear of the farthest point the scan will ever
+    /// call part of the band, so the reference itself is never inside the search window.
     static let hardEdgeBandReferenceGap: CGFloat = 8
-    /// How far above the bar's own top the scan looks before giving up — generously more than the
-    /// roughly 20 pt gradient strip the branch audit measured on its own captures (`verdict.md`
-    /// §2.1), so the scan's own ceiling is never the reason a real band goes undetected. The
-    /// per-pixel coverage proof (`measureNavBarCoverage`), not this bound, is what actually decides
-    /// whether anything shows through, so a generous bound costs nothing in correctness.
-    static let hardEdgeBandMaxSearch: CGFloat = 48
-    /// WCAG relative luminance differs by this much (2%, the PMO ruling's own figure) before a row
-    /// counts as part of the gradient rather than plain, unaffected canvas.
-    static let hardEdgeBandLuminanceTolerance: Double = 0.02
+    /// Round 2: the reference is now a block, not one row — tall enough that a single noisy row
+    /// inside it cannot make it the modal colour (`modalColour`'s own `densest` helper already
+    /// discounts a minority value; height 20 gives it far more rows to outvote one).
+    static let hardEdgeBandReferenceHeight: CGFloat = 20
+    /// How far above the bar's own top the scan looks before giving up — round 2's own measured
+    /// gradient reached about 37–40 pt; this leaves a comfortable margin above that, found, not
+    /// assumed (this type's own doc comment on `measureHardEdgeBandTop`).
+    static let hardEdgeBandMaxSearch: CGFloat = 80
+    /// Round 2: a row's own modal colour within this many RGB units, on every channel, of the
+    /// reference block's own modal colour — channel-wise, not a WCAG luminance ratio (round 1's
+    /// own mistake: luminance compresses a tiny RGB step near white into an even tinier ratio,
+    /// which made the real signal read as smaller than ordinary single-row noise).
+    static let hardEdgeBandCleanTolerance: UInt32 = 1
+    /// Round 2: how many CONSECUTIVE clean rows, scanning upward from the bar, end the scan. Round
+    /// 1 broke on the very first clean-looking row; a sustained run is what actually tells "past
+    /// the gradient" apart from a one-row compression blip inside it.
+    static let hardEdgeBandRequiredCleanStreak = 10
 
     /// MVP-2f (PMO ruling): `measureTopChromeCoverage`'s own result — the combined numbers the gate
     /// itself uses, plus each part on its own (`nil` when `regionFrame` does not actually reach that
@@ -2576,15 +2623,17 @@ final class A11ySceneMeasurementTests: XCTestCase {
                      "never be excused by the band part's own clean reading")
     }
 
-    /// A synthetic capture with a real, measurable hard-edge band: plain reference rows (255,
-    /// y < 40), the band itself (230, y 40..<60 — over `A11yScene.hardEdgeBandLuminanceTolerance`
-    /// from the reference, so `measureHardEdgeBandTop` reads its top at y = 40), the tab bar
-    /// (y >= 60), and a 5-row, 8 px "text" patch inside the band (y 45..<49, x 2..<10: six of its
-    /// eight columns keep the band's own 230, two carry `foreground` — `measureFadeBandContrast`'s
-    /// own row-background rule needs a clear majority). `foreground` is chosen so the WCAG
-    /// contrast ratio against 230 is approximately the caller's own target.
+    /// A synthetic capture with a real, measurable hard-edge band, sized for round 2's own
+    /// parameters (`A11yScene.hardEdgeBandMaxSearch`/`...ReferenceGap`/`...ReferenceHeight`):
+    /// plain reference rows (255, untouched, including the reference block at y 52..<72), the
+    /// band itself (230, y 140..<160 — far outside `A11yScene.hardEdgeBandCleanTolerance` of the
+    /// reference, so `measureHardEdgeBandTop`'s sustained-streak scan reads its top at y = 140),
+    /// the tab bar (y >= 160), and a 5-row, 8 px "text" patch inside the band (y 145..<150,
+    /// x 2..<10: six of its eight columns keep the band's own 230, two carry `foreground` —
+    /// `measureFadeBandContrast`'s own row-background rule needs a clear majority). `foreground`
+    /// is chosen so the WCAG contrast ratio against 230 is approximately the caller's own target.
     private func gradientStripScene(foreground: UInt8) -> (scene: A11yScene, tabBar: CGRect, frame: CGRect) {
-        let width = 20, height = 80
+        let width = 20, height = 200
         var pixels = [UInt8](repeating: 0xFF, count: width * height * 4)
         func setRow(_ y: Int, _ x0: Int, _ x1: Int, _ v: UInt8) {
             for x in x0..<x1 {
@@ -2592,13 +2641,13 @@ final class A11ySceneMeasurementTests: XCTestCase {
                 pixels[offset] = v; pixels[offset + 1] = v; pixels[offset + 2] = v
             }
         }
-        for y in 40..<60 { setRow(y, 0, width, 230) }
-        for y in 45..<50 {
+        for y in 140..<160 { setRow(y, 0, width, 230) }
+        for y in 145..<150 {
             setRow(y, 2, 10, 230)
             setRow(y, 2, 4, foreground)
         }
         let scene = A11yScene(pixels: pixels, pixelWidth: width, pixelHeight: height, pixelScale: 1)
-        return (scene, CGRect(x: 0, y: 60, width: 20, height: 20), CGRect(x: 2, y: 45, width: 8, height: 5))
+        return (scene, CGRect(x: 0, y: 160, width: 20, height: 20), CGRect(x: 2, y: 145, width: 8, height: 5))
     }
 
     /// The brief's own second self-check: "a ≥ 4.5:1 row in the strip passes". `foreground = 75`
@@ -2606,7 +2655,7 @@ final class A11ySceneMeasurementTests: XCTestCase {
     /// luminance, computed by hand) — comfortably over the 4.5:1 floor.
     func testBottomChromeStripReadabilityHoldPassesAtOrAbove4Point5To1() {
         var (scene, tabBar, frame) = gradientStripScene(foreground: 75)
-        scene.window = CGRect(x: 0, y: 0, width: 20, height: 80)
+        scene.window = CGRect(x: 0, y: 0, width: 20, height: 200)
         scene.chrome = [(frame: tabBar, kind: .tabBar)]
         scene.scrolling = [(label: "strip text", frame: frame, container: scene.window, axis: .vertical, insidePinned: false)]
         let held = scene.heldReason(auditType: "contrast", label: "strip text", elementIdentifier: "",
@@ -2619,7 +2668,7 @@ final class A11ySceneMeasurementTests: XCTestCase {
     /// 4.5:1 floor, so the issue must still fail like any other.
     func testBottomChromeStripReadabilityHoldFailsBelow4Point5To1() {
         var (scene, tabBar, frame) = gradientStripScene(foreground: 132)
-        scene.window = CGRect(x: 0, y: 0, width: 20, height: 80)
+        scene.window = CGRect(x: 0, y: 0, width: 20, height: 200)
         scene.chrome = [(frame: tabBar, kind: .tabBar)]
         scene.scrolling = [(label: "strip text", frame: frame, container: scene.window, axis: .vertical, insidePinned: false)]
         let held = scene.heldReason(auditType: "contrast", label: "strip text", elementIdentifier: "",
