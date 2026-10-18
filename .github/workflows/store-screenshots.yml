@@ -127,6 +127,7 @@ jobs:
           path: |
             ${{ runner.temp }}/shots/*.png
             ${{ runner.temp }}/shots/*-bottom-chrome.txt
+            ${{ runner.temp }}/shots/*-cut-line.txt
           if-no-files-found: warn
           retention-days: 14
 

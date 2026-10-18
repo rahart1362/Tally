@@ -231,7 +231,8 @@ final class StoreScreenshotUITests: TallyUITestCase {
     /// never a fixed offset, since the es legs wrap differently from en. A combined row (a text
     /// whose frame holds other texts) is judged by its own lines, not as one block, and the tab
     /// bar's own labels never count. If there is no such scroll, or the drags miss it, the scene
-    /// is left as it is and the reason is attached for the gate-2 visual review.
+    /// is left as it is and the reason is attached for the gate-2 visual review. Never used on a
+    /// large-title screen (To-Do): its title snaps open or collapsed, so small offsets never rest.
     @MainActor
     private func nudgeTheCutLineIntoAGap(_ app: XCUIApplication, scene: String) {
         let room: CGFloat = 5, leading: CGFloat = 2, maxNudge: CGFloat = 24, minimumGap: CGFloat = 1
@@ -276,7 +277,7 @@ final class StoreScreenshotUITests: TallyUITestCase {
         let counts = Dictionary(lines.map { ($0.label, 1) }, uniquingKeysWith: +)
         let anchorLine = lines.first { counts[$0.label] == 1 && $0.frame.minY > 300 && $0.frame.maxY < cut - 40 }
         guard let target, let anchorLine else {
-            note("\(scene): no nudge. Cut at y \(cut); gap from \(gapStart) pt; anchor found: \(anchorLine != nil)")
+            note(scene, "\(scene): no nudge. Cut at y \(cut); gap from \(gapStart) pt; anchor found: \(anchorLine != nil)")
             return
         }
         let anchor = app.staticTexts.matching(NSPredicate(format: "label == %@", anchorLine.label)).firstMatch
@@ -296,14 +297,14 @@ final class StoreScreenshotUITests: TallyUITestCase {
             slop = actual > 0 ? max(0, distance - actual) : slop + 8
         }
         let moved = anchor.exists ? startY - anchor.frame.minY : -1
-        note("\(scene): the nudge to \(target) pt ended at \(moved) pt (cut at y \(cut))")
+        note(scene, "\(scene): the nudge to \(target) pt ended at \(moved) pt (cut at y \(cut))")
     }
 
     /// Attaches `text` beside the scene's capture, for the gate-2 visual review.
     @MainActor
-    private func note(_ text: String) {
+    private func note(_ scene: String, _ text: String) {
         let attachment = XCTAttachment(string: text)
-        attachment.name = "cut-line-note"
+        attachment.name = "\(scene)-cut-line"
         attachment.lifetime = .keepAlways
         add(attachment)
     }
@@ -427,7 +428,11 @@ final class StoreScreenshotUITests: TallyUITestCase {
         openTab(Self.tabLabel("toDo"), in: app)
         XCTAssertTrue(elementsWithPrefix("todo.row", in: app).firstMatch.waitForExistence(timeout: 15),
                      "To-Do shows no content. Hierarchy: \(app.debugDescription)")
-        nudgeTheCutLineIntoAGap(app, scene: "todo")
+        // No nudge here (owner decision 2026-10-18 covered To-Do too): a large-title list snaps its
+        // title fully open or fully collapsed when released mid-collapse, so a few points of scroll
+        // never rest. Release gate 39155714281 measured it: a 9 pt nudge ended about 63 pt down,
+        // with the title collapsed and the cut through "MATH 122 · Due Sat". At rest, only the
+        // bottom of Journal 5's "Not submitted" chip meets the cut; its text is whole.
         capture(app, number: 5, scene: "todo")
         app.terminate()
     }
