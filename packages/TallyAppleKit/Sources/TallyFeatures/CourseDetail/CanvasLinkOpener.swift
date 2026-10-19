@@ -22,7 +22,7 @@ enum CanvasLinkOpener {
     /// a bearer token to a URL (`PageURLPolicy.validate`, security.md WP-SEC-08), so "safe to open"
     /// and "safe to attach a token to" can never drift apart. `https` only, no embedded userinfo,
     /// and the host must be `accountHost` (port 443 or none).
-    static func isSafe(_ web: URL, accountHost: String) -> Bool {
+    nonisolated static func isSafe(_ web: URL, accountHost: String) -> Bool {
         guard !accountHost.isEmpty else { return false }
         do {
             try PageURLPolicy.validate(web, allowedHosts: [accountHost])
