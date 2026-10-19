@@ -19,6 +19,10 @@ struct CoursesScreen: View {
     /// shared with Course Detail (passed through `navigationDestination` below), so neither
     /// screen recomputes it.
     @State private var sparklines = CourseSparklineModel()
+    /// UX1-11: the tab root's own content margin, read from the container width so Pro Max's
+    /// large title and this list's rows share one left edge (20 pt on a wide phone, else the
+    /// static 16 pt) instead of the title alone picking up the system's wider margin.
+    @State private var screenMargin: CGFloat = TallySpacing.screenMargin
 
     var body: some View {
         Group {
@@ -58,14 +62,18 @@ struct CoursesScreen: View {
                 .environment(\.editMode, $editMode)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
                 // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
-                .tallyList()
+                // UX1-11: the edge itself now follows the container width (see `screenMargin`).
+                .tallyList(margin: screenMargin)
+                .tallyReadsScreenMargin(into: $screenMargin)
                 // D01: content scrolled past the top stayed visible, blurred, under the inline
                 // title and the status bar, even at rest. R4 (round 3): the large-title variant,
                 // so the opaque fill never paints over "Courses" and its subtitle at rest.
                 .tallyLargeTitleScreenChrome()
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
+        // UX1-11: the breadcrumb is the one other screen-margin-sensitive element outside the
+        // list itself; it needs the same dynamic edge the list's rows now get.
+        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb(margin: screenMargin) }
         .navigationTitle(String(localized: L10n.Courses.navigationTitle()))
         .navigationDestination(for: CanvasID<Course>.self) { id in
             CourseDetailView(courseID: id, sparklines: sparklines)
@@ -131,48 +139,89 @@ struct CourseCardView: View {
     var body: some View {
         HStack(alignment: .top, spacing: TallySpacing.md) {
             CourseColorMark(paletteIndex: card.paletteIndex, style: .bar)
-            let layout = usesFullWidthColumn
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallySpacing.sm))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: TallySpacing.md))
-            layout {
-                VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                    // MVP-2b: no line limit at any size. Two lines below the accessibility sizes
-                    // could only cut a long name at xLarge–xxxLarge ("Introduction to Psych…").
-                    // Xcode's audit reported two "may be clipped at larger Dynamic Type sizes" on
-                    // Courses that it could not attach to an element (scope=a11y runs 38338079168,
-                    // 38350587735), with two names on two lines at the default size; the next run
-                    // reported one. At the default size every sample name fits in two lines.
-                    Text(card.name)
-                        .font(TallyTypography.cardTitle)
-                        .foregroundStyle(TallyColor.textPrimary)
-                    Text(card.code)
-                        .font(TallyTypography.subheadline)
-                        .foregroundStyle(TallyColor.textSecondary)
-                    if let next = card.nextDueText {
-                        Text(next)
-                            .font(TallyTypography.footnote)
-                            .foregroundStyle(TallyColor.textSecondary)
-                    }
-                    // "No grade yet" and "Grade not in Canvas" are already said where the grade goes.
-                    if !card.health.isSaidByTheGrade {
-                        StatusChip(symbol: card.health.symbol, text: card.health.label, tone: card.health.tone)
-                    }
-                }
-                // D14/UX-FP3 regression (testCoursesListsEveryCourseWithCodeAndHealth, run
-                // 37918268052): this used to be `.frame` on nothing + a trailing `Spacer`, pushing
-                // `grade` to the edge. Stacking a flexible `Spacer` *and* the outer HStack's own
-                // `spacing` around a fixed-width sparkline compounded (spacing applies between
-                // every child, Spacer included), squeezing the title into extra wrapping that grew
-                // every card enough to push a 5th off the materialized list. `.frame(maxWidth:
-                // .infinity)` here does the same trailing-push with none of that overhead: fixed-
-                // width siblings (the sparkline, the grade) are sized first, and the title fills
-                // whatever is left, exactly as it did with no sparkline column at all.
-                .frame(maxWidth: .infinity, alignment: .leading)
-                sparklineColumn
-                grade
+            if usesFullWidthColumn {
+                fullWidthStack
+            } else {
+                standardLayout
             }
         }
         .padding(.vertical, TallySpacing.xs)
+    }
+
+    /// UX1-17: a top row (name/code, sparkline, grade), each the row's own height, then — full
+    /// width below it — the "Next" line and the health chip. Previously all four (name, code,
+    /// next, chip) shared one ~190 pt text column squeezed between the sparkline and the grade,
+    /// so "Next: …" wrapped to three lines while the area under the sparkline and grade sat
+    /// empty and every card ran about 155 pt tall.
+    private var standardLayout: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.sm) {
+            HStack(alignment: .top, spacing: TallySpacing.md) {
+                nameAndCode
+                    // D14/UX-FP3 regression (testCoursesListsEveryCourseWithCodeAndHealth, run
+                    // 37918268052): this used to be `.frame` on nothing + a trailing `Spacer`,
+                    // pushing `grade` to the edge. Stacking a flexible `Spacer` *and* the outer
+                    // HStack's own `spacing` around a fixed-width sparkline compounded (spacing
+                    // applies between every child, Spacer included), squeezing the title into
+                    // extra wrapping that grew every card enough to push a 5th off the
+                    // materialized list. `.frame(maxWidth: .infinity)` here does the same
+                    // trailing-push with none of that overhead: fixed-width siblings (the
+                    // sparkline, the grade) are sized first, and the title fills whatever is
+                    // left, exactly as it did with no sparkline column at all.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                sparklineColumn
+                grade
+            }
+            metaRow
+        }
+    }
+
+    /// UX1-18: at `xxxLarge`/AX the grade (the one number the screen exists for) follows the name
+    /// and code directly, instead of sinking below the meta line, the health chip and the
+    /// sparkline — where it landed below the fold on Pro Max and under the chart on the smallest
+    /// iPhone.
+    private var fullWidthStack: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.sm) {
+            nameAndCode
+            grade
+            metaRow
+            sparklineColumn
+        }
+    }
+
+    private var nameAndCode: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.xs) {
+            // MVP-2b: no line limit at any size. Two lines below the accessibility sizes
+            // could only cut a long name at xLarge–xxxLarge ("Introduction to Psych…").
+            // Xcode's audit reported two "may be clipped at larger Dynamic Type sizes" on
+            // Courses that it could not attach to an element (scope=a11y runs 38338079168,
+            // 38350587735), with two names on two lines at the default size; the next run
+            // reported one. At the default size every sample name fits in two lines.
+            Text(card.name)
+                .font(TallyTypography.cardTitle)
+                .foregroundStyle(TallyColor.textPrimary)
+            Text(card.code)
+                .font(TallyTypography.subheadline)
+                .foregroundStyle(TallyColor.textSecondary)
+        }
+    }
+
+    /// UX1-17: the "Next" line and the health chip, full width, now a tier of their own instead
+    /// of sharing the name/code column.
+    @ViewBuilder
+    private var metaRow: some View {
+        if card.nextDueText != nil || !card.health.isSaidByTheGrade {
+            VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                if let next = card.nextDueText {
+                    Text(next)
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textSecondary)
+                }
+                // "No grade yet" and "Grade not in Canvas" are already said where the grade goes.
+                if !card.health.isSaidByTheGrade {
+                    StatusChip(symbol: card.health.symbol, text: card.health.label, tone: card.health.tone)
+                }
+            }
+        }
     }
 
     /// UX-SPARK-2: a dedicated trend column between the title and grade blocks, about 96×32 pt;

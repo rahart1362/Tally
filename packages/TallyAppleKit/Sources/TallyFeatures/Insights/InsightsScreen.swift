@@ -15,6 +15,10 @@ struct InsightsScreen: View {
     @Environment(HomeModel.self) private var model
     @State private var insights = InsightsModel()
     @State private var range: TrendRange = .month
+    /// UX1-11: the tab root's own content margin, read from the container width so Pro Max's
+    /// large title and this screen's cards share one left edge (20 pt on a wide phone, else the
+    /// static 16 pt) instead of the title alone picking up the system's wider margin.
+    @State private var screenMargin: CGFloat = TallySpacing.screenMargin
 
     var body: some View {
         let projection = model.insightsScreen
@@ -44,10 +48,11 @@ struct InsightsScreen: View {
                         risksCard(projection.risks)
                         heavyCard(projection.heavyStretches)
                     }
-                    .padding(.horizontal, TallySpacing.screenMargin)
+                    .padding(.horizontal, screenMargin)
                     .padding(.vertical, TallySpacing.lg)
                 }
                 .background(TallyColor.bgCanvas)
+                .tallyReadsScreenMargin(into: $screenMargin)
                 .refreshable { await model.refreshUntilSettledOrDelayed() }
                 // D01: content scrolled past the top stayed visible, blurred, under the inline
                 // title and the status bar, even at rest. R4 (round 3): the large-title variant,
@@ -55,7 +60,9 @@ struct InsightsScreen: View {
                 .tallyLargeTitleScreenChrome()
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
+        // UX1-11: the breadcrumb is the one other screen-margin-sensitive element outside the
+        // scroll content itself; it needs the same dynamic edge the cards below it now get.
+        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb(margin: screenMargin) }
         .navigationTitle(String(localized: L10n.Insights.navigationTitle()))
         .task(id: projection.trendInput) { await insights.load(projection.trendInput) }
     }

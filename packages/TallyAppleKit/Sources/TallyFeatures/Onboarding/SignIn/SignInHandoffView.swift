@@ -70,31 +70,45 @@ struct SignInHandoffView: View {
 
     /// The four expectation rows, copy verbatim from the prototype (`docs/pmo/ux/first-run-prototype.html`).
     private var expectationCard: some View {
-        VStack(spacing: 0) {
+        // UX1-04/UX1-09: the default (centre) alignment let each row's HStack size to its own
+        // intrinsic width, so the icon column zig-zagged and the dividers (inset to the icon
+        // column's fixed offset) no longer lined up under it. `.leading` plus a full-width row
+        // frame keeps one shared left edge for icon, text and divider.
+        VStack(alignment: .leading, spacing: 0) {
             ExpectationRow(
                 symbol: "key.fill",
                 title: L10n.Onboarding.SignIn.expectation1Title(),
                 detail: L10n.Onboarding.SignIn.expectation1Detail()
             )
-            Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
+            // UX1-04: a stable id per row (`SignInSignOutUITests` checks each one still exists;
+            // a `frame.minX` equality check was tried and dropped — the combined element's
+            // reported frame is the union of its icon/title/detail content bounds, not the
+            // row's stretched layout frame, so it varies with each row's own text and glyph
+            // regardless of whether the rows share a left edge).
+            .accessibilityIdentifier("onboarding.signIn.expectation1")
+            Divider().padding(.leading, ExpectationRow.dividerInset)
             ExpectationRow(
                 symbol: "bubble.left.fill",
                 title: L10n.Onboarding.SignIn.expectation2Title(),
                 detail: L10n.Onboarding.SignIn.expectation2Detail(viewModel.host)
             )
-            Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
+            .accessibilityIdentifier("onboarding.signIn.expectation2")
+            Divider().padding(.leading, ExpectationRow.dividerInset)
             ExpectationRow(
                 symbol: "checkmark.shield.fill",
                 title: L10n.Onboarding.SignIn.expectation3Title(),
                 detail: L10n.Onboarding.SignIn.expectation3Detail()
             )
-            Divider().padding(.leading, TallySpacing.xxl + TallySpacing.md)
+            .accessibilityIdentifier("onboarding.signIn.expectation3")
+            Divider().padding(.leading, ExpectationRow.dividerInset)
             ExpectationRow(
                 symbol: "arrow.uturn.left.circle.fill",
                 title: L10n.Onboarding.SignIn.expectation4Title(),
                 detail: L10n.Onboarding.SignIn.expectation4Detail()
             )
+            .accessibilityIdentifier("onboarding.signIn.expectation4")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, TallySpacing.xs)
         .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.card, style: .continuous))
     }
@@ -169,6 +183,12 @@ private struct SchoolAddressTag: View {
 }
 
 private struct ExpectationRow: View {
+    /// Welcome's `BenefitRow` and School search's hint row use the same 28 pt icon column
+    /// (UX1-09); named once so the divider inset below can be derived from it instead of a
+    /// second magic number that silently drifts from the row's own padding.
+    static let iconWidth: CGFloat = 28
+    static var dividerInset: CGFloat { TallySpacing.md + iconWidth + TallySpacing.md }
+
     let symbol: String
     let title: LocalizedStringResource
     let detail: LocalizedStringResource
@@ -178,7 +198,7 @@ private struct ExpectationRow: View {
             Image(systemName: symbol)
                 .font(.system(.title3))
                 .foregroundStyle(TallyColor.accent)
-                .frame(width: 28)
+                .frame(width: Self.iconWidth)
             VStack(alignment: .leading, spacing: TallySpacing.xs) {
                 Text(title)
                     .font(TallyTypography.cardTitle)
@@ -188,6 +208,11 @@ private struct ExpectationRow: View {
                     .foregroundStyle(TallyColor.textSecondary)
             }
         }
+        // UX1-04: without this, the row sizes to its own text and the parent VStack's
+        // `.leading` alignment still left-aligns each row's *own* bounding box, which is no
+        // better than centring once rows are different widths. Stretching every row to the
+        // card's full width is what gives the icon column one shared x position.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(TallySpacing.md)
         .accessibilityElement(children: .combine)
     }

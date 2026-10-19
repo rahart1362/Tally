@@ -123,11 +123,18 @@ extension View {
 /// itself a row. `tallyRow()`, below, is the per-row form of the same token; every call site now
 /// applies it directly to its rows/Sections instead.
 public struct TallyListChrome: ViewModifier {
-    public init() {}
+    /// UX1-11: defaults to the static 16 pt margin, unchanged for every existing call site
+    /// (Calendar, Course detail, What-If, the student switcher sheet); only a tab root that
+    /// opts in with an explicit `margin` follows the system's own large-title margin instead.
+    private let margin: CGFloat
+
+    public init(margin: CGFloat = TallySpacing.screenMargin) {
+        self.margin = margin
+    }
 
     public func body(content: Content) -> some View {
         content
-            .contentMargins(.horizontal, TallySpacing.screenMargin, for: .scrollContent)
+            .contentMargins(.horizontal, margin, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background(TallyColor.bgCanvas)
     }
@@ -137,8 +144,42 @@ extension View {
     /// D27/D31: 16 pt content margins and the Tally canvas background on a `List`, in place of the
     /// system's 20 pt inset-grouped margin and grouped background. Pair with `tallyRow()` on every
     /// row/Section so the rows themselves pick up the Tally card colour too. See `TallyListChrome`.
-    public func tallyList() -> some View {
-        modifier(TallyListChrome())
+    ///
+    /// UX1-11: a tab root (Courses, To-Do) that must share its large title's margin on wide
+    /// phones passes `margin:` explicitly (paired with `tallyReadsScreenMargin(into:)`, below);
+    /// every other call site keeps the static default.
+    public func tallyList(margin: CGFloat = TallySpacing.screenMargin) -> some View {
+        modifier(TallyListChrome(margin: margin))
+    }
+}
+
+/// UX1-11: reads this view's own rendered width (and any later resize) into `margin`, as
+/// `TallySpacing.tabRootMargin(containerWidth:)` — a zero-footprint `GeometryReader` behind a
+/// `Color.clear`, so it never changes this view's own layout. Scoped to the four tab roots that
+/// opt in (Dashboard, Courses, To-Do, Insights); every other screen keeps the static margin.
+public struct TallyScreenWidthReader: ViewModifier {
+    @Binding var margin: CGFloat
+
+    public init(margin: Binding<CGFloat>) {
+        self._margin = margin
+    }
+
+    public func body(content: Content) -> some View {
+        content.background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.width, initial: true) { _, width in
+                        margin = TallySpacing.tabRootMargin(containerWidth: width)
+                    }
+            }
+        }
+    }
+}
+
+extension View {
+    /// UX1-11: see `TallyScreenWidthReader`.
+    public func tallyReadsScreenMargin(into margin: Binding<CGFloat>) -> some View {
+        modifier(TallyScreenWidthReader(margin: margin))
     }
 }
 

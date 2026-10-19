@@ -28,13 +28,18 @@ public nonisolated struct HomeGlance: Equatable, Sendable {
     /// record it will start from (`RefreshStateStore.startingRecord`).
     public static func make(from glance: GlanceProjection, now: Date, record: RefreshRecord? = nil) -> HomeGlance {
         let horizon = now.addingTimeInterval(dueSoonWindow)
+        // UX1-12: the same "is this today" rule the full projection's `dueSoon` uses, so the
+        // glance's first frame and the full projection a moment later never disagree.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
         let due = glance.dueSoon
             .filter { item in
                 guard let dueAt = item.dueAt else { return false }
                 return dueAt >= now && dueAt <= horizon
             }
             .prefix(dueSoonLimit)
-            .map { DashboardProjection.DueItem(id: $0.id, title: $0.title, courseCode: $0.courseShortCode, dueAt: $0.dueAt) }
+            .map { DashboardProjection.DueItem(id: $0.id, title: $0.title, courseCode: $0.courseShortCode, dueAt: $0.dueAt,
+                                               isToday: $0.dueAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false) }
         let starting = RefreshStateStore.startingRecord(persisted: record, committedDataFetchedAt: glance.asOf)
         return HomeGlance(generation: glance.generation, asOf: glance.asOf,
                           dashboard: DashboardProjection(hero: glance.hero, nextUp: [], needsAttention: [],

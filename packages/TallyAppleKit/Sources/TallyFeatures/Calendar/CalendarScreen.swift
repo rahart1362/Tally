@@ -150,7 +150,15 @@ struct CalendarScreen: View {
                         Button {
                             subscribe(calendar.subscribeURL)
                         } label: {
-                            Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
+                            // UX1-39: at `xxxLarge` (a standard size, so on the default path) the
+                            // icon + label truncated "Subscribe to Canvas Cal…" on the smallest
+                            // iPhone, in light and dark; dropping the icon from `xxxLarge` up
+                            // frees about 40 pt for the text itself.
+                            if typeSize.isAccessibilitySize || typeSize == .xxxLarge {
+                                Text(L10n.Calendar.subscribeMenuItem())
+                            } else {
+                                Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
+                            }
                         }
                         // L10N-04: a stable id (the Audit tour looked this menu row up by its
                         // English label, which Spanish changes).
@@ -371,8 +379,11 @@ private struct AgendaRow: View {
                     .foregroundStyle(TallyColor.textPrimary)
                 if let code = item.courseCode {
                     // ux-fp2 D02: the course code never breaks; from AX1 up the place goes under
-                    // it, where it needs no "·" separator (the To-Do row's rule).
-                    TallyReflowStack(spacing: TallySpacing.xs) {
+                    // it, where it needs no "·" separator (the To-Do row's rule). UX1-25:
+                    // `xxxLarge` (`stacksAtXXXLarge`) joins that stacked layout too — a standard
+                    // size, so on the default path, where the place otherwise wrapped as a
+                    // hanging column beside the code instead of a full-width paragraph.
+                    TallyReflowStack(spacing: TallySpacing.xs, stacksAtXXXLarge: true) {
                         HStack(spacing: TallySpacing.xs) {
                             if let palette = item.paletteIndex {
                                 CourseColorMark(paletteIndex: palette)
@@ -383,7 +394,7 @@ private struct AgendaRow: View {
                         if let location = item.location {
                             // MVP-2b: one text whose words change at AX1, not two texts (the week
                             // strip's note: the audit loses a text that is replaced as it grows).
-                            Text(verbatim: typeSize.isAccessibilitySize ? location : "· " + location)
+                            Text(verbatim: TallyReflow.isStacked(at: typeSize, stacksAtXXXLarge: true) ? location : "· " + location)
                         }
                     }
                     .font(TallyTypography.footnote)

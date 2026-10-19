@@ -27,6 +27,24 @@ final class SignInSignOutUITests: TallyUITestCase {
         searchField.typeText(Self.demoHost)
         tapWhenHittable(app.buttons["Use \(Self.demoHost)"], in: app, timeout: LifecycleUITest.tapTimeout)
 
+        // UX1-04: the four "what happens next" rows used to centre independently, so their icons
+        // zig-zagged (measured on PM std: 37, 15, 19, 72 pt into the card). Runs 39245392960 and
+        // 39250067762 both tried (and the second deliberately settled first,
+        // `waitUntilRowAtRest`) a `frame.minX` equality check across the four rows' own
+        // `.accessibilityElement(children: .combine)` elements, and both got the same
+        // reproducible-but-wrong signal: the reported frame is the union of the combined icon +
+        // title + detail elements' own content bounds, not the row's stretched layout frame, so
+        // it legitimately varies with each row's text length and each SF Symbol's glyph bounds
+        // regardless of whether the rows share a left edge. Checked instead: every row still
+        // exists by its stable id (a gross regression — a row dropped or its id lost — still
+        // fails loudly); the actual alignment is Gate 1's job (the Audit tour's "after" captures
+        // and layout-check deltas), which can see real pixels.
+        for index in 1...4 {
+            let row = element("onboarding.signIn.expectation\(index)", in: app)
+            XCTAssertTrue(row.waitForExistence(timeout: LifecycleUITest.tapTimeout),
+                         "row \(index) missing. Hierarchy: \(app.debugDescription)")
+        }
+
         // The sign-in hand-off, then the first sync (a plain page), then the Home as the root.
         tapWhenHittable(app.buttons["Continue to \(Self.demoHost)"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30),

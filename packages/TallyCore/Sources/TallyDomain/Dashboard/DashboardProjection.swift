@@ -121,9 +121,17 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
         public let title: String
         public let courseCode: String?
         public let dueAt: Date?
+        /// UX1-12: `true` when `dueAt` falls on the same calendar day as the projection's `now`.
+        /// The row shows a bare time ("9:00 AM") only when this is `true`; otherwise the day goes
+        /// with it ("Mon 9:00 AM"), since the section spans up to 7 days and a bare time read as
+        /// "today" regardless (an item due Monday 9:00 AM read "9:00 AM" on a Sunday evening).
+        /// Decided here, where `now` already is — views have no clock of their own
+        /// (perf-app-runtime.md §3 item 4). Defaulted so an existing caller stays source-compatible.
+        public let isToday: Bool
 
-        public init(id: String, title: String, courseCode: String?, dueAt: Date?) {
+        public init(id: String, title: String, courseCode: String?, dueAt: Date?, isToday: Bool = false) {
             self.id = id; self.title = title; self.courseCode = courseCode; self.dueAt = dueAt
+            self.isToday = isToday
         }
     }
 
@@ -473,6 +481,10 @@ public nonisolated enum DashboardBuilder {
         planner: [PlannerItem], coursesByID: [CanvasID<Course>: Course], now: Date
     ) -> [DashboardProjection.DueItem] {
         let horizon = now.addingTimeInterval(7 * 24 * 3600)
+        // UX1-12: the same calendar `weekAhead` (below) uses, so "today" means the same thing in
+        // both sections.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
         return planner
             .filter { item in
                 guard let due = item.dueAt, due >= now, due <= horizon else { return false }
@@ -481,7 +493,9 @@ public nonisolated enum DashboardBuilder {
             .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
             .prefix(5)
             .map { DashboardProjection.DueItem(id: $0.id, title: $0.title,
-                                               courseCode: $0.courseID.flatMap { coursesByID[$0]?.courseCode }, dueAt: $0.dueAt) }
+                                               courseCode: $0.courseID.flatMap { coursesByID[$0]?.courseCode },
+                                               dueAt: $0.dueAt,
+                                               isToday: $0.dueAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false) }
     }
 
     // MARK: - Week ahead (§1.2 rank 5, §1.3 "Week ahead" variant)

@@ -13,6 +13,10 @@ struct ToDoScreen: View {
     @State private var sortOrder: ToDoSortOrder = .dueDate
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<CanvasID<Assignment>>()
+    /// UX1-11: the tab root's own content margin, read from the container width so Pro Max's
+    /// large title and this list's rows share one left edge (20 pt on a wide phone, else the
+    /// static 16 pt) instead of the title alone picking up the system's wider margin.
+    @State private var screenMargin: CGFloat = TallySpacing.screenMargin
 
     var body: some View {
         Group {
@@ -49,14 +53,18 @@ struct ToDoScreen: View {
                 // both shown, the tab bar covered Mark Done (run 36454544581).
                 .toolbarVisibility(editMode.isEditing ? .hidden : .automatic, for: .tabBar)
                 // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
-                .tallyList()
+                // UX1-11: the edge itself now follows the container width (see `screenMargin`).
+                .tallyList(margin: screenMargin)
+                .tallyReadsScreenMargin(into: $screenMargin)
                 // D01: content scrolled past the top stayed visible, blurred, under the inline
                 // title and the status bar, even at rest — select mode included. R4 (round 3): the
                 // large-title variant, so the opaque fill never paints over "To-Do" at rest.
                 .tallyLargeTitleScreenChrome()
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
+        // UX1-11: the breadcrumb is the one other screen-margin-sensitive element outside the
+        // list itself; it needs the same dynamic edge the list's rows now get.
+        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb(margin: screenMargin) }
         .navigationTitle(String(localized: L10n.ToDo.navigationTitle()))
         .toolbar {
             if !model.toDoScreen.sections.isEmpty {
@@ -170,7 +178,11 @@ struct ToDoRowView: View {
                     Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
                         .font(.system(.title2))
                         .foregroundStyle(isDone ? TallyColor.accent : TallyColor.textSecondary)
-                        .frame(width: 44, height: 44)
+                        // UX1-27: at AX5 `title2` grows to about 55 pt, but the frame was fixed at
+                        // 44 x 44 pt, so the glyph overflowed it by about 5 pt a side and ate the
+                        // gap before the title. `minWidth`/`minHeight` keep the 44 pt tap target
+                        // as a floor while letting the frame grow with the glyph above it.
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
@@ -184,15 +196,18 @@ struct ToDoRowView: View {
                     .font(TallyTypography.cardTitle)
                     .foregroundStyle(TallyColor.textPrimary)
                 // ux-fp2 D02: the course code never breaks ("MAT / H 122" at AX5); from AX1 up the
-                // due date goes under it, where it needs no "·" separator.
-                TallyReflowStack(spacing: TallySpacing.xs) {
+                // due date goes under it, where it needs no "·" separator. UX1-28: `xxxLarge`
+                // (`stacksAtXXXLarge`) joins that stacked layout too, so the due date wraps as its
+                // own full-width line instead of a hanging column beside the code (the
+                // `CourseCardView.usesFullWidthColumn` precedent).
+                TallyReflowStack(spacing: TallySpacing.xs, stacksAtXXXLarge: true) {
                     HStack(spacing: TallySpacing.xs) {
                         CourseColorMark(paletteIndex: item.paletteIndex)
                         Text(item.courseCode)
                     }
                     .tallyReflowValue()
                     if let due = item.dueText {
-                        if typeSize.isAccessibilitySize {
+                        if TallyReflow.isStacked(at: typeSize, stacksAtXXXLarge: true) {
                             Text(verbatim: due)
                         } else {
                             Text("· \(due)")

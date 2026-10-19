@@ -15,6 +15,20 @@ public enum TallySpacing {
     /// Screen margins (§3.5: "Screen margins are 16 pt").
     public static let screenMargin: CGFloat = 16
 
+    /// UX1-11: the width, in points, at which the system gives a large navigation title its own
+    /// wider margin (measured on Pro Max, 440 pt wide, vs the smallest iPhone, 390 pt). A tab
+    /// root whose content must share one left edge with its large title reads `tabRootMargin(for:)`
+    /// against this breakpoint instead of the static `screenMargin`.
+    public static let wideScreenBreakpoint: CGFloat = 414
+
+    /// UX1-11: `xl` (20 pt, the system's own large-title margin) on a wide phone, else the
+    /// static `screenMargin` (16 pt) — so a tab root's title, hero, cards and section headers
+    /// share one edge on every device instead of the title alone picking up the system's wider
+    /// margin.
+    public static func tabRootMargin(containerWidth: CGFloat) -> CGFloat {
+        containerWidth >= wideScreenBreakpoint ? xl : screenMargin
+    }
+
     /// L10N-04 round 2 (gate-2 verdict L6): the floating tab bar's own footprint (its content
     /// height plus the home indicator's safe area) is not always reserved automatically for a
     /// screen that fully replaces a tab's content outside a `List`/`Form` (`LockedFeatureCard`):

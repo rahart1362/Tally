@@ -56,6 +56,11 @@ struct FreshnessFooter: View {
 struct FreshnessBreadcrumb: View {
     @Environment(HomeModel.self) private var model
     @Environment(\.colorScheme) private var colorScheme
+    /// UX1-11: the four large-title tab roots pass their own `screenMargin` (already read from
+    /// the container width) so this pinned banner's text lines up with the hero/cards below it
+    /// instead of staying at the static 16 pt once they move to 20 pt on a wide phone. Calendar
+    /// (the one other call site) keeps the default: its inline title is out of UX1-11's scope.
+    var margin: CGFloat = TallySpacing.screenMargin
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -64,7 +69,7 @@ struct FreshnessBreadcrumb: View {
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, TallySpacing.screenMargin)
+                    .padding(.horizontal, margin)
                     .padding(.vertical, TallySpacing.sm)
                     // D21: a rounded warning-token card instead of a square-cornered, hard-coded
                     // `.orange` wash — every other surface on these screens is a rounded card.

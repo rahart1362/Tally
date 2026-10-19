@@ -17,6 +17,14 @@ struct DashboardView: View {
     /// snapshot (`CourseSparklineModel`, shared with the Courses tab's own cache pattern). Loaded
     /// by `.task(id:)` below, after the first paint — it never delays `Launch.GlancePaint`.
     @State private var trend = CourseSparklineModel()
+    /// UX1-35: hides `header`'s greeting in parent mode, where the switcher above already names
+    /// the student.
+    @Environment(\.isParentModeHome) private var isParentModeHome
+    /// UX1-11: the tab root's own content margin, read from the container width so Pro Max's
+    /// large title and this screen's hero/cards/headers share one left edge (20 pt on a wide
+    /// phone, else the static 16 pt) instead of the title alone picking up the system's wider
+    /// margin.
+    @State private var screenMargin: CGFloat = TallySpacing.screenMargin
 
     var body: some View {
         #if DEBUG
@@ -57,10 +65,11 @@ struct DashboardView: View {
                     DueSoonSection(items: model.dashboard.dueSoon)
                 }
             }
-            .padding(.horizontal, TallySpacing.screenMargin)
+            .padding(.horizontal, screenMargin)
             .padding(.bottom, TallySpacing.xxxl)
         }
         .background(TallyColor.bgCanvas)
+        .tallyReadsScreenMargin(into: $screenMargin)
         // UX-SPARK-2: the same trend input the Courses tab's sparklines use; this task runs after
         // the first paint and is cancelled/retried exactly like `CoursesScreen`'s.
         .task(id: model.insightsScreen.trendInput) { await trend.load(model.insightsScreen.trendInput) }
@@ -76,7 +85,10 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var header: some View {
-        if let name = model.studentDisplayName {
+        // UX1-35: in parent mode the switcher right above already names the student ("Rowan
+        // Sample"), so repeating it here ("Good afternoon, Rowan Sample") on every leg greeted
+        // the parent with the student's own name instead of the parent's.
+        if !isParentModeHome, let name = model.studentDisplayName {
             Text(L10n.Dashboard.greeting(Self.greetingWord(model.greeting), name))
                 .font(TallyTypography.subheadline)
                 .foregroundStyle(TallyColor.textSecondary)
@@ -537,7 +549,13 @@ private struct DueSoonSection: View {
                         }
                         TallyReflowSpacer()
                         if let due = item.dueAt {
-                            Text(due.formatted(date: .omitted, time: .shortened))
+                            // UX1-12: the section spans up to 7 days, but a bare time read as
+                            // "today" regardless ("9:00 AM" for a Monday-morning item seen on a
+                            // Sunday evening). `isToday` was decided where the projection's `now`
+                            // already is (`DashboardProjection.dueSoon`); formatting the day name
+                            // itself needs no clock of its own.
+                            Text(item.isToday ? due.formatted(date: .omitted, time: .shortened)
+                                 : due.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
                                 .font(TallyTypography.footnote)
                                 .foregroundStyle(TallyColor.textSecondary)
                                 .tallyReflowValue()

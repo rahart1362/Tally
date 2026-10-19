@@ -175,6 +175,9 @@ public struct HomeShellView: View {
         .background(TallyColor.bgCanvas, ignoresSafeAreaEdges: .top)
         .animation(.easeInOut(duration: Self.studentSwitchFade), value: family?.activeSubject)
         .environment(home)
+        // UX1-35: read by `DashboardView` to skip its own greeting in parent mode, where the
+        // switcher right above already names the student.
+        .environment(\.isParentModeHome, family != nil)
         // The Home's one sheet: Settings, or M3-B2's paywall (`AppModel.paywall`). One presenter: with
         // two chained `.sheet` modifiers here, the subscription changing under Settings closed it (run
         // 36976774341).
@@ -342,5 +345,18 @@ private struct ParentModeInlineTitle: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// UX1-35: `true` when the Home on screen belongs to a linked student in parent mode. See
+/// `DashboardView.header`.
+private struct IsParentModeHomeKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isParentModeHome: Bool {
+        get { self[IsParentModeHomeKey.self] }
+        set { self[IsParentModeHomeKey.self] = newValue }
     }
 }
