@@ -29,15 +29,24 @@ final class SignInSignOutUITests: TallyUITestCase {
 
         // UX1-04: the four "what happens next" rows used to centre independently, so their icons
         // zig-zagged (measured on PM std: 37, 15, 19, 72 pt into the card). Asserting one shared
-        // minX catches a regression without reading pixels.
-        let expectation1 = element("onboarding.signIn.expectation1", in: app)
-        XCTAssertTrue(expectation1.waitForExistence(timeout: LifecycleUITest.tapTimeout), "Hierarchy: \(app.debugDescription)")
-        let leftEdge = expectation1.frame.minX
-        for index in 2...4 {
-            let row = element("onboarding.signIn.expectation\(index)", in: app)
-            XCTAssertTrue(row.exists, "row \(index) missing. Hierarchy: \(app.debugDescription)")
+        // minX catches a regression without reading pixels. Run 39245392960 found this screen's
+        // own push transition still settling when the first read landed (row 1 and row 2's
+        // frames 4+ pt and 80+ pt apart on Y, impossible for a leading-aligned stack at rest):
+        // `waitUntilRowAtRest` on every row before reading any of them, as `StoreScreenshotUITests`
+        // already does before a capture.
+        var rows: [XCUIElement] = []
+        for index in 1...4 {
+            rows.append(element("onboarding.signIn.expectation\(index)", in: app))
+        }
+        XCTAssertTrue(rows[0].waitForExistence(timeout: LifecycleUITest.tapTimeout), "Hierarchy: \(app.debugDescription)")
+        for row in rows {
+            XCTAssertTrue(row.exists, "a row is missing. Hierarchy: \(app.debugDescription)")
+            XCTAssertTrue(waitUntilRowAtRest(row, in: app), "a row never settled. Hierarchy: \(app.debugDescription)")
+        }
+        let leftEdge = rows[0].frame.minX
+        for row in rows.dropFirst() {
             XCTAssertEqual(row.frame.minX, leftEdge, accuracy: 1,
-                           "expectation row \(index) does not share the first row's left edge (\(row.frame) vs \(expectation1.frame))")
+                           "an expectation row does not share the first row's left edge (\(row.frame) vs \(rows[0].frame))")
         }
 
         // The sign-in hand-off, then the first sync (a plain page), then the Home as the root.
