@@ -185,6 +185,25 @@ different host is dropped; a different user is dropped; no stored credential sta
 The `ios-build`/`ios-asan`/`ios-tsan`/`ios-perf` jobs need the hosted CI run (this host has no
 Xcode); their results will be added once the run completes.
 
+## 10. `scope=only` iteration runs (CI budget)
+
+- **Run [39238536067](https://github.com/rahart1362/Tally/actions/runs/39238536067)** (failed,
+  9m36s): `Build TallyAppTests + TallyUITests for testing` failed — `CanvasLinkOpener.isSafe` (new
+  in Step 4/SEC1-15) is a plain `static func`, but `TallyFeatures` defaults every type to
+  `MainActor` isolation (SE-0466, `Package.swift`), so the compiler rejected the test suite's
+  synchronous calls to it. Fixed by marking it `nonisolated`, matching the sibling `CanvasLink`
+  enum in the same file, which already carries that annotation for the same reason. A real bug
+  this host's local build (TallyCore-only, no Xcode) could not have caught.
+- **Run [39240011742](https://github.com/rahart1362/Tally/actions/runs/39240011742)** (success,
+  6m39s), `-only-testing` targets `TallyAppTests/{WidgetIntentsTests,CanvasLinkTests,
+  KeychainCredentialStoreTests,KeychainCredentialStoreDeleteOutcomeTests,
+  AccountSessionFactoryMatchingCredentialTests,ToDoProjectionTests}`: xcresult
+  `totalTestCount=34, passedTests=34, failedTests=0, skippedTests=0, expectedFailures=0` (every
+  new SEC1-15/SEC1-01/SEC1-03/SEC1-10 test, run twice under xcodebuild's own retry-on-failure
+  setting — both iterations green, no retry actually needed).
+
+Both CI-budget `scope=only` runs are now used; the PR run below is the hand-off run.
+
 ## Open items
 
 - **SEC1-02's optional copy variant** ("tell the user when an offline revoke failed"): not
