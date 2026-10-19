@@ -19,6 +19,12 @@ enum TallyPasteboard {
         UIPasteboard.general.setItems([[UTType.utf8PlainText.identifier: text]],
                                       options: [.localOnly: true, .expirationDate: expiresAt])
     }
+
+    /// The same, expiring `interval` from the moment of the tap. Reading the clock here, in an
+    /// action, keeps `Date()` out of the calling view's body (`check_view_bodies.py`).
+    static func copy(_ text: String, expiringAfter interval: TimeInterval) {
+        copy(text, expiresAt: Date().addingTimeInterval(interval))
+    }
 }
 
 // MARK: - Parent: Linked students (§7.3)
@@ -433,7 +439,7 @@ struct HowToRemoveSheet: View {
                     Text(L10n.FamilyUI.howToRemoveBody(observerName))
                     Button(String(localized: L10n.FamilyUI.copyRequest())) {
                         TallyPasteboard.copy(String(localized: L10n.FamilyUI.removalRequest(observerName)),
-                                             expiresAt: Date().addingTimeInterval(FamilyUIConfig.pasteboardExpiry.timeInterval))
+                                             expiringAfter: FamilyUIConfig.pasteboardExpiry.timeInterval)
                     }
                     .accessibilityIdentifier("family.copyRequest")
                 }
