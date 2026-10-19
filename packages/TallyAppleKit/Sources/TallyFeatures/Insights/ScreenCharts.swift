@@ -90,6 +90,27 @@ struct TrendChart: View {
         }
         .chartXScale(domain: view.start...max(view.end, view.start))
         .chartYScale(domain: view.lowerPercent...max(view.upperPercent, view.lowerPercent + 1))
+        // UX1-31: Swift Charts draws axis labels in its own secondary grey by default, 3.44:1 on
+        // the card background in light (D07 restyled the category chart's axis but missed this
+        // one, since the trend chart had no `.chartXAxis`/`.chartYAxis` at all below the
+        // accessibility sizes). Style both like every other secondary label.
+        // UX1-38: the default "one tick per point" set also let the last label ("Oct 11") run
+        // past the plot's right edge and truncate to "Oct…" on the smallest iPhone. Capping the
+        // tick count keeps every label's anchor inside the plot area on both phones.
+        .chartXAxis {
+            AxisMarks(preset: .aligned, values: .automatic(desiredCount: 4)) { _ in
+                AxisGridLine()
+                AxisValueLabel()
+                    .foregroundStyle(TallyColor.textSecondary)
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisGridLine()
+                AxisValueLabel()
+                    .foregroundStyle(TallyColor.textSecondary)
+            }
+        }
     }
 }
 

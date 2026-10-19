@@ -27,6 +27,19 @@ final class SignInSignOutUITests: TallyUITestCase {
         searchField.typeText(Self.demoHost)
         tapWhenHittable(app.buttons["Use \(Self.demoHost)"], in: app, timeout: LifecycleUITest.tapTimeout)
 
+        // UX1-04: the four "what happens next" rows used to centre independently, so their icons
+        // zig-zagged (measured on PM std: 37, 15, 19, 72 pt into the card). Asserting one shared
+        // minX catches a regression without reading pixels.
+        let expectation1 = element("onboarding.signIn.expectation1", in: app)
+        XCTAssertTrue(expectation1.waitForExistence(timeout: LifecycleUITest.tapTimeout), "Hierarchy: \(app.debugDescription)")
+        let leftEdge = expectation1.frame.minX
+        for index in 2...4 {
+            let row = element("onboarding.signIn.expectation\(index)", in: app)
+            XCTAssertTrue(row.exists, "row \(index) missing. Hierarchy: \(app.debugDescription)")
+            XCTAssertEqual(row.frame.minX, leftEdge, accuracy: 1,
+                           "expectation row \(index) does not share the first row's left edge (\(row.frame) vs \(expectation1.frame))")
+        }
+
         // The sign-in hand-off, then the first sync (a plain page), then the Home as the root.
         tapWhenHittable(app.buttons["Continue to \(Self.demoHost)"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts[TestHooks.flagshipHero].waitForExistence(timeout: 30),

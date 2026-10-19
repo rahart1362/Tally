@@ -73,6 +73,11 @@ struct SchoolSearchView: View {
                     .background(TallyColor.bgCanvas)
                     .searchable(text: queryBinding, prompt: Text(L10n.Onboarding.SchoolSearch.searchPrompt()))
                     .searchFocused($searchFieldFocused)
+                    // UX1-05: the active `.searchable` field hides the navigation bar at std
+                    // sizes, so a new user's first frame was a lone hint row with no title, no
+                    // Back and no "Can't find it?" — the two size classes read as different
+                    // screens. This keeps the bar visible while the field is focused.
+                    .searchPresentationToolbarBehavior(.avoidHidingContent)
             }
         }
         .navigationTitle(Text(L10n.Onboarding.SchoolSearch.navigationTitle()))
@@ -95,6 +100,18 @@ struct SchoolSearchView: View {
             guard isSearching else { return }
             try? await Task.sleep(for: .milliseconds(400))
             if !Task.isCancelled { showSearchingRow = isSearching }
+        }
+        // UX1-07: on `.searchFailed`/`.offline` the field kept focus, so at AX5 on the smallest
+        // iPhone the keyboard covered everything but "Couldn't search / Something" — the rest of
+        // the description and Retry sat behind it at rest. Dropping focus dismisses the keyboard
+        // so the centred state is fully visible; tapping the field again re-focuses it normally.
+        .onChange(of: viewModel.state) { _, newState in
+            switch newState {
+            case .searchFailed, .offline:
+                searchFieldFocused = false
+            default:
+                break
+            }
         }
     }
 

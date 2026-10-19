@@ -45,17 +45,26 @@ public enum TallyReflow {
 public struct TallyReflowStack<Content: View>: View {
     private let alignment: VerticalAlignment
     private let spacing: CGFloat?
+    private let stacksAtXXXLarge: Bool
     private let content: Content
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    public init(alignment: VerticalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> Content) {
+    /// `stacksAtXXXLarge`, additive and `false` by default (every existing call site is
+    /// unaffected): UX1-25/UX1-28 found `xxxLarge` (a standard size, so on the default path, not
+    /// only the accessibility sizes) wraps a side's second column as a hanging indent beside the
+    /// first instead of a full-width paragraph — the same squeeze D02 already fixed for AX1 up.
+    /// `true` joins the stacked layout one step early, the `CourseCardView.usesFullWidthColumn`
+    /// precedent, for the two rows (To-Do, Calendar's agenda) that found it.
+    public init(alignment: VerticalAlignment = .center, spacing: CGFloat? = nil, stacksAtXXXLarge: Bool = false,
+                @ViewBuilder content: () -> Content) {
         self.alignment = alignment
         self.spacing = spacing
+        self.stacksAtXXXLarge = stacksAtXXXLarge
         self.content = content()
     }
 
     public var body: some View {
-        let layout = typeSize.isAccessibilitySize
+        let layout = TallyReflow.isStacked(at: typeSize, stacksAtXXXLarge: stacksAtXXXLarge)
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: TallyReflow.stackedSpacing))
             : AnyLayout(HStackLayout(alignment: alignment, spacing: spacing))
         layout { content }
@@ -137,6 +146,13 @@ extension TallyReflow {
     /// `valueMinimumScale` at the accessibility sizes, 1 (never shrink) below them.
     public static func minimumScale(at size: DynamicTypeSize) -> CGFloat {
         size.isAccessibilitySize ? valueMinimumScale : 1
+    }
+
+    /// UX1-25/UX1-28: the accessibility sizes, plus `xxxLarge` when `stacksAtXXXLarge` opts in —
+    /// the same threshold `CourseCardView.usesFullWidthColumn` and `StatusChipRow.usesFullRowWidth`
+    /// already use for the same reason, shared here instead of a third standalone copy.
+    public static func isStacked(at size: DynamicTypeSize, stacksAtXXXLarge: Bool) -> Bool {
+        size.isAccessibilitySize || (stacksAtXXXLarge && size == .xxxLarge)
     }
 }
 

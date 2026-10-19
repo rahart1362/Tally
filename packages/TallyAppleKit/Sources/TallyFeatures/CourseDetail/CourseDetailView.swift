@@ -377,27 +377,44 @@ struct CourseDetailView: View {
 struct GradeOverrideMenu: View {
     let courseID: CanvasID<Course>
     @Environment(HomeModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// UX1-19: at AX5 the nested menu (a 4-line title, then "Automatic"/"Yes"/"No") cut its own
+    /// options on the smallest iPhone — "Yes" half cut, "No" never shown; a system menu never
+    /// scrolls. A `confirmationDialog`, which does scroll, replaces it at the accessibility sizes
+    /// only; below them the menu is unchanged.
+    @State private var isChoiceDialogPresented = false
+
+    private var choice: Binding<GradeOverrideChoice> {
+        Binding(
+            get: { GradeOverrideChoice(model.gradeAvailabilityOverride(for: courseID)) },
+            set: { model.setGradeAvailabilityOverride($0.override, for: courseID) })
+    }
 
     var body: some View {
         Menu {
-            Picker(selection: Binding(
-                get: { GradeOverrideChoice(model.gradeAvailabilityOverride(for: courseID)) },
-                set: { model.setGradeAvailabilityOverride($0.override, for: courseID) })) {
-                ForEach(GradeOverrideChoice.allCases) { choice in
-                    // L10N-04: a stable id per choice (the Audit tour looked these up by their
-                    // English label — "Automatic" — which Spanish changes).
-                    Text(choice.title).tag(choice)
-                        .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(choice.rawValue)")
+            if typeSize.isAccessibilitySize {
+                Button(String(localized: L10n.GradeOverride.menuRowTitle())) {
+                    isChoiceDialogPresented = true
                 }
-            } label: {
-                // D17 (pending owner approval): the full question truncates to "…kept outside
-                // Ca…" in this submenu row on the smallest iPhone — iOS menu rows never wrap. A
-                // shorter row title; `title()` is unchanged for wherever there is room to show
-                // the full question.
-                Text(L10n.GradeOverride.menuRowTitle())
+                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
+            } else {
+                Picker(selection: choice) {
+                    ForEach(GradeOverrideChoice.allCases) { option in
+                        // L10N-04: a stable id per choice (the Audit tour looked these up by
+                        // their English label — "Automatic" — which Spanish changes).
+                        Text(option.title).tag(option)
+                            .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
+                    }
+                } label: {
+                    // D17 (pending owner approval): the full question truncates to "…kept outside
+                    // Ca…" in this submenu row on the smallest iPhone — iOS menu rows never wrap. A
+                    // shorter row title; `title()` is unchanged for wherever there is room to show
+                    // the full question.
+                    Text(L10n.GradeOverride.menuRowTitle())
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
         } label: {
             Label {
                 Text(L10n.GradeOverride.menu())
@@ -406,6 +423,14 @@ struct GradeOverrideMenu: View {
             }
         }
         .accessibilityIdentifier("courseDetail.menu")
+        .confirmationDialog(Text(L10n.GradeOverride.menuRowTitle()), isPresented: $isChoiceDialogPresented, titleVisibility: .visible) {
+            ForEach(GradeOverrideChoice.allCases) { option in
+                Button(String(localized: option.title)) {
+                    choice.wrappedValue = option
+                }
+                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
+            }
+        }
     }
 }
 

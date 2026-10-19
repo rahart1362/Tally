@@ -13,13 +13,21 @@ public struct TallyPrimaryButtonStyle: PrimitiveButtonStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
+        // UX1-01: call sites applied `.frame(maxWidth: .infinity)` to the already-styled button
+        // from *outside* `Button(configuration)`, which only widens an invisible container
+        // around the control — the system capsule still sizes to its label, so the primary and
+        // secondary pills hugged their text at different widths (the same pattern D10 found on
+        // "See Plans"). Giving the LABEL the flexible frame here, once, makes every call site's
+        // pill fill its available width without each one repeating the fix.
+        let flexibleLabel = configuration.label.frame(maxWidth: .infinity)
         Group {
             if #available(iOS 26.0, *) {
-                Button(configuration)
+                Button(role: configuration.role, action: configuration.trigger) { flexibleLabel }
                     .buttonStyle(.glassProminent)
+                    .buttonSizing(.flexible)
                     .tint(TallyColor.accentFill)
             } else {
-                Button(configuration)
+                Button(role: configuration.role, action: configuration.trigger) { flexibleLabel }
                     .buttonStyle(.borderedProminent)
                     .tint(TallyColor.accentFill)
             }
@@ -34,11 +42,24 @@ public struct TallySecondaryButtonStyle: PrimitiveButtonStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        Button(configuration)
-            .buttonStyle(.bordered)
-            .tint(TallyColor.accent)
-            .font(TallyTypography.cardTitle)
-            .controlSize(.large)
+        // UX1-01: same flexible-label fix as `TallyPrimaryButtonStyle`, so the secondary pill
+        // matches the primary pill's width at every call site (Welcome, hand-off, App Lock,
+        // paywall, SchoolNotEnabled) instead of wrapping at the AX2 cap.
+        let flexibleLabel = configuration.label.frame(maxWidth: .infinity)
+        Group {
+            if #available(iOS 26.0, *) {
+                Button(role: configuration.role, action: configuration.trigger) { flexibleLabel }
+                    .buttonStyle(.bordered)
+                    .buttonSizing(.flexible)
+                    .tint(TallyColor.accent)
+            } else {
+                Button(role: configuration.role, action: configuration.trigger) { flexibleLabel }
+                    .buttonStyle(.bordered)
+                    .tint(TallyColor.accent)
+            }
+        }
+        .font(TallyTypography.cardTitle)
+        .controlSize(.large)
     }
 }
 
