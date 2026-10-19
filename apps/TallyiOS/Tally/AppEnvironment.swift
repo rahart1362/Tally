@@ -56,7 +56,7 @@ struct AppEnvironment {
             storeRoot: { try StoreLocation.root(appGroupID: appGroupID) },
             // The legacy mock item is removed on a fresh install's first launch instead
             // (`removeLegacyCredentials`), off the main actor.
-            credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false),
+            credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false, logger: logger),
             keyring: VaultKeyring(store: KeychainVaultKeyStore()),
             lockPreferences: KeychainAppLockPreferenceStore(),
             transport: transport,

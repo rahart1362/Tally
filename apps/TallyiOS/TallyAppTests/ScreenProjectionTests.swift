@@ -437,6 +437,31 @@ struct CanvasLinkTests {
         let url = try #require(URL(string: string))
         #expect(CanvasLink.appURL(for: url) == nil)
     }
+
+    @Test("SEC1-15: an https URL on the account's own host is safe to open")
+    func isSafeOnOwnHost() throws {
+        let web = try #require(URL(string: "https://canvas.northfield.example/courses/51842/assignments/1204405"))
+        #expect(CanvasLinkOpener.isSafe(web, accountHost: "canvas.northfield.example"))
+        #expect(CanvasLinkOpener.isSafe(web, accountHost: "CANVAS.NORTHFIELD.EXAMPLE"), "host compare is case-insensitive")
+    }
+
+    @Test("SEC1-15: anything but https on the account's own host is not opened", arguments: [
+        "https://canvas-login.example/phish", // a different host entirely
+        "http://canvas.northfield.example/courses/1", // not https
+        "https://attacker:pw@canvas.northfield.example/courses/1", // embedded credentials
+        "https://canvas.northfield.example:8443/courses/1", // non-standard port
+        "canvas-courses://canvas.northfield.example/courses/1", // not http(s)
+    ])
+    func isSafeRejectsEverythingElse(_ string: String) throws {
+        let url = try #require(URL(string: string))
+        #expect(!CanvasLinkOpener.isSafe(url, accountHost: "canvas.northfield.example"))
+    }
+
+    @Test("SEC1-15: an empty account host (no one signed in) never counts as safe")
+    func isSafeFailsClosedWithNoAccount() throws {
+        let web = try #require(URL(string: "https://canvas.northfield.example/courses/1"))
+        #expect(!CanvasLinkOpener.isSafe(web, accountHost: ""))
+    }
 }
 
 @Suite("M3-A: dates and numbers in the student's locale")

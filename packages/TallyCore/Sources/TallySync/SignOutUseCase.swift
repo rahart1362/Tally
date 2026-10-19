@@ -30,11 +30,26 @@ public enum SignOutUseCase {
         ledgerStore: SyncLedgerStore,
         notifications: any NotificationScheduling,
         storeRoot: URL,
-        keyring: VaultKeyring
+        keyring: VaultKeyring,
+        now: Date = Date(),
+        logger: any TallyLogger = NoOpLogger()
     ) async {
-        // 1. Revoke (best effort), then bump the epoch and cancel any refresh in flight.
+        // 1. Revoke (best effort), then bump the epoch and cancel any refresh in flight. SEC1-02:
+        // an access token that has already expired gets rejected by Canvas, which would otherwise
+        // leave the refresh token valid (and listed under Approved Integrations) at Canvas until
+        // it lapses on its own — so refresh once first when needed (security.md §3.2 step 9.1).
+        // Basic variant: the refreshed credential is used for the revoke call only, never saved —
+        // the credential is deleted a few lines below regardless — and nothing is told to the user.
         if let credential = await credentialStore.load() {
-            _ = try? await transport.send(tokenEndpoint.revokeRequest(for: credential))
+            let revocable: CanvasCredential
+            if credential.isAccessTokenUsable(now: now) {
+                revocable = credential
+            } else {
+                revocable = await Self.refreshedForRevoke(credential, transport: transport, tokenEndpoint: tokenEndpoint, now: now)
+                    ?? credential
+            }
+            let response = try? await transport.send(tokenEndpoint.revokeRequest(for: revocable))
+            logger.log(.signOutRevoked(ok: response.map { (200..<300).contains($0.status) } ?? false))
         }
         await refreshCoordinator.bumpEpochAndCancel()
 
@@ -56,5 +71,16 @@ public enum SignOutUseCase {
 
         // 4. Delete the Keychain credential.
         await credentialStore.delete()
+    }
+
+    /// SEC1-02's one refresh attempt before revoking an expired access token. Best effort and
+    /// silent on any failure — the caller falls back to revoking with the token it already has
+    /// (still better than skipping the revoke call entirely).
+    private static func refreshedForRevoke(_ credential: CanvasCredential, transport: any HTTPTransport,
+                                           tokenEndpoint: TokenEndpoint, now: Date) async -> CanvasCredential? {
+        guard let response = try? await transport.send(tokenEndpoint.request(for: .refresh(refreshToken: credential.refreshToken))),
+              let refreshed = try? tokenEndpoint.credential(from: response, previous: credential, now: now)
+        else { return nil }
+        return refreshed
     }
 }

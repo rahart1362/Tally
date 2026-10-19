@@ -97,11 +97,22 @@ public nonisolated enum AccountSessionFactory {
         let credential = await environment.credentialStore.load()
         let refresher = CanvasTokenRefresher(endpoint: TokenEndpoint(host: account.host, clientID: account.clientID),
                                              transport: environment.transport, clock: environment.clock)
-        let tokens = TokenCoordinator(initial: credential, store: environment.credentialStore, refresher: refresher,
-                                      clock: environment.clock)
+        // SEC1-03 (defense in depth): the one Keychain credential and `accounts.json`'s active
+        // record always agree today (the record is written from the credential at sign-in, and
+        // there is only ever one of each — D5), so this never actually differs in shipping
+        // behaviour yet. If that ever changed, never hand this account's client a token bound to
+        // a different host or user: re-auth instead of silently attaching the wrong bearer token.
+        let tokens = TokenCoordinator(initial: Self.matchingCredential(credential, for: account),
+                                      store: environment.credentialStore, refresher: refresher, clock: environment.clock)
         let client = CanvasClient(host: account.host, transport: environment.transport, tokens: tokens)
         return LiveCanvasGateway(host: account.host, accountKey: account.accountKey, client: client,
                                  logger: environment.logger)
+    }
+
+    /// Pure, for testing: `credential` only if it is bound to `account`'s own host and Canvas
+    /// user ID; `nil` otherwise (or when there is no credential at all).
+    static func matchingCredential(_ credential: CanvasCredential?, for account: AccountRecord) -> CanvasCredential? {
+        credential.flatMap { $0.host == account.host && $0.userID == account.canvasUserID ? $0 : nil }
     }
 }
 

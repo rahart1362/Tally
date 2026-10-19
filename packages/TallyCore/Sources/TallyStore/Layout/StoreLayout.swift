@@ -28,6 +28,22 @@ public struct StoreLayout: Sendable, Equatable {
     public var accountsDirectory: URL { root.appendingPathComponent("accounts") }
     public var accountDirectory: URL { accountsDirectory.appendingPathComponent(accountKey.rawValue) }
     public var installSentinel: URL { root.appendingPathComponent(".installed") }
+    /// SEC1-08: written by `AccountPurger.purge` before it starts, removed only once a read-back
+    /// confirms `accountDirectory` is gone. Lives beside the account directories, never inside
+    /// one (that is what gets deleted), so `AccountPurger.retryPending` can still find it after a
+    /// purge that did not finish.
+    public var purgePendingMarker: URL { accountsDirectory.appendingPathComponent(Self.purgePendingName(accountKey)) }
+
+    static func purgePendingName(_ accountKey: AccountKey) -> String { ".purge-pending-\(accountKey.rawValue)" }
+
+    /// Every account with a pending-purge marker still on disk, read directly off the file system
+    /// (never from `accounts.json`, whose entry a finished sign-out may have already removed).
+    public static func pendingPurges(root: URL) -> [AccountKey] {
+        let accountsDirectory = root.appendingPathComponent("accounts")
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: accountsDirectory.path)) ?? []
+        let prefix = ".purge-pending-"
+        return names.filter { $0.hasPrefix(prefix) }.map { AccountKey(String($0.dropFirst(prefix.count))) }
+    }
 
     public func url(for file: StoreFile) -> URL { accountDirectory.appendingPathComponent(Self.fileName(file)) }
 
