@@ -20,6 +20,7 @@ import TallyCanvasAPI
 /// the code falls back to `SecItemAdd`.
 public final class KeychainCredentialStore: CredentialStore, Sendable {
     private let service: String
+    private let logger: (any TallyPlatformLogger)?
 
     /// Richer than `load()`'s bare `Optional`: distinguishes "signed out"
     /// from "can't tell right now, the device is locked" (security.md SEC-06 /
@@ -47,11 +48,15 @@ public final class KeychainCredentialStore: CredentialStore, Sendable {
     ///     app's hard-coded mock credential (`service: "com.tally.app"`,
     ///     `account: "canvas"` — security.md SEC-03/SEC-06). Disabled in the
     ///     hosted tests that don't want this side effect.
+    ///   - logger: SEC1-01, `.credentialDeleteFailed` only — never the
+    ///     credential itself. `nil` in the hosted tests that don't want it.
     public init(
         service: String = (Bundle.main.bundleIdentifier ?? "dev.tally-app.tally") + ".canvas.credential",
-        removeLegacyMockItemOnInit: Bool = true
+        removeLegacyMockItemOnInit: Bool = true,
+        logger: (any TallyPlatformLogger)? = nil
     ) {
         self.service = service
+        self.logger = logger
         if removeLegacyMockItemOnInit { Self.removeLegacyMockItem() }
     }
 
@@ -86,11 +91,29 @@ public final class KeychainCredentialStore: CredentialStore, Sendable {
     }
 
     /// `CredentialStore.delete()` has no `throws` in its fixed signature (a
-    /// deliberate "sign-out never fails" shape), so any status besides
-    /// success/not-found is discarded here rather than surfaced. `readStatus()`
-    /// stays available afterwards for a caller that wants to confirm.
+    /// deliberate "sign-out never fails" shape). SEC1-01: an unexpected status
+    /// now gets one retry, then a direct read-back, before it is treated as a
+    /// real failure (and logged, category-only — never the credential) rather
+    /// than silently discarded. `readStatus()` stays available afterwards for
+    /// a caller that wants to confirm itself.
     public func delete() async {
-        _ = SecItemDelete(baseQuery as CFDictionary)
+        if Self.deleteOutcome(deleteOnce: { SecItemDelete(baseQuery as CFDictionary) }, readStatus: readStatus) == .failed {
+            logger?.log(.credentialDeleteFailed)
+        }
+    }
+
+    enum DeleteOutcome: Equatable { case success, failed }
+
+    /// Pure decision logic (SEC1-01), so a test can abstract the Keychain away with fake
+    /// closures instead of exercising real Keychain state: `errSecItemNotFound` already counts
+    /// as success (nothing left to delete), one retry absorbs a transient status, and only a
+    /// read-back that still disagrees counts as a genuine failure.
+    static func deleteOutcome(deleteOnce: () -> OSStatus, readStatus: () -> ReadStatus) -> DeleteOutcome {
+        for _ in 0..<2 {
+            let status = deleteOnce()
+            if status == errSecSuccess || status == errSecItemNotFound { return .success }
+        }
+        return readStatus() == .notFound ? .success : .failed
     }
 
     // MARK: - Typed read

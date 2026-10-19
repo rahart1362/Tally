@@ -22,6 +22,9 @@ public enum LogEvent: Sendable, Equatable, Hashable {
     /// The gateway kept the first occurrence of each ID in `collection` and dropped `count`
     /// repeats (CS-07). A count only: never which IDs, names or titles repeated.
     case duplicateIDsDropped(SnapshotCollection, count: Int)
+    /// SEC1-02: sign-out's revoke call, after refreshing first if the access token had already
+    /// expired, reached Canvas or not. Never blocks sign-out either way.
+    case signOutRevoked(ok: Bool)
 }
 
 /// The default logger: discards every event.

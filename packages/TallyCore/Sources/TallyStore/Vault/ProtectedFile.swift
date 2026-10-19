@@ -106,9 +106,15 @@ public struct SealedFileAccess: Sendable {
 /// The caller (`AccountPurger`, or Security's `EraseService`) also revokes the token and removes
 /// notifications, Spotlight/App Intents donations and, if the user chooses, Tally calendar events.
 public enum VaultPurger {
+    /// SEC1-08: the directories are deleted even when the shred throws — deleting the ciphertext
+    /// is still worth doing on its own, and leaving it on disk (orphaned, but re-adoptable by a
+    /// later sign-in that derives the same `AccountKey`) is strictly worse than removing it. The
+    /// shred's error, if any, is still rethrown afterwards so the caller learns about it.
     public static func purge(account: String, keyring: VaultKeyring, directories: [URL]) throws {
-        try keyring.shred(account: account)
+        var shredError: Error?
+        do { try keyring.shred(account: account) } catch { shredError = error }
         for dir in directories { ProtectedFile.remove(dir) }
+        if let shredError { throw shredError }
     }
 }
 

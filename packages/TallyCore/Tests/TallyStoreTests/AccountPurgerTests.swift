@@ -55,4 +55,63 @@ struct AccountPurgerTests {
         #expect(store.load() == .absent)
         #expect(throws: VaultError.keyMissing) { try sealer.open(copy, file: .refreshState) }
     }
+
+    /// SEC1-08: a failed crypto-shred must not leave the ciphertext behind. `purge` still rethrows
+    /// the shred's error (so the caller — `SignOutUseCase` — can log it), but the directory is gone
+    /// either way, and the pending-purge marker is cleared once a read-back confirms that.
+    @Test func purgeDeletesTheDirectoryEvenWhenTheShredFails() async throws {
+        let root = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-shred-fails")
+        let store = SnapshotStore(root: root, accountKey: account,
+                                  sealer: VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true))
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1, accountKey: account), includeGrades: false)
+
+        keys.failure = .protectedDataUnavailable
+        let layout = StoreLayout(root: root, accountKey: account)
+        #expect(throws: VaultError.protectedDataUnavailable) {
+            try AccountPurger.purge(accountKey: account, root: root, keyring: ring)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: layout.accountDirectory.path),
+                "the ciphertext must go even though the key shred failed")
+        #expect(!FileManager.default.fileExists(atPath: layout.purgePendingMarker.path),
+                "the directory is confirmed gone, so the marker should already be cleared")
+    }
+
+    /// SEC1-08: `retryPending` is the next foreground launch's half of the fix — it finds a purge
+    /// that left its marker behind (a previous run died, or its directory delete failed at the
+    /// time) and finishes it, silently.
+    @Test func retryPendingClearsAStaleMarkerAndRemovesTheDirectory() async throws {
+        let root = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-left-pending")
+        let scope = KeyScope(account: account.rawValue, audience: .app)
+        let store = SnapshotStore(root: root, accountKey: account,
+                                  sealer: VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true))
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1, accountKey: account), includeGrades: false)
+        #expect(keys.count(scope) == 1)
+
+        // Simulate a purge interrupted after it marked pending but before it ran (e.g. the
+        // process died): write the marker by hand, with the account directory still present.
+        let layout = StoreLayout(root: root, accountKey: account)
+        try FileManager.default.createDirectory(at: layout.accountsDirectory, withIntermediateDirectories: true)
+        _ = FileManager.default.createFile(atPath: layout.purgePendingMarker.path, contents: nil)
+        #expect(FileManager.default.fileExists(atPath: layout.accountDirectory.path))
+
+        AccountPurger.retryPending(root: root, keyring: ring)
+
+        #expect(!FileManager.default.fileExists(atPath: layout.accountDirectory.path), "the retry must finish the delete")
+        #expect(!FileManager.default.fileExists(atPath: layout.purgePendingMarker.path), "the marker must clear once confirmed gone")
+        #expect(keys.count(scope) == 0, "the retry must still shred the key")
+    }
+
+    /// A launch with nothing left pending does nothing (and never throws, scanning an `accounts`
+    /// directory that may not even exist yet).
+    @Test func retryPendingWithNoMarkersDoesNothing() throws {
+        let root = try tempStoreDirectory()
+        AccountPurger.retryPending(root: root, keyring: VaultKeyring(store: InMemoryVaultKeyStore()))
+    }
 }

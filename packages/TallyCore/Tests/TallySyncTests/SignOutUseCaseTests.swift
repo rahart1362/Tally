@@ -105,6 +105,53 @@ struct SignOutUseCaseTests {
         }
     }
 
+    /// SEC1-02: an access token that has already expired is refreshed once before the revoke
+    /// call, rather than sending Canvas a bearer it will just reject; the result is logged.
+    @Test func signOutRefreshesAnExpiredTokenBeforeRevoking() async throws {
+        let harness = try await makeHarness()
+        let expired = CanvasCredential(host: host, userID: userID, accessToken: "access-expired", refreshToken: "refresh-1",
+                                       accessTokenExpiresAt: Date().addingTimeInterval(-60))
+        try await harness.credentialStore.save(expired)
+        let now = Date()
+
+        // The refresh (POST, grant_type=refresh_token) and the revoke (DELETE) both hit the same
+        // token endpoint URL, so they are told apart by method.
+        await harness.transport.inject(response: HTTPResponse(status: 200, body: Data(
+            #"{"access_token":"access-fresh","user":{"id":"\#(userID)"},"refresh_token":"refresh-2","expires_in":3600}"#.utf8)),
+            matching: { $0.method == .post })
+        await harness.transport.inject(response: HTTPResponse(status: 200), matching: { $0.method == .delete })
+
+        let logger = RecordingLogger()
+        await SignOutUseCase.signOut(
+            accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
+            tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
+            ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
+            keyring: harness.keyring, now: now, logger: logger)
+
+        let requests = await harness.transport.requests()
+        #expect(requests.count == 2, "expected one refresh and one revoke request")
+        let revoke = try #require(requests.first { $0.method == .delete })
+        #expect(revoke.headers["Authorization"] == "Bearer access-fresh", "the revoke must use the refreshed token, not the expired one")
+        #expect(logger.events == [.signOutRevoked(ok: true)])
+        #expect(await harness.credentialStore.load() == nil)
+    }
+
+    /// SEC1-02: a still-usable access token is revoked directly, with no refresh call first.
+    @Test func signOutRevokesDirectlyWhenTheTokenIsStillUsable() async throws {
+        let harness = try await makeHarness()
+        let logger = RecordingLogger()
+        await harness.transport.inject(response: HTTPResponse(status: 200), matching: { $0.method == .delete })
+
+        await SignOutUseCase.signOut(
+            accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
+            tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
+            ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
+            keyring: harness.keyring, logger: logger)
+
+        #expect(await harness.transport.requestCount == 1, "no refresh call for a token that is still usable")
+        #expect(logger.events == [.signOutRevoked(ok: true)])
+    }
+
     @Test func signOutTwiceIsIdempotent() async throws {
         let harness = try await makeHarness()
         await signOut(harness)

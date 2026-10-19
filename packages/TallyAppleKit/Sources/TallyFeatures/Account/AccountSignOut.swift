@@ -38,7 +38,9 @@ public nonisolated enum AccountSignOut {
             ledgerStore: SyncLedgerStore(root: root, accountKey: account.accountKey, sealer: sealer),
             notifications: environment.notifications,
             storeRoot: root,
-            keyring: environment.keyring)
+            keyring: environment.keyring,
+            now: environment.clock.now(),
+            logger: environment.logger)
         try? AccountDirectoryStore(root: root).remove(account.accountKey)
         await environment.lockPreferences.reset()
     }

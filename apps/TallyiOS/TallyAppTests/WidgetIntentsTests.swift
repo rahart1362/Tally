@@ -76,6 +76,12 @@ struct WidgetIntentsTests {
             == "Nothing else is due today. As of 6:00 AM.")
     }
 
+    @Test("SEC1-10: the due intents require THIS device to unlock before they speak a title (not just any device in the request)")
+    func dueIntentsRequireAuthentication() {
+        #expect(WhatsDueNextIntent.authenticationPolicy == .requiresLocalDeviceAuthentication)
+        #expect(WhatsDueTodayIntent.authenticationPolicy == .requiresLocalDeviceAuthentication)
+    }
+
     @Test("Spoken answers: the widgets' message when there is no glance, and a generic word with names hidden")
     func messagesAndHiddenNames() {
         let signedOut = GlanceIntentAnswers.dueNext(.noAccount, now: Self.now, calendar: Self.calendar)

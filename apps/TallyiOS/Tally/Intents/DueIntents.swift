@@ -9,12 +9,32 @@ import TallyGlance
 //
 // The "top 3 by priority" question of insights-at-a-glance.md §1.5 needs the snapshot's grade
 // weights, which only the app's screens read; these answer by due date, and say so in their names.
+//
+// SEC1-10 (hardening review): both intents below now require a device unlock before they speak
+// an item's title. The other App Intents were checked too, and need no change: "Refresh Tally"
+// (`TallyControlIntents.swift`) answers with a status word only, never a title or grade
+// (`RefreshAnswer`); "Mark Done" (`TallyWidgets/Shared/MarkDoneIntent.swift`) takes only an
+// opaque ID, discloses nothing, and is not Siri/Shortcuts-discoverable; the Focus filter
+// (`TallyFocusFilter.swift`) only (de)activates a filter from courses the student already chose
+// while configuring it (unlocked, in Settings) — its `perform()` reveals nothing new.
 
 /// "What's due next?": the next three open items, then how many more, how many are overdue, and how
 /// old the data is when it is more than 3 hours old.
 struct WhatsDueNextIntent: AppIntent {
     static let title = LocalizedStringResource("intent.dueNext.title", table: "AppIntents")
     static let description = IntentDescription(LocalizedStringResource("intent.dueNext.description", table: "AppIntents"))
+    // SEC1-10: reads and speaks assignment titles from CUFA-protected disk data, readable only
+    // once this iPhone itself has been unlocked. Per Apple's App Intents docs, that is the
+    // documented use case for `.requiresLocalDeviceAuthentication`, not the weaker
+    // `.requiresAuthentication`: the latter is satisfied by any one unlocked device in the
+    // request, so it would still let the intent's code run on a locked iPhone if the request
+    // came in from an already-unlocked paired Apple Watch — the report's roommate-holding-the-
+    // phone scenario, by another route. `.requiresLocalDeviceAuthentication` forces this specific
+    // device to unlock regardless of what else in the request is already authenticated. Either
+    // one closes App Intents' default (`.alwaysAllowed`, answering straight past App Lock); this
+    // is the one that actually matches what the data needs. The system handles the unlock prompt
+    // itself; no new string.
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
     init() {}
 
@@ -29,6 +49,8 @@ struct WhatsDueNextIntent: AppIntent {
 struct WhatsDueTodayIntent: AppIntent {
     static let title = LocalizedStringResource("intent.dueToday.title", table: "AppIntents")
     static let description = IntentDescription(LocalizedStringResource("intent.dueToday.description", table: "AppIntents"))
+    // SEC1-10: see WhatsDueNextIntent.
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
     init() {}
 

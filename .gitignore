@@ -24,6 +24,10 @@ __pycache__/
 *.p12
 *.cer
 *.mobileprovision
+# sign-institution-registry's keypair (SEC1-20): the private half must never be committed, and the
+# public half is not wired into the app yet (SEC1-06/GL-02), so there is no tracked exception here.
+*.pem
+*.private.pem
 *.ipa
 *.dSYM.zip
 .env

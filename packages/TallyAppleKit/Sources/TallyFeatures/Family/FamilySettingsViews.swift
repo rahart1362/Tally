@@ -5,9 +5,27 @@ import TallyDesignSystem
 import TallyDomain
 import TallyStrings
 import UIKit
+import UniformTypeIdentifiers
 
 // FAM-10 (M3-E2): Settings' family sections (family-linking.md §7.2-§7.7). Every action goes
 // through FAM-06's use cases behind `FamilyLinkService`; every failure shows its §7.6 copy.
+
+/// SEC1-18: anything this screen copies to the pasteboard (a pairing code, an observer-removal
+/// request) is local-only — no Universal Clipboard/Handoff to the student's other Apple devices —
+/// and expires a short while later (`FamilyUIConfig.pasteboardExpiry`), rather than sitting on
+/// the general pasteboard indefinitely for any later-installed app to read.
+enum TallyPasteboard {
+    static func copy(_ text: String, expiresAt: Date) {
+        UIPasteboard.general.setItems([[UTType.utf8PlainText.identifier: text]],
+                                      options: [.localOnly: true, .expirationDate: expiresAt])
+    }
+
+    /// The same, expiring `interval` from the moment of the tap. Reading the clock here, in an
+    /// action, keeps `Date()` out of the calling view's body (`check_view_bodies.py`).
+    static func copy(_ text: String, expiringAfter interval: TimeInterval) {
+        copy(text, expiresAt: Date().addingTimeInterval(interval))
+    }
+}
 
 // MARK: - Parent: Linked students (§7.3)
 
@@ -420,7 +438,8 @@ struct HowToRemoveSheet: View {
                         .font(TallyTypography.cardTitle)
                     Text(L10n.FamilyUI.howToRemoveBody(observerName))
                     Button(String(localized: L10n.FamilyUI.copyRequest())) {
-                        UIPasteboard.general.string = String(localized: L10n.FamilyUI.removalRequest(observerName))
+                        TallyPasteboard.copy(String(localized: L10n.FamilyUI.removalRequest(observerName)),
+                                             expiringAfter: FamilyUIConfig.pasteboardExpiry.timeInterval)
                     }
                     .accessibilityIdentifier("family.copyRequest")
                 }
@@ -550,7 +569,7 @@ struct PairingCodeSection: View {
                 Text(L10n.FamilyUI.share())
             }
             .accessibilityIdentifier("family.share")
-            Button(String(localized: L10n.FamilyUI.copy())) { UIPasteboard.general.string = sent.invite.code }
+            Button(String(localized: L10n.FamilyUI.copy())) { TallyPasteboard.copy(sent.invite.code, expiresAt: sent.invite.expiresAt) }
                 .accessibilityIdentifier("family.copyCode")
         } footer: {
             Text(L10n.FamilyUI.codeWarning())

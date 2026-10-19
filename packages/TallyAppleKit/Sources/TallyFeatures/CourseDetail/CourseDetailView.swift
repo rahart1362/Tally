@@ -94,7 +94,7 @@ struct CourseDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         // A one-shot open: the Canvas Student app, else the browser (R20).
-                        Task { await CanvasLinkOpener.open(url) }
+                        Task { await CanvasLinkOpener.open(url, accountHost: model.account.host) }
                     } label: {
                         // L10N-03a's finding (its report §1.2): every already-CI-verified `L10n.*` use
                         // reaches `Text(L10n.…)` or `String(localized: L10n.…)`, never a bare

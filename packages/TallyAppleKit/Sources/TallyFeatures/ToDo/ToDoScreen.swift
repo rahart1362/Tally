@@ -125,7 +125,7 @@ struct ToDoScreen: View {
             if !model.isSampleData, let url = item.canvasURL {
                 Button {
                     // A one-shot open: the Canvas Student app, else the browser (R20).
-                    Task { await CanvasLinkOpener.open(url) }
+                    Task { await CanvasLinkOpener.open(url, accountHost: model.account.host) }
                 } label: {
                     // L10N-03a's finding (its report §1.2): a bare LocalizedStringResource is never
                     // passed to another SwiftUI initializer directly, to avoid an unverified-overload

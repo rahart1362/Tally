@@ -96,6 +96,11 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         }
         probe("reconcileInstall")
         let reconciled = await Self.reconcileInstallIfNeeded(root: root, environment: environment)
+        // SEC1-08: finish any sign-out purge that did not complete last time (its directory
+        // delete or key shred failed, or the process died mid-purge). A launch with nothing
+        // pending does one empty directory listing and returns at once.
+        probe("retryPendingPurges")
+        AccountPurger.retryPending(root: root, keyring: environment.keyring)
 
         async let stored = storedAccount(root: root)
         // The reconcile resets the lock setting, so on the launch where it ran, a read that may have
