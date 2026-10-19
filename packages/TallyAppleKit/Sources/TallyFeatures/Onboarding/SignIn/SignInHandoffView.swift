@@ -80,8 +80,11 @@ struct SignInHandoffView: View {
                 title: L10n.Onboarding.SignIn.expectation1Title(),
                 detail: L10n.Onboarding.SignIn.expectation1Detail()
             )
-            // UX1-04: a stable id per row (`SignInHandoffUITests.testExpectationRowsShareOneLeftEdge`
-            // reads each one's frame) so a regression can assert all four share one minX.
+            // UX1-04: a stable id per row (`SignInSignOutUITests` checks each one still exists;
+            // a `frame.minX` equality check was tried and dropped — the combined element's
+            // reported frame is the union of its icon/title/detail content bounds, not the
+            // row's stretched layout frame, so it varies with each row's own text and glyph
+            // regardless of whether the rows share a left edge).
             .accessibilityIdentifier("onboarding.signIn.expectation1")
             Divider().padding(.leading, ExpectationRow.dividerInset)
             ExpectationRow(
