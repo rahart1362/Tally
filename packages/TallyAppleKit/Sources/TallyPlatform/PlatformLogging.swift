@@ -31,6 +31,9 @@ public enum PlatformLogEvent: Sendable {
     /// confuse this with "signed out" downstream (security.md SEC-06).
     case credentialStoreUnavailable
     case credentialStoreWriteFailed(status: Int32)
+    /// SEC1-01: `delete()` retried once and a direct read-back still disagreed, so the
+    /// credential may still be in the Keychain after sign-out.
+    case credentialDeleteFailed
     /// The baseline app's hard-coded mock credential was found and removed.
     case legacyCredentialRemoved
 
@@ -52,6 +55,9 @@ public enum PlatformLogEvent: Sendable {
     /// TallyCore's logging port (CS-07 D1, plan 06 A8): `LiveCanvasGateway` kept the first of each
     /// repeated ID in `collection` and dropped `count` repeats. A closed enum and a count only.
     case duplicateIDsDropped(collection: SnapshotCollection, count: Int)
+    /// SEC1-02: `SignOutUseCase`'s revoke call (after refreshing first if needed) reached Canvas
+    /// or not.
+    case signOutRevoked(ok: Bool)
 }
 
 extension PlatformLogEvent {
@@ -61,6 +67,8 @@ extension PlatformLogEvent {
         switch event {
         case .duplicateIDsDropped(let collection, let count):
             self = .duplicateIDsDropped(collection: collection, count: count)
+        case .signOutRevoked(let ok):
+            self = .signOutRevoked(ok: ok)
         }
     }
 }
@@ -96,6 +104,8 @@ public struct OSLogPlatformLogger: TallyPlatformLogger, TallyLogger {
             logger.notice("credential_store_unavailable")
         case .credentialStoreWriteFailed(let status):
             logger.error("credential_store_write_failed status=\(status, privacy: .public)")
+        case .credentialDeleteFailed:
+            logger.error("credential_delete_failed")
         case .legacyCredentialRemoved:
             logger.notice("legacy_credential_removed")
         case .vaultKeyStoreUnavailable:
@@ -114,6 +124,8 @@ public struct OSLogPlatformLogger: TallyPlatformLogger, TallyLogger {
             logger.info("protected_data_unavailable")
         case .duplicateIDsDropped(let collection, let count):
             logger.notice("duplicate_ids_dropped collection=\(collection.rawValue, privacy: .public) count=\(count, privacy: .public)")
+        case .signOutRevoked(let ok):
+            logger.notice("sign_out_revoked ok=\(ok, privacy: .public)")
         }
     }
 

@@ -115,9 +115,13 @@ struct LaunchBootstrapperTests {
         // PERF-L: the lock setting is read alongside the files, and the glance alongside the refresh
         // record, so only the dependent steps are ordered: the reconcile before any file,
         // `accounts.json` before the account's glance and record.
-        #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall", "refreshRecord"], "\(names)")
+        // SEC1-08: the pending-purge retry runs after the reconcile and before `accounts.json` is read.
+        #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall", "refreshRecord",
+                                   "retryPendingPurges"], "\(names)")
         let order = { (step: String) in names.firstIndex(of: step) ?? .max }
         #expect(order("reconcileInstall") < order("accounts"), "\(names)")
+        #expect(order("reconcileInstall") < order("retryPendingPurges") && order("retryPendingPurges") < order("accounts"),
+                "\(names)")
         #expect(order("accounts") < order("glance") && order("accounts") < order("refreshRecord"), "\(names)")
         #expect(recorded.allSatisfy { !$0.1 }, "a launch step ran on the main thread: \(recorded)")
     }

@@ -47,6 +47,12 @@ jobs:
           ! grep -rnE "Calculus III Midterm|simulated_exam_alert|simulated_event_1" packages apps
       - name: Go-live placeholders (report only; the release gate enforces)
         run: scripts/go-live/find-placeholders.sh || echo "::notice::Go-live placeholders remain (expected before go-live, see docs/GO-LIVE.md GL-02)"
+      - name: No institution-registry private key committed (SEC1-20)
+        run: |
+          if git ls-files | grep -E '\.pem$'; then
+            echo "::error::A *.pem file is tracked in git (listed above); the signing tool's private key must stay off the repo entirely"
+            exit 1
+          fi
       - name: No debug logging, Task.detached or unaudited concurrency flags in shipping code
         # perf-app-runtime.md section 6. Task.detached drops priority, task-locals and
         # cancellation (use @concurrent). Turning on NonisolatedNonsendingByDefault moves

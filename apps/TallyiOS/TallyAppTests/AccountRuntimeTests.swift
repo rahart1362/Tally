@@ -209,3 +209,43 @@ struct AccountHomeSourceTests {
         #expect(received.first?.snapshot == nil)
     }
 }
+
+/// SEC1-03 (defense in depth): the Keychain credential a gateway starts its `TokenCoordinator`
+/// with must be bound to the same account it is being built for — never a different host or
+/// user's token, even if `accounts.json`'s record and the one stored credential ever disagreed.
+@Suite("AccountSessionFactory.matchingCredential: SEC1-03 host/user binding")
+struct AccountSessionFactoryMatchingCredentialTests {
+    private func account(host: String = "canvas.northfield.example", userID: String = "42") -> AccountRecord {
+        .derived(host: host, canvasUserID: userID, clientID: "tally-ios", displayLabel: "Northfield High")
+    }
+
+    private func credential(host: String = "canvas.northfield.example", userID: String = "42") -> CanvasCredential {
+        CanvasCredential(host: host, userID: userID, accessToken: "a", refreshToken: "r", accessTokenExpiresAt: Date())
+    }
+
+    @Test("a credential on the account's own host and user is returned as-is")
+    func matching() {
+        let account = account()
+        let credential = credential()
+        #expect(AccountSessionFactory.matchingCredential(credential, for: account) == credential)
+    }
+
+    @Test("a credential for a different host is dropped (re-auth), never attached to this account's client")
+    func differentHost() {
+        let account = account(host: "canvas.northfield.example")
+        let credential = credential(host: "canvas.other-school.example")
+        #expect(AccountSessionFactory.matchingCredential(credential, for: account) == nil)
+    }
+
+    @Test("a credential for a different Canvas user is dropped (re-auth)")
+    func differentUser() {
+        let account = account(userID: "42")
+        let credential = credential(userID: "99")
+        #expect(AccountSessionFactory.matchingCredential(credential, for: account) == nil)
+    }
+
+    @Test("no stored credential stays nil (signed out), never a crash")
+    func noCredential() {
+        #expect(AccountSessionFactory.matchingCredential(nil, for: account()) == nil)
+    }
+}

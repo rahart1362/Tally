@@ -190,3 +190,51 @@ struct KeychainCredentialStoreTests {
         #expect(status == errSecItemNotFound)
     }
 }
+
+/// SEC1-01: `deleteOutcome`'s decision logic, with the Keychain abstracted away as plain closures
+/// (no real `SecItemDelete`/`SecItemCopyMatching`, so these never touch securityd and need no
+/// `.serialized`).
+@Suite("KeychainCredentialStore.deleteOutcome")
+struct KeychainCredentialStoreDeleteOutcomeTests {
+    @Test("a first-try success never needs the retry or a read-back")
+    func firstTrySuccess() {
+        var calls = 0
+        let outcome = KeychainCredentialStore.deleteOutcome(deleteOnce: { calls += 1; return errSecSuccess },
+                                                             readStatus: { Issue.record("read-back should not run"); return .notFound })
+        #expect(outcome == .success)
+        #expect(calls == 1)
+    }
+
+    @Test("errSecItemNotFound already counts as success: nothing left to delete")
+    func alreadyAbsentIsSuccess() {
+        let outcome = KeychainCredentialStore.deleteOutcome(deleteOnce: { errSecItemNotFound },
+                                                             readStatus: { Issue.record("read-back should not run"); return .notFound })
+        #expect(outcome == .success)
+    }
+
+    @Test("a transient failure that clears on retry is a success, with no read-back")
+    func retrySucceeds() {
+        var calls = 0
+        let outcome = KeychainCredentialStore.deleteOutcome(
+            deleteOnce: { calls += 1; return calls == 1 ? errSecInteractionNotAllowed : errSecSuccess },
+            readStatus: { Issue.record("read-back should not run"); return .notFound })
+        #expect(outcome == .success)
+        #expect(calls == 2)
+    }
+
+    @Test("two failed attempts fall back to a read-back; .notFound there still counts as success")
+    func readBackConfirmsGone() {
+        let outcome = KeychainCredentialStore.deleteOutcome(deleteOnce: { errSecInteractionNotAllowed },
+                                                             readStatus: { .notFound })
+        #expect(outcome == .success)
+    }
+
+    @Test("two failed attempts and a read-back that still finds the credential is a genuine failure")
+    func readBackStillFindsIt() {
+        let credential = CanvasCredential(host: "canvas.example.edu", userID: "42", accessToken: "a", refreshToken: "r",
+                                          accessTokenExpiresAt: Date())
+        let outcome = KeychainCredentialStore.deleteOutcome(deleteOnce: { errSecInteractionNotAllowed },
+                                                             readStatus: { .found(credential) })
+        #expect(outcome == .failed)
+    }
+}

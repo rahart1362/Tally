@@ -22,6 +22,10 @@ nonisolated enum FamilyUIConfig {
     static let pairingCodeLifetime: Duration = .seconds(7 * 24 * 60 * 60)
     /// A sample pairing code's length (Canvas's codes are 6 characters, §7.5 step 4).
     static let pairingCodeLength = 6
+    /// SEC1-18: how long anything Tally copies to the general pasteboard (a pairing code, an
+    /// observer-removal request) stays readable there, so it does not outlive the moment it was
+    /// meant for (security.md §3.3 "Pasteboard").
+    static let pasteboardExpiry: Duration = .seconds(2 * 60)
 }
 
 /// One linked student as the family screens show them (family-linking.md §7.1, §7.3): the opaque
