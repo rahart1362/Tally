@@ -60,7 +60,9 @@ struct InsightsScreen: View {
                 .tallyLargeTitleScreenChrome()
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb() }
+        // UX1-11: the breadcrumb is the one other screen-margin-sensitive element outside the
+        // scroll content itself; it needs the same dynamic edge the cards below it now get.
+        .safeAreaInset(edge: .top, spacing: 0) { FreshnessBreadcrumb(margin: screenMargin) }
         .navigationTitle(String(localized: L10n.Insights.navigationTitle()))
         .task(id: projection.trendInput) { await insights.load(projection.trendInput) }
     }
