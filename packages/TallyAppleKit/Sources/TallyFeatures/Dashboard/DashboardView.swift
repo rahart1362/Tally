@@ -62,6 +62,10 @@ struct DashboardView: View {
                     // M3-C (UX-WP-12): the reminders tip, once work is due; renders nothing otherwise.
                     RemindersTip(hasUpcomingDueItem: !model.dashboard.dueSoon.isEmpty, isSampleData: model.isSampleData)
                     WeekAheadSection(days: model.dashboard.weekAhead)
+                    // Idea 3 (`ideas1/report.md` "Surface \"Momentum\" streak on the Dashboard"):
+                    // the existing Insights streak, reused verbatim. Renders nothing without a
+                    // current streak, or in parent mode (`MomentumStreakRow`).
+                    MomentumStreakRow(streak: model.insightsScreen.streak, isParentModeHome: isParentModeHome)
                     DueSoonSection(items: model.dashboard.dueSoon)
                 }
             }
@@ -327,6 +331,43 @@ struct HeroExclusionList: View {
                     .accessibilityElement(children: .combine)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Momentum streak (Idea 3: ideas1/report.md "Surface \"Momentum\" streak on the Dashboard")
+
+/// Whether the Dashboard's one-line streak row shows, and what it says. Pure, so
+/// `DashboardMomentumStreakTests` pins it without SwiftUI (the same pattern `HeroCaption` above
+/// uses). The streak itself (`StreakInsight.days`/`.headline`) is computed once, in the
+/// projection layer, by `InsightsBuilder.streak` (`HomeProjector.project(now:)` ->
+/// `ScreenProjections.build` -> `InsightsProjection.streak`) — this only decides whether that
+/// already-computed, already-localized value is shown here.
+nonisolated enum DashboardMomentumStreak: Equatable, Sendable {
+    /// `StreakInsight.headline`, unchanged: the existing `L10n.Insights.streakDays` string.
+    case row(String)
+    /// No current streak (`days == 0`), or parent mode: the brief calls for NOT parent mode
+    /// "unless the report shows a parent-appropriate streak" — it doesn't — and for hiding the
+    /// line rather than showing `L10n.Insights.streakNone` on the Dashboard.
+    case hidden
+
+    init(_ streak: StreakInsight, isParentModeHome: Bool) {
+        self = (!isParentModeHome && streak.days > 0) ? .row(streak.headline) : .hidden
+    }
+}
+
+/// One line, under Week-ahead, reusing `StreakInsight`'s own headline verbatim — zero new copy.
+/// Renders nothing when `DashboardMomentumStreak` says to hide it (the `RemindersTip` pattern).
+private struct MomentumStreakRow: View {
+    let streak: StreakInsight
+    let isParentModeHome: Bool
+
+    var body: some View {
+        if case .row(let headline) = DashboardMomentumStreak(streak, isParentModeHome: isParentModeHome) {
+            Label(headline, systemImage: "flame")
+                .font(TallyTypography.footnote)
+                .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityIdentifier("dashboard.momentumStreak")
         }
     }
 }
