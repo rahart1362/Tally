@@ -121,6 +121,36 @@ extension AccountLifecycleSuites {
             #expect(model.signOutSteps == steps)
             #expect(model.route == .welcome)
         }
+
+        /// SEC1-02 optional variant (security.md §3.2 step 9.4): the post-sign-out Welcome screen's
+        /// one-time notice, driven by `AccountSignOut.purge`'s revoke-failure result.
+        @Test("SEC1-02 optional variant: a failed revoke shows the one-time Welcome notice; a successful one never does")
+        func showsTheRevokeNoticeOnlyWhenRevocationFailed() async throws {
+            let harness = try AccountHarness()
+            harness.transport.revokeStatus = 500
+            let model = try await signedInApp(harness)
+
+            model.signOut()
+            await model.awaitTeardown()
+
+            #expect(model.route == .welcome)
+            #expect(model.showsSignOutRevokeNotice, "a non-2xx revoke must surface the notice")
+
+            model.dismissSignOutRevokeNotice()
+            #expect(!model.showsSignOutRevokeNotice, "dismissing it must end it")
+        }
+
+        @Test("a successful revoke never shows the notice")
+        func noNoticeWhenRevocationSucceeds() async throws {
+            let harness = try AccountHarness()
+            let model = try await signedInApp(harness)
+
+            model.signOut()
+            await model.awaitTeardown()
+
+            #expect(model.route == .welcome)
+            #expect(!model.showsSignOutRevokeNotice, "a successful revoke (the harness default) must never surface the notice")
+        }
     }
 }
 #endif

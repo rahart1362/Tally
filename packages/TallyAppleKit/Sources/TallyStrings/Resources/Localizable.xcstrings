@@ -11803,6 +11803,60 @@
         }
       }
     },
+    "welcome.revokeNotice.message" : {
+      "comment" : "Alert message shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed. Tells the student the token still works until it expires and how to revoke it themselves from Canvas. No exploit detail. PENDING owner approval.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally signed you out, but couldn’t confirm Canvas revoked this sign-in — you may have been offline. It will stop working on its own within about 2 hours. To end it sooner, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tally cerró tu sesión, pero no pudo confirmar que Canvas revocara este inicio de sesión; es posible que estuvieras sin conexión. Dejará de funcionar por sí solo en unas 2 horas. Para terminarlo antes, abre Canvas en un navegador, ve a Cuenta, luego Configuración, y elimina Tally en Integraciones aprobadas."
+          }
+        }
+      }
+    },
+    "welcome.revokeNotice.ok" : {
+      "comment" : "Dismiss button on the post-sign-out 'couldn't confirm the revoke' alert. PENDING owner approval.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aceptar"
+          }
+        }
+      }
+    },
+    "welcome.revokeNotice.title" : {
+      "comment" : "Alert title shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed (offline, or the one retry also failed). PENDING owner approval.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Canvas sign-in wasn’t fully revoked"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu inicio de sesión de Canvas no se revocó por completo"
+          }
+        }
+      }
+    },
     "welcome.tagline" : {
       "comment" : "Welcome screen tagline, under the Tally wordmark.",
       "extractionState" : "manual",

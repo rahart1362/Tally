@@ -91,6 +91,13 @@ public final class AppModel {
     /// PAY-10: the student closed the school-revoked notice; it stays closed until sign-out or the
     /// next launch.
     public private(set) var isSchoolNoticeDismissed = false
+    /// SEC1-02 optional variant (security.md §3.2 step 9.4): the sign-out just finished could not
+    /// confirm Canvas revoked the token (offline, or the revoke failed even after the one
+    /// refresh). `signOut()`'s teardown task sets this once the purge finishes; `RootView` shows
+    /// the notice on Welcome, exactly where sign-out already sends the route. Not a security
+    /// control and not persisted: like `isSchoolNoticeDismissed`, dismissing it (or a relaunch
+    /// before it is seen) just ends it.
+    public private(set) var showsSignOutRevokeNotice = false
     /// FAM-14 (M3-E2): parent mode over the sample family, while `route == .sample` and the parent
     /// view is on. The Home shell shows its active student's Home on every tab (FAM-09).
     public private(set) var family: FamilyModel?
@@ -495,6 +502,11 @@ public final class AppModel {
         isSchoolNoticeDismissed = true
     }
 
+    /// SEC1-02 optional variant: closes the post-sign-out "couldn't confirm the revoke" notice.
+    public func dismissSignOutRevokeNotice() {
+        showsSignOutRevokeNotice = false
+    }
+
     // MARK: - Sign-out (plan 06 step 10; perf-app-runtime.md §4.3)
 
     /// "Sign Out & Erase" (UX-WP-20's button, M3-A; the lock view's passcode-less escape). In
@@ -520,6 +532,7 @@ public final class AppModel {
         paywall = nil
         isFirstSyncPaywallDue = false
         isSchoolNoticeDismissed = false
+        showsSignOutRevokeNotice = false
         route = .welcome
         playsBrandMoment = true
         lock.resetForSignOut()
@@ -548,7 +561,11 @@ public final class AppModel {
             await subscriptionEngine?.eraseRecord()
             self?.recordSignOutStep(.runtime)
             if let account, let environment {
-                await AccountSignOut.purge(account: account, retired: retired, environment: environment)
+                let revokeDidFail = await AccountSignOut.purge(account: account, retired: retired, environment: environment)
+                // SEC1-02 optional variant: tell the student once, on the Welcome screen this
+                // sign-out already lands on. `self` can be nil if the app model itself has gone
+                // (e.g. a test that never awaits teardown); nothing to show it to then either.
+                if revokeDidFail { self?.showsSignOutRevokeNotice = true }
             }
             self?.recordSignOutStep(.purge)
             environment?.reloadWidgets()
