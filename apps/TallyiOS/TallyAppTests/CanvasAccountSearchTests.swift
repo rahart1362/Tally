@@ -11,7 +11,7 @@ import TallyCanvasAPI
 struct CanvasAccountSearchTests {
     @Test("search(name:) sends the canvas-string-ids Accept header, not a plain application/json")
     func sendsCanvasStringIDsAcceptHeader() async throws {
-        let transport = RecordingTransport(response: HTTPResponse(status: 200, body: Data("[]".utf8)))
+        let transport = AcceptHeaderRecordingTransport(response: HTTPResponse(status: 200, body: Data("[]".utf8)))
         let search = CanvasAccountSearch(transport: transport)
         _ = try await search.search(name: "Northfield")
         let sent = await transport.lastRequest
@@ -20,7 +20,10 @@ struct CanvasAccountSearchTests {
     }
 }
 
-private actor RecordingTransport: HTTPTransport {
+/// Named distinctly from the shared `RecordingTransport` in `AccountLifecycleTestSupport.swift`
+/// (an `internal` type, visible module-wide in this test target) -- that one 404s anything but
+/// `/login/oauth2/token`, which would not exercise this request at all.
+private actor AcceptHeaderRecordingTransport: HTTPTransport {
     private let response: HTTPResponse
     private(set) var lastRequest: HTTPRequest?
 
