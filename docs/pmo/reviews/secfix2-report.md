@@ -80,7 +80,7 @@ default (`false`).
 | Key | English | Translator comment |
 |---|---|---|
 | `welcome.revokeNotice.title` | Your Canvas sign-in wasn't fully revoked | Alert title shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed (offline, or the one retry also failed). PENDING owner approval. |
-| `welcome.revokeNotice.message` | Tally signed you out, but couldn't confirm Canvas revoked this sign-in — you may have been offline. It will stop working on its own within about 2 hours. To end it sooner, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations. | Alert message shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed. Tells the student the token still works until it expires and how to revoke it themselves from Canvas. No exploit detail. PENDING owner approval. |
+| `welcome.revokeNotice.message` | Tally signed you out and erased everything on this iPhone, but couldn't reach Canvas to end this sign-in, so you may have been offline. To end it, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations. | Alert message shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed. Tells the student the token still works until it expires and how to revoke it themselves from Canvas. No exploit detail. PENDING owner approval. |
 | `welcome.revokeNotice.ok` | OK | Dismiss button on the post-sign-out "couldn't confirm the revoke" alert. PENDING owner approval. |
 
 3 new keys, all under `L10n.Welcome`, en `translated` + es `needs_review` (machine pass) in
@@ -133,3 +133,7 @@ the second budgeted `scope=only` run was not needed.
 None carried forward from this work package. Both SEC1-02's and SEC1-10's optional variants named
 in `secfix1-report.md` are now implemented, tested, and green in hosted CI. The three new strings
 above need the owner's wording approval before merge, per rule and per the brief.
+
+
+## Owner copy decision (2026-10-21)
+The owner approved the three `welcome.revokeNotice.*` keys with CORRECTED message wording. The draft's "It will stop working on its own within about 2 hours" had no basis in the code, and Canvas can keep listing Tally as approved until the student removes it, so the time claim was dropped. The message now reads: "Tally signed you out and erased everything on this iPhone, but couldn't reach Canvas to end this sign-in, so you may have been offline. To end it, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations." The es text is updated to match (`needs_review`). The title and button are approved as drafted.
