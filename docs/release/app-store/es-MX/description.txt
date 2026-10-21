@@ -7,7 +7,7 @@ QUÉ INCLUYE
 • Por hacer — todo lo pendiente, de todos tus cursos, en una sola lista.
 • Calendario — agrega cualquier tarea al Calendario de tu iPhone con un toque, o suscríbete al calendario de Canvas para que se mantenga actualizado automáticamente.
 • Estadísticas — qué necesita tu atención, la vista de los próximos 7 días y la tendencia de tus calificaciones.
-• Recordatorios — un aviso un día antes y una hora antes de cada fecha límite, de forma predeterminada. Las calificaciones nunca aparecen en las notificaciones ni en la pantalla bloqueada, a menos que tú lo permitas.
+• Recordatorios — un aviso un día antes y una hora antes de cada fecha límite, de forma predeterminada. Las notificaciones nunca muestran calificaciones, y los widgets las muestran solo si tú lo activas.
 • Widgets de pantalla de inicio y pantalla bloqueada — lo próximo, lo que vence pronto, los próximos 7 días o tu promedio general, con un botón para marcar como hecho.
 • Atajos y Siri — pregunta qué tienes pendiente, o agrega un atajo de Tally a tu día.
 • Familia — un padre, madre o tutor puede seguir las fechas de entrega y calificaciones de un estudiante usando su propia cuenta de observador de Canvas, vinculada con un código que el estudiante genera y comparte. Tally no combina esto desde ninguna otra fuente.

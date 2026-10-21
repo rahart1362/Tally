@@ -85,3 +85,16 @@ Drafted in the existing site style (`site/_style.css`, structured like `site/sup
 4. **EB-24(e).** Re-review the final store listing against FTC Act §5 before each actual submission — a process step for the owner/counsel at submission time, not something this draft resolves.
 5. **es-MX needs the paid native-speaker review** `08-localization-and-external-grades.md` L-1 calls for before it's used for real; it's a machine pass today, per the owner's L10N rule.
 6. Whether the US App Store storefront shows `es-MX` metadata to Spanish-language devices is itself unverified (the same open question `08-localization-and-external-grades.md:192` already flags) — confirm in App Store Connect at M5.
+
+
+## 8. Owner approval (2026-10-21)
+- **Approved:**
+  - name "Tally: Grades & Due Dates";
+  - subtitle "Grades, deadlines & reminders" (the draft);
+  - keyword set A (the draft);
+  - the promotional text;
+  - the description, with two edits.
+- **Edit 1 (applied):** the reminders line now says "Notifications never show grade values, and widgets show them only if you turn that on." Verified: grade values never appear in notifications (R10), and widgets show them only with Settings → "Show Grades in Widgets" (`SettingsModel.swift:11,29`; `GlanceTimeline.swift:139`). The default reminders are T-24h and T-1h (`ReminderPlanner.swift:106-116`).
+- **Edit 2 (a submission step):** the Family bullet stays only if the real-account family flows (moved to M4; plan 02 §M3 exit) ship before submission; otherwise remove it at submission.
+- **The `/admin` page:** approved as drafted, to be published on merge.
+- **es-MX:** follows as a machine pass for the native reviewer.

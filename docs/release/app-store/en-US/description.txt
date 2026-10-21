@@ -7,7 +7,7 @@ WHAT YOU GET
 • To-Do — everything due, across every course, in one list.
 • Calendar — add any assignment to your iPhone's Calendar with one tap, or subscribe to your Canvas calendar feed so it stays current automatically.
 • Insights — what needs attention next, a week-ahead view, and grade trends over time.
-• Reminders — a notification a day before and an hour before each deadline, by default. Grade values are never shown in notifications or on the Lock Screen unless you choose to show them.
+• Reminders — a notification a day before and an hour before each deadline, by default. Notifications never show grade values, and widgets show them only if you turn that on.
 • Home Screen & Lock Screen widgets — next up, due soon, week ahead or your overall standing, with a one-tap "mark done."
 • Shortcuts & Siri — ask what's due, or add a Tally shortcut to your day.
 • Family — a parent or guardian can follow a student's due dates and grades using their own Canvas observer account, linked with a pairing code the student creates and shares. Tally doesn't combine this from any other source.
