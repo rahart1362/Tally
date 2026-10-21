@@ -170,7 +170,10 @@ struct SubscriptionSettingsView: View {
 /// FEAT-2: the sample-mode interstitial's two states, as a pure value so they are unit-testable
 /// apart from the view (`SampleInterstitialStateTests`). `.generic` is today's copy, unchanged — the
 /// App-Review path, when nothing was ever searched or the stored name was blank/whitespace-only.
-enum SampleInterstitialState: Equatable {
+/// `nonisolated` (the `WelcomeRoute`/`RootRoute` pattern): a plain value with no actor-isolated
+/// state, so it opts out of `TallyFeatures`' module-wide `@MainActor` default and can be
+/// constructed and compared from the test target's own nonisolated test functions.
+nonisolated enum SampleInterstitialState: Equatable, Sendable {
     case generic
     case named(String)
 
