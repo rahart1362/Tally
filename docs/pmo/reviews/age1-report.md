@@ -75,7 +75,7 @@ Both new, in `L10n+AgeAssurance.swift` / `Localizable.xcstrings` (en `translated
 | Key | English | Translator comment |
 |---|---|---|
 | `ageAssurance.restricted.title` | "Parent or Guardian Permission Needed" | The restricted screen's title, shown instead of the Dashboard while a parent or guardian's consent for a minor is pending or was withdrawn. |
-| `ageAssurance.restricted.body` | "A parent or guardian needs to approve this before you can keep using Tally. Your saved data is safe — it stays right where it is." | The restricted screen's explanation. No button offers a way past it: the screen stays until Apple reports that consent was given. |
+| `ageAssurance.restricted.body` | "A parent or guardian needs to approve this before you can keep using Tally. Your saved data stays on this iPhone in the meantime." | The restricted screen's explanation. No button offers a way past it: the screen stays until Apple reports that consent was given. |
 
 Not a new Tally string, but new copy an end user (a parent/guardian) will see: the significant-
 change description handed verbatim to Apple's system UI (`SignificantAppUpdateTopic
@@ -118,3 +118,7 @@ Every `scope=only`/Release-gate failure above was fixed in the commit noted; the
 - `docs/release/app-store/en-US/review_notes.txt` could use an age-assurance paragraph for App
   Review reviewers, similar to its existing "DEMO MODE"/"PARENT MODE" paragraphs; not added here
   to stay in AGE-1's lane (not named in the brief's Items list).
+
+
+## Owner copy approval (2026-10-21)
+Approved: `ageAssurance.restricted.title` as drafted, and `ageAssurance.restricted.body` reworded to "A parent or guardian needs to approve this before you can keep using Tally. Your saved data stays on this iPhone in the meantime." This drops the unqualified "safe" claim (EB-24 claims guardrail). es is updated to match (`needs_review`).

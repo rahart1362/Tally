@@ -98,13 +98,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A parent or guardian needs to approve this before you can keep using Tally. Your saved data is safe — it stays right where it is."
+            "value" : "A parent or guardian needs to approve this before you can keep using Tally. Your saved data stays on this iPhone in the meantime."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Un padre, madre o tutor debe aprobar esto antes de que puedas seguir usando Tally. Tus datos guardados están a salvo: permanecen justo donde están."
+            "value" : "Un padre, madre o tutor debe aprobar esto antes de que puedas seguir usando Tally. Mientras tanto, tus datos guardados permanecen en este iPhone."
           }
         }
       }

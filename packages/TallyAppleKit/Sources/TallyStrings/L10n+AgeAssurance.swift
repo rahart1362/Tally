@@ -14,7 +14,7 @@ extension L10n {
 
         public static func restrictedBody() -> LocalizedStringResource {
             LocalizedStringResource(
-                "ageAssurance.restricted.body", defaultValue: "A parent or guardian needs to approve this before you can keep using Tally. Your saved data is safe — it stays right where it is.", bundle: #bundle,
+                "ageAssurance.restricted.body", defaultValue: "A parent or guardian needs to approve this before you can keep using Tally. Your saved data stays on this iPhone in the meantime.", bundle: #bundle,
                 comment: "The restricted screen's explanation. No button offers a way past it: the screen stays until Apple reports that consent was given (AGE-1 EB-01(e)).")
         }
     }
