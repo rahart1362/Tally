@@ -108,10 +108,17 @@ struct AppEnvironment {
         // before any sign-in (EB-01(b): "first launch after install"), so it shares the same store
         // root rather than an account's.
         let ageAssuranceRoot: @Sendable () throws -> URL = { try StoreLocation.root(appGroupID: appGroupID) }
-        let ageAssurance = AgeAssuranceModel(
+        var ageAssurance = AgeAssuranceModel(
             requester: DeclaredAgeRangeAdapter(), consent: SignificantChangeConsentAdapter(),
             ageRating: AppStoreAgeRatingAdapter(), recordStore: AgeRequestRecordFileStore(root: ageAssuranceRoot),
             versionStore: SignificantChangeVersionFileStore(root: ageAssuranceRoot), clock: SystemDateProvider())
+        #if DEBUG || TALLY_TEST_HOOKS
+        // AGE-1 (EB-01(h)): UI tests only (AgeAssuranceTestHooks); never compiled into a shipping
+        // Release build.
+        if let hookedAgeAssurance = AgeAssuranceTestHooks(arguments: ProcessInfo.processInfo.arguments).model() {
+            ageAssurance = hookedAgeAssurance
+        }
+        #endif
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
                                 lock: lock, subscription: subscription, storefront: appStore, ageAssurance: ageAssurance)
