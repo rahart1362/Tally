@@ -38,7 +38,10 @@ public final class SignificantChangeConsentAdapter: SignificantChangeConsenting 
         #endif
         #if canImport(DeclaredAgeRange)
         if requirement.adultNotificationRequired {
-            guard let scene = Self.windowScene() else { return .unavailable }
+            // `showSignificantUpdateAcknowledgment` needs iOS 26.4+ (run 39631337098's compiler
+            // error; its own documentation page did not show this member's floor separately from
+            // the framework's 26.0 one — see the API note in `DeclaredAgeRangeAdapter.swift`).
+            guard #available(iOS 26.4, *), let scene = Self.windowScene() else { return .unavailable }
             do {
                 try await AgeRangeService.shared.showSignificantUpdateAcknowledgment(in: scene, updateDescription: changeDescription)
                 return .granted

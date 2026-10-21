@@ -8,6 +8,12 @@ import XCTest
 final class AgeRestrictedUITests: TallyUITestCase {
     private static let demoHost = "canvas.northfield.example"
 
+    override func tearDownWithError() throws {
+        // The demo sign-in's account must not outlive the test: the other suites expect Welcome,
+        // and this file's own second test signs in again.
+        MainActor.assumeIsolated { LifecycleUITest.resetAppState() }
+    }
+
     @MainActor
     func testDeniedSignificantChangeConsentShowsTheRestrictedScreenInsteadOfTheDashboard() throws {
         let app = launchApp(arguments: TestHooks.entitled + TestHooks.demoSignIn + TestHooks.ageRestricted)
