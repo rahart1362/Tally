@@ -1074,6 +1074,29 @@ public enum L10n {
                 "welcome.benefit.private.detail", defaultValue: "No Tally account. Your data stays on this iPhone.", bundle: #bundle,
                 comment: "Welcome screen benefit row detail, under 'Private by design'.")
         }
+
+        /// SEC1-02 optional variant (security.md §3.2 step 9.4): shown once on this screen after a
+        /// sign-out whose revoke could not be confirmed. Owner-approved 2026-10-21 (corrected wording: no time claim).
+        public static func revokeNoticeTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "welcome.revokeNotice.title", defaultValue: "Your Canvas sign-in wasn\u{2019}t fully revoked", bundle: #bundle,
+                comment: "Alert title shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed (offline, or the one retry also failed). Owner-approved 2026-10-21.")
+        }
+
+        /// Owner-approved 2026-10-21. Companion to `revokeNoticeTitle()`.
+        public static func revokeNoticeMessage() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "welcome.revokeNotice.message",
+                defaultValue: "Tally signed you out and erased everything on this iPhone, but couldn\u{2019}t reach Canvas to end this sign-in, so you may have been offline. To end it, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations.",
+                bundle: #bundle,
+                comment: "Alert message shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed. Says the local data is erased and how to end the sign-in from Canvas. No time claim, no exploit detail. Owner-approved 2026-10-21.")
+        }
+
+        /// Owner-approved 2026-10-21. The alert's single dismiss button.
+        public static func revokeNoticeOK() -> LocalizedStringResource {
+            LocalizedStringResource("welcome.revokeNotice.ok", defaultValue: "OK", bundle: #bundle,
+                                    comment: "Dismiss button on the post-sign-out 'couldn't confirm the revoke' alert. Owner-approved 2026-10-21.")
+        }
     }
 
     /// The "last refreshed" footer, breadcrumb and subtitle (UX-WP-06, `FreshnessPresenter`,

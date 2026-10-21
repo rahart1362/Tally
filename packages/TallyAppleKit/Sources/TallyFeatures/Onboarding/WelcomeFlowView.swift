@@ -1,6 +1,7 @@
 import SwiftUI
 import TallyCanvasAPI
 import TallyDesignSystem
+import TallyStrings
 
 /// `RootRoute.welcome`: onboarding's `NavigationStack` (Welcome, school search, sign-in hand-off,
 /// first sync), per the iOS 26 navigation shell in ux-ui.md §3.4. `RootView` creates a new
@@ -33,6 +34,20 @@ struct WelcomeFlowView: View {
         // fix `HomeShellView`'s `TabView`/`.sheet` already apply, covers the whole onboarding
         // stack — Welcome, school search and its failure states, sign-in hand-off, first sync.
         .tint(TallyColor.accent)
+        // SEC1-02 optional variant (security.md §3.2 step 9.4): a one-time, plain notice when the
+        // sign-out that just landed here could not confirm Canvas revoked the token — offline, or
+        // the revoke failed even after `SignOutUseCase`'s one refresh. This is exactly the screen
+        // sign-out already routes to, so it needs no extra plumbing to find the right surface.
+        // Never a security control: dismissing it (or a relaunch before it is seen) just ends it,
+        // the same as `isSchoolNoticeDismissed`.
+        .alert(String(localized: L10n.Welcome.revokeNoticeTitle()), isPresented: Binding(
+            get: { appModel.showsSignOutRevokeNotice },
+            set: { isPresented in if !isPresented { appModel.dismissSignOutRevokeNotice() } }
+        )) {
+            Button(String(localized: L10n.Welcome.revokeNoticeOK()), role: .cancel) {}
+        } message: {
+            Text(L10n.Welcome.revokeNoticeMessage())
+        }
     }
 
     @ViewBuilder

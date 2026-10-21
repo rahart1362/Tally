@@ -62,18 +62,32 @@ public enum GlanceIntentAnswers {
         }
     }
 
+    /// - Parameter appLockIsEnabled: SEC1-10 optional variant. `true` only when the student has
+    ///   separately turned Tally's own in-app App Lock on — a read-only flag the caller already
+    ///   has (`AppLockPreferenceRead.effective.isEnabled`); this function never reads the Keychain
+    ///   itself, so the gate stays pure and directly testable. `.requiresLocalDeviceAuthentication`
+    ///   (`DueIntents.swift`) already forces *this* iOS device to unlock before `perform()` even
+    ///   runs — that is a separate, unweakened gate — but a device unlock is not the same promise
+    ///   as Tally's own App Lock, which the rest of the app honours independently of whether the
+    ///   device itself is currently unlocked. Default `false` so every existing call (and the
+    ///   widget, which never calls this) is unaffected.
     public static func dueNext(_ result: GlanceReadResult, now: Date, calendar: Calendar,
-                               limit: Int = listLimit) -> GlanceIntentAnswer {
-        answer(result, now: now, calendar: calendar, kind: .dueNext, limit: limit)
+                               limit: Int = listLimit, appLockIsEnabled: Bool = false) -> GlanceIntentAnswer {
+        answer(result, now: now, calendar: calendar, kind: .dueNext, limit: limit, appLockIsEnabled: appLockIsEnabled)
     }
 
+    /// See `dueNext`'s `appLockIsEnabled`.
     public static func dueToday(_ result: GlanceReadResult, now: Date, calendar: Calendar,
-                                limit: Int = listLimit) -> GlanceIntentAnswer {
-        answer(result, now: now, calendar: calendar, kind: .dueToday, limit: limit)
+                                limit: Int = listLimit, appLockIsEnabled: Bool = false) -> GlanceIntentAnswer {
+        answer(result, now: now, calendar: calendar, kind: .dueToday, limit: limit, appLockIsEnabled: appLockIsEnabled)
     }
 
     static func answer(_ result: GlanceReadResult, now: Date, calendar: Calendar, kind: GlanceAnswerList.Kind,
-                       limit: Int) -> GlanceIntentAnswer {
+                       limit: Int, appLockIsEnabled: Bool = false) -> GlanceIntentAnswer {
+        // SEC1-10 optional variant: with Tally's own App Lock on, stay neutral — the same "Open
+        // Tally" message the widgets already show when there is nothing else to say (never a
+        // title, a course or a count), whatever the glance actually holds.
+        guard !appLockIsEnabled else { return .message(.unavailable) }
         switch GlanceTimelinePlanner.plan(for: result, now: now, calendar: calendar).current.content {
         case .placeholder:
             return .message(.unavailable)
