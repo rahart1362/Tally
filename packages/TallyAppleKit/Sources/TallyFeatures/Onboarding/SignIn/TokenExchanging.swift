@@ -36,11 +36,21 @@ public struct CanvasTokenExchange: TokenExchanging {
     private let endpoint: TokenEndpoint
     private let transport: any HTTPTransport
     private let clock: any DateProviding
+    /// SEC1-07 / security.md §3.2 item 6 ("On re-auth, require that `user.id` matches the stored
+    /// account to prevent an account swap"): the credential already on file for this slot, if
+    /// any. A genuine first sign-in has nothing stored yet, so this reads `nil` and
+    /// `TokenEndpoint.credential`'s `userMismatch` check never fires — exactly today's
+    /// behaviour. Once a re-auth path reuses this same type for an *existing* account, the
+    /// composition root supplies the stored credential here and the continuity check starts
+    /// protecting it, with no call-site change needed at that point.
+    private let existingCredential: @Sendable () async -> CanvasCredential?
 
-    public init(endpoint: TokenEndpoint, transport: any HTTPTransport, clock: any DateProviding = SystemDateProvider()) {
+    public init(endpoint: TokenEndpoint, transport: any HTTPTransport, clock: any DateProviding = SystemDateProvider(),
+                existingCredential: @Sendable @escaping () async -> CanvasCredential? = { nil }) {
         self.endpoint = endpoint
         self.transport = transport
         self.clock = clock
+        self.existingCredential = existingCredential
     }
 
     public func exchange(code: String, verifier: String, redirectURI: URL) async throws -> CanvasCredential {
@@ -54,10 +64,7 @@ public struct CanvasTokenExchange: TokenExchanging {
             throw TokenExchangeError.networkFailure
         }
         do {
-            // `previous: nil` — onboarding is always a first sign-in for this account, so
-            // the `userMismatch` check (which only fires when re-authenticating an existing
-            // account) never applies here.
-            return try endpoint.credential(from: response, previous: nil, now: clock.now())
+            return try endpoint.credential(from: response, previous: await existingCredential(), now: clock.now())
         } catch {
             throw TokenExchangeError.rejected
         }

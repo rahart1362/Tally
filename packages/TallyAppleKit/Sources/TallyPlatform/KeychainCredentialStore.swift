@@ -125,19 +125,20 @@ public final class KeychainCredentialStore: CredentialStore, Sendable {
 
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        switch status {
-        case errSecSuccess:
-            guard let data = result as? Data,
-                  let credential = try? KeychainSupport.credentialDecoder.decode(CanvasCredential.self, from: data)
-            else { return .notFound } // malformed payload: treat like absent, never crash the caller
-            return .found(credential)
-        case errSecItemNotFound:
-            return .notFound
-        case KeychainSupport.interactionNotAllowed:
-            return .unavailable
-        default:
-            return .notFound
-        }
+        guard status == errSecSuccess else { return Self.readStatus(forNonSuccess: status) }
+        guard let data = result as? Data,
+              let credential = try? KeychainSupport.credentialDecoder.decode(CanvasCredential.self, from: data)
+        else { return .notFound } // malformed payload: treat like absent, never crash the caller
+        return .found(credential)
+    }
+
+    /// SEC1-04: only `errSecItemNotFound` means "signed out" (security.md §3.2 item 7 — "Only
+    /// `.notFound` means signed out"). Every other non-success status, including one this code
+    /// doesn't recognize yet, must never be read as "no credential": map it to `.unavailable`
+    /// ("can't tell right now") instead of silently falling through to `.notFound`. Pure, so a
+    /// test can drive it with any `OSStatus` without touching the real Keychain.
+    static func readStatus(forNonSuccess status: OSStatus) -> ReadStatus {
+        status == errSecItemNotFound ? .notFound : .unavailable
     }
 
     // MARK: - Private

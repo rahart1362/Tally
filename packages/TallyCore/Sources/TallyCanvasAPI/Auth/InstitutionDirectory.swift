@@ -33,10 +33,12 @@ public enum InstitutionEnablementError: Error, Sendable, Equatable {
 public enum InstitutionDirectory {
     /// Parses the account-search response. A row without a name or a host that fails
     /// `InstitutionHost` normalization is dropped (it cannot be signed into), never fatal.
+    /// SEC1-16: nor is a row whose shape doesn't decode at all -- one malformed school must not
+    /// fail the whole search.
     public static func search(_ data: Data) throws -> [InstitutionMatch] {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let dtos = try decoder.decode([AccountSearchDTO].self, from: data)
+        let dtos = try decoder.decode(LossyArray<AccountSearchDTO>.self, from: data).elements
         return dtos.compactMap { dto in
             guard let name = dto.name, let domain = dto.domain,
                   let host = try? InstitutionHost.normalize(domain) else { return nil }

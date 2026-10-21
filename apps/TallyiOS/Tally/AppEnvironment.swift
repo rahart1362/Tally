@@ -59,6 +59,12 @@ struct AppEnvironment {
             credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false, logger: logger),
             keyring: VaultKeyring(store: KeychainVaultKeyStore()),
             lockPreferences: KeychainAppLockPreferenceStore(),
+            // FEAT-2: not sensitive the way the lock flag is, so a plain file beside the account
+            // stores (never Keychain) — `StoreLocation.root` already resolves the App Group
+            // container with its Application Support fallback.
+            notEnabledSchoolPreferences: FileNotEnabledSchoolPreferenceStore(fileURL: {
+                try StoreLocation.root(appGroupID: appGroupID).appendingPathComponent("not-enabled-school.txt")
+            }),
             transport: transport,
             notifications: UNNotificationScheduler(),
             reloadWidgets: { WidgetReloader().reloadAllTimelines() },
@@ -66,8 +72,13 @@ struct AppEnvironment {
             clock: SystemDateProvider(),
             removeLegacyCredentials: { _ = KeychainCredentialStore() },
             entitlement: entitlementGate)
+        // SEC1-07: a `let` snapshot of the one credential store, never a `var` capture — the
+        // store itself never changes across the hooks below, only other fields do.
+        let credentialStoreForSignIn = accountEnvironment.credentialStore
         var signIn = SignInServices(webAuthPresenter: WebAuthPresenter(),
-                                    makeTokenExchange: SignInServices.canvasTokenExchange(transport: transport))
+                                    makeTokenExchange: SignInServices.canvasTokenExchange(
+                                        transport: transport,
+                                        existingCredential: { await credentialStoreForSignIn.load() }))
         var authenticator: any AppLockAuthenticating = LocalAuthenticationAdapter()
 
         #if DEBUG || TALLY_TEST_HOOKS

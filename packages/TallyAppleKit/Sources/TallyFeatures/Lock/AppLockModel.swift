@@ -90,6 +90,13 @@ public final class AppLockModel {
     /// One `.deviceOwnerAuthentication` attempt. Any result but `.success` keeps the app locked.
     public func unlock() async {
         guard isLocked, !isAuthenticating else { return }
+        // SEC1-11 (security.md §3.3 "Biometric policy"): checked *before* the attempt below, so a
+        // face or fingerprint enrolled since the last check can never itself satisfy the very
+        // re-auth it triggers -- `observedEnrollmentToken` demotes `requiredCredential` to
+        // `.passcodeOnly` first, and `authenticationCompleted` then rejects a biometric result
+        // against that requirement. The very first call in a process only records the baseline
+        // (`AppLockPolicy`'s own doc comment), so this is a no-op until a real change is seen.
+        policy.observedEnrollmentToken(await authenticator.evaluatedPolicyDomainState(), now: clock.now())
         isAuthenticating = true
         let result = await authenticator.authenticate(reason: Self.unlockReason)
         isAuthenticating = false
