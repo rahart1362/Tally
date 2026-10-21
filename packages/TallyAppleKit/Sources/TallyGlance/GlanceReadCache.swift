@@ -35,7 +35,7 @@ actor GlanceReadCache {
     /// `scope`'s glance, read at most once per process invocation. Every caller after the first
     /// for that scope -- concurrent or later, whatever widget kind -- gets the first call's own
     /// result (awaiting it if it is still in flight) instead of triggering another read.
-    func read(_ scope: GlanceScope, using read: @Sendable (GlanceScope) async -> GlanceReadResult) async -> GlanceReadResult {
+    func read(_ scope: GlanceScope, using read: @escaping @Sendable (GlanceScope) async -> GlanceReadResult) async -> GlanceReadResult {
         if let existing = reads[scope] { return await existing.value }
         realReadCount += 1
         let task = Task { await read(scope) }
