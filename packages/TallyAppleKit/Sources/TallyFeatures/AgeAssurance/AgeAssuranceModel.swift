@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TallyDomain
+import TallyStore
 
 /// AGE-1 (engineering-backlog-us.md §2 EB-01–EB-04): the age-assurance state for this process,
 /// built the way `AppLockModel` is (architecture.md §3.1's `@MainActor @Observable` model
