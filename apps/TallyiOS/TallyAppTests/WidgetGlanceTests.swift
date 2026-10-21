@@ -77,6 +77,20 @@ final class WidgetGlanceTests: XCTestCase {
         XCTAssertEqual(realReadCount, 1, "\(widgetKindCount) widget kinds must share one Keychain-backed read, not one each")
     }
 
+    /// PMO review (2026-10-21): the shared read must never outlive its window. A widget extension
+    /// process can stay alive across timeline reloads, and a cached glance served after the app's
+    /// next refresh, or after Sign Out & Erase, would show stale data, or grades on a signed-out
+    /// Home Screen. Past `maxAge`, the next caller gets a fresh read with the new result.
+    func testSharedReadCacheRereadsAfterItsWindow() async {
+        let cache = GlanceReadCache(maxAge: .zero)
+        let first = await cache.read(.signedInStudent) { _ in .noGlance }
+        let second = await cache.read(.signedInStudent) { _ in .noAccount } // e.g. after sign-out
+        XCTAssertEqual(first, .noGlance)
+        XCTAssertEqual(second, .noAccount, "a read past the window must not be answered from the cache")
+        let realReadCount = await cache.realReadCount
+        XCTAssertEqual(realReadCount, 2)
+    }
+
     func testGlanceTimelineMemory() throws {
         try XCTSkipIf(Self.sanitizerRuntimeIsLoaded, "memory metrics are meaningless under a sanitizer's allocator")
         let bundleID = "dev.tally-app.tally.tests.widget-memory.\(UUID().uuidString)"

@@ -153,3 +153,6 @@ table); `make lint` → 0 violations in 290 files. `check_view_bodies.py`,
    green again without any change on run 39658761607. Flagging only, per rule 8/9.
 
 New string keys: **0**.
+
+## PMO review fix (2026-10-21)
+Item 1's `GlanceReadCache` originally lived for the whole extension process, on the assumption that iOS relaunches the widget extension per refresh. It can keep the process alive across timeline reloads. A process-lifetime cache could then serve a glance after the app replaced it, or after Sign Out & Erase removed it (grades on a signed-out Home Screen). The cache now reuses an entry only within `maxAge` (2 s by default), enough to coalesce one wake-up's widget kinds. New test: `testSharedReadCacheRereadsAfterItsWindow`.
