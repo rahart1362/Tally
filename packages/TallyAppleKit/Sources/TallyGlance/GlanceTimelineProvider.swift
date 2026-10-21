@@ -50,11 +50,14 @@ public protocol GlanceScoped {
 public struct GlanceIntentTimelineProvider<Intent: WidgetConfigurationIntent & GlanceScoped>: AppIntentTimelineProvider {
     private let read: @Sendable (GlanceScope) async -> GlanceReadResult
 
-    /// `read` is injectable for tests; the widget's default goes through `GlanceReadCache.shared`
-    /// (PERF-FIX-2 item 1), so every kind this process is asked for in one invocation shares the
-    /// first kind's Keychain-backed read instead of each kind opening the Keychain itself.
+    /// `read` is injectable for tests; the widget uses `readFromAppGroup`, which shares one
+    /// Keychain-backed read per process across every widget kind (`GlanceReadCache`, PERF-FIX-2
+    /// item 1) -- the caching lives inside that already-`public` function's body, not in this
+    /// default argument value, since a default value may not reference `GlanceReadCache` (it is
+    /// `internal`; Swift requires a default argument to be at least as visible as the `public`
+    /// `init` it belongs to, even within the same module).
     public init(read: @escaping @Sendable (GlanceScope) async -> GlanceReadResult = { scope in
-        await GlanceReadCache.shared.read(scope, using: GlanceWidgetSource.readFromAppGroup)
+        await GlanceWidgetSource.readFromAppGroup(scope)
     }) {
         self.read = read
     }
@@ -82,7 +85,16 @@ public struct GlanceIntentTimelineProvider<Intent: WidgetConfigurationIntent & G
 /// Where a widget's glance comes from.
 public enum GlanceWidgetSource {
     /// The glance from the App Group, with the configuration in the widget's own Info.plist.
+    /// Shares one Keychain-backed read per process invocation across every widget kind
+    /// (`GlanceReadCache.shared`, PERF-FIX-2 item 1: perf1/report.md §4 opportunity 3) -- every
+    /// `GlanceIntentTimelineProvider` this process is asked for defaults to calling this same
+    /// function, so the cache is shared automatically, with no change needed at each call site.
     public static func readFromAppGroup(_ scope: GlanceScope) async -> GlanceReadResult {
+        await GlanceReadCache.shared.read(scope, using: realReadFromAppGroup)
+    }
+
+    /// The actual Keychain-backed read `readFromAppGroup` shares through `GlanceReadCache`.
+    private static func realReadFromAppGroup(_ scope: GlanceScope) async -> GlanceReadResult {
         switch scope {
         case .signedInStudent:
             guard let configuration = GlanceConfiguration.from(infoDictionary: Bundle.main.infoDictionary) else {
