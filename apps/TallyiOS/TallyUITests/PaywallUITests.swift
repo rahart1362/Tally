@@ -48,6 +48,45 @@ final class PaywallUITests: TallyUITestCase {
                       "no Request a Refund for a purchase. Hierarchy: \(app.debugDescription)")
     }
 
+    /// FEAT-2: search a not-enabled school → Explore with Sample Data → Settings → Subscription →
+    /// the NAMED interstitial, found by identifiers (never the translated English text): "Ask My
+    /// School" appears in place of "Check My School", and Continue still opens the paywall. The
+    /// sibling test above (a fresh sample launch that never searched a school) already proves the
+    /// unchanged, generic fallback — the App-Review path.
+    @MainActor
+    func testNamedInterstitialAfterSearchingANotEnabledSchool() throws {
+        let app = launchApp(arguments: TestHooks.entitlement("none"))
+        XCTAssertTrue(app.buttons["Find My School"].waitForExistence(timeout: scaled(30)), "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["Find My School"], in: app)
+        let searchField = app.searchFields.firstMatch
+        tapWhenHittable(searchField, in: app)
+        searchField.typeText("canvas.notenabled.example")
+        tapWhenHittable(app.buttons["Use canvas.notenabled.example"], in: app)
+        XCTAssertTrue(app.buttons["Ask My School"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+
+        // Welcome sits under this page in the same stack (SampleDataUITests.testSchoolNotEnabledToSampleData):
+        // pick the hittable one of the two "Explore with Sample Data" buttons.
+        let exploreCandidates = app.buttons.matching(identifier: "Explore with Sample Data")
+        let explore = (0..<exploreCandidates.count).map { exploreCandidates.element(boundBy: $0) }.first { $0.isHittable }
+        XCTAssertNotNil(explore, "Hierarchy: \(app.debugDescription)")
+        explore?.tap()
+        XCTAssertTrue(app.staticTexts["SAMPLE DATA"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+
+        openSubscriptionSettings(app)
+        let seePlans = app.buttons["subscription.seePlans"]
+        XCTAssertTrue(scrollUntilHittable(seePlans, in: app), "no See Plans. Hierarchy: \(app.debugDescription)")
+        seePlans.tap()
+
+        let askMySchool = element("subscription.interstitial.askMySchool", in: app)
+        XCTAssertTrue(askMySchool.waitForExistence(timeout: scaled(10)),
+                      "the named interstitial never showed Ask My School. Hierarchy: \(app.debugDescription)")
+        let continueButton = element("subscription.interstitial.continue", in: app)
+        XCTAssertTrue(continueButton.exists, "Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(continueButton, in: app)
+        XCTAssertTrue(element("paywall.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "Continue did not open the paywall. Hierarchy: \(app.debugDescription)")
+    }
+
     /// PAY-05 at the largest accessibility size (AX5): everything stays reachable; a screenshot is kept
     /// as the snapshot.
     @MainActor

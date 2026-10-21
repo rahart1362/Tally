@@ -12,11 +12,17 @@ import TallyStrings
 /// In sample mode, See Plans first says that Tally works only at schools where it is enabled:
 /// "[Check My School] [Continue]" (`PaywallPlacement.needsInterstitial`). Check My School leaves the
 /// sample data for Welcome; Continue shows the paywall. Sample mode never shows the paywall by itself.
+///
+/// FEAT-2: when `AppModel.notEnabledSchoolName` holds a name (the student already searched a
+/// school and it came back not enabled), the interstitial instead names it and offers "Ask My
+/// School" (reusing `SchoolNotEnabledView`'s own string) in place of "Check My School" — the
+/// action still leaves the sample data, but now lands on that school's own page
+/// (`AppModel.checkMySchool()`). With no stored name this is unchanged: the App-Review path.
 struct SubscriptionSettingsView: View {
     let appModel: AppModel
     /// The Dashboard's school summary: the paywall's G-6 variant.
     let school: SchoolGradeSummary
-    /// "Check My School": Settings closes and the sample data ends.
+    /// "Check My School"/"Ask My School": Settings closes and the sample data ends.
     let onCheckMySchool: () -> Void
     @State private var actions: SubscriptionActionsModel
     @State private var paywall: PaywallRequest?
@@ -84,12 +90,27 @@ struct SubscriptionSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .modifier(SubscriptionSheets(actions: actions))
         .alert(String(localized: L10n.Subscription.interstitialTitle()), isPresented: $showsInterstitial) {
-            Button(String(localized: L10n.Subscription.checkMySchool()), action: onCheckMySchool)
+            switch interstitialState {
+            case .generic:
+                // Unchanged: the App-Review path (SampleInterstitialStateTests.noStoredNameIsGeneric).
+                Button(String(localized: L10n.Subscription.checkMySchool()), action: onCheckMySchool)
+            case .named:
+                // FEAT-2: reuses SchoolNotEnabledView's own "Ask My School" string verbatim; the
+                // action (onCheckMySchool) now lands on that school's page, not a blank Welcome.
+                Button(String(localized: L10n.Onboarding.SchoolSearch.askMySchool()), action: onCheckMySchool)
+                    .accessibilityIdentifier("subscription.interstitial.askMySchool")
+            }
             Button(String(localized: L10n.Subscription.continueToPlans())) {
                 paywall = PaywallRequest(trigger: .settings)
             }
+            .accessibilityIdentifier(interstitialState.isNamed ? "subscription.interstitial.continue" : "")
         } message: {
-            Text(L10n.Subscription.interstitialMessage())
+            switch interstitialState {
+            case .generic:
+                Text(L10n.Subscription.interstitialMessage())
+            case .named(let schoolName):
+                Text(L10n.Subscription.interstitialMessageNamedSchool(school: schoolName))
+            }
         }
         // The paywall from a view of its own, apart from Apple's sheets above (two presentations on one
         // view can close each other: run 36976774341).
@@ -135,6 +156,36 @@ struct SubscriptionSettingsView: View {
             showsInterstitial = true
         } else if PaywallPlacement.shows(.settings, in: context) {
             paywall = PaywallRequest(trigger: .settings)
+        }
+    }
+
+    /// FEAT-2: which of the interstitial's two states this presentation is in, straight from the
+    /// stored preference — never re-decided mid-presentation, so a write that lands while the
+    /// alert is up (there is none today) could not flip it under the student.
+    private var interstitialState: SampleInterstitialState {
+        SampleInterstitialState(notEnabledSchoolName: appModel.notEnabledSchoolName)
+    }
+}
+
+/// FEAT-2: the sample-mode interstitial's two states, as a pure value so they are unit-testable
+/// apart from the view (`SampleInterstitialStateTests`). `.generic` is today's copy, unchanged — the
+/// App-Review path, when nothing was ever searched or the stored name was blank/whitespace-only.
+enum SampleInterstitialState: Equatable {
+    case generic
+    case named(String)
+
+    init(notEnabledSchoolName: String?) {
+        guard let name = notEnabledSchoolName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            self = .generic
+            return
+        }
+        self = .named(name)
+    }
+
+    var isNamed: Bool {
+        switch self {
+        case .generic: false
+        case .named: true
         }
     }
 }

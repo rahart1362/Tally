@@ -347,7 +347,7 @@ struct SettingsView: View {
             NavigationLink {
                 SubscriptionSettingsView(appModel: app, school: home.dashboard.hero.school, onCheckMySchool: {
                     dismiss()
-                    app.exitSample()
+                    app.checkMySchool() // FEAT-2: lands on the remembered school's page when one is stored
                 })
             } label: {
                 // M3-B3: holding, so a school seat reads "Provided by your school…" here too, not
