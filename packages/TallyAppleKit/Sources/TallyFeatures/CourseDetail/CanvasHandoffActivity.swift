@@ -21,7 +21,7 @@ nonisolated enum CanvasHandoffActivity {
     /// (`AppModel.signOut()`'s first step switches `route` away from `.signedIn`), which tears the
     /// modifier down with them.
     static func webpageURL(for web: URL?, accountHost: String, isSampleData: Bool) -> URL? {
-        guard let web, CanvasLinkOpener.isSafe(web, accountHost: accountHost) else { return nil } // MUTATION: isSampleData guard dropped
+        guard !isSampleData, let web, CanvasLinkOpener.isSafe(web, accountHost: accountHost) else { return nil }
         return web
     }
 
