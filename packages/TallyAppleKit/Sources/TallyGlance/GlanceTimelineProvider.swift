@@ -26,8 +26,10 @@ public struct GlanceEntry: TimelineEntry, Equatable, Sendable {
 
 /// Whose glance a widget reads (FAM-11). Today there is one: the signed-in student's own. M3-E2
 /// adds the parent's per-student glances here, and maps its `StudentEntity` parameter to them in
-/// the widgets' configuration intent; the widget kinds and every view stay as they are.
-public enum GlanceScope: Equatable, Sendable {
+/// the widgets' configuration intent; the widget kinds and every view stay as they are. `Hashable`
+/// so `GlanceReadCache` can key its per-process cache by scope (PERF-FIX-2 item 1): trivial today
+/// (one case), and still correct once M3-E2 adds more -- each scope gets its own shared read.
+public enum GlanceScope: Hashable, Sendable {
     case signedInStudent
 }
 
@@ -48,9 +50,11 @@ public protocol GlanceScoped {
 public struct GlanceIntentTimelineProvider<Intent: WidgetConfigurationIntent & GlanceScoped>: AppIntentTimelineProvider {
     private let read: @Sendable (GlanceScope) async -> GlanceReadResult
 
-    /// `read` is injectable for tests; the widget uses `readFromAppGroup`.
+    /// `read` is injectable for tests; the widget's default goes through `GlanceReadCache.shared`
+    /// (PERF-FIX-2 item 1), so every kind this process is asked for in one invocation shares the
+    /// first kind's Keychain-backed read instead of each kind opening the Keychain itself.
     public init(read: @escaping @Sendable (GlanceScope) async -> GlanceReadResult = { scope in
-        await GlanceWidgetSource.readFromAppGroup(scope)
+        await GlanceReadCache.shared.read(scope, using: GlanceWidgetSource.readFromAppGroup)
     }) {
         self.read = read
     }
