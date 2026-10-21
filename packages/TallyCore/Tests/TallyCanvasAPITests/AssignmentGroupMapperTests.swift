@@ -55,6 +55,17 @@ struct AssignmentGroupMapperTests {
         #expect(Set(periods.compactMap { $0.submission?.gradingPeriodID }) == ["2201", "2202", "2203"])
     }
 
+    /// SEC1-16: a group whose shape doesn't decode at all (`id` is a non-optional `String`, so a
+    /// numeric one is exactly that kind of malformed row) must not fail the whole page -- the
+    /// other, well-formed group in the same response still maps.
+    @Test func groupsThatFailToDecodeAtAllAreDroppedNotFatal() throws {
+        let json = #"[{"id":1,"assignments":[]},{"id":"2","assignments":[{"id":"20","name":"Essay"}]}]"#
+        let mapped = try AssignmentGroupMapper.map(Data(json.utf8), courseID: "9")
+        #expect(mapped.items.map(\.id.rawValue) == ["2"])
+        #expect(mapped.items.flatMap(\.assignments).map(\.name) == ["Essay"])
+        #expect(mapped.dropped == 1, "the one malformed group counts as dropped")
+    }
+
     @Test func publishedDefaultsToTrueAndSubmissionTypesToEmpty() throws {
         let json = #"[{"id":"1","assignments":[{"id":"2","name":"Quiz","published":false},{"id":"3","name":"Essay"}]}]"#
         let assignments = try AssignmentGroupMapper.map(Data(json.utf8), courseID: "9").items.flatMap(\.assignments)
