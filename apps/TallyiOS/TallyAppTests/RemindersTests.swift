@@ -439,6 +439,39 @@ struct ReminderPipelineTests {
         #expect(!defaultWords.isEmpty)
         #expect(defaultWords == explicitWords)
     }
+
+    /// Idea 4 (FEAT-3): the To-Do "Remind me" action's `UserState.adHocReminders` entry reaches
+    /// the real pipeline — scheduled under its deterministic `.adHoc` id — and, once the same
+    /// assignment is marked done (`UserState.doneAssignments`), the very next pass cancels it
+    /// without any separate "cancel" call: `ReminderSubjects` excludes a done assignment from the
+    /// candidates the planner sees at all, so the request simply stops being desired.
+    @Test("idea 4 (FEAT-3): an ad-hoc 'Remind me' reminder is scheduled, then cancelled once the item is done")
+    func adHocReminderIsScheduledThenCancelledOnceDone() async throws {
+        let rig = try ReminderRig()
+        let coordinator = try await rig.coordinator()
+        let snapshot = try await FlagshipAccountGateway.flagship(account: rig.account)
+        let item = try #require(ReminderSubjects(snapshot: snapshot, now: rig.now).openItems.first,
+                                "the flagship fixture should have at least one open, dated item")
+        let fireDate = rig.now.addingTimeInterval(3600) // clear of the default quiet hours
+        let adHocID = NotificationID.make(accountKey: rig.account, kind: .adHoc, canvasID: item.assignment.id.rawValue,
+                                          ruleID: "manual", offset: "0")
+
+        try await rig.saveUserState(UserState(adHocReminders: [item.assignment.id: fireDate]))
+        guard case .reconciled = await rig.pass(coordinator) else {
+            Issue.record("the pass did not reconcile")
+            return
+        }
+        #expect(rig.platform.pending[adHocID] != nil, "the ad-hoc reminder was not scheduled")
+
+        // The same request is still on file; only "done" changes.
+        try await rig.saveUserState(UserState(doneAssignments: [item.assignment.id],
+                                              adHocReminders: [item.assignment.id: fireDate]))
+        guard case .reconciled = await rig.pass(coordinator) else {
+            Issue.record("the pass did not reconcile")
+            return
+        }
+        #expect(rig.platform.pending[adHocID] == nil, "the ad-hoc reminder was not cancelled once the item was marked done")
+    }
 }
 } // AccountLifecycleSuites
 

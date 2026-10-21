@@ -169,6 +169,14 @@ enum LegacyEnglish {
             let s = parts(subject)
             return Notification.examReminder(assignmentTitle: s.title, courseCode: s.code,
                                              dueTimeText: format.dayTime(dueAt, relativeTo: seenAt), hideCourseNames: s.hide)
+        // FEAT-3 (idea 4): never existed in 628ee09 — there is no legacy text to pin. Same shape
+        // and words as `.examReminder` (the real renderer's `NotificationText.adHocBody` is the
+        // same "Due %@." key), so the differential sweeps below have something to compare against
+        // if one is ever added for it.
+        case .adHocReminder(let subject, let dueAt):
+            let s = parts(subject)
+            return Notification.examReminder(assignmentTitle: s.title, courseCode: s.code,
+                                             dueTimeText: format.dayTime(dueAt, relativeTo: seenAt), hideCourseNames: s.hide)
         case .eveningDigest(let count, let first):
             switch first {
             case .title(let title)?: return Notification.eveningDigest(dueCount: count, firstItemTitle: title, hideCourseNames: false)
