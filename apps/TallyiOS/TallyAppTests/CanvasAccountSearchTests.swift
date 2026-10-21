@@ -7,6 +7,7 @@ import TallyCanvasAPI
 /// `AccountSearchDTO.id` is a non-optional `String` because Tally asks for canvas-string-ids --
 /// the same header `CanvasClient.acceptHeader` names for the authenticated API. A numeric `id`
 /// under the plain header would fail every row's decode.
+@MainActor
 @Suite("CanvasAccountSearch: the search request")
 struct CanvasAccountSearchTests {
     @Test("search(name:) sends the canvas-string-ids Accept header, not a plain application/json")

@@ -183,7 +183,26 @@ added below once the run completes.
 
 ## 12. CI iteration runs (budget: up to 2 `scope=only`, then the PR run)
 
-(Filled in after dispatch — see the journal for run IDs and results.)
+Both budgeted `scope=only` runs failed on compile errors in the *new test file*
+(`CanvasAccountSearchTests.swift`) — neither was a test failure, and neither touched the security
+logic itself. Both fixed in a follow-up commit before the next dispatch, per rule ("fix failures
+in your own files").
+
+- **Run [39597091855](https://github.com/rahart1362/Tally/actions/runs/39597091855)** (failure,
+  7m18s), `-only-testing` the 9 new/changed `TallyAppTests` classes: `error: invalid redeclaration
+  of 'RecordingTransport'` — the new file's own `private actor RecordingTransport` collided with
+  the existing, module-wide `internal` `RecordingTransport` in `AccountLifecycleTestSupport.swift`
+  (that shared fake also 404s anything but `/login/oauth2/token`, so it would not have exercised
+  this request anyway). Fixed: renamed to `AcceptHeaderRecordingTransport` (commit `19ec65a`).
+- **Run [39598649145](https://github.com/rahart1362/Tally/actions/runs/39598649145)** (failure,
+  ~4m), same `-only-testing` set: `error: main actor-isolated initializer 'init(transport:)' cannot
+  be called from outside of the actor` — `TallyFeatures` defaults every type to `@MainActor`
+  (SE-0466; the exact trap SEC-FIX-1's report records for `CanvasLinkOpener.isSafe`), and
+  `CanvasAccountSearchTests` was a plain (non-isolated) suite. Fixed: added `@MainActor` to the
+  suite, matching `CanvasTokenExchangeTests`'s identical, already-working pattern in the same
+  directory.
+
+Both `scope=only` runs are now spent; the PR run below is the hand-off run, carrying this fix.
 
 ## Open items
 
