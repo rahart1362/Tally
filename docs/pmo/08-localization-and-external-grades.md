@@ -104,6 +104,8 @@ Source: `docs/pmo/reviews/xg04-06-report.md`.
 
 **The literal gate is zero, repo-wide (2026-10-02).** Both sweeps have merged: L10N-03b (PR #27) and M3-D's widget files (PR #26). `scripts/ci/l10n-baseline.json` is now **empty** (0 files), not deleted: the checker needs the file, and exits 2 when it's missing. An empty baseline is the same gate. Any new literal in any file fails CI: a mutation adding `Text("Mutation probe literal")` at `DashboardView.swift:18` failed it (exit 1), and the file was restored byte-identical.
 
+**Owner decision (2026-10-11), L10N-04:** machine pass now, review later. The first-pass Spanish merges once both gates pass; Spanish is release-ready only after a paid native reviewer signs off (L-1), enforced by the release gate (a `needs_review` → `translated` check, or a sign-off file if Xcode drops `needs_review` values).
+
 ## 3. Feature A: multilingual support
 
 ### 3.1 Architecture: where each layer's strings live
@@ -468,7 +470,10 @@ L10N-04 translates from that merge commit. Any English change after it needs the
 
 **Strings added after the freeze (all owner-approved; L10N-04 must translate them too).** `Localizable.xcstrings` has 706 keys on `main` @ `2a47545`: the 702 frozen keys, plus:
 - `courses.sparkline.trend.up`, `.down`, `.steady`: UX-SPARK's VoiceOver trend sentences (PR #38), approved as drafted on 2026-10-04;
-- `courseDetail.override.menuRowTitle` = "Grades kept outside Canvas": the short Course Options row label (UX-FP1, PR #42, audit D17), approved on 2026-10-08. The full question `courseDetail.override.title` is unchanged and still used where it fits.
+- `courseDetail.override.menuRowTitle` = "Grades kept outside Canvas": the short Course Options row label (UX-FP1, PR #42, audit D17), approved on 2026-10-08. The full question `courseDetail.override.title` is unchanged and still used where it fits;
+- `NSFaceIDUsageDescription` = "Face ID unlocks Tally to protect your courses and grades." (MVP-1, PR #52), approved on **2026-10-12**. Open item (code, not this docs PR): the catalog's own translator comment still reads PENDING and needs a code PR to update it;
+- `settings.language.label` / `settings.language.footerV2` (L10N-04), approved on **2026-10-12**;
+- `settings.signOut.footer` = "Before you delete Tally, use Sign Out & Erase to end its access at your school." (MVP-4, PR #57; EB-17), approved on **2026-10-15**.
 
 No frozen English value has changed.
 | **M4** | as planned | **XG-05** alongside real sign-in | This is the first real-data check of G-2. |
