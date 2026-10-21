@@ -50,6 +50,15 @@ struct CourseDetailView: View {
         }
         .navigationTitle(model.courseDetails[courseID]?.name ?? String(localized: L10n.CourseDetail.navigationTitleFallback()))
         .navigationBarTitleDisplayMode(.inline)
+        // Idea 9: Handoff to the Mac/iPad browser, the same URL "Open in Canvas" already builds
+        // below. `nil` while sample data or an unsafe/missing URL both skips creating the activity
+        // and retires one already published (CanvasHandoffActivity.webpageURL's doc comment).
+        .userActivity(CanvasHandoffActivity.activityType,
+                      element: CanvasHandoffActivity.webpageURL(for: model.courseDetails[courseID]?.canvasURL,
+                                                                  accountHost: model.account.host,
+                                                                  isSampleData: model.isSampleData)) { webpageURL, activity in
+            CanvasHandoffActivity.configure(activity, webpageURL: webpageURL)
+        }
     }
 
     private func content(_ detail: CourseDetailProjection) -> some View {
