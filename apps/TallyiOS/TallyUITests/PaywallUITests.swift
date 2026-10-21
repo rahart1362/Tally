@@ -39,6 +39,16 @@ final class PaywallUITests: TallyUITestCase {
         app.buttons["paywall.purchase"].tap()
         XCTAssertTrue(eventually(timeout: scaled(15)) { !self.element("paywall.root", in: app).exists },
                       "the paywall stayed open after the purchase. Hierarchy: \(app.debugDescription)")
+        // EB-21: the retainable purchase confirmation, shown once right after the purchase (never
+        // after a restore or a redeemed code) -- plan, amount, renewal date and how to cancel.
+        XCTAssertTrue(element("confirmation.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "no purchase confirmation after buying. Hierarchy: \(app.debugDescription)")
+        for id in ["confirmation.plan", "confirmation.amount", "confirmation.renewalDetail"] {
+            XCTAssertTrue(element(id, in: app).exists, "no \(id). Hierarchy: \(app.debugDescription)")
+        }
+        tapWhenHittable(app.buttons["confirmation.done"], in: app)
+        XCTAssertTrue(eventually(timeout: scaled(10)) { !self.element("confirmation.root", in: app).exists },
+                      "the confirmation stayed open. Hierarchy: \(app.debugDescription)")
         // A Form's `LabeledContent` is one element whose label joins both parts: "Status, Active until …"
         // (runs 36976774341 and 36982429683, whose screen recordings show the page doing just that).
         let status = element("subscription.status", in: app)
@@ -46,6 +56,15 @@ final class PaywallUITests: TallyUITestCase {
                       "Settings → Subscription did not show the purchase. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(app.buttons["subscription.refund"].waitForExistence(timeout: scaled(5)),
                       "no Request a Refund for a purchase. Hierarchy: \(app.debugDescription)")
+
+        // EB-21: re-findable afterwards -- Settings → Subscription keeps its own way back in.
+        let viewConfirmation = app.buttons["subscription.viewConfirmation"]
+        XCTAssertTrue(scrollUntilHittable(viewConfirmation, in: app), "no way back to the confirmation. Hierarchy: \(app.debugDescription)")
+        viewConfirmation.tap()
+        XCTAssertTrue(element("confirmation.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "View Purchase Confirmation did not reopen it. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(app.buttons["confirmation.done"], in: app)
+        XCTAssertTrue(eventually(timeout: scaled(10)) { !self.element("confirmation.root", in: app).exists })
     }
 
     /// FEAT-2: search a not-enabled school → Explore with Sample Data → Settings → Subscription →
@@ -284,7 +303,7 @@ final class PaywallUITests: TallyUITestCase {
     }
 
     /// PAY-05: every element, by identifier. The test App Store's offer: a year at "$9.99", with the
-    /// one-month free trial when eligible.
+    /// two-week free trial (EB-19) when eligible.
     @MainActor
     private func assertPaywall(_ app: XCUIApplication, trial: Bool, file: StaticString = #filePath, line: UInt = #line) {
         let price = element("paywall.price", in: app)
@@ -297,8 +316,10 @@ final class PaywallUITests: TallyUITestCase {
         }
         XCTAssertEqual(element("paywall.trial", in: app).exists, trial, "the trial line", file: file, line: line)
         if trial {
-            XCTAssertEqual(element("paywall.trial", in: app).label, "1 month free, then $9.99/year", file: file, line: line)
+            XCTAssertEqual(element("paywall.trial", in: app).label, "2 weeks free, then $9.99/year", file: file, line: line)
         }
+        // EB-18: the trial's end date and the charge that follows, only while the trial is offered.
+        XCTAssertEqual(element("paywall.trialEnds", in: app).exists, trial, "the trial-ends line", file: file, line: line)
         for id in ["paywall.purchase", "paywall.restore", "paywall.redeem", "paywall.close"] {
             XCTAssertTrue(app.buttons[id].exists, "no \(id) button. Hierarchy: \(app.debugDescription)", file: file, line: line)
         }

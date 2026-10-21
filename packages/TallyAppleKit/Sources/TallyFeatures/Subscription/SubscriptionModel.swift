@@ -26,6 +26,12 @@ public final class SubscriptionModel {
     public private(set) var isVerifiedThisLaunch = false
     /// Ask to Buy: a purchase is waiting for a parent's approval (M3-B2 says so).
     public private(set) var isPurchasePending = false
+    /// EB-21: a direct purchase or trial start just completed (never a restore or a redeemed
+    /// code) -- the one-shot signal either paywall presenter (`HomeShellView`,
+    /// `SubscriptionSettingsView`) reads to show the retainable confirmation once, right after the
+    /// paywall closes. `PaywallModel.purchase()` sets it; the presenter that shows the
+    /// confirmation clears it once the student dismisses it.
+    public private(set) var justPurchased = false
     /// `SubscriptionConfig.isGatingEnforced`, unless a test injects otherwise.
     public let isEnforced: Bool
     /// The engine, when the composition root built one (nil in tests and previews that never buy).
@@ -51,6 +57,19 @@ public final class SubscriptionModel {
     public func allows(_ feature: SubscriptionFeature, isSampleMode: Bool, firstSyncSucceeded: Bool) -> Bool {
         table.allows(feature, in: state(isSampleMode: isSampleMode, firstSyncSucceeded: firstSyncSucceeded), at: clock.now())
     }
+
+    /// EB-18: the injected clock's current time, for the paywall's "the trial ends <date>" text —
+    /// never `Date()` in a view body (`scripts/ci/check_view_bodies.py`); test code injects
+    /// `FixedClock`/`TestClock`.
+    public func now() -> Date { clock.now() }
+
+    /// EB-21: `PaywallModel.purchase()` calls this right after the engine grants a `.purchased`
+    /// outcome (never after a restore or a redeemed code, which never call it).
+    public func recordDirectPurchase() { justPurchased = true }
+
+    /// EB-21: the presenter that showed the retainable confirmation calls this once the student
+    /// dismisses it, so it does not reappear by itself at the next launch or screen.
+    public func acknowledgeDirectPurchase() { justPurchased = false }
 
     /// Once, at app init (`TallyApp.init`, never a view): connects this model to the engine, then
     /// starts it (the `Transaction.updates` listener and the launch verification). Later calls do

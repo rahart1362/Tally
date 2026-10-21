@@ -9,8 +9,9 @@ import TallyStrings
 /// - the name ("Tally Annual") and the subscription's length;
 /// - what's included (plan 08 G-6: no grade claim for a school whose grades are not in Canvas);
 /// - **"$9.99/year" as the most prominent price**: the App Store's `displayPrice`, never formatted
-///   here; then, only when this Apple Account is eligible, "1 month free, then $9.99/year"; and the
-///   auto-renewal note;
+///   here; then, only when this Apple Account is eligible, "2 weeks free, then $9.99/year" (EB-19);
+///   and the auto-renewal disclosure (EB-18: the price and period, the trial's end date, that it
+///   renews automatically until cancelled, and how to cancel — body size, the primary colour);
 /// - the purchase button, Restore Purchases, Redeem Code (Apple's sheet), and the Terms of Use and
 ///   Privacy Policy links;
 /// - "Not Now".
@@ -134,7 +135,7 @@ private struct PaywallFeatures: View {
         case .reminders: L10n.Subscription.featureReminders()
         case .insights: L10n.Subscription.featureInsights()
         case .workload: L10n.Subscription.featureWorkload()
-        case .privacy: L10n.Subscription.featurePrivacy()
+        case .privacy: L10n.Subscription.featurePrivacyQualified()
         }
     }
 
@@ -149,8 +150,9 @@ private struct PaywallFeatures: View {
     }
 }
 
-/// The price block: "$9.99/year" (the most prominent price), the trial line when eligible, the
-/// renewal note. While the App Store answers, a progress indicator; with no answer, Try Again.
+/// The price block: "$9.99/year" (the most prominent price), the trial line when eligible, and the
+/// renewal disclosure (EB-18). While the App Store answers, a progress indicator; with no answer,
+/// Try Again.
 private struct PaywallOffer: View {
     let model: PaywallModel
 
@@ -184,9 +186,21 @@ private struct PaywallOffer: View {
                         .foregroundStyle(TallyColor.textPrimary)
                         .accessibilityIdentifier("paywall.trial")
                 }
-                Text(L10n.Subscription.renewal())
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textSecondary)
+                // EB-18 (Cal. B&P 17601/17602(a)(1); ROSCA 8403(1)): clear and conspicuous next to
+                // the purchase button -- body size, the primary text colour, never the
+                // footnote-size secondary colour this read before. `model.subscription.now()`
+                // reads the injected clock, never `Date()`/`Calendar.current` here
+                // (`scripts/ci/check_view_bodies.py`).
+                if model.content.showsTrial,
+                   let trialEnds = SubscriptionOfferText.trialEndsThenCharged(offer, now: model.subscription.now()) {
+                    Text(verbatim: trialEnds)
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textPrimary)
+                        .accessibilityIdentifier("paywall.trialEnds")
+                }
+                Text(verbatim: SubscriptionOfferText.renewalAutoCancel(offer))
+                    .font(TallyTypography.body)
+                    .foregroundStyle(TallyColor.textPrimary)
                     .accessibilityIdentifier("paywall.renewal")
             }
         }
