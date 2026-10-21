@@ -70,6 +70,17 @@ struct AuthTests {
         }
     }
 
+    @Test("constantTimeEquals is a plain, full equality check -- length-sensitive, content-sensitive, never short-circuiting observably")
+    func constantTimeEqualsIsCorrect() {
+        #expect(OAuthCallback.constantTimeEquals("abc123", "abc123"))
+        #expect(!OAuthCallback.constantTimeEquals("abc123", "abc124"), "one differing byte at the end")
+        #expect(!OAuthCallback.constantTimeEquals("abc123", "zbc123"), "one differing byte at the start")
+        #expect(!OAuthCallback.constantTimeEquals("abc123", "abc12"), "a shorter right-hand side")
+        #expect(!OAuthCallback.constantTimeEquals("abc12", "abc123"), "a shorter left-hand side")
+        #expect(!OAuthCallback.constantTimeEquals("", "abc123"))
+        #expect(OAuthCallback.constantTimeEquals("", ""))
+    }
+
     @Test func stateIsSingleUse() async {
         let pending = PendingAuthorizations(), request = begin()
         await pending.insert(request)

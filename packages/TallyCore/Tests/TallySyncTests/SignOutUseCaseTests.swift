@@ -122,7 +122,7 @@ struct SignOutUseCaseTests {
         await harness.transport.inject(response: HTTPResponse(status: 200), matching: { $0.method == .delete })
 
         let logger = RecordingLogger()
-        await SignOutUseCase.signOut(
+        let revokeDidFail = await SignOutUseCase.signOut(
             accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
             tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
             ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
@@ -134,6 +134,7 @@ struct SignOutUseCaseTests {
         #expect(revoke.headers["Authorization"] == "Bearer access-fresh", "the revoke must use the refreshed token, not the expired one")
         #expect(logger.events == [.signOutRevoked(ok: true)])
         #expect(await harness.credentialStore.load() == nil)
+        #expect(!revokeDidFail, "SEC1-02 optional variant: a successful revoke must never report failure")
     }
 
     /// SEC1-02: a still-usable access token is revoked directly, with no refresh call first.
@@ -142,7 +143,7 @@ struct SignOutUseCaseTests {
         let logger = RecordingLogger()
         await harness.transport.inject(response: HTTPResponse(status: 200), matching: { $0.method == .delete })
 
-        await SignOutUseCase.signOut(
+        let revokeDidFail = await SignOutUseCase.signOut(
             accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
             tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
             ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
@@ -150,6 +151,32 @@ struct SignOutUseCaseTests {
 
         #expect(await harness.transport.requestCount == 1, "no refresh call for a token that is still usable")
         #expect(logger.events == [.signOutRevoked(ok: true)])
+        #expect(!revokeDidFail, "SEC1-02 optional variant: a successful revoke must never report failure")
+    }
+
+    /// SEC1-02 optional variant (security.md §3.2 step 9.4): the condition behind the one-time
+    /// "we couldn't confirm Canvas revoked this" notice — `true` only when a credential existed
+    /// and the revoke did not end in a 2xx (offline, a transport error or any other status);
+    /// `false` both on a successful revoke (the two tests above) and when there was nothing to
+    /// revoke at all, so a repeat sign-out can never resurface the notice.
+    @Test func signOutReportsAFailedRevokeForTheOptionalNotice() async throws {
+        let harness = try await makeHarness()
+        await harness.transport.inject(response: HTTPResponse(status: 500), matching: { $0.method == .delete })
+
+        let revokeDidFail = await SignOutUseCase.signOut(
+            accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
+            tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
+            ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
+            keyring: harness.keyring)
+        #expect(revokeDidFail, "a non-2xx revoke must report failure")
+
+        // Idempotent repeat: no credential left, so nothing was attempted — never a false alarm.
+        let nothingToRevoke = await SignOutUseCase.signOut(
+            accountKey: harness.accountKey, credentialStore: harness.credentialStore, transport: harness.transport,
+            tokenEndpoint: TokenEndpoint(host: host, clientID: "tally-ios"), refreshCoordinator: harness.refreshCoordinator,
+            ledgerStore: harness.ledgerStore, notifications: harness.notifications, storeRoot: harness.root,
+            keyring: harness.keyring)
+        #expect(!nothingToRevoke, "nothing left to revoke must never report failure")
     }
 
     @Test func signOutTwiceIsIdempotent() async throws {

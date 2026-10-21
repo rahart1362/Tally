@@ -191,6 +191,27 @@ struct KeychainCredentialStoreTests {
     }
 }
 
+/// SEC1-04: `readStatus(forNonSuccess:)`'s pure mapping, with no real `SecItemCopyMatching` call
+/// (every `OSStatus` here is a literal, never touching securityd).
+@Suite("KeychainCredentialStore.readStatus(forNonSuccess:)")
+struct KeychainCredentialStoreReadStatusMappingTests {
+    @Test("errSecItemNotFound is the only status that means signed out")
+    func notFoundMapsToNotFound() {
+        #expect(KeychainCredentialStore.readStatus(forNonSuccess: errSecItemNotFound) == .notFound)
+    }
+
+    @Test("errSecInteractionNotAllowed (locked) means unavailable, never signed out")
+    func interactionNotAllowedMapsToUnavailable() {
+        #expect(KeychainCredentialStore.readStatus(forNonSuccess: errSecInteractionNotAllowed) == .unavailable)
+    }
+
+    @Test("a status this code has never seen before must still never be read as signed out")
+    func unrecognisedStatusMapsToUnavailable() {
+        #expect(KeychainCredentialStore.readStatus(forNonSuccess: errSecParam) == .unavailable)
+        #expect(KeychainCredentialStore.readStatus(forNonSuccess: errSecAllocate) == .unavailable)
+    }
+}
+
 /// SEC1-01: `deleteOutcome`'s decision logic, with the Keychain abstracted away as plain closures
 /// (no real `SecItemDelete`/`SecItemCopyMatching`, so these never touch securityd and need no
 /// `.serialized`).

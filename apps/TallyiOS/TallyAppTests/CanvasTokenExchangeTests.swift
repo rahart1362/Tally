@@ -42,6 +42,43 @@ struct CanvasTokenExchangeTests {
         #expect(credential.accessToken == "a1")
         #expect(credential.userID == "42")
     }
+
+    /// SEC1-07: with nothing stored yet (the default, and every test above), the continuity
+    /// check never fires -- exactly today's onboarding-only behaviour.
+    @Test("With no existing credential supplied, a different user.id is not rejected (first sign-in)")
+    func noExistingCredentialSkipsContinuityCheck() async throws {
+        let body = #"{"access_token":"a1","user":{"id":"99"},"refresh_token":"r1"}"#
+        let transport = CannedResponseTransport(response: HTTPResponse(status: 200, body: Data(body.utf8)))
+        let exchange = CanvasTokenExchange(endpoint: endpoint, transport: transport)
+        let credential = try await exchange.exchange(code: "c0de", verifier: "v", redirectURI: redirect)
+        #expect(credential.userID == "99")
+    }
+
+    /// SEC1-07: once a caller supplies the already-signed-in account's credential (a future
+    /// re-auth path), an exchange that comes back as a *different* Canvas user is rejected as
+    /// `.rejected`, never silently swapping the active account.
+    @Test("With an existing credential supplied, a mismatched user.id is rejected")
+    func existingCredentialEnforcesUserContinuity() async {
+        let stored = CanvasCredential(host: endpoint.host, userID: "42", accessToken: "old", refreshToken: "old-r",
+                                      accessTokenExpiresAt: Date())
+        let body = #"{"access_token":"a1","user":{"id":"99"},"refresh_token":"r1"}"#
+        let transport = CannedResponseTransport(response: HTTPResponse(status: 200, body: Data(body.utf8)))
+        let exchange = CanvasTokenExchange(endpoint: endpoint, transport: transport, existingCredential: { stored })
+        await #expect(throws: TokenExchangeError.rejected) {
+            _ = try await exchange.exchange(code: "c0de", verifier: "v", redirectURI: redirect)
+        }
+    }
+
+    @Test("With an existing credential supplied, a matching user.id still succeeds")
+    func existingCredentialAllowsMatchingUser() async throws {
+        let stored = CanvasCredential(host: endpoint.host, userID: "42", accessToken: "old", refreshToken: "old-r",
+                                      accessTokenExpiresAt: Date())
+        let body = #"{"access_token":"a2","user":{"id":"42"},"refresh_token":"r2"}"#
+        let transport = CannedResponseTransport(response: HTTPResponse(status: 200, body: Data(body.utf8)))
+        let exchange = CanvasTokenExchange(endpoint: endpoint, transport: transport, existingCredential: { stored })
+        let credential = try await exchange.exchange(code: "c0de", verifier: "v", redirectURI: redirect)
+        #expect(credential.userID == "42" && credential.accessToken == "a2")
+    }
 }
 
 private struct ThrowingTransport: HTTPTransport {

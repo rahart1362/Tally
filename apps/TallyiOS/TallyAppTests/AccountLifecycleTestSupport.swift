@@ -108,16 +108,23 @@ actor FlagshipAccountGateway: CanvasGateway {
 }
 
 /// Records every request; answers the token endpoint (`POST`: a synthetic token; `DELETE`, the
-/// sign-out revoke: 200) and 404s anything else.
+/// sign-out revoke: `revokeStatus`, 200 by default) and 404s anything else.
 final class RecordingTransport: HTTPTransport {
     private let log = Mutex<[HTTPRequest]>([])
+    /// SEC1-02 optional variant: a test can set this to a non-2xx (or leave it at the default 200)
+    /// to drive `AppModel.showsSignOutRevokeNotice` without touching any other suite's behaviour.
+    private let revokeStatusBox = Mutex(200)
+    var revokeStatus: Int {
+        get { revokeStatusBox.withLock { $0 } }
+        set { revokeStatusBox.withLock { $0 = newValue } }
+    }
 
     var requests: [HTTPRequest] { log.withLock { $0 } }
 
     func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
         log.withLock { $0.append(request) }
         guard request.url.path == "/login/oauth2/token" else { return HTTPResponse(status: 404) }
-        if request.method == .delete { return HTTPResponse(status: 200) }
+        if request.method == .delete { return HTTPResponse(status: revokeStatus) }
         let body = #"{"access_token":"test-access","refresh_token":"test-refresh","expires_in":3600,"user":{"id":4820117}}"#
         return HTTPResponse(status: 200, body: Data(body.utf8))
     }
@@ -132,11 +139,11 @@ final class CallCounter: Sendable {
 /// An authenticator that answers with the queued results in order (the last one repeats), and
 /// counts its attempts.
 final class ScriptedAuthenticator: AppLockAuthenticating {
-    private let state: Mutex<(results: [AppLockPolicy.AuthResult], attempts: Int)>
+    private let state: Mutex<(results: [AppLockPolicy.AuthResult], attempts: Int, domainState: Data?)>
     private let available: AppLockAvailability
 
-    init(_ results: [AppLockPolicy.AuthResult], availability: AppLockAvailability = .available(.faceID)) {
-        state = Mutex((results, 0))
+    init(_ results: [AppLockPolicy.AuthResult], availability: AppLockAvailability = .available(.faceID), domainState: Data? = nil) {
+        state = Mutex((results, 0, domainState))
         available = availability
     }
 
@@ -151,8 +158,12 @@ final class ScriptedAuthenticator: AppLockAuthenticating {
         }
     }
 
-    func evaluatedPolicyDomainState() async -> Data? { nil }
+    func evaluatedPolicyDomainState() async -> Data? { state.withLock { $0.domainState } }
     func availability() async -> AppLockAvailability { available }
+
+    /// SEC1-11 test control: what the *next* `evaluatedPolicyDomainState()` call returns,
+    /// simulating a biometric-enrolment change observed between two unlock attempts.
+    func setDomainState(_ data: Data?) { state.withLock { $0.domainState = data } }
 }
 
 /// Holds every `save` until `open()`, so a test can act while a sign-in's provisioning is in

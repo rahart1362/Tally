@@ -59,11 +59,26 @@ public enum OAuthCallback {
               parts.path == request.redirectURI.path else { throw .wrongRedirect }
         let items = parts.queryItems ?? []
         func value(_ name: String) -> String? { items.first { $0.name == name }?.value }
-        guard value("state") == request.state else { throw .stateMismatch }
+        guard let state = value("state"), Self.constantTimeEquals(state, request.state) else { throw .stateMismatch }
         guard now.timeIntervalSince(request.createdAt) < ttl.timeInterval else { throw .expired }
         if let error = value("error") { throw error == "access_denied" ? .accessDenied : .providerError }
         guard let code = value("code"), !code.isEmpty else { throw .missingCode }
         return code
+    }
+
+    /// SEC1-07 / security.md §3.2 item 5 ("Compare `state` in constant time and consume it"): a
+    /// bare `==` short-circuits at the first differing byte, which can leak how much of a guessed
+    /// `state` matched through timing. `state` arrives on the callback URL, so in principle an
+    /// attacker racing the redirect controls one side of this comparison; comparing every byte,
+    /// unconditionally, removes that signal. Mismatched lengths are rejected without comparing
+    /// bytes — the lengths themselves (both fixed, 43-character base64url tokens in practice) are
+    /// not secret.
+    static func constantTimeEquals(_ lhs: String, _ rhs: String) -> Bool {
+        let a = Array(lhs.utf8), b = Array(rhs.utf8)
+        guard a.count == b.count else { return false }
+        var difference: UInt8 = 0
+        for i in 0..<a.count { difference |= a[i] ^ b[i] }
+        return difference == 0
     }
 }
 

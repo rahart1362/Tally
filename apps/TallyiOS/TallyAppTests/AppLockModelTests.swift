@@ -97,6 +97,32 @@ struct AppLockModelTests {
         #expect(!lock.isLocked)
     }
 
+    @Test("SEC1-11: a biometric-enrolment change observed since the last unlock forces passcode-only until a passcode succeeds")
+    func enrollmentChangeForcesPasscodeOnly() async {
+        let clock = TestClock()
+        let (lock, authenticator, _) = model([.success(via: .biometric), .success(via: .biometric), .success(via: .passcode)], clock: clock)
+        lock.configure(with: AppLockPreference(isEnabled: true, gracePeriod: .immediately))
+        authenticator.setDomainState(Data([1, 2, 3]))
+        await lock.unlock() // the very first observation only records a baseline
+        #expect(!lock.isLocked)
+
+        // Back from the background after the grace period: a new lock episode, and the device's
+        // enrolled biometry changed while the app was away.
+        lock.scenePhaseChanged(to: .background)
+        clock.advance(by: .seconds(1))
+        lock.scenePhaseChanged(to: .active)
+        #expect(lock.isLocked)
+        authenticator.setDomainState(Data([9, 9, 9]))
+
+        await lock.unlock() // scripted: a biometric success -- must be rejected
+        #expect(lock.isLocked, "a freshly enrolled face must not satisfy the re-auth it triggered")
+        #expect(authenticator.attempts == 2)
+
+        await lock.unlock() // scripted: a passcode success -- the one credential still accepted
+        #expect(!lock.isLocked)
+        #expect(authenticator.attempts == 3)
+    }
+
     @Test("with no device passcode the lock view never evaluates; it offers only sign-out")
     func passcodeNotSetOffersOnlySignOut() async {
         let (lock, authenticator, _) = model([.success(via: .passcode)], availability: .passcodeNotSet)
