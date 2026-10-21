@@ -314,9 +314,14 @@ def self_test() -> int:
     case("school-search wired AND claimed active (consistent)", errs, should_fail=False)
 
     # --- canvas-api stops being wired while still claimed active (new, unlisted overclaim) ---
+    # Match only the argument's head, so the mutation survives changes to the call's own arguments
+    # (SEC-FIX-3 split it across lines to add `existingCredential:`, and the old full-call string
+    # silently stopped matching). The guard case below fails loudly if it ever stops applying.
     unwired_canvas_app_env = app_environment.replace(
-        "makeTokenExchange: SignInServices.canvasTokenExchange(transport: transport))",
-        "makeTokenExchange: nil)")
+        "makeTokenExchange: SignInServices.canvasTokenExchange(",
+        "makeTokenExchange: nil, unwiredForSelfTest: SignInServices.canvasTokenExchange(")
+    case("the canvas-api mutation applies to AppEnvironment.swift",
+         ["mutated"] if unwired_canvas_app_env != app_environment else [], should_fail=True)
     errs, _ = check(policy_html, sign_in_services, unwired_canvas_app_env, shipping_text)
     case("canvas-api stops being wired but policy still claims it active", errs, should_fail=True)
 
@@ -342,7 +347,7 @@ def self_test() -> int:
     except InputError:
         print("POLICY self-test | caught | an unknown flow name in POLICY-FLOWS")
 
-    total = 3 + 2 + 1 + 1 + 2
+    total = 3 + 2 + 1 + 1 + 1 + 2  # +1: the canvas-api mutation guard (SEC-FIX-3)
     print(f"POLICY self-test | {'PASS' if failures == 0 else 'FAIL'} | {total - failures} of {total}")
     return 0 if failures == 0 else 1
 
