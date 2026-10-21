@@ -20,14 +20,19 @@ public nonisolated struct LaunchResolution: Sendable, Equatable {
     /// O5 (PERF-L): the account's persisted refresh record, or `nil` when none could be read. The
     /// glance's freshness is derived from it, and the account's coordinator starts from it.
     public let record: RefreshRecord?
+    /// AGE-1 (EB-01(b)): whether this launch is the one that just wrote the install sentinel
+    /// (`VaultBootstrap.reconcileInstall`) — "first launch after install." `AppModel.apply(_:)`
+    /// feeds this straight to `AgeAssuranceModel.evaluateIfDue`.
+    public let isFirstLaunchAfterInstall: Bool
 
     public init(account: AccountRecord?, lock: AppLockPreference, glance: HomeGlance?, storeRoot: URL? = nil,
-                record: RefreshRecord? = nil) {
+                record: RefreshRecord? = nil, isFirstLaunchAfterInstall: Bool = false) {
         self.account = account
         self.lock = lock
         self.glance = glance
         self.storeRoot = storeRoot
         self.record = record
+        self.isFirstLaunchAfterInstall = isFirstLaunchAfterInstall
     }
 
     /// Nothing on disk: Welcome, with the lock off.
@@ -108,10 +113,10 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         let earlyLock = await lockRead
         let lock = reconciled ? await lockPreference() : earlyLock
         guard let found = await stored else {
-            return LaunchResolution(account: nil, lock: lock, glance: nil)
+            return LaunchResolution(account: nil, lock: lock, glance: nil, isFirstLaunchAfterInstall: reconciled)
         }
         return LaunchResolution(account: found.account, lock: lock, glance: found.glance, storeRoot: root,
-                                record: found.record)
+                                record: found.record, isFirstLaunchAfterInstall: reconciled)
     }
 
     /// Step 2: the app-lock setting (Keychain). Unreadable fails closed (`AppLockPreferenceRead.effective`).

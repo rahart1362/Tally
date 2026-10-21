@@ -104,9 +104,17 @@ struct AppEnvironment {
         let subscription = SubscriptionModel(engine: SubscriptionEngine(
             source: source, records: KeychainEntitlementStore(),
             gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
+        // AGE-1: account-independent, like `accounts.json` — the age-assurance request happens
+        // before any sign-in (EB-01(b): "first launch after install"), so it shares the same store
+        // root rather than an account's.
+        let ageAssuranceRoot: @Sendable () throws -> URL = { try StoreLocation.root(appGroupID: appGroupID) }
+        let ageAssurance = AgeAssuranceModel(
+            requester: DeclaredAgeRangeAdapter(), consent: SignificantChangeConsentAdapter(),
+            ageRating: AppStoreAgeRatingAdapter(), recordStore: AgeRequestRecordFileStore(root: ageAssuranceRoot),
+            versionStore: SignificantChangeVersionFileStore(root: ageAssuranceRoot), clock: SystemDateProvider())
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
-                                lock: lock, subscription: subscription, storefront: appStore)
+                                lock: lock, subscription: subscription, storefront: appStore, ageAssurance: ageAssurance)
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif

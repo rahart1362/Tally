@@ -93,6 +93,18 @@ public enum TallyConfig {
     // budget split across however many students they observe, weighted by due-item count,
     // "with a floor of 4 per subject" so an idle student is never crowded out entirely.
     public static let familyNotificationFloorPerSubject = 4
+
+    // Age assurance (AGE-1, engineering-backlog-us.md §2 EB-01–EB-04): Utah 13-76-202 and Alabama
+    // HB161 §9(b)(1) both cap the routine re-request at once per 12 months; Texas and Louisiana
+    // set no floor, so the same cadence is used everywhere (the union, not per-state code).
+    public static let ageRequestRoutineReRequestMonths = 12
+    /// Set to `true` for exactly the release the significant-change checklist
+    /// (docs/release/significant-change-checklist.md) determines is a significant change;
+    /// revert to `false` on the next release. `AgeRatingChangeDetector` (EB-03) sets the
+    /// equivalent trigger automatically from StoreKit's age-rating signal and does not read this
+    /// flag — the two are independent "is this launch a significant-change launch?" sources, and
+    /// either one is enough.
+    public static let currentReleaseIsSignificantChange = false
 }
 
 extension Duration {

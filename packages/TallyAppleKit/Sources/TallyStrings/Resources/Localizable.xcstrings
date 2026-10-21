@@ -91,6 +91,42 @@
         }
       }
     },
+    "ageAssurance.restricted.body" : {
+      "comment" : "The restricted screen's explanation. No button offers a way past it: the screen stays until Apple reports that consent was given (AGE-1 EB-01(e)/EB-02(b)).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A parent or guardian needs to approve this before you can keep using Tally. Your saved data is safe — it stays right where it is."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Un padre, madre o tutor debe aprobar esto antes de que puedas seguir usando Tally. Tus datos guardados están a salvo: permanecen justo donde están."
+          }
+        }
+      }
+    },
+    "ageAssurance.restricted.title" : {
+      "comment" : "The restricted screen's title, shown instead of the Dashboard while a parent or guardian's consent for a minor is pending or was withdrawn (AGE-1 EB-01(e)/EB-02(b)).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parent or Guardian Permission Needed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se necesita el permiso de un padre, madre o tutor"
+          }
+        }
+      }
+    },
     "calendar.addToCalendar.label" : {
       "comment" : "VoiceOver label for the button that opens the system event editor pre-filled with this agenda item. The placeholder is the item's title.",
       "extractionState" : "manual",

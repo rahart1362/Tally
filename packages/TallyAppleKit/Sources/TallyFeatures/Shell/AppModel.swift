@@ -94,6 +94,10 @@ public final class AppModel {
     /// FAM-14 (M3-E2): parent mode over the sample family, while `route == .sample` and the parent
     /// view is on. The Home shell shows its active student's Home on every tab (FAM-09).
     public private(set) var family: FamilyModel?
+    /// AGE-1 (EB-01–EB-04): the age-assurance state for this process. `RootView` reads
+    /// `ageAssurance.gateDecision` to show the restricted screen over the signed-in Home; `launch()`
+    /// and the paywall entry points below feed it the three request points this app controls.
+    public let ageAssurance: AgeAssuranceModel
 
     /// Ends the previous session after `exitSample()` or `signOut()`; owned here so it is never
     /// orphaned.
@@ -126,7 +130,7 @@ public final class AppModel {
     public init(accountRuntime: AccountRuntime = AccountRuntime(), logger: any TallyLogger = NoOpLogger(),
                 accountEnvironment: AccountEnvironment? = nil, launcher: (any LaunchBootstrapping)? = nil,
                 lock: AppLockModel? = nil, subscription: SubscriptionModel? = nil,
-                storefront: (any SubscriptionStorefront)? = nil) {
+                storefront: (any SubscriptionStorefront)? = nil, ageAssurance: AgeAssuranceModel? = nil) {
         self.accountRuntime = accountRuntime
         self.subscription = subscription ?? SubscriptionModel()
         self.storefront = storefront ?? UnavailableStorefront()
@@ -141,6 +145,7 @@ public final class AppModel {
             self.launcher = NoAccountLaunch()
         }
         self.lock = lock ?? AppLockModel()
+        self.ageAssurance = ageAssurance ?? AgeAssuranceModel()
         reminders = Self.makeReminders(runtime: accountRuntime, environment: accountEnvironment)
     }
 
@@ -198,6 +203,11 @@ public final class AppModel {
     /// leaves exactly that.) The setting itself is left as it is.
     func apply(_ resolution: LaunchResolution) {
         guard route == .launching else { return }
+        // AGE-1 (EB-01(b)): "first launch after install" — checked on every launch, whichever
+        // route it resolves to (Welcome or signed in), because the request is about the person
+        // and the device, not about any one Canvas account.
+        ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: resolution.isFirstLaunchAfterInstall,
+                                   isAboutToPresentPaywallPurchase: false)
         guard let account = resolution.account else {
             LaunchSignpost.enterPhase(nil)
             lock.configure(with: .disabled)
@@ -457,6 +467,9 @@ public final class AppModel {
         guard context.session == .signedIn, !context.isLocked, context.accountState != nil else { return }
         isFirstSyncPaywallDue = false
         if PaywallPlacement.shows(.firstSyncFinished, in: context) {
+            // AGE-1 (EB-01(b)): "before a purchase from the paywall when no request was made this
+            // launch" — `AgeAssuranceModel` itself skips this if a request already ran.
+            ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
             paywall = PaywallRequest(trigger: .firstSyncFinished)
         }
     }
@@ -465,6 +478,8 @@ public final class AppModel {
     /// for the paywall.
     public func showPaywall(for trigger: PaywallTrigger) {
         guard paywall == nil, PaywallPlacement.shows(trigger, in: paywallContext()) else { return }
+        // AGE-1 (EB-01(b)): the same "before a paywall purchase" request point.
+        ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
         paywall = PaywallRequest(trigger: trigger)
     }
 

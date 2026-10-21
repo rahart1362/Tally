@@ -155,6 +155,13 @@ PLACEHOLDER_ALLOWLIST = {
         "deletes the pre-rewrite build's mock credential item (its legacy Keychain service) on init",
 }
 
+# AGE-1 (engineering-backlog-us.md §2; dossier.md §2 invariant): the one file allowed to persist
+# anything about age assurance, and the in-memory types that must never gain a Codable conformance
+# (if one did, the type could be written to a file by a later change without this check moving).
+AGE_ASSURANCE_STORE_FILE = "packages/TallyCore/Sources/TallyStore/AgeAssuranceStore.swift"
+AGE_ASSURANCE_CODABLE_FORBIDDEN = ("AgeCategory", "AgeAssuranceSignal", "AgeAssuranceOutcome",
+                                   "SignificantChangeConsentOutcome", "SignificantChangeRequirement")
+
 
 def _yaml():
     try:
@@ -229,6 +236,76 @@ def _release_string_hits(privacy, path: str, text: str) -> list[str]:
             if line not in debug:
                 hits.append(f"{path}:{line} {label}")
     return hits
+
+
+# ------------------------------------------------------------------------------------------------
+# AGE-1 acceptance (the brief: "a Release-binary check in check_release.py (with a self-test) that
+# the entitlement is present and that no age value is written to disk").
+# ------------------------------------------------------------------------------------------------
+
+def _brace_block(text: str, after: str) -> str | None:
+    """The first balanced `{ ... }` block starting after the first occurrence of `after`, or
+    `None` if `after`, or an opening brace following it, is not found. Good enough for this
+    file's flat Swift structs (no need for a real parser): it only has to find one declaration's
+    body, not understand Swift."""
+    start = text.find(after)
+    if start == -1:
+        return None
+    brace = text.find("{", start)
+    if brace == -1:
+        return None
+    depth = 0
+    for i in range(brace, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[brace:i + 1]
+    return None
+
+
+def age_assurance_checks(entitlement_value: object, store_text: str | None,
+                          shipping: dict[str, str]) -> list[Check]:
+    """`entitlement_value`: the Tally target's `com.apple.developer.declared-age-range` entitlement
+    value (or `None` if absent). `store_text`: the contents of `AGE_ASSURANCE_STORE_FILE`, or
+    `None` if it could not be read. `shipping`: path (repo-relative, forward slashes) -> text, for
+    every non-test Swift file to scan for a forbidden Codable conformance (the caller gathers this
+    from disk; the self-test passes a small synthetic dict, as `flow_checks`' tests do)."""
+    checks: list[Check] = []
+
+    def add(id_, title, ok, detail):
+        checks.append(Check(id_, title, "ERROR", "MVP", bool(ok), detail))
+
+    add("REL.age-assurance.entitlement-present",
+        "com.apple.developer.declared-age-range is present and true on the Tally target (EB-01)",
+        entitlement_value is True, f"value: {entitlement_value!r}")
+
+    if store_text is None:
+        add("REL.age-assurance.no-age-on-disk",
+            "AgeRequestRecord's only stored field is lastRequestedAt: Date, and no in-memory age-signal type is Codable",
+            False, f"cannot read {AGE_ASSURANCE_STORE_FILE}")
+        return checks
+
+    block = _brace_block(store_text, "public struct AgeRequestRecord")
+    fields = re.findall(r"^\s*public (?:var|let) (\w+)\s*:\s*([\w<>\[\]? ]+)", block or "", re.M) if block else []
+    field_types = dict(fields)
+    only_date_field = block is not None and sorted(field_types) == ["lastRequestedAt"] \
+        and "Date" in field_types.get("lastRequestedAt", "")
+
+    codable_hits = []
+    for path, text in shipping.items():
+        for name in AGE_ASSURANCE_CODABLE_FORBIDDEN:
+            for m in re.finditer(
+                    rf"\b(?:struct|enum|class)\s+{name}\b[^{{]*:[^{{]*\b(Codable|Decodable|Encodable)\b", text):
+                codable_hits.append(f"{path}: {name} conforms to {m.group(1)}")
+
+    add("REL.age-assurance.no-age-on-disk",
+        "AgeRequestRecord's only stored field is lastRequestedAt: Date, and no in-memory age-signal type is Codable",
+        only_date_field and not codable_hits,
+        f"AgeRequestRecord fields: {sorted(field_types) or 'none found'}"
+        + (f"; Codable violations: {codable_hits}" if codable_hits else ""))
+    return checks
 
 
 def source_checks(root: pathlib.Path) -> list[Check]:
@@ -316,13 +393,24 @@ def source_checks(root: pathlib.Path) -> list[Check]:
         not problems, "; ".join(problems) or "no permission API in shipping code, no purpose string declared")
 
     # Entitlements (§3.4 allow-list).
+    tally_entitlement_plist: dict = {}
     for name in ("Tally", "TallyWidgets"):
         path = root / "apps/TallyiOS" / targets[name]["entitlements"]["path"]
         with path.open("rb") as handle:
-            keys = set(plistlib.load(handle))
+            plist = plistlib.load(handle)
+        if name == "Tally":
+            tally_entitlement_plist = plist
+        keys = set(plist)
         extra = sorted(keys - ENTITLEMENTS_ALLOWED[name])
         add(f"REL.entitlements.{name}", f"{name} entitlements are on the allow-list", not extra,
             f"keys: {sorted(keys)}" + (f"; not allowed: {extra}" if extra else ""))
+
+    # AGE-1 acceptance (the brief): the Declared Age Range entitlement is present, and the one
+    # persisted age-assurance record carries no age value.
+    store_path = root / AGE_ASSURANCE_STORE_FILE
+    store_text = store_path.read_text(encoding="utf-8") if store_path.exists() else None
+    checks.extend(age_assurance_checks(
+        tally_entitlement_plist.get("com.apple.developer.declared-age-range"), store_text, shipping))
 
     # The App Store icon (ASC-F04, ITMS-90717).
     width, height, colour, transparency = _png_header(root / APP_ICON)
@@ -826,7 +914,31 @@ def self_test() -> int:
     shots_with_errors = screenshot_checks({"images": full_images, "missing": [], "errors": ["leg x: broke"]})[0].settle()
     assert shots_with_errors.status == "FAIL", "any recorded screenshots.py error must fail the check"
     assert screenshot_checks({})[0].settle().status == "FAIL", "no manifest is a failing check, not a silent pass"
-    print("check_release self-test: 29 checks passed")
+    # AGE-1: REL.age-assurance.entitlement-present, REL.age-assurance.no-age-on-disk.
+    good_record = ("public struct AgeRequestRecord: Codable, Sendable, Equatable {\n"
+                   "    public var lastRequestedAt: Date\n"
+                   "    public init(lastRequestedAt: Date) { self.lastRequestedAt = lastRequestedAt }\n}")
+    by_id = {c.id: c.settle() for c in age_assurance_checks(True, good_record, {})}
+    assert by_id["REL.age-assurance.entitlement-present"].status == "PASS"
+    assert by_id["REL.age-assurance.no-age-on-disk"].status == "PASS"
+    missing_entitlement = {c.id: c.settle() for c in age_assurance_checks(None, good_record, {})}
+    assert missing_entitlement["REL.age-assurance.entitlement-present"].status == "FAIL", \
+        "an absent (or false) entitlement value must fail, never pass silently"
+    no_store_file = {c.id: c.settle() for c in age_assurance_checks(True, None, {})}
+    assert no_store_file["REL.age-assurance.no-age-on-disk"].status == "FAIL", "an unreadable store file must fail"
+    leaky_record = ("public struct AgeRequestRecord: Codable, Sendable, Equatable {\n"
+                    "    public var lastRequestedAt: Date\n"
+                    "    public var category: AgeCategory\n}")
+    leaky_field = {c.id: c.settle() for c in age_assurance_checks(True, leaky_record, {})}
+    assert leaky_field["REL.age-assurance.no-age-on-disk"].status == "FAIL", \
+        "a second stored field (an age value) on AgeRequestRecord must fail"
+    assert "category" in leaky_field["REL.age-assurance.no-age-on-disk"].detail
+    leaky_codable = {"Rogue.swift": "public enum AgeCategory: Codable, Sendable {\n    case child\n}"}
+    leaky_conformance = {c.id: c.settle() for c in age_assurance_checks(True, good_record, leaky_codable)}
+    assert leaky_conformance["REL.age-assurance.no-age-on-disk"].status == "FAIL", \
+        "an age-signal type gaining a Codable conformance anywhere in shipping code must fail"
+    assert "Rogue.swift" in leaky_conformance["REL.age-assurance.no-age-on-disk"].detail
+    print("check_release self-test: 35 checks passed")
     return 0
 
 
