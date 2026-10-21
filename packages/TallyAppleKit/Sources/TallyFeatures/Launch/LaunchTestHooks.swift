@@ -229,6 +229,10 @@ public nonisolated struct LaunchTestHooks: Sendable {
         try? environment.keyring.shredEverything()
         await environment.credentialStore.delete()
         await environment.lockPreferences.reset()
+        // FEAT-2: the simulator keeps the app's container between UI tests (this file's own
+        // doc), so a name one test's school search stores must not leak into the next test's
+        // fresh sample mode.
+        await environment.notEnabledSchoolPreferences.clear()
     }
 
     /// A sealed flagship store, exactly as a first sync would leave it: the bundled replay through
