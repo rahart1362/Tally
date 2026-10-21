@@ -38,7 +38,10 @@ public struct CanvasAccountSearch: InstitutionSearching {
         components.path = "/api/v1/accounts/search"
         components.queryItems = [URLQueryItem(name: "name", value: name)]
         guard let url = components.url else { return [] }
-        let request = HTTPRequest(url: url, headers: HTTPHeaders(["Accept": "application/json"]))
+        // SEC1-16 (verified): AccountSearchDTO.id is a String because Tally asks for
+        // canvas-string-ids, but this request was sending plain `application/json` -- the header
+        // CanvasClient itself always sends for the authenticated API, below.
+        let request = HTTPRequest(url: url, headers: HTTPHeaders(["Accept": CanvasClient.acceptHeader]))
         let response = try await transport.send(request)
         guard (200..<300).contains(response.status) else {
             throw InstitutionSearchError.rejected(status: response.status)

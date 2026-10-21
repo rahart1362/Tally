@@ -25,7 +25,13 @@ public struct SignInServices {
     }
 
     /// The token exchange over `transport` (`POST /login/oauth2/token`, PKCE public client).
-    public static func canvasTokenExchange(transport: any HTTPTransport) -> (String, String) -> any TokenExchanging {
-        { host, clientID in CanvasTokenExchange(endpoint: TokenEndpoint(host: host, clientID: clientID), transport: transport) }
+    /// `existingCredential` (SEC1-07): the composition root's own account-continuity check, read
+    /// fresh on every exchange; defaults to "nothing stored", matching today's onboarding-only
+    /// call site.
+    public static func canvasTokenExchange(
+        transport: any HTTPTransport, existingCredential: @Sendable @escaping () async -> CanvasCredential? = { nil }
+    ) -> (String, String) -> any TokenExchanging {
+        { host, clientID in CanvasTokenExchange(endpoint: TokenEndpoint(host: host, clientID: clientID),
+                                                 transport: transport, existingCredential: existingCredential) }
     }
 }

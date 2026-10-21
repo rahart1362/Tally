@@ -220,14 +220,30 @@ final class TransportTaskDelegate: NSObject, URLSessionDataDelegate, Sendable {
         completionHandler(Self.redirected(newRequest, from: task))
     }
 
-    /// `newRequest` without `Authorization` when it leaves the task's original host.
+    /// `newRequest` without `Authorization` when it leaves the task's original origin.
     static func redirected(_ newRequest: URLRequest, from task: URLSessionTask) -> URLRequest {
         var redirected = newRequest
-        let originalHost = task.originalRequest?.url?.host?.lowercased()
-        let newHost = newRequest.url?.host?.lowercased()
-        if originalHost != newHost {
+        if !Self.sameOrigin(task.originalRequest?.url, newRequest.url) {
             redirected.setValue(nil, forHTTPHeaderField: "Authorization")
         }
         return redirected
+    }
+
+    /// SEC1-14: scheme, host **and** port must all agree -- a same-host redirect to a different
+    /// scheme or port kept the bearer token when only the host was compared. `nil` for either
+    /// URL (no `originalRequest` to compare against) is never "same origin": fail safe and strip.
+    static func sameOrigin(_ a: URL?, _ b: URL?) -> Bool {
+        guard let a, let b else { return false }
+        return a.scheme?.lowercased() == b.scheme?.lowercased()
+            && a.host?.lowercased() == b.host?.lowercased()
+            && (a.port ?? Self.defaultPort(for: a.scheme)) == (b.port ?? Self.defaultPort(for: b.scheme))
+    }
+
+    private static func defaultPort(for scheme: String?) -> Int? {
+        switch scheme?.lowercased() {
+        case "https": 443
+        case "http": 80
+        default: nil
+        }
     }
 }

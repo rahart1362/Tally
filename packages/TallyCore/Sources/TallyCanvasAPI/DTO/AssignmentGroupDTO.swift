@@ -37,8 +37,10 @@ public enum AssignmentGroupMapper {
     public static func map(_ data: Data, courseID: CanvasID<Course>) throws -> Mapped<AssignmentGroup> {
         let decoder = CanvasJSON.decoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let dtos = try decoder.decode([AssignmentGroupDTO].self, from: data)
-        var dropped = 0
+        // SEC1-16: one malformed group must not fail the whole page.
+        let decoded = try decoder.decode(LossyArray<AssignmentGroupDTO>.self, from: data)
+        let dtos = decoded.elements
+        var dropped = decoded.dropped
         let groups = dtos.map { dto -> AssignmentGroup in
             let groupID = CanvasID<AssignmentGroup>(dto.id)
             let assignments = (dto.assignments ?? []).compactMap { a -> Assignment? in

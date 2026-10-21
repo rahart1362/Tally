@@ -8,3 +8,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # SEC1-21: the root Package.swift (above) is the legacy, unlinked package with no remote
+  # dependencies (REL.go-live.unlinked-legacy). The one real remote pin -- swift-crypto, plus
+  # swift-asn1 -- lives in these two Package.swift files instead.
+  - package-ecosystem: swift
+    directory: /packages/TallyCore
+    schedule:
+      interval: weekly
+  - package-ecosystem: swift
+    directory: /tools/sign-institution-registry
+    schedule:
+      interval: weekly

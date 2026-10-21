@@ -123,8 +123,12 @@ nonisolated struct ReminderSubjects: Sendable {
             guard let code = courseCodes[reminder.subjectID] else { return nil }
             return .gradePosted(.init(courseCode: code, hideCourseNames: hideCourseNames))
         case .belowGoal:
-            guard let code = courseCodes[reminder.subjectID] else { return nil }
-            return .belowGoal(.init(courseCode: code, hideCourseNames: hideCourseNames))
+            // SEC1-19 (owner decision 2026-10-21): the Lock Screen never names the slipping
+            // course for this alert, independent of the "Hide Course Names" setting -- only
+            // existing copy is used (`CourseName.hidden`, already rendered for every other
+            // notification kind when that setting is on).
+            guard courseCodes[reminder.subjectID] != nil else { return nil }
+            return .belowGoal(.hidden)
         }
     }
 

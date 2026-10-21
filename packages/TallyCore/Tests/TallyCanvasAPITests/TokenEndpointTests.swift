@@ -66,6 +66,22 @@ struct TokenEndpointTests {
         }
     }
 
+    @Test("SEC1-07: a token_type other than Bearer is rejected; a missing one is accepted (Canvas often omits it)")
+    func tokenTypeIsChecked() throws {
+        #expect(throws: TokenEndpointError.unsupportedTokenType) {
+            try endpoint.credential(from: ok(#"{"access_token":"a","token_type":"MAC","user":{"id":"42"},"refresh_token":"r"}"#),
+                                    previous: nil, now: clock.now())
+        }
+        // Case-insensitive, matching RFC 6749 §7.1.
+        let lower = try endpoint.credential(from: ok(#"{"access_token":"a","token_type":"bearer","user":{"id":"42"},"refresh_token":"r"}"#),
+                                            previous: nil, now: clock.now())
+        #expect(lower.accessToken == "a")
+        // No token_type at all (several of this suite's own fixtures above): accepted, not malformed.
+        let missing = try endpoint.credential(from: ok(#"{"access_token":"a","user":{"id":"42"},"refresh_token":"r"}"#),
+                                              previous: nil, now: clock.now())
+        #expect(missing.accessToken == "a")
+    }
+
     @Test func revokeUsesBearerAndCredentialNeverPrintsTokens() {
         let c = CanvasCredential(host: endpoint.host, userID: "42", accessToken: "SECRET-A", refreshToken: "SECRET-R", accessTokenExpiresAt: clock.now())
         let revoke = endpoint.revokeRequest(for: c)
