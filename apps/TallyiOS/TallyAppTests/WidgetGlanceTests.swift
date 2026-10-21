@@ -85,6 +85,40 @@ final class WidgetGlanceTests: XCTestCase {
         }
     }
 
+    /// PERF-FIX-1 item 3 (perf1/report.md S4 opportunity 5): `testGlanceTimelineMemory`'s own
+    /// median read **0.0000 kB** in run 39178437255's required `ios-build` job log, the same
+    /// pattern unrelated metrics (`SampleLoadPerformanceTests`' CPU Cycles/Instructions Retired)
+    /// showed in that run -- circumstantial evidence that some `XCTMeasureMetric` types are not
+    /// populating on this CI image, rather than that the widget's own workload is unusually
+    /// efficient. This is the mutation check the report itself proposes: a *permanent* sanity
+    /// test, not a one-off, because the question it answers ("can `XCTMemoryMetric` register
+    /// anything at all, here, right now") can change again with any future Xcode/CI image.
+    ///
+    /// Each iteration appends a fresh 2 MB buffer that is never freed for the rest of the test
+    /// (`held` only grows), so every iteration's own before/after bracket contains a real,
+    /// uncollectable allocation far larger than the budget's documented 16.384 kB page
+    /// granularity (`perf/widget-budgets.json`). `check_perf_budgets.py` has no budget entry for
+    /// this test, so it reports the median as an unbudgeted `PERF-REPORT` line (never gates):
+    /// a non-zero report means the metric type works on this image, so `testGlanceTimelineMemory`'s
+    /// own 0.0000 kB is a true (if suspiciously exact) near-zero footprint for that tiny workload,
+    /// not an instrumentation gap; a 0.0000 kB report here as well means the opposite -- the
+    /// metric is not measuring on this image, and `testGlanceTimelineMemory`'s PASS has to be
+    /// read as "no result," not "within budget," until the image or toolchain changes.
+    func testMemoryMetricCanaryRegistersADeliberateAllocation() throws {
+        try XCTSkipIf(Self.sanitizerRuntimeIsLoaded, "memory metrics are meaningless under a sanitizer's allocator")
+        var held: [[UInt8]] = []
+        let options = XCTMeasureOptions()
+        options.iterationCount = 5
+        measure(metrics: [XCTMemoryMetric()], options: options) {
+            held.append([UInt8](repeating: 0xAB, count: Self.canaryAllocationBytes))
+        }
+        XCTAssertGreaterThanOrEqual(held.count, options.iterationCount, "one allocation must survive per iteration")
+    }
+
+    /// Comfortably larger than the 16.384 kB page granularity `perf/widget-budgets.json` documents,
+    /// so a working metric cannot mistake this for noise.
+    private static let canaryAllocationBytes = 2 * 1_048_576
+
     /// An ASan or TSan runtime is loaded in this process (the instrumented host loads it).
     private static var sanitizerRuntimeIsLoaded: Bool {
         (0..<_dyld_image_count()).contains { index in

@@ -474,24 +474,55 @@ jobs:
           retention-days: 30
 
   a11y-perf-shots:
-    name: Launch metric (stub, M5)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # M5 (perf): XCTApplicationLaunchMetric against a stored baseline (fail on > 20%). Until then
-    # this job records it as PENDING, so the report shows what M5 still owes.
+    name: Launch metric (M5; Launch.GlancePaint vs baseline, report-only)
+    runs-on: macos-26
+    timeout-minutes: 45
+    # PERF-FIX-1 item 1 (perf1/report.md §3): this job used to record REL.m5.launch-metric as
+    # PENDING unconditionally, via check_release.py --pending, because XCTApplicationLaunchMetric
+    # (TallyPerfUITests.swift:128-136) produces 0 parseable measurements on this toolchain. It now
+    # runs the same Release measurement ci.yml's required `ios-perf` job runs (`make ios-perf`)
+    # and reports the real Launch.GlancePaint median against perf/m5_launch_baseline.json
+    # (scripts/ci/check_m5_launch_metric.py) -- still never failing the gate: `due` stays M5 until
+    # the owner promotes it, same as before.
     # MVP-2 (UX-WP-22): the accessibility-audit line this job used to stub (REL.m5.accessibility-audit)
     # is REL.a11y.audit now, due MVP, a real check from `ios-gate`'s own "Accessibility audit" step.
     # MVP-3 (ASC-12, R14): the screenshot line this job used to stub (REL.m5.screenshots) is
     # REL.store.screenshots now, due MVP, a real check from the `store-screenshots` job below.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Record the M5 launch-metric check as pending
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        run: make ios-project
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: make ios-perf (Release; same measurement ci.yml's required ios-perf job makes)
+        run: make ios-perf IOS_OUT="$RUNNER_TEMP/ios" IOS_SIM_UDID="${{ steps.sim.outputs.udid }}"
+      - name: Record REL.m5.launch-metric (report-only; never fails this job or the gate)
+        if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/compliance"
-          python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
-            "not implemented: XCTApplicationLaunchMetric against a stored baseline, failing on a regression over 20%" \
-            --title "Launch time within 20% of the baseline" --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
+          if [ -f "$RUNNER_TEMP/ios/perf-metrics.json" ]; then
+            python3 scripts/ci/check_m5_launch_metric.py perf/m5_launch_baseline.json \
+              "$RUNNER_TEMP/ios/perf-metrics.json" --json "$RUNNER_TEMP/compliance/m5-launch.json"
+          else
+            python3 scripts/ci/check_release.py --pending REL.m5.launch-metric M5 "M5 (perf; D-P3 device calibration)" \
+              "make ios-perf did not produce perf-metrics.json (see the step above)" \
+              --title "Launch time within 20% of the stored baseline (M5)" \
+              --json "$RUNNER_TEMP/compliance/m5-launch.json" || [ $? -eq 1 ]
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
           name: compliance-m5-stubs
           path: ${{ runner.temp }}/compliance/*.json
