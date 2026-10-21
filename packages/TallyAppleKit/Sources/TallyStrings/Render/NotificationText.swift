@@ -142,9 +142,9 @@ public enum NotificationText {
                                     comment: "Exam reminder body. The argument is a day and time, such as 'tomorrow at 9:00 AM'.")
         }
         static func adHocBody(_ when: String) -> LocalizedStringResource {
-            LocalizedStringResource("notification.adHoc.body", defaultValue: "Due \(when).", bundle: #bundle,
-                                    comment: "The To-Do 'Remind me' action's one-off reminder body (idea 4, FEAT-3). The argument "
-                                        + "is the item's own due date and time, such as 'today at 6:00 PM'.")
+            LocalizedStringResource(
+                "notification.adHoc.body", defaultValue: "Due \(when).", bundle: #bundle,
+                comment: "The To-Do 'Remind me' action's one-off reminder body (idea 4, FEAT-3). The argument is the item's own due date and time, such as 'today at 6:00 PM'.")
         }
         static func gradePostedTitle() -> LocalizedStringResource {
             LocalizedStringResource("notification.gradePosted.title", defaultValue: "New grade posted", bundle: #bundle,
