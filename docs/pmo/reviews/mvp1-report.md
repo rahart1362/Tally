@@ -118,10 +118,10 @@ against the code directly: every `URLSession`/`URLComponents` destination in shi
 |---|---|
 | `packages/TallyCore/Sources/TallyCanvasAPI/Client/CanvasClient.swift` | the signed-in student's own school's Canvas domain (`host`, set at sign-in) |
 | `packages/TallyCore/Sources/TallyCanvasAPI/Auth/Authorization.swift`, `.../Family/FamilyEndpoints.swift` | the same, for OAuth/family-linking Canvas endpoints |
-| `packages/TallyAppleKit/Sources/TallyFeatures/Onboarding/SchoolSearch/InstitutionSearching.swift` | `canvas.instructure.com` (Instructure's public school-search API) |
+| `packages/TallyAppleKit/Sources/TallyFeatures/Onboarding/SchoolSearch/InstitutionSearching.swift` | `canvas.instructure.com` (Instructure's public school-search API) — **correction (PMO, 2026-10-12): not a live destination on `main` today.** `CanvasAccountSearch`, the type that would call this endpoint, is never instantiated anywhere in the shipping target (the dossier's F5, confirmed by the PMO). The call site exists in source but is unreachable code, not a live network destination. |
 | `packages/TallyAppleKit/Sources/TallyFeatures/Subscription/PaywallView.swift` | Tally's own static Terms/Privacy pages (`TallyOrgDomainInfo`) — a GET of a legal page, nothing sent |
 
-— is either the school's own Canvas instance, Instructure's public search API, or Tally's own
+— is either the school's own Canvas instance, Instructure's public search API (not currently reachable, per the correction above), or Tally's own
 static legal pages. No destination is a Tally data-collection endpoint. `NSPrivacyCollectedDataTypes: []`
 holds.
 

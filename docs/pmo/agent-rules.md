@@ -48,3 +48,8 @@ The binding rules every engineering agent's brief carries, versioned here so bri
     - **Wait with ONE blocking background command** (a single loop that exits when the run completes). Repeated "still waiting" wake-ups re-read a large context each time.
     - **Never write a verification claim into code comments or a report unless you observed it** (a measurement, "confirmed on device"). Gate 2 caught a false one in PR #47.
     - **Keep evidence outside the worktree.** `gh pr merge --delete-branch` removes the worktree, git-ignored folders included.
+15. **Four lessons from the MVP gate (2026-10-18 → 10-19).**
+    - **Run the hygiene scripts locally before pushing.** `check_view_bodies.py` caught a `Date()` call in a view body only after PR #60's first CI run; running it locally first would have caught it before the dispatch.
+    - **When adding a launch step, update the exact-list test in `LaunchTests`.** PR #60's first run also failed on this for the same reason: the step list is asserted exactly, not just non-empty.
+    - **A large-title screen can't rest at a small scroll offset.** Nudging a scene by a few points to clear the hard bottom edge works only on a screen whose title is already inline; on a large-title screen a small nudge makes the title snap (collapse) instead, which moves the screen far more than intended (MVP-3b's To-Do scene, `3702311`). Check the title style before proposing a nudge fix.
+    - **`gh workflow run <file>` only works for a workflow that already exists on the default branch.** It 404s on a new workflow file that exists only on a branch (MVP-3b's `store-screenshots.yml`, until PR #59 merged). Dispatch the Release gate on the branch instead when a workflow is new.

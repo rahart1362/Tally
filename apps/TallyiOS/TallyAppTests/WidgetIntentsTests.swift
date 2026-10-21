@@ -82,6 +82,31 @@ struct WidgetIntentsTests {
         #expect(WhatsDueTodayIntent.authenticationPolicy == .requiresLocalDeviceAuthentication)
     }
 
+    @Test("SEC1-10 optional variant: with Tally's own App Lock on, both due answers stay the neutral 'Open Tally' message, never a title or course, even with items to speak")
+    func dueAnswersStayNeutralWhenAppLockIsOn() {
+        let result = Self.glance([
+            Self.item("lab", "Lab Report 4", "BIO 101", Self.date(6, 12)),
+            Self.item("quiz", "Quiz 3", "CHEM 110", Self.date(7, 9)),
+        ])
+        let next = GlanceIntentAnswers.dueNext(result, now: Self.now, calendar: Self.calendar, appLockIsEnabled: true)
+        let today = GlanceIntentAnswers.dueToday(result, now: Self.now, calendar: Self.calendar, appLockIsEnabled: true)
+        for answer in [next, today] {
+            let spoken = Self.text(GlanceIntentAnswers.dialog(answer, calendar: Self.calendar, locale: Self.enUS))
+            #expect(spoken == "Open Tally to see what's due.")
+            #expect(!spoken.contains("Lab Report") && !spoken.contains("BIO 101"),
+                    "App Lock on must never speak a title or course: \(spoken)")
+        }
+
+        // The device-unlock gate above is untouched: this is an additional, independent check,
+        // not a replacement for it.
+        #expect(WhatsDueNextIntent.authenticationPolicy == .requiresLocalDeviceAuthentication)
+        #expect(WhatsDueTodayIntent.authenticationPolicy == .requiresLocalDeviceAuthentication)
+
+        // With App Lock off (the default), the same glance speaks normally.
+        let unlocked = GlanceIntentAnswers.dueNext(result, now: Self.now, calendar: Self.calendar)
+        #expect(Self.text(GlanceIntentAnswers.dialog(unlocked, calendar: Self.calendar, locale: Self.enUS)).contains("Lab Report 4"))
+    }
+
     @Test("Spoken answers: the widgets' message when there is no glance, and a generic word with names hidden")
     func messagesAndHiddenNames() {
         let signedOut = GlanceIntentAnswers.dueNext(.noAccount, now: Self.now, calendar: Self.calendar)

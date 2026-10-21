@@ -11821,6 +11821,60 @@
         }
       }
     },
+    "welcome.revokeNotice.message" : {
+      "comment" : "Alert message shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed. Says the local data is erased and how to end the sign-in from Canvas. No time claim, no exploit detail. Owner-approved 2026-10-21.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally signed you out and erased everything on this iPhone, but couldn’t reach Canvas to end this sign-in, so you may have been offline. To end it, open Canvas in a browser, go to Account, then Settings, and remove Tally under Approved Integrations."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tally cerró tu sesión y borró todo en este iPhone, pero no pudo comunicarse con Canvas para terminar este inicio de sesión; es posible que estuvieras sin conexión. Para terminarlo, abre Canvas en un navegador, ve a Cuenta, luego Configuración, y elimina Tally en Integraciones aprobadas."
+          }
+        }
+      }
+    },
+    "welcome.revokeNotice.ok" : {
+      "comment" : "Dismiss button on the post-sign-out 'couldn't confirm the revoke' alert. Owner-approved 2026-10-21.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aceptar"
+          }
+        }
+      }
+    },
+    "welcome.revokeNotice.title" : {
+      "comment" : "Alert title shown once on the Welcome screen after a sign-out whose Canvas token revoke could not be confirmed (offline, or the one retry also failed). Owner-approved 2026-10-21.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Canvas sign-in wasn’t fully revoked"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu inicio de sesión de Canvas no se revocó por completo"
+          }
+        }
+      }
+    },
     "welcome.tagline" : {
       "comment" : "Welcome screen tagline, under the Tally wordmark.",
       "extractionState" : "manual",

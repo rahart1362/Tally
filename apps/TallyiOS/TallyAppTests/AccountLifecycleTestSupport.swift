@@ -114,16 +114,23 @@ actor FlagshipAccountGateway: CanvasGateway {
 }
 
 /// Records every request; answers the token endpoint (`POST`: a synthetic token; `DELETE`, the
-/// sign-out revoke: 200) and 404s anything else.
+/// sign-out revoke: `revokeStatus`, 200 by default) and 404s anything else.
 final class RecordingTransport: HTTPTransport {
     private let log = Mutex<[HTTPRequest]>([])
+    /// SEC1-02 optional variant: a test can set this to a non-2xx (or leave it at the default 200)
+    /// to drive `AppModel.showsSignOutRevokeNotice` without touching any other suite's behaviour.
+    private let revokeStatusBox = Mutex(200)
+    var revokeStatus: Int {
+        get { revokeStatusBox.withLock { $0 } }
+        set { revokeStatusBox.withLock { $0 = newValue } }
+    }
 
     var requests: [HTTPRequest] { log.withLock { $0 } }
 
     func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
         log.withLock { $0.append(request) }
         guard request.url.path == "/login/oauth2/token" else { return HTTPResponse(status: 404) }
-        if request.method == .delete { return HTTPResponse(status: 200) }
+        if request.method == .delete { return HTTPResponse(status: revokeStatus) }
         let body = #"{"access_token":"test-access","refresh_token":"test-refresh","expires_in":3600,"user":{"id":4820117}}"#
         return HTTPResponse(status: 200, body: Data(body.utf8))
     }
