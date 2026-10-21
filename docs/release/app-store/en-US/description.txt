@@ -1,0 +1,23 @@
+Tally shows your grades, assignments, due dates and reminders for your classes, pulled straight from your school's Canvas account — fast, private, and built for iPhone.
+
+WHAT YOU GET
+• Dashboard — your overall standing across courses, a trend line, and a momentum streak when you're on a roll.
+• Courses — every course with its current grade and a trend sparkline.
+• Course detail — a grade breakdown plus What-If: try hypothetical scores to see how they'd change your grade. What-If never changes anything in Canvas; it's a local calculator only.
+• To-Do — everything due, across every course, in one list.
+• Calendar — add any assignment to your iPhone's Calendar with one tap, or subscribe to your Canvas calendar feed so it stays current automatically.
+• Insights — what needs attention next, a week-ahead view, and grade trends over time.
+• Reminders — a notification a day before and an hour before each deadline, by default. Grade values are never shown in notifications or on the Lock Screen unless you choose to show them.
+• Home Screen & Lock Screen widgets — next up, due soon, week ahead or your overall standing, with a one-tap "mark done."
+• Shortcuts & Siri — ask what's due, or add a Tally shortcut to your day.
+• Family — a parent or guardian can follow a student's due dates and grades using their own Canvas observer account, linked with a pairing code the student creates and shares. Tally doesn't combine this from any other source.
+
+PRIVACY
+There's no Tally account and no Tally server holding your data. Your Canvas information goes from your school's Canvas straight to your iPhone, encrypted, and is replaced each time Tally refreshes — not sent to us or anyone else. Settings → Sign Out & Erase removes it from your iPhone. If you turn on Canvas calendar subscription, your calendar app (Apple, Google or Outlook) fetches that feed directly from Canvas, under its own privacy policy. See our full Privacy Policy for details.
+
+PRICING
+Tally is a $9.99/year subscription, with a free 2-week trial for new subscribers. After the trial, it renews automatically at $9.99/year unless you cancel first in Settings → [your name] → Subscriptions. No ads, no data sales, ever.
+
+Works with Canvas LMS — your school's Canvas administrator must enable third-party access for your school; not every school has yet.
+
+Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc.

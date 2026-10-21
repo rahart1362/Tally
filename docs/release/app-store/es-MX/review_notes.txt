@@ -1,0 +1,25 @@
+BORRADOR: revisión del propietario y de asesoría legal. No es asesoría legal. Escrito a partir del código en main (MVP-4, EB-13). Las oraciones marcadas [AL ENVIAR] dependen de decisiones aún no tomadas (una escuela habilitada para el inicio de sesión, GL-04). Reemplaza esta línea antes de enviar.
+
+Gracias por revisar Tally.
+
+CUENTA EDUCATIVA, NO UN SEGUNDO INICIO DE SESIÓN (PAUTA 4.8)
+Tally inicia sesión con la cuenta de Canvas que el estudiante ya tiene en su escuela, mediante la propia pantalla de inicio de sesión OAuth de Canvas, en la hoja web segura de Apple. Tally no tiene cuenta propia y nunca ve la contraseña de Canvas. La pauta 4.8 indica que una app educativa que requiere iniciar sesión con una cuenta educativa existente no necesita un segundo sistema de inicio de sesión; Tally no tiene ninguno. [AL ENVIAR] El inicio de sesión solo funciona en escuelas donde Tally está habilitada; indica aquí si una escuela está habilitada para esta versión.
+
+MODO DE DEMOSTRACIÓN: EXPLORAR CON DATOS DE MUESTRA (PAUTA 2.1) — SOLICITANDO APROBACIÓN
+Tally no puede ofrecer una cuenta de demostración de Canvas: cada cuenta pertenece a una escuela. En su lugar, el segundo botón de Bienvenida, "Explorar con datos de muestra", ejecuta todas las pantallas de la app — Tablero, Cursos, Por hacer, Calendario, Estadísticas, Configuración y modo de padres — con un estudiante sintético incluido en la app, sin cuenta, escuela ni inicio de sesión. En este modo, Tally no envía nada por la red: los datos del estudiante están incluidos en la app. La única actividad de red es la propia StoreKit de Apple al ver o comprar la suscripción, y Safari si abres la Política de privacidad. Solicitamos la aprobación previa de Apple para este modo de demostración integrado bajo la pauta 2.1(a), que permite uno con esa aprobación cuando no se puede ofrecer una cuenta de demostración real.
+
+Para revisar: en la primera pantalla, toca "Explorar con datos de muestra". Para ver la suscripción: Configuración, luego Suscripción, luego Ver planes, luego Continuar.
+
+MODO DE PADRES (PAUTA 5.1.1(viii))
+Un padre o madre ve la información de Canvas de un estudiante solo mediante la propia función de cuenta de observador (padres) de Canvas, que el estudiante inicia con un código de vinculación que genera y comparte; un padre no puede iniciar el vínculo solo. Tally no combina esta información desde ninguna otra fuente. En "Explorar con datos de muestra", Configuración ofrece "Explorar modo de padres", que muestra esta vista con dos estudiantes ficticios, sin vinculación real. [AL ENVIAR] La vinculación real de padres no es parte de esta versión; actualiza este párrafo si se incluye.
+
+SIN CUENTA DE TALLY
+Tally no tiene servidor ni sistema de cuentas propio. La información de Canvas de un estudiante viaja de Canvas de su escuela a su iPhone, se guarda solo ahí, cifrada, y nunca se nos envía a nosotros ni a nadie más. "Cerrar sesión y borrar" en Configuración la elimina del iPhone.
+
+PERMISOS
+Tally solicita dos permisos, ambos opcionales:
+- Notificaciones, para que Tally pueda recordarle al estudiante trabajos próximos y atrasados de forma local. Tally no tiene capacidad de notificaciones push; no se envía nada desde un servidor.
+- Face ID, Touch ID o el código del dispositivo, solo si el estudiante activa el Bloqueo de la app en Configuración, para requerir desbloquear Tally en su propio dispositivo.
+Tally no solicita acceso a Calendario, Contactos, Fotos, Cámara ni Ubicación. "Agregar al calendario" y "Suscribirse al calendario de Canvas" entregan la tarea a la app Calendario del iPhone sin solicitar acceso al calendario a Tally.
+
+Gracias por tu tiempo revisando Tally.

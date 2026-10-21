@@ -58,6 +58,7 @@ import re
 import struct
 import subprocess
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 
 CURRENT_MILESTONE = "MVP"
@@ -111,7 +112,10 @@ IDENTITY = "apps/TallyiOS/Config/Identity.xcconfig"
 APP_ICON = "apps/TallyiOS/Tally/Assets.xcassets/AppIcon.appiconset/Icon-1024.png"
 # XcodeGen 2.46.0, SettingPresets/Platforms/iOS.yml, applied to every iOS target.
 XCODEGEN_IOS_TARGET_PRESET_FAMILY = "1,2"
-METADATA_DIR = "docs/release/metadata"
+METADATA_ROOT = "docs/release/app-store"
+# STORE-COPY-1: one locale folder per ASC localization (08-localization-and-external-grades.md
+# L-3/L10N-05, line 192: "add a docs/release/app-store/es-MX/ folder beside en-US").
+METADATA_LOCALES = ("en-US", "es-MX")
 # App Store Connect limits (app-store-compliance.md §3.5): characters, except keywords (bytes).
 METADATA_LIMITS = {"name.txt": 30, "subtitle.txt": 30, "keywords.txt": 100, "promotional_text.txt": 170,
                    "description.txt": 4000, "review_notes.txt": 4000}
@@ -367,25 +371,43 @@ def source_checks(root: pathlib.Path) -> list[Check]:
         owner="PMO: delete the unlinked pre-rewrite packages (packages/Tally{Security,Data,CanvasKit,...}) and "
               "update the legacy-cleanup test")
 
-    # Store listing metadata (§3.5) and the published privacy policy (R4).
-    metadata = root / METADATA_DIR
-    missing = [name for name in METADATA_LIMITS if not (metadata / name).exists()]
-    over = []
-    for name, limit in METADATA_LIMITS.items():
-        path = metadata / name
-        if path.exists():
-            text = path.read_text(encoding="utf-8").strip()
-            size = len(text.encode("utf-8")) if name == "keywords.txt" else len(text)
-            if size > limit:
-                over.append(f"{name} {size} > {limit}")
-    add("REL.metadata.store-listing", "Store metadata files exist and fit App Store Connect's limits",
-        not missing and not over, f"missing: {missing}; over: {over}" if missing or over else "all within limits",
-        due="M5", owner="M5 store listing (app-store-compliance.md §3.5)")
+    # Store listing metadata (§3.5), one check per locale folder.
+    checks.extend(metadata_checks(root))
 
     # ASC-03, through the same script as the hygiene gate.
     privacy_checks, _ = privacy.run(root)
     for check in privacy_checks:
         checks.append(Check(f"REL.{check.id}", f"Privacy manifest: {check.id}", check.level, "M2", check.ok, check.detail))
+    return checks
+
+
+# ------------------------------------------------------------------------------------------------
+# Store listing metadata (§3.5, STORE-COPY-1), per locale under METADATA_ROOT
+# ------------------------------------------------------------------------------------------------
+
+def metadata_checks(root: pathlib.Path, due: str = "M5") -> list[Check]:
+    """One check per `METADATA_LOCALES` folder under `METADATA_ROOT`: `REL.metadata.store-listing.
+    <locale>` passes only when every `METADATA_LIMITS` file exists in that locale's folder and fits
+    its limit (characters, except keywords.txt which is bytes, matching App Store Connect). Same
+    "nothing passes by being missing" rule as `a11y_audit_checks`/`screenshot_checks`: an absent
+    locale folder reports every file as missing rather than skipping the locale."""
+    checks: list[Check] = []
+    for locale in METADATA_LOCALES:
+        folder = root / METADATA_ROOT / locale
+        missing = [name for name in METADATA_LIMITS if not (folder / name).exists()]
+        over = []
+        for name, limit in METADATA_LIMITS.items():
+            path = folder / name
+            if path.exists():
+                text = path.read_text(encoding="utf-8").strip()
+                size = len(text.encode("utf-8")) if name == "keywords.txt" else len(text)
+                if size > limit:
+                    over.append(f"{name} {size} > {limit}")
+        checks.append(Check(
+            f"REL.metadata.store-listing.{locale}", f"Store metadata ({locale}) exists and fits App Store Connect's limits",
+            "ERROR", due, not missing and not over,
+            f"missing: {missing}; over: {over}" if missing or over else "all within limits",
+            owner="M5 store listing (app-store-compliance.md §3.5)"))
     return checks
 
 
@@ -826,7 +848,44 @@ def self_test() -> int:
     shots_with_errors = screenshot_checks({"images": full_images, "missing": [], "errors": ["leg x: broke"]})[0].settle()
     assert shots_with_errors.status == "FAIL", "any recorded screenshots.py error must fail the check"
     assert screenshot_checks({})[0].settle().status == "FAIL", "no manifest is a failing check, not a silent pass"
-    print("check_release self-test: 29 checks passed")
+    # STORE-COPY-1: REL.metadata.store-listing.<locale>, one check per METADATA_LOCALES folder.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_root = pathlib.Path(tmp)
+        complete = tmp_root / METADATA_ROOT / "en-US"
+        complete.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (complete / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        # es-MX left entirely absent.
+        by_locale = {c.id: c.settle() for c in metadata_checks(tmp_root)}
+        assert set(by_locale) == {"REL.metadata.store-listing.en-US", "REL.metadata.store-listing.es-MX"}, by_locale
+        assert by_locale["REL.metadata.store-listing.en-US"].status == "PASS", by_locale["REL.metadata.store-listing.en-US"]
+        missing_check = by_locale["REL.metadata.store-listing.es-MX"]
+        assert missing_check.status == "PENDING", "due M5, after MVP (CURRENT_MILESTONE), so a missing locale is pending"
+        assert all(name in missing_check.detail for name in METADATA_LIMITS), missing_check.detail
+        # An over-limit file fails the check's own `ok` (still PENDING at M5, same milestone rule).
+        over_root = tmp_root / "over"
+        over_folder = over_root / METADATA_ROOT / "en-US"
+        over_folder.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (over_folder / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        (over_folder / "name.txt").write_text("x" * 31, encoding="utf-8")
+        over_check = next(c for c in metadata_checks(over_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert over_check.ok is False and "name.txt 31 > 30" in over_check.detail, over_check
+        # Keywords are checked in UTF-8 bytes, every other file in characters (es-MX accents, §3.5).
+        bytes_root = tmp_root / "bytes"
+        bytes_folder = bytes_root / METADATA_ROOT / "en-US"
+        bytes_folder.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (bytes_folder / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        (bytes_folder / "keywords.txt").write_text("á" * 60, encoding="utf-8")  # 60 chars, 120 bytes
+        bytes_check = next(c for c in metadata_checks(bytes_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert bytes_check.ok is False and "keywords.txt 120 > 100" in bytes_check.detail, bytes_check
+        (bytes_folder / "description.txt").write_text("á" * 60, encoding="utf-8")  # 60 chars, well under 4000
+        chars_check = next(c for c in metadata_checks(bytes_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert "description.txt" not in chars_check.detail, "description.txt is counted in characters, not bytes"
+        # A due milestone a caller passes explicitly is honoured, not just the "M5" default.
+        assert metadata_checks(tmp_root, due="M2")[0].due == "M2"
+    print("check_release self-test: 33 checks passed")
     return 0
 
 
