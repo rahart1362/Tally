@@ -105,7 +105,7 @@ IOS_RETRY        ?= -retry-tests-on-failure -test-iterations 2
 IOS_TEST_SUCCESS = "\*\* TEST (EXECUTE )?SUCCEEDED \*\*"
 IOS_CONSOLE      = "error:|Test Suite|BUILD (SUCCEEDED|FAILED)| passed| failed"
 
-.PHONY: ios-project ios-build-for-testing ios-test ios-retried ios-tsan ios-asan ios-perf ios-summary ios-watchdog-log
+.PHONY: ios-project ios-build-for-testing ios-test ios-retried ios-tsan ios-asan ios-perf ios-perf-m5-launch ios-summary ios-watchdog-log
 
 ios-project: ## Generate apps/TallyiOS/Tally.xcodeproj with XcodeGen
 	cd $(IOS_PROJECT_DIR) && xcodegen generate --spec project.yml
@@ -202,6 +202,15 @@ ios-perf: ## Release perf tests, then compare medians with perf/budgets.json
 		> $(IOS_OUT)/perf-metrics.json
 	python3 $(CURDIR)/scripts/ci/check_perf_budgets.py $(CURDIR)/perf/budgets.json $(IOS_OUT)/perf-metrics.json \
 		--log $(IOS_OUT)/perf.log
+	# PERF-FIX-1 item 1: REL.m5.launch-metric, report-only (never fails this target or the job that
+	# runs it). Reuses the same perf-metrics.json ios-perf already produced above, so this adds no
+	# extra xcodebuild invocation. See ios-perf-m5-launch and scripts/ci/check_m5_launch_metric.py.
+	@$(MAKE) --no-print-directory ios-perf-m5-launch IOS_OUT=$(IOS_OUT) || true
+
+ios-perf-m5-launch: ## REL.m5.launch-metric: Launch.GlancePaint vs perf/m5_launch_baseline.json (report-only; needs ios-perf's perf-metrics.json)
+	@test -f $(IOS_OUT)/perf-metrics.json || { echo "run ios-perf first (no perf-metrics.json at $(IOS_OUT))"; exit 1; }
+	python3 $(CURDIR)/scripts/ci/check_m5_launch_metric.py $(CURDIR)/perf/m5_launch_baseline.json \
+		$(IOS_OUT)/perf-metrics.json --json $(IOS_OUT)/m5-launch.json
 
 ios-watchdog-log: ## Print the DEBUG main-thread watchdog's lines from IOS_SIM_UDID's log (stalls: phase, ms)
 	@test -n "$(IOS_SIM_UDID)" || { echo "No iOS simulator picked (IOS_SIM_UDID is empty)"; exit 1; }

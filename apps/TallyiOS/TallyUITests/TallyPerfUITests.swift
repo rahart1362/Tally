@@ -125,6 +125,14 @@ final class TallyPerfUITests: TallyUITestCase {
     /// Longer than the empty scene needs to run its first task after `launch()` returns.
     private static let emptySceneSettle: TimeInterval = 1
 
+    /// Still report-only: `XCTApplicationLaunchMetric` produces 0 parseable measurements on this
+    /// toolchain (perf1/report.md §3; the test name never appears in any `PERF-BUDGET`/
+    /// `PERF-REPORT` line of a full `ios-perf` job log). REL.m5.launch-metric (release-gate.yml's
+    /// `a11y-perf-shots` job) therefore reads `testWarmLaunchGlancePaint`'s `Launch.GlancePaint`
+    /// signpost instead (`perf/m5_launch_baseline.json`, `scripts/ci/check_m5_launch_metric.py`):
+    /// the report's suggested substitute, since it already parses correctly and covers the same
+    /// warm-launch path end to end. This test keeps running so the day the toolchain gap closes,
+    /// its measurements are already here to switch back to.
     @MainActor
     func testWarmApplicationLaunch() throws {
         seedFlagshipAccount()
