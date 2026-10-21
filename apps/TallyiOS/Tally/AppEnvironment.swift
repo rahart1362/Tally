@@ -13,7 +13,8 @@ import TallyStore
 ///
 /// - `accountEnvironment`: the platform services an account needs (Keychain credential and vault
 ///   keys, the Keychain app-lock setting, the ephemeral `URLSession` transport, notifications,
-///   widget reloads, the App Group store root). Only `@concurrent` functions and actors use them.
+///   widget reloads, the app's private store root and the App Group's shared one — SEC1-09: only
+///   the glance ever goes in the shared root). Only `@concurrent` functions and actors use them.
 /// - `accountRuntime` (perf-app-runtime.md §7 step 7) owns the signed-in account's one
 ///   `RefreshCoordinator`, shared by the Home (through `appModel`) and `.backgroundTask`. It
 ///   resolves the account lazily, off the main actor (`AccountSessionFactory.activeCoordinator`:
@@ -53,7 +54,11 @@ struct AppEnvironment {
         // issue), so every key lives in the app's default group until a real Team ID exists
         // (GL-02). The widget's glance key needs the App Group group then (M2-C2).
         var accountEnvironment = AccountEnvironment(
-            storeRoot: { try StoreLocation.root(appGroupID: appGroupID) },
+            // SEC1-09: `storeRoot` is the app's own storage now (accounts.json and every account
+            // file except the glance); `sharedRoot` is the App Group container, the one place the
+            // widget can read, and holds only the glance.
+            storeRoot: { try StoreLocation.privateRoot() },
+            sharedRoot: { StoreLocation.sharedRoot(appGroupID: appGroupID) },
             // The legacy mock item is removed on a fresh install's first launch instead
             // (`removeLegacyCredentials`), off the main actor.
             credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false, logger: logger),

@@ -43,19 +43,32 @@ public enum GlanceLoadResult: Equatable, Sendable {
 /// versioned migrations instead.
 public actor SnapshotStore {
     private let layout: StoreLayout
+    /// SEC1-09: where `glance.v1.sealed` lives. Equal to `layout` unless `sharedRoot` is given, in
+    /// which case this is the only one of the two directories the widget's App Group entitlement
+    /// can reach — every other file stays under `layout`'s (app-private) root.
+    private let glanceLayout: StoreLayout
     private let access: SealedFileAccess
     private let isOwner: Bool
 
-    public init(root: URL, accountKey: AccountKey, sealer: any SnapshotSealer, isOwner: Bool = true) {
+    /// `sharedRoot`: the App Group container, for the one file the widget reads (SEC1-09
+    /// minimisation). `nil` (the default) keeps the pre-split behaviour: every file, including
+    /// the glance, lives under `root` — what every existing caller and test still wants.
+    public init(root: URL, accountKey: AccountKey, sealer: any SnapshotSealer, isOwner: Bool = true,
+               sharedRoot: URL? = nil) {
         layout = StoreLayout(root: root, accountKey: accountKey)
+        glanceLayout = StoreLayout(root: sharedRoot ?? root, accountKey: accountKey)
         access = SealedFileAccess(sealer: sealer, isOwner: isOwner)
         self.isOwner = isOwner
     }
 
     /// Creates the account directory (idempotent) with the requested protection class and backup
-    /// exclusion. Callers should invoke this once before the first `commit`.
+    /// exclusion. Callers should invoke this once before the first `commit`. When the glance lives
+    /// under a different root (SEC1-09), both directories are created.
     public func prepare() throws {
         try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        if glanceLayout.accountDirectory != layout.accountDirectory {
+            try ProtectedFile.prepareDirectory(glanceLayout.accountDirectory, excludeFromBackup: true)
+        }
     }
 
     /// Seals and atomically replaces the snapshot, then rebuilds and atomically replaces the
@@ -125,14 +138,14 @@ public actor SnapshotStore {
 
     /// The widget's fast path: read only `glance.v1.sealed`, without decoding the full snapshot.
     public func loadGlance() -> GlanceLoadResult {
-        switch access.read(.glance, at: layout.url(for: .glance)) {
+        switch access.read(.glance, at: glanceLayout.url(for: .glance)) {
         case .absent:
             return .absent
         case .failed(_, let disposition):
             return .unavailable(disposition)
         case .plaintext(let data):
             guard let decoded = try? JSONDecoder().decode(GlanceProjection.self, from: data) else {
-                if isOwner { ProtectedFile.remove(layout.url(for: .glance)) }
+                if isOwner { ProtectedFile.remove(glanceLayout.url(for: .glance)) }
                 return .absent
             }
             return .loaded(decoded)
@@ -140,9 +153,13 @@ public actor SnapshotStore {
     }
 
     /// Removes anything in the account directory that isn't a recognised store file (e.g. a
-    /// `.tmp` file orphaned by a crash mid atomic-write). Call once per foreground launch.
+    /// `.tmp` file orphaned by a crash mid atomic-write). Call once per foreground launch. Sweeps
+    /// the glance's own directory too when it is a different one (SEC1-09).
     public func sweepOrphanedTempFiles() {
         ProtectedFile.sweep(directory: layout.accountDirectory, keeping: StoreLayout.allFileNames)
+        if glanceLayout.accountDirectory != layout.accountDirectory {
+            ProtectedFile.sweep(directory: glanceLayout.accountDirectory, keeping: StoreLayout.allFileNames)
+        }
     }
 
     // MARK: - Self-heal
@@ -170,7 +187,7 @@ public actor SnapshotStore {
     /// rewrites it.
     private func glanceNeedsRebuild(comparedTo generation: UInt64)
         -> (needsRebuild: Bool, priorIncludedGrades: Bool, priorEntitledUntil: Date?) {
-        switch access.read(.glance, at: layout.url(for: .glance)) {
+        switch access.read(.glance, at: glanceLayout.url(for: .glance)) {
         case .absent, .failed:
             return (true, false, nil)
         case .plaintext(let data):
@@ -182,7 +199,7 @@ public actor SnapshotStore {
     }
 
     private func writeGlance(_ glance: GlanceProjection) throws {
-        try access.write(try JSONEncoder().encode(glance), .glance, to: layout.url(for: .glance), excludeFromBackup: true)
+        try access.write(try JSONEncoder().encode(glance), .glance, to: glanceLayout.url(for: .glance), excludeFromBackup: true)
     }
 
     /// PERF-03: the two fields `currentOnDiskGeneration()` actually reads, decoded on their own

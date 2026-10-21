@@ -222,7 +222,8 @@ public nonisolated struct LaunchTestHooks: Sendable {
         let directory = AccountDirectoryStore(root: root)
         if case .loaded(let accounts) = directory.load() {
             for account in accounts.accounts {
-                try? AccountPurger.purge(accountKey: account.accountKey, root: root, keyring: environment.keyring)
+                try? AccountPurger.purge(accountKey: account.accountKey, root: root, sharedRoot: environment.sharedRoot(),
+                                        keyring: environment.keyring)
             }
         }
         ProtectedFile.remove(directory.fileURL)
@@ -245,7 +246,9 @@ public nonisolated struct LaunchTestHooks: Sendable {
                                           accessTokenExpiresAt: .distantFuture)
         try? await environment.credentialStore.save(credential)
         try? AccountDirectoryStore(root: root).activate(record)
-        let store = environment.snapshotStore(for: record.accountKey, root: root)
+        // SEC1-09: the real App Group root, not just `root` -- the Audit tour's widget-render leg
+        // reads the glance from the widget extension's own process, through the real entitlement.
+        let store = environment.snapshotStore(for: record.accountKey, root: root, sharedRoot: environment.sharedRoot())
         _ = try? await store.commit(fetched.restamped(accountKey: record.accountKey, generation: 1), includeGrades: false)
     }
 }
