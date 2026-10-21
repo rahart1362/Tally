@@ -245,6 +245,30 @@ struct ReminderContentTests {
         }
     }
 
+    @Test("SEC1-19 (owner decision 2026-10-21): the below-goal alert always hides the course name, even with Hide Course Names off")
+    func belowGoalAlwaysHidesTheCourseName() async throws {
+        let planned = try await makePlan()
+        let course = try #require(planned.snapshot.courses.first)
+        let format = ReminderTimeFormat(timeZone: ReminderTestSupport.timeZone, locale: ReminderTestSupport.locale)
+        let reminder = PendingReminder(id: "bg", kind: .belowGoal, fireDate: ReminderTestSupport.anchor,
+                                       interruptionLevel: .passive, subjectID: course.id.rawValue)
+
+        let message = planned.subjects.message(for: reminder, accountKey: planned.account, hideCourseNames: false,
+                                                lastSuccess: ReminderTestSupport.anchor, format: format)
+        #expect(message == .belowGoal(.hidden), "Hide Course Names being off must not surface the course here")
+
+        let rendered = try #require(planned.subjects.content(for: reminder, accountKey: planned.account, hideCourseNames: false,
+                                                              lastSuccess: ReminderTestSupport.anchor, format: format))
+        for code in ReminderTestSupport.flagshipCourseCodes {
+            #expect(!rendered.title.contains(code) && !rendered.body.contains(code), "\(code) shown in a below-goal alert: \(rendered)")
+        }
+
+        // The toggle actually on must render exactly the same words (same existing copy either way).
+        let whenToggleOn = planned.subjects.message(for: reminder, accountKey: planned.account, hideCourseNames: true,
+                                                     lastSuccess: ReminderTestSupport.anchor, format: format)
+        #expect(whenToggleOn == message)
+    }
+
     @Test("the final due reminder allows for a submission Tally can't see; the day-before one does not")
     func finalReminderIsConditional() async throws {
         let planned = try await makePlan()

@@ -93,7 +93,9 @@ public actor TokenCoordinator {
         if error is TransportError || error is CancellationError { return true }
         switch error as? TokenEndpointError {
         case .rejected(let status)?: return status >= 500 || status == 429
-        case .malformed?: return true
+        // SEC1-07: a response shape Canvas's own types never produce, same as `.malformed` --
+        // not the student's problem, and not fixed by a re-auth either.
+        case .malformed?, .unsupportedTokenType?: return true
         case .invalidGrant?, .userMismatch?, .invalidClient?, nil: return false
         }
     }

@@ -308,6 +308,15 @@ def age_assurance_checks(entitlement_value: object, store_text: str | None,
     return checks
 
 
+def ats_exceptions(app_info: dict, widget_info: dict) -> list[str]:
+    """SEC1-13: targets with *any* `NSAppTransportSecurity` key, not only `NSAllowsArbitraryLoads`
+    -- security.md §3.3 asked for a check that no ATS exception of any kind is ever introduced.
+    `NSExceptionDomains`, `NSAllowsArbitraryLoadsInWebContent` or `NSAllowsLocalNetworking` would
+    each pass a check that only looked for `NSAllowsArbitraryLoads`. An empty
+    `NSAppTransportSecurity` dict (no keys at all) is not an exception."""
+    return [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info)) if info.get("NSAppTransportSecurity")]
+
+
 def source_checks(root: pathlib.Path) -> list[Check]:
     yaml = _yaml()
     privacy = _sibling("check_privacy_manifest")
@@ -365,9 +374,8 @@ def source_checks(root: pathlib.Path) -> list[Check]:
         all(family == "1" for family in families.values()) and orientations == ["UIInterfaceOrientationPortrait"],
         f"TARGETED_DEVICE_FAMILY per target {families} (project level {base.get('TARGETED_DEVICE_FAMILY')!r} "
         f"is overridden by XcodeGen's target preset); orientations {orientations}")
-    ats = [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info))
-           if (info.get("NSAppTransportSecurity") or {}).get("NSAllowsArbitraryLoads")]
-    add("REL.plist.ats", "No NSAllowsArbitraryLoads", not ats, f"arbitrary loads allowed in: {ats or 'none'}")
+    ats = ats_exceptions(app_info, widget_info)
+    add("REL.plist.ats", "No NSAppTransportSecurity exception of any kind", not ats, f"ATS exceptions present in: {ats or 'none'}")
     schemes = app_info.get("LSApplicationQueriesSchemes", [])
     add("REL.plist.query-schemes", "LSApplicationQueriesSchemes has at most 25 entries (iOS 27 limit, R16)",
         len(schemes) <= 25, f"{len(schemes)} entries")
@@ -534,7 +542,9 @@ def categories_in(imports: set[str], selectors: set[str]) -> dict[str, list[str]
     return used
 
 
-def _binary_uses(machos: list[pathlib.Path]) -> dict[str, list[str]]:
+def _binary_uses(machos: list[pathlib.Path]) -> tuple[dict[str, list[str]], set[str]]:
+    """The required-reason categories the binaries use, and the raw `nm -u` import set (SEC1-22
+    reuses the latter without a second round of subprocess calls)."""
     imports: set[str] = set()
     selectors: set[str] = set()
     for macho in machos:
@@ -548,7 +558,18 @@ def _binary_uses(machos: list[pathlib.Path]) -> dict[str, list[str]]:
                 parts = line.split(None, 1)
                 if len(parts) == 2:
                     selectors.add(parts[1].strip())
-    return categories_in(imports, selectors)
+    return categories_in(imports, selectors), imports
+
+
+# SEC1-22 (encryption.md WP-ENC-07 (1)): swift-crypto's own C target, linked only when its
+# CryptoKit-backed Swift layer falls back to BoringSSL (Linux today -- `Package.swift`'s
+# `condition: .when(platforms: [.linux])`). None of this should ever reach an iOS binary; this
+# gate catches a future edit that drops that condition before it ships.
+FORBIDDEN_CRYPTO_SYMBOL_PREFIXES = ("_CCryptoBoringSSL_", "_CRYPTO_", "_boringssl_")
+
+
+def forbidden_crypto_symbols(imports: set[str]) -> list[str]:
+    return sorted(s for s in imports if s.startswith(FORBIDDEN_CRYPTO_SYMBOL_PREFIXES))
 
 
 def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]:
@@ -596,7 +617,10 @@ def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]
     for name, bundle, skip in (("app", app, appex), ("widget", appex, None)):
         manifest_path = bundle / "PrivacyInfo.xcprivacy"
         manifest = _read_plist(manifest_path) if manifest_path.exists() else {}
-        uses_by_category = _binary_uses(_machos(bundle, skip)) if bundle.is_dir() else {}
+        uses_by_category, imports = _binary_uses(_machos(bundle, skip)) if bundle.is_dir() else ({}, set())
+        crypto_hits = forbidden_crypto_symbols(imports)
+        add(f"{name}.no-boringssl", f"No swift-crypto/BoringSSL symbols in the {name} binary (SEC1-22)",
+            not crypto_hits, f"found: {crypto_hits}" if crypto_hits else "none")
         uses = [privacy.Use(category, ", ".join(symbols), f"{bundle.name} (binary)", 0, False)
                 for category, symbols in uses_by_category.items()]
         for check in privacy.check_manifest(f"{label}.{name}", f"{bundle.name}/PrivacyInfo.xcprivacy",
@@ -938,7 +962,16 @@ def self_test() -> int:
     assert leaky_conformance["REL.age-assurance.no-age-on-disk"].status == "FAIL", \
         "an age-signal type gaining a Codable conformance anywhere in shipping code must fail"
     assert "Rogue.swift" in leaky_conformance["REL.age-assurance.no-age-on-disk"].detail
-    print("check_release self-test: 35 checks passed")
+    # SEC1-13: any NSAppTransportSecurity key fails the gate, not only NSAllowsArbitraryLoads.
+    assert ats_exceptions({}, {}) == []
+    assert ats_exceptions({"NSAppTransportSecurity": {"NSAllowsArbitraryLoads": True}}, {}) == ["Tally"]
+    assert ats_exceptions({"NSAppTransportSecurity": {"NSExceptionDomains": {"x.example": {}}}}, {}) == ["Tally"], \
+        "any ATS key must fail, not only NSAllowsArbitraryLoads"
+    assert ats_exceptions({}, {"NSAppTransportSecurity": {}}) == [], "an empty dict declares no actual exception"
+    # SEC1-22: swift-crypto/BoringSSL's own symbols must never appear in an iOS binary's imports.
+    assert forbidden_crypto_symbols({"_CCryptoBoringSSL_SHA256_Init", "_malloc"}) == ["_CCryptoBoringSSL_SHA256_Init"]
+    assert forbidden_crypto_symbols({"_malloc", "_OBJC_CLASS_$_NSUserDefaults"}) == []
+    print("check_release self-test: 41 checks passed")
     return 0
 
 

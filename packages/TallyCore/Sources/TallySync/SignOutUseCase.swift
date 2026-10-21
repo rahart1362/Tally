@@ -21,6 +21,15 @@ import TallyStore
 /// calling `signOut` again with nothing left to remove (no credential, an already-empty ledger and
 /// platform, an already-purged store) does nothing and never throws.
 public enum SignOutUseCase {
+    /// - Returns: SEC1-02's optional variant (security.md §3.2 step 9.4): `true` only when a
+    ///   credential existed to revoke and the attempt did not end in a 2xx — offline, a transport
+    ///   error, or a non-2xx status, even after the one refresh above. `false` both when revocation
+    ///   succeeded and when there was nothing to revoke (an already-signed-out account; idempotent
+    ///   repeats stay `false`). A caller can use this to tell the student once, on whatever screen
+    ///   comes after sign-out, that the token will keep working until it expires on its own —
+    ///   purely informational, never a security decision; this method's own local purge already
+    ///   runs unconditionally regardless of the result.
+    @discardableResult
     public static func signOut(
         accountKey: AccountKey,
         credentialStore: any CredentialStore,
@@ -33,13 +42,15 @@ public enum SignOutUseCase {
         keyring: VaultKeyring,
         now: Date = Date(),
         logger: any TallyLogger = NoOpLogger()
-    ) async {
+    ) async -> Bool {
         // 1. Revoke (best effort), then bump the epoch and cancel any refresh in flight. SEC1-02:
         // an access token that has already expired gets rejected by Canvas, which would otherwise
         // leave the refresh token valid (and listed under Approved Integrations) at Canvas until
         // it lapses on its own — so refresh once first when needed (security.md §3.2 step 9.1).
         // Basic variant: the refreshed credential is used for the revoke call only, never saved —
-        // the credential is deleted a few lines below regardless — and nothing is told to the user.
+        // the credential is deleted a few lines below regardless — and nothing is told to the user
+        // from inside this use case; the boolean below lets a caller decide that (optional variant).
+        var revokeDidFail = false
         if let credential = await credentialStore.load() {
             let revocable: CanvasCredential
             if credential.isAccessTokenUsable(now: now) {
@@ -49,7 +60,9 @@ public enum SignOutUseCase {
                     ?? credential
             }
             let response = try? await transport.send(tokenEndpoint.revokeRequest(for: revocable))
-            logger.log(.signOutRevoked(ok: response.map { (200..<300).contains($0.status) } ?? false))
+            let ok = response.map { (200..<300).contains($0.status) } ?? false
+            logger.log(.signOutRevoked(ok: ok))
+            revokeDidFail = !ok
         }
         await refreshCoordinator.bumpEpochAndCancel()
 
@@ -71,6 +84,8 @@ public enum SignOutUseCase {
 
         // 4. Delete the Keychain credential.
         await credentialStore.delete()
+
+        return revokeDidFail
     }
 
     /// SEC1-02's one refresh attempt before revoking an expired access token. Best effort and

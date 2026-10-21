@@ -15,6 +15,11 @@ public enum TokenEndpointError: Error, Sendable, Equatable {
     /// PAY-10 (M3-B2): Canvas rejected the client itself (`invalid_client`, RFC 6749 §5.2): the
     /// school turned off or deleted Tally's developer key. Not the student's sign-in.
     case invalidClient
+    /// SEC1-07 / security.md §3.2 item 6 ("Check `token_type == Bearer`"): Canvas named a
+    /// `token_type` other than `Bearer`. Tally always sends the token as a bearer credential
+    /// (`revokeRequest`, `CanvasClient`'s `Authorization` header), so a different type means the
+    /// token can't be used the way this client assumes.
+    case unsupportedTokenType
 }
 
 /// `POST /login/oauth2/token` for a public (PKCE) client: never a client secret,
@@ -58,6 +63,11 @@ public struct TokenEndpoint: Sendable {
         }
         guard let body = try? JSONDecoder().decode(TokenBody.self, from: response.body),
               let refresh = body.refreshToken ?? previous?.refreshToken else { throw .malformed }
+        // SEC1-07: Canvas's fixtures and some live responses omit `token_type` entirely, so only
+        // a type Canvas actually names, and that isn't Bearer, is rejected.
+        if let tokenType = body.tokenType, tokenType.caseInsensitiveCompare("bearer") != .orderedSame {
+            throw .unsupportedTokenType
+        }
         let userID = body.user.id.value
         if let previous, previous.userID != userID { throw .userMismatch }
         return CanvasCredential(host: host, userID: userID, accessToken: body.accessToken, refreshToken: refresh,
@@ -76,12 +86,14 @@ private struct OAuthErrorBody: Decodable { let error: String }
 private struct TokenBody: Decodable {
     struct User: Decodable { let id: FlexibleID }
     let accessToken: String
+    let tokenType: String?
     let refreshToken: String?
     let expiresIn: Int?
     let user: User
 
     enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token", refreshToken = "refresh_token", expiresIn = "expires_in", user
+        case accessToken = "access_token", tokenType = "token_type",
+             refreshToken = "refresh_token", expiresIn = "expires_in", user
     }
 }
 

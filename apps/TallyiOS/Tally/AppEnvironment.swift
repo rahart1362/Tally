@@ -66,8 +66,13 @@ struct AppEnvironment {
             clock: SystemDateProvider(),
             removeLegacyCredentials: { _ = KeychainCredentialStore() },
             entitlement: entitlementGate)
+        // SEC1-07: a `let` snapshot of the one credential store, never a `var` capture — the
+        // store itself never changes across the hooks below, only other fields do.
+        let credentialStoreForSignIn = accountEnvironment.credentialStore
         var signIn = SignInServices(webAuthPresenter: WebAuthPresenter(),
-                                    makeTokenExchange: SignInServices.canvasTokenExchange(transport: transport))
+                                    makeTokenExchange: SignInServices.canvasTokenExchange(
+                                        transport: transport,
+                                        existingCredential: { await credentialStoreForSignIn.load() }))
         var authenticator: any AppLockAuthenticating = LocalAuthenticationAdapter()
 
         #if DEBUG || TALLY_TEST_HOOKS

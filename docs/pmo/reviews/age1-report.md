@@ -49,11 +49,18 @@ information in your app", "Implementing age assurance and permissions" — both 
    `AskCenter` (iOS 26.2+) — a distinct topic type from the framework's headline iMessage
    communication-safety topic (`CommunicationTopic`), which the backlog's phrasing could be read
    to suggest is the only one.
-3. `isEligibleForAgeFeatures`'s own symbol declaration shows a plain `Bool`, but Apple's worked
-   examples call it `try await`. Written as `try await`, matching the examples — **not yet
-   confirmed against the real Xcode 26.6 SDK**; the first `scope=only` CI run is where that
-   compiles for the first time (no Xcode on this host).
-4. Neither `SignificantAppUpdateTopic.init(description:)` nor `AgeRangeService
+3. **Confirmed by the real compiler (runs 39615883368, 39631337098), not just the docs:**
+   `isEligibleForAgeFeatures`, `requiredRegulatoryFeatures` and
+   `significantAppChangeApprovalRequired` each need **iOS 26.2+**, and
+   `showSignificantUpdateAcknowledgment` needs **iOS 26.4+** — every one of them below the 26.0
+   floor each symbol's own documentation page showed at the framework level (the docs' per-member
+   availability was less specific than the type's). All now gated accordingly.
+4. **Confirmed by the real compiler:** `isEligibleForAgeFeatures` and `requiredRegulatoryFeatures`
+   are `nonisolated` async properties on a non-`Sendable` `AgeRangeService`; calling either
+   directly from the `@MainActor` adapter (needed for `requestAgeRange(in:)`/`UIApplication`) does
+   not compile. Fixed with two small `nonisolated` wrapper functions that extract only `Sendable`
+   `Bool`s before returning.
+5. Neither `SignificantAppUpdateTopic.init(description:)` nor `AgeRangeService
    .showSignificantUpdateAcknowledgment(updateDescription:)` takes a localized resource — one
    plain `String`, handed to Apple's system UI as-is. A Spanish-speaking parent/guardian seeing
    an English sentence is an open item for whichever release first sets
@@ -78,20 +85,36 @@ that sets `currentReleaseIsSignificantChange = true` must write one English sent
 
 ## CI
 
-See the reply for run IDs and results.
+| Run | Scope | Result |
+|---|---|---|
+| [39609586767](https://github.com/rahart1362/Tally/actions/runs/39609586767) | `scope=only` (`TallyUITests/AgeRestrictedUITests`) | FAIL — compile error: `AgeAssuranceModel.swift` used `AgeRequestRecord`/`SignificantChangeVersionState` (TallyStore types) without `import TallyStore`. Fixed, commit `97d11ce`. |
+| [39615883368](https://github.com/rahart1362/Tally/actions/runs/39615883368) | `scope=only` (same) | FAIL — compile errors: `isEligibleForAgeFeatures`/`requiredRegulatoryFeatures`/`significantAppChangeApprovalRequired` each need iOS 26.2+ (not 26.0, as the docs' framework-level availability block suggested), and calling the two async properties directly from the `@MainActor` adapter does not compile ("non-Sendable type 'AgeRangeService' cannot exit main actor-isolated context"). Fixed with version gates and small `nonisolated` wrapper functions, commit `d36bc8d`. |
+| [39631337098](https://github.com/rahart1362/Tally/actions/runs/39631337098) | `scope=only` (same) | FAIL — compile error: `showSignificantUpdateAcknowledgment(in:updateDescription:)` needs iOS 26.4+ (same class of doc gap). Fixed, commit `151adee`. |
+| [39634664072](https://github.com/rahart1362/Tally/actions/runs/39634664072) | `scope=only` (same) | **PASS.** `iOS build + test` succeeded; both new UI tests passed: `testDeniedSignificantChangeConsentShowsTheRestrictedScreenInsteadOfTheDashboard` (34.1 s), `testAllowedAgeAssuranceNeverShowsTheRestrictedScreen` (109.7 s). |
+| [39642168193](https://github.com/rahart1362/Tally/actions/runs/39642168193) | Release gate (dispatch + 1 rerun, rule 4) | FAIL overall, but **both `REL.age-assurance.*` checks PASS** in `Static compliance checks (Linux)` and in the merged report, both times. The `iOS gate (Xcode 26.6)` job was **cancelled** both times at its 120-minute timeout (run 1: 17:15→20:02 wall clock; rerun: 20:06→22:10, exactly ~2h3m) — queue/runner contention, not a code error (no compiler diagnostic, no test failure; the a11y audit had already logged results for Light/Dark/Increase Contrast before the cancellation). Recorded as an open item per rule 4 ("re-run... once. If it still fails, record it as an open item; don't fix it"); every CI run dispatched today on other branches also showed long queue delays (one `scope=only` run alone queued 1h40m). |
+
+Every `scope=only`/Release-gate failure above was fixed in the commit noted; the branch's current state (commit TBD at PR time) has none of them outstanding.
 
 ## Open items
 
-- EB-04's device checks are written but not yet run (no device in this environment).
-- API deviation 3 above (`isEligibleForAgeFeatures`'s `async throws`-ness) is unconfirmed until a
-  `scope=only` run compiles `TallyPlatform` for the first time.
+- EB-04's device checks are written but not yet run (no device in this environment; needs a
+  physical device and a sandbox Apple Account, per the brief).
+- The Release gate's `iOS gate (Xcode 26.6)` job was cancelled at its 120-minute timeout twice
+  (dispatch and the one rule-4 rerun) — runner/queue contention (every CI run dispatched today,
+  on this and other branches, showed long queue delays), not a code error. The compliance checks
+  that job's own earlier steps had already produced (the a11y audit) look unaffected, and
+  `REL.age-assurance.*` passed cleanly in the separate `Static compliance checks` job both times.
+  Recorded per rule 4 rather than retried further; the PR's own required-jobs run is a second,
+  independent chance at a clean `ios-build`/`ios-asan`/`ios-tsan`/`ios-perf`.
 - The significant-change description string has no per-locale slot in Apple's own API (deviation
-  4); flagged for whoever ships the first real significant change.
+  5 above); flagged for whoever ships the first real significant change.
 - `AgeRestrictedView` was built to the same design-system tokens as `SchoolRevokedNoticeView`
-  (already audited and shipped), to minimize new visual risk, but has not itself been through an
-  Audit tour pass at Pro Max/smallest iPhone × light/dark × AX5 (HANDOFF §4b) — recommend one leg
-  of a future Audit tour dispatch cover it if a reviewer wants that evidence; this PR's CI budget
-  was spent confirming compilation and the UI-test flow instead.
+  (already audited and shipped), to minimize new visual risk, and is now proven to present
+  correctly end to end by a real XCUITest (run 39634664072) — but has not itself been through an
+  Audit tour pass at Pro Max/smallest iPhone × light/dark × AX5 (HANDOFF §4b) for annotated visual
+  evidence. This PR's CI budget (4 `scope=only` runs) was spent getting `TallyPlatform` to compile
+  against the real SDK for the first time instead; recommend one Audit tour leg cover the new
+  screen if a reviewer wants that evidence.
 - `docs/release/app-store/en-US/review_notes.txt` could use an age-assurance paragraph for App
   Review reviewers, similar to its existing "DEMO MODE"/"PARENT MODE" paragraphs; not added here
   to stay in AGE-1's lane (not named in the brief's Items list).

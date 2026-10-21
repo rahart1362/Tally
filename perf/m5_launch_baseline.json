@@ -1,0 +1,9 @@
+{
+  "$comment": "REL.m5.launch-metric (release-gate.yml's a11y-perf-shots job; PERF-FIX-1 item 1). XCTApplicationLaunchMetric (TallyPerfUITests.swift:128-136, testWarmApplicationLaunch) produces 0 parseable measurements on this toolchain -- confirmed by grepping run 39178437255's full ios-perf job log for the test name, which never appears in any PERF-BUDGET/PERF-REPORT line (perf1/report.md S3). This baseline uses Launch.GlancePaint instead (TallyPerfUITests/testWarmLaunchGlancePaint's XCTOSSignpostMetric), which already parses correctly and already gates ios-perf's own CI-simulator budget (perf/budgets.json): it covers the same warm-launch path end to end, so it is the report's suggested substitute, not a new measurement. baseline_median is run 39178437255's own measured median (perf1/report.md S1.1, main @014a951, 2026-10-18); regression_max_ratio is the owner's 20%-over-baseline rule (pmo-perffix1-prompt.md item 1). scripts/ci/check_m5_launch_metric.py reads this file; it always reports REL.m5.launch-metric as WARN/PENDING, never FAIL, until the owner promotes it (same pattern as ios-perf's own O10 promotion: 5 green non-blocking runs plus the D-P3 device calibration). Update baseline_median only by an explicit, reviewed commit, from a CI run's own measured median -- the same rule perf/budgets.json's own $comment states for its launch budget.",
+  "test": "TallyPerfUITests/testWarmLaunchGlancePaint",
+  "metric": ["com.apple.dt.XCTMetric_OSSignpost-Launch.GlancePaint.duration", "Duration (Launch.GlancePaint)"],
+  "unit": "s",
+  "baseline_median": 1.3026,
+  "regression_max_ratio": 1.2,
+  "source": "CI run 39178437255 (main @014a951, push \"Merge PR #59\", 2026-10-18), perf1/report.md S1.1"
+}
