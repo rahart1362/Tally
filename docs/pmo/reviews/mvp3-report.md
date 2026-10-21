@@ -258,4 +258,80 @@ pipeline re-captures.
   item 5 — `store-screenshots.yml` only becomes independently dispatchable once this PR merges).
 - Release gate: 2 of 2 (run 39001547219 before the fixed-date hook, run 39029927385 after — both
   0 FAIL; the second is the one with the hook adopted, still showing the §8 date defect).
+
+## 11. MVP-3b: the rebuild and the MVP gate (2026-10-18, PMO section)
+
+**Why a rebuild.** The §9 item-1 fix (`clock: clock` at `AppModel.swift`'s signed-in path) landed as
+PMO commit `e3822fc` on `mvp/screenshots`; release gate 39044852072 then ran fully green (90 PASS /
+16 PENDING / 0 FAIL, `REL.a11y.audit` PASS, `REL.store.screenshots` 32/32). The gate-2 Opus review of
+those 32 scenes failed (5 S1, 3 S2, 12 S3: text under the floating tab bar on most scenes, the
+parent-mode clock, What-If untouched, parent mode empty, UTC times). The owner then decided (10-17):
+**(I1)** an app-wide hard bottom scroll edge (`.scrollEdgeEffectStyle(.hard, for: .bottom)` in
+`TallyScreenChrome`); **(I8)** keep the SAMPLE DATA banner on the parent scene.
+
+**The fix round drifted.** Five commits landed on `mvp/screenshots` after `e3822fc`: `2acdbee`,
+`93a0a24`, `700bc60`, `f1da795`, `53e0ea6`. Gates 39104275778 and 39111609633 failed (the first on an
+artifact-upload timeout). A fresh Opus branch audit (`pmo-audit/.build-audit/mvp3/branch-audit/verdict.md`)
+found three deviations from the owner decisions and the PMO's bottom-chrome ruling: `700bc60` dropped
+the owner-approved hard edge (I1) for an undiscussed "opaque tab-bar fill" (which never actually
+rendered on iOS 26); `f1da795` reverted I7 and added an unapproved "two-sided held rule"; `53e0ea6`
+widened a held band against the explicit ruling. **The branch audit's verdict: keep only `2acdbee`**
+(reworking its tab-bar check and its What-If English-phrase check); **drop `93a0a24`, `700bc60`,
+`f1da795` and `53e0ea6`.** The `.hard` drop was itself misdiagnosed: the flagged rows measure *higher*
+contrast with `.hard`; they failed only because the fade-band hold needs the soft overlay the hard
+edge removed. **New PMO ruling (2026-10-18):** the existing ≥ 4.5:1 row-by-row readability hold also
+applies in the hard edge's thin strip above the tab bar (see `docs/pmo/a11y-waivers.md`).
+
+**The rebuild.** MVP-3b (Sonnet) was launched fresh on a new branch, `mvp/screenshots-v2`, built from
+`e3822fc` + `2acdbee` only — the four drifted commits excluded. It was stopped by the owner mid-tour
+(10-18, about 14:00 UTC); the PMO finished the remaining steps itself. No new agent was launched.
+
+**Gates, in order, all on `mvp/screenshots-v2`:**
+1. a11y runs **39121000046** (failed: a band-measurement bug in `measureHardEdgeBandTop`, fixed) and
+   **39125970518** (passed on `218612b`; the strip readability hold holds all 10 rows).
+2. **Audit tour 39130267292**: 12/12 green; no text through or below the tab bar, checked at
+   xxxLarge and AX5.
+3. **Release gate 1, 39137674623 — FAILED.** The store scenes' own bottom-chrome check
+   (`StoreScreenshotUITests.recordWhatIsUnderTheTabBar`, was `assertNothingUnderTheTabBar`) failed
+   all 7 tab-rooted scenes x 4 legs; measured on tour 39130267292 (Pro Max, dark, std) as a
+   false-positive shape in the check's own method (the capsule's rim reads 1.5-1.9:1 against the
+   bar's modal colour, against the check's own 1.2:1 limit). **PMO ruling:** the check becomes
+   **report-only from `0b841ed`** (owner feedback 2026-09-28, "measurement tests never gate"); the
+   a11y suite and its holds are unchanged. See `docs/pmo/a11y-waivers.md` for the full ruling.
+4. **Release gate 2, 39146374513** (`0b841ed`): 89 PASS / 16 PENDING (M5) / 1 FAIL; `REL.store.screenshots`
+   32/32. The one FAIL, `AccessibilityAuditUITests.testFirstSyncSkeleton` (Light class only), was a
+   tap-hittability timeout on School Search on both attempts (140 s against a normal ~40 s) — it
+   passed on Dark and on Contrast, and in gate 1 and both `scope=a11y` runs: a navigation flake, not
+   an audit finding. The 200% visual check found no ghosting through the bar; dates correct (Wed Oct
+   14, Chicago midday; es-MX "mié 14 de oct", "Actualizado mié 12:00 p.m."); What-If filled (93.3%);
+   parent mode has content (I4 resolved by I2's clock fix). Four scenes still had a text line cut at
+   the hard edge: Dashboard, Course Detail, Calendar, the To-Do chip.
+5. **Owner decision (2026-10-18), "nudge 3, keep Dashboard"** → `96c1a3a`: a measured nudge of at
+   most 24 pt puts the cut between lines on Calendar and Course Detail (a whole row would need
+   30-60 pt and move each screen's top); Dashboard is kept as is. Gate 3 (39154897099) was cancelled
+   as stale once the nudge landed.
+6. **Release gate 4, 39155714281** (`96c1a3a`): 0 FAIL (90 PASS / 16 PENDING / 0 FAIL). Course Detail
+   and Calendar now cut between lines (Calendar's add-to-calendar icon ends up half cut, an accepted
+   trade-off). To-Do's large title snaps (collapses) rather than scrolling by a small amount, so
+   To-Do was **not** nudged separately — a 9 pt nudge there would have moved it about 63 pt down —
+   and the chip's cut is reported to the owner as-is (`3702311`).
+7. `main` (`#55`, Dependabot) was merged into v2 at `761a227`; the `release-gate.yml` conflict kept
+   the v2 branch's side (the v7.0.2 pin); `hygiene` passed 18/18 locally.
+8. **PR #59 was pointed at v2**: `git push --force-with-lease` moved `mvp/screenshots` to `761a227`.
+   **PR run 39163645865**: 8/8 required jobs green on attempt 2 (attempt 1 failed on a simulator
+   launch timeout in `ToDoUITests.testBatchMarkDoneKeepsAMidListRowOnScreen`, re-run once).
+   **Final release gate 39163661027**: 90 PASS / 0 FAIL / 16 PENDING (M5).
+
+**MVP gate reached, 2026-10-18 (~23:55 UTC). PR #59 MERGED as `014a951`** (head `761a227`). The MVP
+sign-off package (`pmo-kit/signoff/MVP-signoff.md` plus 4 contact sheets) was sent to the owner.
+
+**Lesson for the docs and skills (recorded here; also in `docs/pmo/agent-rules.md`):**
+`gh workflow run <file>` only works for a workflow that already exists on the default branch — it
+gave a 404 for `store-screenshots.yml` until PR #59 merged. Dispatch the Release gate on the branch
+instead when a workflow is new.
+
+**Open items carried forward:** I4/parent-mode content is resolved (I2's clock fix); the Calendar
+add-to-calendar icon is half cut in the final gate's Courses/Calendar scenes (accepted trade-off,
+reported to the owner); the smallest-iPhone device's own hard-edge band top is UNVERIFIED (the
+`scope=a11y` runs above covered only one simulator class).
 - PR run: pending final push (hand-off).

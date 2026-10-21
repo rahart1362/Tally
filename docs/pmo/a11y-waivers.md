@@ -478,6 +478,23 @@ the bottom of the scroll).
 **Evidence.** Every held issue is attached with its reason (`held` in
 `<screen>-<variant>-audit.json`); MVP-2b's report has the counts per run.
 
+## The store scenes' own bottom-chrome check is report-only (PMO ruling, 2026-10-18)
+
+This is a separate mechanism from the accessibility audit API's own `contrast`/`textClipped` issues
+above: `StoreScreenshotUITests.recordWhatIsUnderTheTabBar` (was `assertNothingUnderTheTabBar`) is
+**REPORT-ONLY from `0b841ed`**, not a gate. Gate 39137674623 failed all 7 tab-rooted scenes x 4 legs
+on it; What-If (a sheet, skipped) passed.
+
+**Measured reason.** Tour 39130267292 (Pro Max, dark, std) showed the hard edge cuts content at the
+tab bar top (873 pt) and nothing shows through the glass, but the capsule's own rim measures
+1.5-1.9:1 against the bar's modal colour (the check's own limit was 1.2:1), and the band scan ran to
+its full 80 pt window on Calendar and parent mode — a false-positive shape on the check's own method,
+not a real visibility defect.
+
+**Basis:** owner feedback 2026-09-28, "measurement tests never gate." The a11y suite and its holds
+above are **unchanged by this ruling** (no hold was widened); this ruling only concerns the store
+screenshot pipeline's own, separate check.
+
 ## Waiver table
 
 MVP-2 waived eight `ToolbarItem` buttons (system-rendered navigation-bar chrome: the system scales,
