@@ -135,6 +135,13 @@ final class TallyPerfUITests: TallyUITestCase {
     /// its measurements are already here to switch back to.
     @MainActor
     func testWarmApplicationLaunch() throws {
+        // PMO 2026-10-22: a report-only measurement must never fail the required `ios-perf` job
+        // (owner rule: measurement tests never gate). On loaded runners `XCTApplicationLaunchMetric`
+        // intermittently returns 0 metrics ("Received unexpected number of metrics: 0", PR #69,
+        // run 39709948260), so this runs only when opted in: TEST_RUNNER_TALLY_LAUNCH_METRIC_PROBE=1.
+        guard ProcessInfo.processInfo.environment["TALLY_LAUNCH_METRIC_PROBE"] == "1" else {
+            throw XCTSkip("Opt-in probe: XCTApplicationLaunchMetric is unreliable on CI; REL.m5.launch-metric reads Launch.GlancePaint")
+        }
         seedFlagshipAccount()
         let app = measuredApp()
         measure(metrics: [XCTApplicationLaunchMetric(waitUntilResponsive: true)], options: Self.options()) {

@@ -143,7 +143,8 @@ struct SubscriptionStoreKitTests {
         #expect(studentInfo.subscriptionPeriod.value == 1 && studentInfo.subscriptionPeriod.unit == .year)
         #expect(parentInfo.subscriptionPeriod.value == 1 && parentInfo.subscriptionPeriod.unit == .year)
         let trial = try #require(studentInfo.introductoryOffer)
-        #expect(trial.paymentMode == .freeTrial && trial.period.value == 1 && trial.period.unit == .month)
+        // EB-19 (owner 2026-10-21): a 2-week free trial (Products.storekit P2W), shortened from 1 month.
+        #expect(trial.paymentMode == .freeTrial && trial.period.value == 2 && trial.period.unit == .week)
         #expect(studentInfo.winBackOffers.count == 1)
         #expect(parentInfo.introductoryOffer == nil)
         #expect(studentInfo.subscriptionGroupID != parentInfo.subscriptionGroupID, "two subscription groups")

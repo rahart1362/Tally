@@ -94,7 +94,7 @@ IOS_XCODEBUILD   = xcodebuild -project $(IOS_PROJECT_DIR)/Tally.xcodeproj -schem
 # 600-second `simctl diagnose` runs after a failure.
 # The Audit tour raises the cap (its long screen walks set their own allowance; MVP-4 gate 2: testG
 # ran at 97% of 300 s on main and timed out on the smallest iPhone at AX5 in run 38695020712).
-IOS_MAX_TEST_ALLOWANCE ?= 300
+IOS_MAX_TEST_ALLOWANCE ?= 420
 IOS_TEST_FLAGS   = -collect-test-diagnostics never -test-timeouts-enabled YES \
                    -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance $(IOS_MAX_TEST_ALLOWANCE)
 # One automatic retry for a failed test (owner rule: a flake gets one re-run). Main went red on

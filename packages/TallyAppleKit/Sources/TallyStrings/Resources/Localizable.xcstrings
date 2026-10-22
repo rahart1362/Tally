@@ -91,6 +91,42 @@
         }
       }
     },
+    "ageAssurance.restricted.body" : {
+      "comment" : "The restricted screen's explanation. No button offers a way past it: the screen stays until Apple reports that consent was given (AGE-1 EB-01(e)/EB-02(b)).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A parent or guardian needs to approve this before you can keep using Tally. Your saved data stays on this iPhone in the meantime."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Un padre, madre o tutor debe aprobar esto antes de que puedas seguir usando Tally. Mientras tanto, tus datos guardados permanecen en este iPhone."
+          }
+        }
+      }
+    },
+    "ageAssurance.restricted.title" : {
+      "comment" : "The restricted screen's title, shown instead of the Dashboard while a parent or guardian's consent for a minor is pending or was withdrawn (AGE-1 EB-01(e)/EB-02(b)).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parent or Guardian Permission Needed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se necesita el permiso de un padre, madre o tutor"
+          }
+        }
+      }
+    },
     "calendar.addToCalendar.label" : {
       "comment" : "VoiceOver label for the button that opens the system event editor pre-filled with this agenda item. The placeholder is the item's title.",
       "extractionState" : "manual",
@@ -10285,6 +10321,78 @@
         }
       }
     },
+    "subscription.confirmation.amountLabel" : {
+      "comment" : "EB-21. The purchase confirmation: the label of the row naming the price per period, such as '$9.99/year'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Importe"
+          }
+        }
+      }
+    },
+    "subscription.confirmation.done" : {
+      "comment" : "EB-21. The purchase confirmation's button that closes it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Listo"
+          }
+        }
+      }
+    },
+    "subscription.confirmation.renewsLabel" : {
+      "comment" : "EB-21. The purchase confirmation: the label of the row naming the renewal date.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renews"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se renueva"
+          }
+        }
+      }
+    },
+    "subscription.confirmation.title" : {
+      "comment" : "EB-21. The retainable confirmation shown once after a purchase or trial start, and re-findable afterwards from Settings > Subscription: its title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're All Set"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Todo listo"
+          }
+        }
+      }
+    },
     "subscription.erase.note" : {
       "comment" : "Added to the Sign Out & Erase confirmation (PAY-11): erasing Tally's data leaves the App Store subscription as it is.",
       "extractionState" : "manual",
@@ -10357,20 +10465,20 @@
         }
       }
     },
-    "subscription.feature.privacy" : {
-      "comment" : "Paywall, what's included: Tally has no server; the student's Canvas data stays on the device.",
+    "subscription.feature.privacyQualified" : {
+      "comment" : "EB-24(a), DRAFT for owner/counsel approval. Paywall, what's included: Tally has no server, but Calendar subscribing and Siri/Shortcuts leave the device through Apple's own systems.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your data stays on this iPhone"
+            "value" : "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tus datos permanecen en este iPhone"
+            "value" : "Tally no tiene servidor: tus datos de Canvas permanecen en este iPhone, excepto lo que decidas compartir con Calendario, Siri o Handoff."
           }
         }
       }
@@ -10699,20 +10807,20 @@
         }
       }
     },
-    "subscription.paywall.renewal" : {
-      "comment" : "Paywall: the auto-renewal disclosure under the price.",
+    "subscription.paywall.renewalAutoCancel" : {
+      "comment" : "EB-18. Paywall, body size and the primary text colour, next to the purchase button: the price and period, that it renews automatically until cancelled, and how to cancel. The argument is the per-period price text, such as '$9.99/year' (never reformatted).",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renews automatically until you cancel. Cancel anytime in Settings at least 24 hours before it renews."
+            "value" : "Renews automatically at %@ until you cancel. Cancel anytime in Settings > your name > Subscriptions, or Manage Subscription in Tally's Settings."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Se renueva automáticamente hasta que la canceles. Cancélala cuando quieras en Configuración, al menos 24 horas antes de la renovación."
+            "value" : "Se renueva automáticamente a %@ hasta que la canceles. Cancélala cuando quieras en Configuración > tu nombre > Suscripciones, o Administrar suscripción en la Configuración de Tally."
           }
         }
       }
@@ -10785,6 +10893,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "%1$@ gratis, luego %2$@"
+          }
+        }
+      }
+    },
+    "subscription.paywall.trialEndsThenCharged" : {
+      "comment" : "EB-18. Paywall, body size and the primary text colour, shown only with an eligible free trial: the date the trial ends and the charge that follows unless cancelled in time. 1: the trial's end date, such as 'Nov 21, 2026'. 2: the price per period, such as '$9.99/year'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your free trial ends %1$@. Unless you cancel at least 24 hours before, you're then charged %2$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu prueba gratis termina el %1$@. A menos que canceles al menos 24 horas antes, se te cobrará %2$@."
           }
         }
       }
@@ -11313,6 +11439,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Suscripción"
+          }
+        }
+      }
+    },
+    "subscription.settings.viewConfirmation" : {
+      "comment" : "EB-21. Settings > Subscription: re-opens the same retainable purchase confirmation shown once after the purchase. Shown only for the student's own purchase, never a school-assigned seat.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Purchase Confirmation"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ver confirmación de compra"
           }
         }
       }
