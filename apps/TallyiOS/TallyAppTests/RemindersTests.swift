@@ -249,24 +249,43 @@ struct ReminderContentTests {
     /// shipped for Calendar/AlertEngine (`CalendarBuilder.isExam`), so every exam-titled
     /// assignment planned the generic due-date schedule instead of `ReminderPlanner`'s complete
     /// T-3d/T-1d/morning-of exam schedule. The flagship fixture's "Exam 1"/"Midterm Exam"/"Final
-    /// Exam" assignments (`assignment_groups/51842.json`, `51843.json`, `51845.json`) exercise the
-    /// real detector end to end, not a hand-built `isExam: true` candidate.
+    /// Exam"/"Midterm 2" assignments (`assignment_groups/51842.json`, `51843.json`, `51845.json`)
+    /// exercise the real detector end to end, not a hand-built `isExam: true` candidate.
+    ///
+    /// Not `makePlan()`'s shared anchor: every already-occurred exam in the fixture is either
+    /// graded (excluded outright) or has every T-3d/T-1d/morning-of offset in the past by then, so
+    /// none would ever reach `.exam` kind regardless of this fix. "Midterm 2" (51842, due
+    /// 2026-10-22T15:50Z) is open (unsubmitted) and far enough out that every offset is both still
+    /// future and inside the 14-day horizon at this `now` (2026-10-18T15:50Z, picked by direct
+    /// calculation from `ReminderPlanner`'s own offsets — `examReminderHour`/`examMorningOfHour`,
+    /// `America/New_York`). An explicit, generous `cap` rules out the unrelated question of
+    /// whether it is among the soonest `TallyConfig.pendingNotificationCap` (60) reminders.
     @Test("exam-titled assignments get isExam wired through to .exam reminders, not the generic due schedule")
     func examTitledAssignmentsGetExamReminders() async throws {
-        let planned = try await makePlan()
-        let examCandidates = planned.subjects.candidates.filter { CalendarBuilder.isExam($0.assignment.name) }
+        let now = Date(timeIntervalSince1970: 1_792_338_600) // 2026-10-18T15:50:00Z
+        let account = AccountKey("m3c-exam-\(UUID().uuidString)")
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: ReminderTestSupport.anchor)
+            .restamped(accountKey: account, generation: 1)
+        let subjects = ReminderSubjects(snapshot: snapshot, now: now)
+
+        let examCandidates = subjects.candidates.filter { CalendarBuilder.isExam($0.assignment.name) }
         #expect(!examCandidates.isEmpty, "the flagship fixture should have open exam-titled assignments")
         #expect(examCandidates.allSatisfy { $0.isExam }, "every exam-titled candidate must carry isExam")
 
-        let nonExamCandidates = planned.subjects.candidates.filter { !CalendarBuilder.isExam($0.assignment.name) }
+        let nonExamCandidates = subjects.candidates.filter { !CalendarBuilder.isExam($0.assignment.name) }
         #expect(!nonExamCandidates.contains { $0.isExam }, "a non-exam title must never be flagged as an exam")
 
+        var refresh = RefreshRecord()
+        refresh.succeeded(dataFetchedAt: now)
+        let plan = ReminderPlanner.plan(accountKey: account, candidates: subjects.candidates, settings: ReminderSettings(),
+                                        now: now, timeZone: ReminderTestSupport.timeZone, refresh: refresh, cap: 1000)
+
         let examAssignmentIDs = Set(examCandidates.map(\.assignment.id.rawValue))
-        let examKindReminders = planned.plan.filter { $0.kind == .exam }
+        let examKindReminders = plan.filter { $0.kind == .exam }
         #expect(!examKindReminders.isEmpty, "the exam-titled assignments should have planned the exam schedule")
         #expect(examKindReminders.allSatisfy { examAssignmentIDs.contains($0.subjectID) },
                 "only an exam-titled assignment may produce a .exam reminder")
-        let dueKindForExamAssignments = planned.plan.filter { $0.kind == .due && examAssignmentIDs.contains($0.subjectID) }
+        let dueKindForExamAssignments = plan.filter { $0.kind == .due && examAssignmentIDs.contains($0.subjectID) }
         #expect(dueKindForExamAssignments.isEmpty, "an exam-titled assignment must not also get the generic due schedule")
     }
 
