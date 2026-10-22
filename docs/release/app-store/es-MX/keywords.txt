@@ -1,0 +1,1 @@
+calificaciones,promedio,tarea,fecha límite,planificador,escuela,curso,examen,pendientes,widget
