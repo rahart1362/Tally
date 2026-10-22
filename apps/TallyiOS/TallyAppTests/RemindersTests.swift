@@ -256,7 +256,7 @@ struct ReminderContentTests {
         let planned = try await makePlan()
         let examCandidates = planned.subjects.candidates.filter { CalendarBuilder.isExam($0.assignment.name) }
         #expect(!examCandidates.isEmpty, "the flagship fixture should have open exam-titled assignments")
-        #expect(examCandidates.allSatisfy(\.isExam), "every exam-titled candidate must carry isExam")
+        #expect(examCandidates.allSatisfy { $0.isExam }, "every exam-titled candidate must carry isExam")
 
         let nonExamCandidates = planned.subjects.candidates.filter { !CalendarBuilder.isExam($0.assignment.name) }
         #expect(!nonExamCandidates.contains { $0.isExam }, "a non-exam title must never be flagged as an exam")
