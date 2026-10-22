@@ -268,7 +268,7 @@ jobs:
     runs-on: macos-26
     # Was 60, not 45: with the smallest-iPhone and floor runs this job took 44 min 22 s in run
     # 36394287625, 38 s inside the old limit (its smallest-iPhone step alone took 12 minutes).
-    timeout-minutes: 110 # ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
+    timeout-minutes: 150 # PMO 2026-10-21: green PR runs now take 70-108 min (the post-MVP test growth) and loaded runners hit 110 (#68, run 39642061073, cancelled at 111 min). ux-fp6 2026-10-09: run 37841711587 hit 93 min on a slow runner (normal ~69 min); the fix wave keeps adding UI tests. 2026-10-01: 47-59 min on 13 runs; main run 36890338962 hit the old 60 at 61.0 min
     # compat dispatches only ios-xcode27-forward-compat, a11y only ios-a11y-audit; unaffected on push or pull_request.
     # MVP-2c: scope=only runs this job with just the build-for-testing and the `only` input's filter
     # (each step below that it skips says so in its own `if:`).

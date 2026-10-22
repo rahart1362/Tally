@@ -34,7 +34,7 @@ public nonisolated enum RootRoute: Equatable, Sendable {
 /// |---|---|---|
 /// | `launch()` / `bootstrap()` | `.launching` | `.signedIn` (an account on disk) or `.welcome` |
 /// | `enterSample()` | `.welcome` | `.sample` |
-/// | `exitSample()` | `.sample` | `.welcome` |
+/// | `exitSample()` / `checkMySchool()` | `.sample` | `.welcome` |
 /// | `finishFirstSync()` / `completeSignIn(_:)` | `.welcome` | `.signedIn` |
 /// | `signOut()` | `.signedIn` | `.welcome` |
 ///
@@ -105,6 +105,12 @@ public final class AppModel {
     /// `ageAssurance.gateDecision` to show the restricted screen over the signed-in Home; `launch()`
     /// and the paywall entry points below feed it the three request points this app controls.
     public let ageAssurance: AgeAssuranceModel
+    /// FEAT-2: the local preference's cached value — the school name `SchoolSearchView` most
+    /// recently resolved to "not enabled," or `nil` (never searched, or cleared). Loaded by
+    /// `launch()`; kept current by `recordNotEnabledSchool(_:)` and the sign-out/sign-in clears.
+    /// Settings → Subscription's sample-mode interstitial reads it (PAY-09); "Check My School"
+    /// reuses it to land on that school's own page.
+    public private(set) var notEnabledSchoolName: String?
 
     /// Ends the previous session after `exitSample()` or `signOut()`; owned here so it is never
     /// orphaned.
@@ -124,6 +130,17 @@ public final class AppModel {
     @ObservationIgnored private let clock: any DateProviding
     @ObservationIgnored private var pendingSignIn: PendingSignIn?
     @ObservationIgnored private var isLaunching = false
+    /// FEAT-2: the local preference store (`accountEnvironment?.notEnabledSchoolPreferences`, an
+    /// in-memory no-op without one — tests and previews).
+    @ObservationIgnored private let notEnabledSchoolPreferences: any NotEnabledSchoolPreferenceStoring
+    /// FEAT-2: `recordNotEnabledSchool`/`clearNotEnabledSchool`'s write, owned here like every
+    /// other session task (`teardown`, `familyTeardown`) so it is never orphaned; `awaitPersistence()`
+    /// is the test-only seam (`AppLockModel.persistTask` is the same shape).
+    private let notEnabledSchoolPersist = TaskBox()
+    /// FEAT-2: the one destination `checkMySchool()` leaves for the Welcome stack's very next
+    /// appearance, consumed (and cleared) by `WelcomeFlowView.init` — so a later plain `.welcome`
+    /// entry (sign-out, "Exit Sample Data," an abandoned sign-in) never replays it.
+    @ObservationIgnored private var pendingWelcomeRoute: WelcomeRoute?
 
     #if DEBUG || TALLY_TEST_HOOKS
     /// UI-test hooks (`LaunchTestHooks`): never compiled into a shipping Release build.
@@ -153,6 +170,7 @@ public final class AppModel {
         }
         self.lock = lock ?? AppLockModel()
         self.ageAssurance = ageAssurance ?? AgeAssuranceModel()
+        notEnabledSchoolPreferences = accountEnvironment?.notEnabledSchoolPreferences ?? InMemoryNotEnabledSchoolPreferenceStore()
         reminders = Self.makeReminders(runtime: accountRuntime, environment: accountEnvironment)
     }
 
@@ -189,7 +207,11 @@ public final class AppModel {
         #if DEBUG || TALLY_TEST_HOOKS
         if let testHooks, let accountEnvironment { await testHooks.prepareLaunch(accountEnvironment) }
         #endif
+        // FEAT-2: concurrent with the account resolve, off the critical `Launch.GlancePaint` path —
+        // nothing reads this before sample mode's own Settings → Subscription, several taps away.
+        async let storedNotEnabledSchool = notEnabledSchoolPreferences.load()
         apply(await launcher.resolve())
+        notEnabledSchoolName = await storedNotEnabledSchool
     }
 
     /// The launch with nothing on disk: Welcome, with the lock off (tests and previews).
@@ -242,6 +264,29 @@ public final class AppModel {
 
     // MARK: - Sample data
 
+    /// FEAT-2: `SchoolSearchView` resolved to "not enabled" (`WelcomeFlowView`'s
+    /// `onSelectNotEnabled`). Persists the name, overwriting any previous one, and updates the
+    /// cached value at once so this session's own interstitial and "Check My School" see it
+    /// without waiting on the write.
+    public func recordNotEnabledSchool(_ schoolName: String) {
+        notEnabledSchoolName = schoolName
+        let preferences = notEnabledSchoolPreferences
+        notEnabledSchoolPersist.replace(with: Task { await preferences.save(schoolName) })
+    }
+
+    /// Sign-out/erase and a real signed-in account (`signOut()`, `completeSignIn(_:storeRoot:)`): a
+    /// stale name must not survive past the moment it stops being relevant.
+    private func clearNotEnabledSchool() {
+        notEnabledSchoolName = nil
+        let preferences = notEnabledSchoolPreferences
+        notEnabledSchoolPersist.replace(with: Task { await preferences.clear() })
+    }
+
+    /// Waits for the last `recordNotEnabledSchool`/`clearNotEnabledSchool` write (tests).
+    func awaitNotEnabledSchoolPersistence() async {
+        await notEnabledSchoolPersist.value()
+    }
+
     /// Welcome's (and "school not enabled"'s) "Explore with Sample Data": a root switch, never a
     /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
     ///
@@ -271,6 +316,27 @@ public final class AppModel {
         guard let ending = home else { return }
         home = nil
         teardown.replace(with: Task { await ending.end() })
+    }
+
+    /// FEAT-2: the sample-mode interstitial's "Check My School"/"Ask My School" (PAY-09). Same
+    /// root switch as `exitSample()`, except it leaves a destination for the Welcome stack's very
+    /// next appearance when a school name is remembered, so the action lands on that school's own
+    /// "not enabled" page instead of resetting to a blank Welcome. With no remembered name, this is
+    /// exactly `exitSample()` (today's behaviour, unchanged — the App-Review path).
+    public func checkMySchool() {
+        guard route == .sample else { return }
+        if let school = notEnabledSchoolName {
+            pendingWelcomeRoute = .schoolNotEnabled(school: school)
+        }
+        exitSample()
+    }
+
+    /// `WelcomeFlowView.init`'s one read: the Welcome stack starts from this destination, then it
+    /// is gone, so a later plain `.welcome` entry (sign-out, "Exit Sample Data," an abandoned
+    /// sign-in) never replays it.
+    func consumePendingWelcomeRoute() -> WelcomeRoute? {
+        defer { pendingWelcomeRoute = nil }
+        return pendingWelcomeRoute
     }
 
     // MARK: - Sample family (FAM-14, M3-E2)
@@ -352,6 +418,10 @@ public final class AppModel {
         guard route == .welcome else { return }
         home = makeSignedInHome(account, root: storeRoot)
         route = .signedIn(account)
+        // FEAT-2: a real signed-in account exists now (whether this came from sample mode or a
+        // direct sign-in never touching it) — any remembered "not enabled" name stops being
+        // relevant.
+        clearNotEnabledSchool()
     }
 
     /// M3-A (Settings; M2-C1 O8): the signed-in Home's `UserState` access. The account's sealed
@@ -550,6 +620,7 @@ public final class AppModel {
         showsSignOutRevokeNotice = false
         route = .welcome
         playsBrandMoment = true
+        clearNotEnabledSchool() // FEAT-2: Sign Out & Erase
         lock.resetForSignOut()
         recordSignOutStep(.route)
         refreshStatus.detach()

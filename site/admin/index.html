@@ -1,0 +1,53 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tally for Canvas Administrators</title><link rel="stylesheet" href="/_style.css"></head><body><main>
+<div class="draft">DRAFT-PENDING-OWNER-APPROVAL. Every line on this page needs the owner's sign-off before it goes live.</div>
+<h1>Tally for Canvas Administrators</h1>
+<p class="muted">A student at your school asked you to enable Tally. Here's what it is, and what enabling it involves.</p>
+
+<h2>What Tally is</h2>
+<div class="card">
+<p>Tally is an independent iOS app for students. It shows a student's own courses, grades, assignments, due dates and reminders, using that student's own Canvas sign-in.</p>
+<ul>
+<li><b>There is no Tally server.</b> A student's Canvas information goes from your Canvas directly to their iPhone, where it's stored encrypted and replaced on every refresh. Tally never receives it, stores it, or sees it.</li>
+<li><b>There are no Tally student accounts.</b> Tally has no account system of its own. A student signs in on your Canvas's own sign-in page, with your Canvas's own OAuth flow; Tally never sees a password.</li>
+<li>Access is read-only, limited to the scopes below. A student's own sign-out revokes their token immediately.</li>
+</ul>
+</div>
+
+<h2>What enabling Tally involves</h2>
+<div class="card">
+<p>Enabling Tally means creating one Canvas API developer key, which takes about five minutes:</p>
+<ol>
+<li><b>Admin → Developer Keys → + Developer Key → API Key.</b></li>
+<li>Fill in: Key Name "Tally"; Owner Email your own contact address; Redirect URI <code>https://tally-app.dev/oauth/callback</code>; Client type <b>Public</b> (PKCE, no client secret).
+<p class="muted">⚠︎ Whether your Canvas admin console exposes the "Public" client type option is unverified at the time of writing — if it doesn't, contact us (below) before proceeding.</p></li>
+<li><b>Enforce Scopes: ON.</b> Select only the read-only scopes a student's own Tally needs:</li>
+</ol>
+<table style="width:100%;border-collapse:collapse;font-size:0.95em">
+<tr><td class="muted">Name, personal calendar feed</td><td><code>url:GET|/api/v1/users/:user_id/profile</code></td></tr>
+<tr><td class="muted">Courses and scores</td><td><code>url:GET|/api/v1/courses</code></td></tr>
+<tr><td class="muted">Assignments and submissions</td><td><code>url:GET|/api/v1/courses/:course_id/assignment_groups</code></td></tr>
+<tr><td class="muted">Grading periods</td><td><code>url:GET|/api/v1/courses/:course_id/grading_periods</code></td></tr>
+<tr><td class="muted">To-do and due items</td><td><code>url:GET|/api/v1/planner/items</code></td></tr>
+<tr><td class="muted">Course calendar events</td><td><code>url:GET|/api/v1/calendar_events</code></td></tr>
+<tr><td class="muted">Announcements</td><td><code>url:GET|/api/v1/announcements</code></td></tr>
+<tr><td class="muted">Course colours</td><td><code>url:GET|/api/v1/users/:id/colors</code></td></tr>
+</table>
+<p class="muted">⚠︎ These scope strings come from Instructure's own API documentation; confirm them against the scope picker in your installed Canvas version before saving.</p>
+<ol start="4">
+<li><b>Save</b>, then switch the key's state to <b>ON</b>.</li>
+<li>Send us the key's <b>Client ID</b> (the numeric key ID — it isn't secret) using the contact link below. We add your school to Tally's institution directory, and students there can connect from then on.</li>
+</ol>
+<p>To turn Tally off for your school at any time, set the key back to <b>OFF</b>; every Tally token issued to your school stops working immediately.</p>
+<p class="muted">Optional: a parent or guardian can follow a student's due dates and grades through Canvas's own observer-account and pairing-code feature, with no extra setup beyond allowing observer self-registration. Ask us if you'd like the additional scopes this needs.</p>
+</div>
+
+<h2>Privacy</h2>
+<div class="card"><p>Tally's full <a href="/privacy/">Privacy Policy</a> covers what a student's device requests from your Canvas and where it goes (nowhere but that student's own iPhone). It also covers the optional Canvas-calendar subscription and the signed school list Tally downloads from this domain.</p></div>
+
+<h2>Contact</h2>
+<div class="card"><p>Questions about any of this, or ready to send a Client ID? See our <a href="/support/">Support</a> page.</p></div>
+
+<p class="muted">Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc.</p>
+<nav style="margin-top:24px"><a href="/">Tally</a><a href="/privacy/">Privacy Policy</a><a href="/support/">Support</a></nav>
+</main></body></html>

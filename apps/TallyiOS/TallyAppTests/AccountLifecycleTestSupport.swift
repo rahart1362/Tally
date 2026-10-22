@@ -21,20 +21,25 @@ struct AccountHarness: Sendable {
     let vaultKeys: InMemoryVaultKeyStore
     let keyring: VaultKeyring
     let lockPreferences: InMemoryAppLockPreferenceStore
+    /// FEAT-2: the local, non-account preference for the searched-but-not-enabled school name.
+    let notEnabledSchoolPreferences: InMemoryNotEnabledSchoolPreferenceStore
     let transport: RecordingTransport
     let notifications: FakeNotificationCenter
     let widgetReloads: CallCounter
     let environment: AccountEnvironment
 
     /// - Parameter gateway: the account's Canvas; `nil` makes one that serves the flagship snapshot.
+    /// - Parameter notEnabledSchool: FEAT-2's preference seeded for this harness; `nil` (the
+    ///   default) matches a fresh install that never searched a school.
     init(gateway: (@Sendable (AccountRecord) async -> any CanvasGateway)? = nil,
-         lock: AppLockPreference? = nil) throws {
+         lock: AppLockPreference? = nil, notEnabledSchool: String? = nil) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("tally-lifecycle-\(UUID().uuidString)")
         try ProtectedFile.prepareDirectory(root, excludeFromBackup: true)
         credentials = InMemoryCredentialStore()
         vaultKeys = InMemoryVaultKeyStore()
         keyring = VaultKeyring(store: vaultKeys)
         lockPreferences = InMemoryAppLockPreferenceStore(lock)
+        notEnabledSchoolPreferences = InMemoryNotEnabledSchoolPreferenceStore(notEnabledSchool)
         transport = RecordingTransport()
         notifications = FakeNotificationCenter()
         let widgetReloads = CallCounter()
@@ -42,6 +47,7 @@ struct AccountHarness: Sendable {
         let root = self.root
         environment = AccountEnvironment(
             storeRoot: { root }, credentialStore: credentials, keyring: keyring, lockPreferences: lockPreferences,
+            notEnabledSchoolPreferences: notEnabledSchoolPreferences,
             transport: transport, notifications: notifications, reloadWidgets: { widgetReloads.increment() },
             gatewayOverride: gateway ?? { account in
                 FlagshipAccountGateway(account: account.accountKey)
