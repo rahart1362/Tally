@@ -21,20 +21,25 @@ struct AccountHarness: Sendable {
     let vaultKeys: InMemoryVaultKeyStore
     let keyring: VaultKeyring
     let lockPreferences: InMemoryAppLockPreferenceStore
+    /// FEAT-2: the local, non-account preference for the searched-but-not-enabled school name.
+    let notEnabledSchoolPreferences: InMemoryNotEnabledSchoolPreferenceStore
     let transport: RecordingTransport
     let notifications: FakeNotificationCenter
     let widgetReloads: CallCounter
     let environment: AccountEnvironment
 
     /// - Parameter gateway: the account's Canvas; `nil` makes one that serves the flagship snapshot.
+    /// - Parameter notEnabledSchool: FEAT-2's preference seeded for this harness; `nil` (the
+    ///   default) matches a fresh install that never searched a school.
     init(gateway: (@Sendable (AccountRecord) async -> any CanvasGateway)? = nil,
-         lock: AppLockPreference? = nil) throws {
+         lock: AppLockPreference? = nil, notEnabledSchool: String? = nil) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("tally-lifecycle-\(UUID().uuidString)")
         try ProtectedFile.prepareDirectory(root, excludeFromBackup: true)
         credentials = InMemoryCredentialStore()
         vaultKeys = InMemoryVaultKeyStore()
         keyring = VaultKeyring(store: vaultKeys)
         lockPreferences = InMemoryAppLockPreferenceStore(lock)
+        notEnabledSchoolPreferences = InMemoryNotEnabledSchoolPreferenceStore(notEnabledSchool)
         transport = RecordingTransport()
         notifications = FakeNotificationCenter()
         let widgetReloads = CallCounter()
@@ -42,6 +47,7 @@ struct AccountHarness: Sendable {
         let root = self.root
         environment = AccountEnvironment(
             storeRoot: { root }, credentialStore: credentials, keyring: keyring, lockPreferences: lockPreferences,
+            notEnabledSchoolPreferences: notEnabledSchoolPreferences,
             transport: transport, notifications: notifications, reloadWidgets: { widgetReloads.increment() },
             gatewayOverride: gateway ?? { account in
                 FlagshipAccountGateway(account: account.accountKey)
@@ -139,11 +145,11 @@ final class CallCounter: Sendable {
 /// An authenticator that answers with the queued results in order (the last one repeats), and
 /// counts its attempts.
 final class ScriptedAuthenticator: AppLockAuthenticating {
-    private let state: Mutex<(results: [AppLockPolicy.AuthResult], attempts: Int)>
+    private let state: Mutex<(results: [AppLockPolicy.AuthResult], attempts: Int, domainState: Data?)>
     private let available: AppLockAvailability
 
-    init(_ results: [AppLockPolicy.AuthResult], availability: AppLockAvailability = .available(.faceID)) {
-        state = Mutex((results, 0))
+    init(_ results: [AppLockPolicy.AuthResult], availability: AppLockAvailability = .available(.faceID), domainState: Data? = nil) {
+        state = Mutex((results, 0, domainState))
         available = availability
     }
 
@@ -158,8 +164,12 @@ final class ScriptedAuthenticator: AppLockAuthenticating {
         }
     }
 
-    func evaluatedPolicyDomainState() async -> Data? { nil }
+    func evaluatedPolicyDomainState() async -> Data? { state.withLock { $0.domainState } }
     func availability() async -> AppLockAvailability { available }
+
+    /// SEC1-11 test control: what the *next* `evaluatedPolicyDomainState()` call returns,
+    /// simulating a biometric-enrolment change observed between two unlock attempts.
+    func setDomainState(_ data: Data?) { state.withLock { $0.domainState = data } }
 }
 
 /// Holds every `save` until `open()`, so a test can act while a sign-in's provisioning is in

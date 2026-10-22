@@ -58,6 +58,7 @@ import re
 import struct
 import subprocess
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 
 CURRENT_MILESTONE = "MVP"
@@ -111,7 +112,10 @@ IDENTITY = "apps/TallyiOS/Config/Identity.xcconfig"
 APP_ICON = "apps/TallyiOS/Tally/Assets.xcassets/AppIcon.appiconset/Icon-1024.png"
 # XcodeGen 2.46.0, SettingPresets/Platforms/iOS.yml, applied to every iOS target.
 XCODEGEN_IOS_TARGET_PRESET_FAMILY = "1,2"
-METADATA_DIR = "docs/release/metadata"
+METADATA_ROOT = "docs/release/app-store"
+# STORE-COPY-1: one locale folder per ASC localization (08-localization-and-external-grades.md
+# L-3/L10N-05, line 192: "add a docs/release/app-store/es-MX/ folder beside en-US").
+METADATA_LOCALES = ("en-US", "es-MX")
 # App Store Connect limits (app-store-compliance.md §3.5): characters, except keywords (bytes).
 METADATA_LIMITS = {"name.txt": 30, "subtitle.txt": 30, "keywords.txt": 100, "promotional_text.txt": 170,
                    "description.txt": 4000, "review_notes.txt": 4000}
@@ -231,6 +235,15 @@ def _release_string_hits(privacy, path: str, text: str) -> list[str]:
     return hits
 
 
+def ats_exceptions(app_info: dict, widget_info: dict) -> list[str]:
+    """SEC1-13: targets with *any* `NSAppTransportSecurity` key, not only `NSAllowsArbitraryLoads`
+    -- security.md §3.3 asked for a check that no ATS exception of any kind is ever introduced.
+    `NSExceptionDomains`, `NSAllowsArbitraryLoadsInWebContent` or `NSAllowsLocalNetworking` would
+    each pass a check that only looked for `NSAllowsArbitraryLoads`. An empty
+    `NSAppTransportSecurity` dict (no keys at all) is not an exception."""
+    return [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info)) if info.get("NSAppTransportSecurity")]
+
+
 def source_checks(root: pathlib.Path) -> list[Check]:
     yaml = _yaml()
     privacy = _sibling("check_privacy_manifest")
@@ -288,9 +301,8 @@ def source_checks(root: pathlib.Path) -> list[Check]:
         all(family == "1" for family in families.values()) and orientations == ["UIInterfaceOrientationPortrait"],
         f"TARGETED_DEVICE_FAMILY per target {families} (project level {base.get('TARGETED_DEVICE_FAMILY')!r} "
         f"is overridden by XcodeGen's target preset); orientations {orientations}")
-    ats = [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info))
-           if (info.get("NSAppTransportSecurity") or {}).get("NSAllowsArbitraryLoads")]
-    add("REL.plist.ats", "No NSAllowsArbitraryLoads", not ats, f"arbitrary loads allowed in: {ats or 'none'}")
+    ats = ats_exceptions(app_info, widget_info)
+    add("REL.plist.ats", "No NSAppTransportSecurity exception of any kind", not ats, f"ATS exceptions present in: {ats or 'none'}")
     schemes = app_info.get("LSApplicationQueriesSchemes", [])
     add("REL.plist.query-schemes", "LSApplicationQueriesSchemes has at most 25 entries (iOS 27 limit, R16)",
         len(schemes) <= 25, f"{len(schemes)} entries")
@@ -367,25 +379,43 @@ def source_checks(root: pathlib.Path) -> list[Check]:
         owner="PMO: delete the unlinked pre-rewrite packages (packages/Tally{Security,Data,CanvasKit,...}) and "
               "update the legacy-cleanup test")
 
-    # Store listing metadata (§3.5) and the published privacy policy (R4).
-    metadata = root / METADATA_DIR
-    missing = [name for name in METADATA_LIMITS if not (metadata / name).exists()]
-    over = []
-    for name, limit in METADATA_LIMITS.items():
-        path = metadata / name
-        if path.exists():
-            text = path.read_text(encoding="utf-8").strip()
-            size = len(text.encode("utf-8")) if name == "keywords.txt" else len(text)
-            if size > limit:
-                over.append(f"{name} {size} > {limit}")
-    add("REL.metadata.store-listing", "Store metadata files exist and fit App Store Connect's limits",
-        not missing and not over, f"missing: {missing}; over: {over}" if missing or over else "all within limits",
-        due="M5", owner="M5 store listing (app-store-compliance.md §3.5)")
+    # Store listing metadata (§3.5), one check per locale folder.
+    checks.extend(metadata_checks(root))
 
     # ASC-03, through the same script as the hygiene gate.
     privacy_checks, _ = privacy.run(root)
     for check in privacy_checks:
         checks.append(Check(f"REL.{check.id}", f"Privacy manifest: {check.id}", check.level, "M2", check.ok, check.detail))
+    return checks
+
+
+# ------------------------------------------------------------------------------------------------
+# Store listing metadata (§3.5, STORE-COPY-1), per locale under METADATA_ROOT
+# ------------------------------------------------------------------------------------------------
+
+def metadata_checks(root: pathlib.Path, due: str = "M5") -> list[Check]:
+    """One check per `METADATA_LOCALES` folder under `METADATA_ROOT`: `REL.metadata.store-listing.
+    <locale>` passes only when every `METADATA_LIMITS` file exists in that locale's folder and fits
+    its limit (characters, except keywords.txt which is bytes, matching App Store Connect). Same
+    "nothing passes by being missing" rule as `a11y_audit_checks`/`screenshot_checks`: an absent
+    locale folder reports every file as missing rather than skipping the locale."""
+    checks: list[Check] = []
+    for locale in METADATA_LOCALES:
+        folder = root / METADATA_ROOT / locale
+        missing = [name for name in METADATA_LIMITS if not (folder / name).exists()]
+        over = []
+        for name, limit in METADATA_LIMITS.items():
+            path = folder / name
+            if path.exists():
+                text = path.read_text(encoding="utf-8").strip()
+                size = len(text.encode("utf-8")) if name == "keywords.txt" else len(text)
+                if size > limit:
+                    over.append(f"{name} {size} > {limit}")
+        checks.append(Check(
+            f"REL.metadata.store-listing.{locale}", f"Store metadata ({locale}) exists and fits App Store Connect's limits",
+            "ERROR", due, not missing and not over,
+            f"missing: {missing}; over: {over}" if missing or over else "all within limits",
+            owner="M5 store listing (app-store-compliance.md §3.5)"))
     return checks
 
 
@@ -446,7 +476,9 @@ def categories_in(imports: set[str], selectors: set[str]) -> dict[str, list[str]
     return used
 
 
-def _binary_uses(machos: list[pathlib.Path]) -> dict[str, list[str]]:
+def _binary_uses(machos: list[pathlib.Path]) -> tuple[dict[str, list[str]], set[str]]:
+    """The required-reason categories the binaries use, and the raw `nm -u` import set (SEC1-22
+    reuses the latter without a second round of subprocess calls)."""
     imports: set[str] = set()
     selectors: set[str] = set()
     for macho in machos:
@@ -460,7 +492,18 @@ def _binary_uses(machos: list[pathlib.Path]) -> dict[str, list[str]]:
                 parts = line.split(None, 1)
                 if len(parts) == 2:
                     selectors.add(parts[1].strip())
-    return categories_in(imports, selectors)
+    return categories_in(imports, selectors), imports
+
+
+# SEC1-22 (encryption.md WP-ENC-07 (1)): swift-crypto's own C target, linked only when its
+# CryptoKit-backed Swift layer falls back to BoringSSL (Linux today -- `Package.swift`'s
+# `condition: .when(platforms: [.linux])`). None of this should ever reach an iOS binary; this
+# gate catches a future edit that drops that condition before it ships.
+FORBIDDEN_CRYPTO_SYMBOL_PREFIXES = ("_CCryptoBoringSSL_", "_CRYPTO_", "_boringssl_")
+
+
+def forbidden_crypto_symbols(imports: set[str]) -> list[str]:
+    return sorted(s for s in imports if s.startswith(FORBIDDEN_CRYPTO_SYMBOL_PREFIXES))
 
 
 def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]:
@@ -508,7 +551,10 @@ def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]
     for name, bundle, skip in (("app", app, appex), ("widget", appex, None)):
         manifest_path = bundle / "PrivacyInfo.xcprivacy"
         manifest = _read_plist(manifest_path) if manifest_path.exists() else {}
-        uses_by_category = _binary_uses(_machos(bundle, skip)) if bundle.is_dir() else {}
+        uses_by_category, imports = _binary_uses(_machos(bundle, skip)) if bundle.is_dir() else ({}, set())
+        crypto_hits = forbidden_crypto_symbols(imports)
+        add(f"{name}.no-boringssl", f"No swift-crypto/BoringSSL symbols in the {name} binary (SEC1-22)",
+            not crypto_hits, f"found: {crypto_hits}" if crypto_hits else "none")
         uses = [privacy.Use(category, ", ".join(symbols), f"{bundle.name} (binary)", 0, False)
                 for category, symbols in uses_by_category.items()]
         for check in privacy.check_manifest(f"{label}.{name}", f"{bundle.name}/PrivacyInfo.xcprivacy",
@@ -826,7 +872,53 @@ def self_test() -> int:
     shots_with_errors = screenshot_checks({"images": full_images, "missing": [], "errors": ["leg x: broke"]})[0].settle()
     assert shots_with_errors.status == "FAIL", "any recorded screenshots.py error must fail the check"
     assert screenshot_checks({})[0].settle().status == "FAIL", "no manifest is a failing check, not a silent pass"
-    print("check_release self-test: 29 checks passed")
+    # STORE-COPY-1: REL.metadata.store-listing.<locale>, one check per METADATA_LOCALES folder.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_root = pathlib.Path(tmp)
+        complete = tmp_root / METADATA_ROOT / "en-US"
+        complete.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (complete / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        # es-MX left entirely absent.
+        by_locale = {c.id: c.settle() for c in metadata_checks(tmp_root)}
+        assert set(by_locale) == {"REL.metadata.store-listing.en-US", "REL.metadata.store-listing.es-MX"}, by_locale
+        assert by_locale["REL.metadata.store-listing.en-US"].status == "PASS", by_locale["REL.metadata.store-listing.en-US"]
+        missing_check = by_locale["REL.metadata.store-listing.es-MX"]
+        assert missing_check.status == "PENDING", "due M5, after MVP (CURRENT_MILESTONE), so a missing locale is pending"
+        assert all(name in missing_check.detail for name in METADATA_LIMITS), missing_check.detail
+        # An over-limit file fails the check's own `ok` (still PENDING at M5, same milestone rule).
+        over_root = tmp_root / "over"
+        over_folder = over_root / METADATA_ROOT / "en-US"
+        over_folder.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (over_folder / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        (over_folder / "name.txt").write_text("x" * 31, encoding="utf-8")
+        over_check = next(c for c in metadata_checks(over_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert over_check.ok is False and "name.txt 31 > 30" in over_check.detail, over_check
+        # Keywords are checked in UTF-8 bytes, every other file in characters (es-MX accents, §3.5).
+        bytes_root = tmp_root / "bytes"
+        bytes_folder = bytes_root / METADATA_ROOT / "en-US"
+        bytes_folder.mkdir(parents=True)
+        for name, limit in METADATA_LIMITS.items():
+            (bytes_folder / name).write_text("x" * min(limit, 5), encoding="utf-8")
+        (bytes_folder / "keywords.txt").write_text("á" * 60, encoding="utf-8")  # 60 chars, 120 bytes
+        bytes_check = next(c for c in metadata_checks(bytes_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert bytes_check.ok is False and "keywords.txt 120 > 100" in bytes_check.detail, bytes_check
+        (bytes_folder / "description.txt").write_text("á" * 60, encoding="utf-8")  # 60 chars, well under 4000
+        chars_check = next(c for c in metadata_checks(bytes_root) if c.id == "REL.metadata.store-listing.en-US")
+        assert "description.txt" not in chars_check.detail, "description.txt is counted in characters, not bytes"
+        # A due milestone a caller passes explicitly is honoured, not just the "M5" default.
+        assert metadata_checks(tmp_root, due="M2")[0].due == "M2"
+    # SEC1-13: any NSAppTransportSecurity key fails the gate, not only NSAllowsArbitraryLoads.
+    assert ats_exceptions({}, {}) == []
+    assert ats_exceptions({"NSAppTransportSecurity": {"NSAllowsArbitraryLoads": True}}, {}) == ["Tally"]
+    assert ats_exceptions({"NSAppTransportSecurity": {"NSExceptionDomains": {"x.example": {}}}}, {}) == ["Tally"], \
+        "any ATS key must fail, not only NSAllowsArbitraryLoads"
+    assert ats_exceptions({}, {"NSAppTransportSecurity": {}}) == [], "an empty dict declares no actual exception"
+    # SEC1-22: swift-crypto/BoringSSL's own symbols must never appear in an iOS binary's imports.
+    assert forbidden_crypto_symbols({"_CCryptoBoringSSL_SHA256_Init", "_malloc"}) == ["_CCryptoBoringSSL_SHA256_Init"]
+    assert forbidden_crypto_symbols({"_malloc", "_OBJC_CLASS_$_NSUserDefaults"}) == []
+    print("check_release self-test: 36 checks passed")
     return 0
 
 

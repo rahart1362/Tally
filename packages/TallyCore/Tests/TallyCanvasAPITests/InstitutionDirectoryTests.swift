@@ -43,6 +43,20 @@ struct InstitutionDirectoryTests {
         #expect(matches.map(\.id) == ["4"])
     }
 
+    /// SEC1-16: a row whose shape doesn't decode at all (not merely one missing a usable name or
+    /// host, `rowsWithoutAUsableHostOrNameAreDroppedNotFatal` above) must not fail the whole
+    /// search -- `id` is a non-optional `String`, so a numeric id is exactly that kind of row.
+    @Test func rowsThatFailToDecodeAtAllAreDroppedNotFatal() throws {
+        let json = #"""
+        [
+          {"id":1,"name":"Numeric id (malformed)","domain":"canvas.bad.example"},
+          {"id":"2","name":"Good","domain":"canvas.good.example"}
+        ]
+        """#
+        let matches = try InstitutionDirectory.search(Data(json.utf8))
+        #expect(matches.map(\.id) == ["2"])
+    }
+
     @Test func registeredHostResolvesToItsRegistration() throws {
         let registry = ClientRegistry([
             ClientRegistration(host: "canvas.northfield.example", clientID: "tally-northfield-1", familyCapable: true),

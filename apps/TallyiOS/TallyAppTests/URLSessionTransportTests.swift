@@ -283,6 +283,68 @@ struct RedirectAuthorizationStrippingDelegateTests {
         #expect(captured?.value(forHTTPHeaderField: "Authorization") == "Bearer secret")
         task.cancel()
     }
+
+    /// SEC1-14: the old check compared `host` alone, so a same-host redirect to a different
+    /// scheme or port still carried the bearer token onward.
+    @Test("strips Authorization when the redirect stays on the same host but changes scheme")
+    func stripsSameHostDifferentScheme() {
+        let session = URLSession(configuration: .ephemeral)
+        var original = URLRequest(url: URL(string: "https://canvas.example.edu/a")!)
+        original.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let task = session.dataTask(with: original)
+        var redirectTarget = URLRequest(url: URL(string: "http://canvas.example.edu/b")!)
+        redirectTarget.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let redirectResponse = HTTPURLResponse(url: original.url!, statusCode: 302, httpVersion: nil, headerFields: nil)!
+
+        let delegate = TransportTaskDelegate(maxBodyBytes: 1_000)
+        var captured: URLRequest?
+        delegate.urlSession(session, task: task, willPerformHTTPRedirection: redirectResponse, newRequest: redirectTarget) {
+            captured = $0
+        }
+
+        #expect(captured?.value(forHTTPHeaderField: "Authorization") == nil)
+        task.cancel()
+    }
+
+    @Test("strips Authorization when the redirect stays on the same host and scheme but changes port")
+    func stripsSameHostDifferentPort() {
+        let session = URLSession(configuration: .ephemeral)
+        var original = URLRequest(url: URL(string: "https://canvas.example.edu/a")!)
+        original.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let task = session.dataTask(with: original)
+        var redirectTarget = URLRequest(url: URL(string: "https://canvas.example.edu:8443/b")!)
+        redirectTarget.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let redirectResponse = HTTPURLResponse(url: original.url!, statusCode: 302, httpVersion: nil, headerFields: nil)!
+
+        let delegate = TransportTaskDelegate(maxBodyBytes: 1_000)
+        var captured: URLRequest?
+        delegate.urlSession(session, task: task, willPerformHTTPRedirection: redirectResponse, newRequest: redirectTarget) {
+            captured = $0
+        }
+
+        #expect(captured?.value(forHTTPHeaderField: "Authorization") == nil)
+        task.cancel()
+    }
+
+    @Test("keeps Authorization when the redirect only makes the default https port explicit")
+    func keepsExplicitDefaultPort() {
+        let session = URLSession(configuration: .ephemeral)
+        var original = URLRequest(url: URL(string: "https://canvas.example.edu/a")!)
+        original.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let task = session.dataTask(with: original)
+        var redirectTarget = URLRequest(url: URL(string: "https://canvas.example.edu:443/b")!)
+        redirectTarget.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+        let redirectResponse = HTTPURLResponse(url: original.url!, statusCode: 302, httpVersion: nil, headerFields: nil)!
+
+        let delegate = TransportTaskDelegate(maxBodyBytes: 1_000)
+        var captured: URLRequest?
+        delegate.urlSession(session, task: task, willPerformHTTPRedirection: redirectResponse, newRequest: redirectTarget) {
+            captured = $0
+        }
+
+        #expect(captured?.value(forHTTPHeaderField: "Authorization") == "Bearer secret")
+        task.cancel()
+    }
 }
 
 /// A minimal `URLProtocol` stub (implementation brief: "Tests with a
