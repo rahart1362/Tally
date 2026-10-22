@@ -212,6 +212,17 @@ extension L10n {
                 comment: "Sample data: the note shown before the plans (App Review sees it too).")
         }
 
+        /// FEAT-2 (owner-approved 2026-10-21): shown instead of `interstitialMessage()` when the
+        /// student already searched a school and it was not enabled. The placeholder is that
+        /// school's display name (free text the student typed, never a Canvas identifier).
+        public static func interstitialMessageNamedSchool(school: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.interstitial.messageNamedSchool",
+                defaultValue: "Tally Annual works at schools where Tally is enabled. When you searched, \(school) wasn't one of them yet. Ask your school, or continue to see the plans.",
+                bundle: #bundle,
+                comment: "FEAT-2, owner-approved 2026-10-21. Sample data note, named variant: shown instead of subscription.interstitial.message once the student has searched a specific school and it came back not enabled. The placeholder is that school's name.")
+        }
+
         public static func checkMySchool() -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.interstitial.checkMySchool", defaultValue: "Check My School", bundle: #bundle,

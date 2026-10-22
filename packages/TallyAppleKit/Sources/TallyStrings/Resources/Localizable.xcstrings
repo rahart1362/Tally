@@ -10321,6 +10321,24 @@
         }
       }
     },
+    "subscription.interstitial.messageNamedSchool" : {
+      "comment" : "FEAT-2, owner-approved 2026-10-21. Sample data note, named variant: shown instead of subscription.interstitial.message once the student has searched a specific school and it came back not enabled. The placeholder is that school's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tally Annual works at schools where Tally is enabled. When you searched, %@ wasn't one of them yet. Ask your school, or continue to see the plans."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tally Annual funciona en las escuelas donde Tally está habilitada. Cuando buscaste, %@ todavía no era una de ellas. Pregunta en tu escuela, o continúa para ver los planes."
+          }
+        }
+      }
+    },
     "subscription.interstitial.title" : {
       "comment" : "Sample data, Settings > Subscription > See Plans: the title of the note shown before the plans.",
       "extractionState" : "manual",
