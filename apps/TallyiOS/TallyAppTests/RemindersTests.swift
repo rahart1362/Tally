@@ -245,6 +245,31 @@ struct ReminderContentTests {
         }
     }
 
+    /// ideas2 report #1: `ReminderSubjects` never consulted the exam-title detector already
+    /// shipped for Calendar/AlertEngine (`CalendarBuilder.isExam`), so every exam-titled
+    /// assignment planned the generic due-date schedule instead of `ReminderPlanner`'s complete
+    /// T-3d/T-1d/morning-of exam schedule. The flagship fixture's "Exam 1"/"Midterm Exam"/"Final
+    /// Exam" assignments (`assignment_groups/51842.json`, `51843.json`, `51845.json`) exercise the
+    /// real detector end to end, not a hand-built `isExam: true` candidate.
+    @Test("exam-titled assignments get isExam wired through to .exam reminders, not the generic due schedule")
+    func examTitledAssignmentsGetExamReminders() async throws {
+        let planned = try await makePlan()
+        let examCandidates = planned.subjects.candidates.filter { CalendarBuilder.isExam($0.assignment.name) }
+        #expect(!examCandidates.isEmpty, "the flagship fixture should have open exam-titled assignments")
+        #expect(examCandidates.allSatisfy(\.isExam), "every exam-titled candidate must carry isExam")
+
+        let nonExamCandidates = planned.subjects.candidates.filter { !CalendarBuilder.isExam($0.assignment.name) }
+        #expect(!nonExamCandidates.contains { $0.isExam }, "a non-exam title must never be flagged as an exam")
+
+        let examAssignmentIDs = Set(examCandidates.map(\.assignment.id.rawValue))
+        let examKindReminders = planned.plan.filter { $0.kind == .exam }
+        #expect(!examKindReminders.isEmpty, "the exam-titled assignments should have planned the exam schedule")
+        #expect(examKindReminders.allSatisfy { examAssignmentIDs.contains($0.subjectID) },
+                "only an exam-titled assignment may produce a .exam reminder")
+        let dueKindForExamAssignments = planned.plan.filter { $0.kind == .due && examAssignmentIDs.contains($0.subjectID) }
+        #expect(dueKindForExamAssignments.isEmpty, "an exam-titled assignment must not also get the generic due schedule")
+    }
+
     @Test("SEC1-19 (owner decision 2026-10-21): the below-goal alert always hides the course name, even with Hide Course Names off")
     func belowGoalAlwaysHidesTheCourseName() async throws {
         let planned = try await makePlan()

@@ -55,7 +55,11 @@ nonisolated struct ReminderSubjects: Sendable {
                                                    courseWeight: weights.weight(of: assignment),
                                                    modifiers: Self.modifiers(assignment: assignment, course: course,
                                                                              availability: gradeAvailability[course.id], now: now))
-                candidates.append(ReminderCandidate(assignment: assignment, priority: priority))
+                // ideas2 report #1: the exam-title detector already shipped for Calendar/AlertEngine
+                // (`CalendarBuilder.isExam`) was never consulted here, so `isExam` stayed `false` and
+                // `ReminderPlanner`'s complete T-3d/T-1d/morning-of exam schedule never fired.
+                candidates.append(ReminderCandidate(assignment: assignment, isExam: CalendarBuilder.isExam(assignment.name),
+                                                    priority: priority))
                 items.append(Item(assignment: assignment, courseCode: course.courseCode, dueAt: due))
             }
         }
