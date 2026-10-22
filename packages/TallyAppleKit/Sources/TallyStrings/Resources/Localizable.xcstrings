@@ -3559,6 +3559,24 @@
         }
       }
     },
+    "dashboard.weekAhead.addButton" : {
+      "comment" : "Dashboard, Week-ahead strip: button that walks the week's due items through the existing per-item \"Add to Calendar\" sheet, one at a time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add This Week to Calendar"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Agregar esta semana al calendario"
+          }
+        }
+      }
+    },
     "dashboard.weekAheadHeader" : {
       "comment" : "Dashboard section header above the week strip.",
       "extractionState" : "manual",

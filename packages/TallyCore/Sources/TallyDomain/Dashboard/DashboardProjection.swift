@@ -144,9 +144,31 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
         /// named threshold `AlertEngine.overloadClusters` uses (§2.4 A7), reused here for a
         /// simpler per-calendar-day view rather than A7's own rolling-window scan.
         public let isBusy: Bool
+        /// Idea 10 ("Add this week to Calendar") and Idea 11 ("Send my week"),
+        /// `pmo-audit/.build-audit/ideas1/report.md`: this day's due items, the same ones
+        /// `dueCount` counts, in Canvas order -- never a class meeting or event (the Week-ahead
+        /// strip never showed either). Defaulted so an existing caller stays source-compatible.
+        public let items: [WeekDayItem]
 
-        public init(id: Date, date: Date, dueCount: Int, isBusy: Bool) {
-            self.id = id; self.date = date; self.dueCount = dueCount; self.isBusy = isBusy
+        public init(id: Date, date: Date, dueCount: Int, isBusy: Bool, items: [WeekDayItem] = []) {
+            self.id = id; self.date = date; self.dueCount = dueCount; self.isBusy = isBusy; self.items = items
+        }
+    }
+
+    /// Idea 10/11: one due item as those two Dashboard Week-ahead actions need it -- a title, an
+    /// optional course code (kept apart, like `DueItem`'s, so a renderer decides how to combine
+    /// them), when it is due and Canvas's own link. Never a score, a percentage or a letter grade:
+    /// there is no field here to carry one (R10, structurally, the same way `NotificationContent`
+    /// documents its own payloads carry none).
+    public nonisolated struct WeekDayItem: Identifiable, Equatable, Sendable {
+        public let id: String
+        public let title: String
+        public let courseCode: String?
+        public let dueAt: Date
+        public let url: URL?
+
+        public init(id: String, title: String, courseCode: String?, dueAt: Date, url: URL?) {
+            self.id = id; self.title = title; self.courseCode = courseCode; self.dueAt = dueAt; self.url = url
         }
     }
 
@@ -276,7 +298,7 @@ public nonisolated enum DashboardBuilder {
             nextUp: nextUp(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
             needsAttention: needsAttention(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
             dueSoon: dueSoon(planner: snapshot.planner, coursesByID: coursesByID, now: now),
-            weekAhead: weekAhead(planner: snapshot.planner, now: now),
+            weekAhead: weekAhead(planner: snapshot.planner, coursesByID: coursesByID, now: now),
             changeDigestSummary: changeDigestSummary(digest: digest, asOf: digestAsOf))
     }
 
@@ -500,19 +522,29 @@ public nonisolated enum DashboardBuilder {
 
     // MARK: - Week ahead (§1.2 rank 5, §1.3 "Week ahead" variant)
 
-    private static func weekAhead(planner: [PlannerItem], now: Date) -> [DashboardProjection.WeekDay] {
+    private static func weekAhead(planner: [PlannerItem], coursesByID: [CanvasID<Course>: Course],
+                                  now: Date) -> [DashboardProjection.WeekDay] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let today = calendar.startOfDay(for: now)
         return (0..<7).map { offset in
             let day = calendar.date(byAdding: .day, value: offset, to: today) ?? today
             let nextDay = calendar.date(byAdding: .day, value: 1, to: day) ?? day
-            let count = planner.filter { item in
-                guard let due = item.dueAt else { return false }
-                return due >= day && due < nextDay
-            }.count
-            return DashboardProjection.WeekDay(id: day, date: day, dueCount: count,
-                                               isBusy: count >= InsightsConfig.overloadMinItems)
+            // Idea 10/11: `item.dueAt` is force-unwrapped nowhere -- each pair already proved it
+            // non-nil and within the day, so the later `.map` only ever reads the paired `Date`.
+            let dueToday: [(item: PlannerItem, due: Date)] = planner.compactMap { item in
+                guard let due = item.dueAt, due >= day, due < nextDay else { return nil }
+                return (item, due)
+            }
+            let items = dueToday
+                .sorted { $0.due < $1.due }
+                .map { pair in
+                    DashboardProjection.WeekDayItem(id: pair.item.id, title: pair.item.title,
+                                                    courseCode: pair.item.courseID.flatMap { coursesByID[$0]?.courseCode },
+                                                    dueAt: pair.due, url: pair.item.htmlURL)
+                }
+            return DashboardProjection.WeekDay(id: day, date: day, dueCount: dueToday.count,
+                                               isBusy: dueToday.count >= InsightsConfig.overloadMinItems, items: items)
         }
     }
 

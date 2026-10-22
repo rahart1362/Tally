@@ -25,6 +25,10 @@ struct DashboardView: View {
     /// phone, else the static 16 pt) instead of the title alone picking up the system's wider
     /// margin.
     @State private var screenMargin: CGFloat = TallySpacing.screenMargin
+    /// Idea 10 ("Add this week to Calendar"): the draft the system's per-item sheet is showing,
+    /// and the rest of the week's drafts still to walk through once it closes.
+    @State private var weekAddDraft: CalendarEventDraft?
+    @State private var weekAddQueue: [CalendarEventDraft] = []
 
     var body: some View {
         #if DEBUG
@@ -61,7 +65,8 @@ struct DashboardView: View {
                     NeedsAttentionSection(items: model.dashboard.needsAttention)
                     // M3-C (UX-WP-12): the reminders tip, once work is due; renders nothing otherwise.
                     RemindersTip(hasUpcomingDueItem: !model.dashboard.dueSoon.isEmpty, isSampleData: model.isSampleData)
-                    WeekAheadSection(days: model.dashboard.weekAhead)
+                    WeekAheadSection(days: model.dashboard.weekAhead,
+                                     onAddWeek: { startAddingWeek(model.dashboard.weekAhead) })
                     // Idea 3 (`ideas1/report.md` "Surface \"Momentum\" streak on the Dashboard"):
                     // the existing Insights streak, reused verbatim. Renders nothing without a
                     // current streak, or in parent mode (`MomentumStreakRow`).
@@ -85,6 +90,30 @@ struct DashboardView: View {
         // variant, so the opaque fill never paints over "Dashboard" at rest.
         .tallyLargeTitleScreenChrome()
         .navigationTitle(String(localized: L10n.Dashboard.navigationTitle()))
+        // Idea 10: walks the queue one system sheet at a time -- each one is its own
+        // zero-permission confirm (R6); this only decides what opens next. Cancelling one item
+        // (the system editor's own Cancel) still advances to the next, the same as a tap on
+        // "Add": a bulk walk that stopped dead on the first skip would defeat the point of it.
+        .sheet(item: $weekAddDraft) { draft in
+            AddToCalendarView(draft: draft) { advanceWeekAddQueue() }
+                .ignoresSafeArea()
+        }
+    }
+
+    /// Idea 10: queues every draft but the first (shown at once) behind it.
+    private func startAddingWeek(_ days: [DashboardProjection.WeekDay]) {
+        var queue = WeekAheadCalendarDraft.drafts(for: days)
+        guard !queue.isEmpty else { return }
+        weekAddDraft = queue.removeFirst()
+        weekAddQueue = queue
+    }
+
+    private func advanceWeekAddQueue() {
+        guard !weekAddQueue.isEmpty else {
+            weekAddDraft = nil
+            return
+        }
+        weekAddDraft = weekAddQueue.removeFirst()
     }
 
     @ViewBuilder
@@ -515,10 +544,16 @@ private struct NeedsAttentionSection: View {
 
 private struct WeekAheadSection: View {
     let days: [DashboardProjection.WeekDay]
+    /// Idea 10 ("Add this week to Calendar"): starts walking the week's due items through the
+    /// system's per-item calendar sheet, one at a time.
+    let onAddWeek: () -> Void
     /// R1/D09 (round 2): every column reserves this HEIGHT for the glyph row, busy or not — never
     /// the glyph's own WIDTH, which is what forced every Week-ahead column to be at least as wide
     /// as the AX5 icon (7 × 49 pt columns = 415 pt on a 390 pt screen; Gate 2's `R1-overflow.jpg`).
     @ScaledMetric(relativeTo: .caption2) private var glyphRowHeight: CGFloat = 14
+
+    /// The button needs at least one due item this week to add; an empty week has nothing to add.
+    private var hasItemsThisWeek: Bool { days.contains { !$0.items.isEmpty } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: TallySpacing.sm) {
@@ -560,6 +595,15 @@ private struct WeekAheadSection: View {
             }
             .padding(TallySpacing.md)
             .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.card, style: .continuous))
+            if hasItemsThisWeek {
+                VStack(alignment: .leading, spacing: TallySpacing.xs) {
+                    Button(String(localized: L10n.Dashboard.addWeekButton()), action: onAddWeek)
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("dashboard.addWeekToCalendar")
+                }
+                .font(TallyTypography.subheadline)
+            }
         }
     }
 }

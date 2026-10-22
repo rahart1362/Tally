@@ -40,6 +40,24 @@ struct ScreenPresenterTests {
         }
     }
 
+    @Test("Idea 10 (\"Add this week to Calendar\"): the Week-ahead strip's due items become calendar drafts, title prefixed with the course code, ending at the deadline")
+    func weekAheadCalendarDrafts() async throws {
+        let (snapshot, _) = try await ScreenFixtures.projections("flagship")
+        let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: ScreenFixtures.anchor)
+        let items = state.weekAhead.flatMap(\.items)
+        #expect(!items.isEmpty, "flagship has no due item this week -- the test would pass vacuously")
+        let drafts = WeekAheadCalendarDraft.drafts(for: state.weekAhead)
+        #expect(drafts.count == items.count)
+        for (item, draft) in zip(items, drafts) {
+            #expect(draft.end == item.dueAt)
+            #expect(draft.start == item.dueAt.addingTimeInterval(-TimeInterval(WeekAheadCalendarDraft.leadMinutes * 60)))
+            #expect(draft.title == (item.courseCode.map { "\($0): \(item.title)" } ?? item.title))
+            #expect(draft.url == item.url)
+            #expect(!draft.isAllDay)
+            #expect(draft.location == nil)
+        }
+    }
+
     @Test("A11Y-08: the category chart's Audio Graph has the chart's title, its sentence and a point per category")
     func categoryChartDescriptor() async throws {
         let (snapshot, screens) = try await ScreenFixtures.projections("flagship")

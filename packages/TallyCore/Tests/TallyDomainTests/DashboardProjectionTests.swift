@@ -81,6 +81,33 @@ struct DashboardProjectionTests {
         #expect(calendar.isDate(state.weekAhead[0].date, inSameDayAs: Self.fixedNow))
     }
 
+    /// Idea 10 ("Add this week to Calendar") and Idea 11 ("Send my week"),
+    /// `pmo-audit/.build-audit/ideas1/report.md`: each day's `items` are exactly the items
+    /// `dueCount` already counts (never a class meeting or event, which the Week-ahead strip never
+    /// showed either), on that day, earliest first, with Canvas's own course code when the item
+    /// has one.
+    @Test("Week ahead items: one per due item, same day, in order, course code resolved from Canvas")
+    func weekAheadItemsMatchDueCounts() async throws {
+        let snap = try await snapshot()
+        let state = DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let coursesByCode = Dictionary(uniqueKeysWithValues: snap.courses.map { ($0.courseCode, $0) })
+        for day in state.weekAhead {
+            #expect(day.items.count == day.dueCount)
+            for item in day.items {
+                #expect(calendar.isDate(item.dueAt, inSameDayAs: day.date))
+                if let code = item.courseCode {
+                    #expect(coursesByCode[code] != nil, "unknown course code \(code)")
+                }
+            }
+            let dueDates = day.items.map(\.dueAt)
+            #expect(dueDates == dueDates.sorted())
+        }
+        #expect(state.weekAhead.flatMap(\.items).contains { $0.courseCode != nil },
+               "flagship has no course-coded due item this week -- the test would pass vacuously")
+    }
+
     @Test("digest chip: non-empty digest with an asOf date produces a summary mentioning the count")
     func digestChipSummary() async throws {
         let old = try await snapshot()
