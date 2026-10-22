@@ -94,7 +94,7 @@ struct ToDoScreen: View {
             if editMode.isEditing {
                 ToolbarItem(placement: .bottomBar) {
                     Button(String(localized: L10n.ToDo.markDoneButton())) {
-                        model.local.setDone(selection, done: true)
+                        model.setDone(selection, done: true)
                         selection.removeAll()
                         withAnimation { editMode = .inactive }
                     }
@@ -108,11 +108,11 @@ struct ToDoScreen: View {
     private func row(_ item: ToDoItem) -> some View {
         let isDone = model.local.isDone(item.id)
         return ToDoRowView(item: item, isDone: isDone) {
-            model.local.setDone([item.id], done: !isDone)
+            model.setDone([item.id], done: !isDone)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
-                model.local.setDone([item.id], done: !isDone)
+                model.setDone([item.id], done: !isDone)
             } label: {
                 Label(isDone ? String(localized: L10n.ToDo.swipeNotDone()) : String(localized: L10n.ToDo.swipeDone()),
                       systemImage: isDone ? "arrow.uturn.backward" : "checkmark")
