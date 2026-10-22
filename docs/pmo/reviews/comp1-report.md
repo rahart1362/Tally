@@ -81,9 +81,9 @@ and `subscription.feature.privacy`.
 
 | Key | English | Translator comment |
 |---|---|---|
-| `subscription.paywall.renewalAutoCancel` | "Renews automatically at %@ until you cancel. Cancel anytime: Settings > Apple Account > Subscriptions, or Manage Subscription in Tally's Settings." | EB-18. Paywall, body size and the primary text colour, next to the purchase button: the price and period, that it renews automatically until cancelled, and how to cancel. The argument is the per-period price text, such as '$9.99/year' (never reformatted). |
+| `subscription.paywall.renewalAutoCancel` | "Renews automatically at %@ until you cancel. Cancel anytime in Settings > your name > Subscriptions, or Manage Subscription in Tally's Settings." | EB-18. Paywall, body size and the primary text colour, next to the purchase button: the price and period, that it renews automatically until cancelled, and how to cancel. The argument is the per-period price text, such as '$9.99/year' (never reformatted). |
 | `subscription.paywall.trialEndsThenCharged` | "Your free trial ends %1$@. Unless you cancel at least 24 hours before, you're then charged %2$@." | EB-18. Paywall, body size and the primary text colour, shown only with an eligible free trial: the date the trial ends and the charge that follows unless cancelled in time. 1: the trial's end date. 2: the price per period. |
-| `subscription.feature.privacyQualified` | "Your Canvas data stays on this iPhone — except what you choose to sync to Calendar or ask Siri." | EB-24(a), DRAFT for owner/counsel approval. Paywall, what's included: Tally has no server, but Calendar subscribing and Siri/Shortcuts leave the device through Apple's own systems. |
+| `subscription.feature.privacyQualified` | "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff." | EB-24(a), DRAFT for owner/counsel approval. Paywall, what's included: Tally has no server, but Calendar subscribing and Siri/Shortcuts leave the device through Apple's own systems. |
 | `subscription.confirmation.title` | "You're All Set" | EB-21. The retainable confirmation's title. |
 | `subscription.confirmation.amountLabel` | "Amount" | EB-21. The purchase confirmation: the row naming the price per period. |
 | `subscription.confirmation.renewsLabel` | "Renews" | EB-21. The purchase confirmation: the row naming the renewal date. |
@@ -97,3 +97,10 @@ The owner approves these before merge (copy rule).
 Evidence and run IDs are in the journal (`build/logs/journal/2026-10-21-comp1.md`) and the hand-off
 reply. Local Python hygiene checks and `make lint`/`make core-build`/`make core-test` all green;
 this host has no Xcode, so the iOS build/tests/UI tests/a11y suite/Audit tour wait for CI.
+
+## Owner copy approval (2026-10-21)
+All 8 keys are approved, with two PMO-proposed edits:
+- `subscription.feature.privacyQualified` → "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff." It names Handoff (FEAT-7, #69).
+- `subscription.paywall.renewalAutoCancel`'s cancel path → "Cancel anytime in Settings > your name > Subscriptions…", consistent with the approved store listing.
+
+es is updated to match (`needs_review`). The other six keys are approved as drafted.

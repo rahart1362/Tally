@@ -428,7 +428,7 @@ enum L10N04SpanishFixture {
         ("subscription.feature.dueDates", "Due dates, To-Do and Calendar, kept up to date", "Fechas de entrega, Por hacer y Calendario, al día"),
         ("subscription.feature.grades", "Grades and what-if for every course", "Calificaciones y simulaciones en cada curso"),
         ("subscription.feature.insights", "Insights, widgets and Shortcuts", "Estadísticas, widgets y Atajos"),
-        ("subscription.feature.privacyQualified", "Your Canvas data stays on this iPhone — except what you choose to sync to Calendar or ask Siri.", "Tus datos de Canvas permanecen en este iPhone, excepto lo que decidas sincronizar con Calendario o preguntarle a Siri."),
+        ("subscription.feature.privacyQualified", "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff.", "Tally no tiene servidor: tus datos de Canvas permanecen en este iPhone, excepto lo que decidas compartir con Calendario, Siri o Handoff."),
         ("subscription.feature.reminders", "Reminders before work is due", "Recordatorios antes de que venza el trabajo"),
         ("subscription.feature.workload", "Workload insights, widgets and Shortcuts", "Estadísticas de carga de trabajo, widgets y Atajos"),
         ("subscription.interstitial.checkMySchool", "Check My School", "Comprobar mi escuela"),

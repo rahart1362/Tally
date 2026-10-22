@@ -10184,13 +10184,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your Canvas data stays on this iPhone — except what you choose to sync to Calendar or ask Siri."
+            "value" : "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tus datos de Canvas permanecen en este iPhone, excepto lo que decidas sincronizar con Calendario o preguntarle a Siri."
+            "value" : "Tally no tiene servidor: tus datos de Canvas permanecen en este iPhone, excepto lo que decidas compartir con Calendario, Siri o Handoff."
           }
         }
       }
@@ -10526,13 +10526,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renews automatically at %@ until you cancel. Cancel anytime: Settings > Apple Account > Subscriptions, or Manage Subscription in Tally's Settings."
+            "value" : "Renews automatically at %@ until you cancel. Cancel anytime in Settings > your name > Subscriptions, or Manage Subscription in Tally's Settings."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Se renueva automáticamente a %@ hasta que la canceles. Cancélala cuando quieras: Configuración > Cuenta de Apple > Suscripciones, o Administrar suscripción en la Configuración de Tally."
+            "value" : "Se renueva automáticamente a %@ hasta que la canceles. Cancélala cuando quieras en Configuración > tu nombre > Suscripciones, o Administrar suscripción en la Configuración de Tally."
           }
         }
       }

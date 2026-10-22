@@ -78,7 +78,7 @@ extension L10n {
         public static func renewalAutoCancel(_ price: String) -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.paywall.renewalAutoCancel",
-                defaultValue: "Renews automatically at \(price) until you cancel. Cancel anytime: Settings > Apple Account > Subscriptions, or Manage Subscription in Tally's Settings.",
+                defaultValue: "Renews automatically at \(price) until you cancel. Cancel anytime in Settings > your name > Subscriptions, or Manage Subscription in Tally's Settings.",
                 bundle: #bundle,
                 comment: "EB-18. Paywall, body size and the primary text colour, next to the purchase button: the price and period, that it renews automatically until cancelled, and how to cancel. The argument is the per-period price text, such as '$9.99/year' (never reformatted).")
         }
@@ -142,7 +142,7 @@ extension L10n {
         public static func featurePrivacyQualified() -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.feature.privacyQualified",
-                defaultValue: "Your Canvas data stays on this iPhone — except what you choose to sync to Calendar or ask Siri.",
+                defaultValue: "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff.",
                 bundle: #bundle,
                 comment: "EB-24(a), DRAFT for owner/counsel approval. Paywall, what's included: Tally has no server, but Calendar subscribing and Siri/Shortcuts leave the device through Apple's own systems.")
         }

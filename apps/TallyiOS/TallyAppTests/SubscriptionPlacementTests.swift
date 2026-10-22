@@ -258,7 +258,7 @@ struct SubscriptionModelsTests {
         #expect(SubscriptionOfferText.trialEndsThenCharged(Self.offer, now: now)
             == "Your free trial ends \(dateText). Unless you cancel at least 24 hours before, you're then charged $9.99/year.")
         #expect(SubscriptionOfferText.renewalAutoCancel(Self.offer)
-            == "Renews automatically at $9.99/year until you cancel. Cancel anytime: Settings > Apple Account > Subscriptions, "
+            == "Renews automatically at $9.99/year until you cancel. Cancel anytime in Settings > your name > Subscriptions, "
             + "or Manage Subscription in Tally's Settings.")
     }
 
