@@ -7,9 +7,26 @@ public enum NotificationContent {
     public struct Rendered: Sendable, Equatable {
         public let title: String
         public let body: String
-        public init(title: String, body: String) {
+        /// ideas2 report #4: the opaque Canvas course ID this reminder concerns, `nil` for an
+        /// account-level reminder (digest, week ahead, the stale-data sentinel). The app layer
+        /// (`UNNotificationScheduler`) uses it to set the notification's Focus-filter criteria
+        /// (`FocusFilterCriteria.criteria(courseID:level:)`) so a "Study"/"Exam" Focus can
+        /// actually let through only the courses it names.
+        ///
+        /// Deliberately excluded from `==`: the reminders pass compares a freshly rendered
+        /// `Rendered` against one read back from the system's pending requests ("same
+        /// identifier, different words", `ReminderPipeline.reconcile`), which never carries a
+        /// course ID (the system notification center round-trips only title/body). Letting
+        /// `courseID` affect equality would make every reminder look "changed" on every pass.
+        public let courseID: String?
+        public init(title: String, body: String, courseID: String? = nil) {
             self.title = title
             self.body = body
+            self.courseID = courseID
+        }
+
+        public static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.title == rhs.title && lhs.body == rhs.body
         }
     }
 }

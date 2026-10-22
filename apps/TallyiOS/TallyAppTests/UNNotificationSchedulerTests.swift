@@ -2,6 +2,8 @@ import Foundation
 import Synchronization
 import TallyDomain
 import TallyFeatures
+// ideas2 report #4: FocusFilterCriteria, to verify the notification's Focus-filter criteria.
+import TallyIntents
 import TallySync
 import Testing
 import UserNotifications
@@ -198,6 +200,19 @@ struct UNNotificationSchedulerTests {
         #expect(UNNotificationScheduler.unInterruptionLevel(.timeSensitive) == .timeSensitive)
     }
 
+    /// ideas2 report #4: `focusLevel` is the one thing that decides whether "Only urgent alerts"
+    /// (`FocusFilterCriteria.urgentLevels == [.critical, .high]`) lets a reminder through.
+    @Test("focusLevel: Time Sensitive is always critical; an exam is urgent even before Time Sensitive")
+    func focusLevelMapping() {
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .due, level: .timeSensitive)) == .critical)
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .exam, level: .timeSensitive)) == .critical)
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .exam, level: .active)) == .high)
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .due, level: .active)) == .medium)
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .followup, level: .active)) == .medium)
+        #expect(UNNotificationScheduler.focusLevel(for: Self.reminder(kind: .digest, level: .passive)) == .info)
+        #expect(FocusFilterCriteria.urgentLevels.contains(.critical) && FocusFilterCriteria.urgentLevels.contains(.high))
+    }
+
     // MARK: - M3-C: the ReminderPlatform port (E07, UX-WP-12)
 
     @Test("M3-C: the composition root's adapter is a ReminderPlatform, so the pipeline finds it in the environment")
@@ -249,5 +264,32 @@ struct UNNotificationSchedulerTests {
         await UNNotificationScheduler(center: denied, logger: logger).schedule(Self.reminder(), content: rendered)
         #expect(denied.added.isEmpty)
         #expect(logger.names == ["notificationsNotAuthorized"])
+    }
+
+    /// ideas2 report #4: before this fix `request(...)` never set `filterCriteria`, so a "Study"/
+    /// "Exam" Focus (`TallyFocusFilter`) was configured and kept by the system but changed
+    /// nothing — every Tally notification always matched the filter's "no criteria" escape hatch.
+    @Test("ideas2 #4: schedule(_:content:) sets the notification's Focus-filter criteria from the content's course")
+    func scheduleSetsFocusFilterCriteria() async throws {
+        let allowed = FakeNotificationCenterClient(status: .authorized)
+        let scheduler = UNNotificationScheduler(center: allowed, logger: RecordingPlatformLogger())
+        let withCourse = NotificationContent.Rendered(title: "Lab Report 4 · BIO 101", body: "Due today at 6:00 PM.",
+                                                       courseID: "51842")
+        await scheduler.schedule(Self.reminder("tally.tests.criteria.course", kind: .exam, level: .active), content: withCourse)
+        let courseRequest = try #require(allowed.added.first { $0.identifier == "tally.tests.criteria.course" })
+        #expect(courseRequest.content.filterCriteria == FocusFilterCriteria.criteria(courseID: "51842", level: .high))
+
+        // An account-level reminder (no course) still gets criteria (never `nil`), so "only
+        // certain courses" never silently also lets every courseless reminder through.
+        let noCourse = NotificationContent.Rendered(title: "Evening digest", body: "3 things due tomorrow.")
+        await scheduler.schedule(Self.reminder("tally.tests.criteria.nocourse", kind: .digest, level: .passive), content: noCourse)
+        let digestRequest = try #require(allowed.added.first { $0.identifier == "tally.tests.criteria.nocourse" })
+        #expect(digestRequest.content.filterCriteria == FocusFilterCriteria.criteria(courseID: nil, level: .info))
+
+        // The generic single-arg path (NotificationReconciler's own `platform.schedule(_:)`, used
+        // when no resolved content exists) still sets criteria, courseless but never `nil`.
+        await scheduler.schedule(Self.reminder("tally.tests.criteria.generic", kind: .due, level: .timeSensitive))
+        let genericRequest = try #require(allowed.added.first { $0.identifier == "tally.tests.criteria.generic" })
+        #expect(genericRequest.content.filterCriteria == FocusFilterCriteria.criteria(courseID: nil, level: .critical))
     }
 }

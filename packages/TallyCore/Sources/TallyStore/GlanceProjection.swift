@@ -105,6 +105,10 @@ public struct GlanceDueItem: Codable, Sendable, Equatable, Identifiable {
 ///
 /// `entitledUntil` (PAY-04, M3-B1) is additive within schema 2: optional, absent from a glance
 /// written before it, which reads as "no verified entitlement".
+///
+/// `hideCourseNames` (ideas2 report #2, PMO R10) is additive within schema 2 the same way:
+/// `false` for a glance written before this field, which keeps today's (over-sharing) behaviour
+/// until the next commit or self-heal rewrites it with the student's real setting.
 public struct GlanceProjection: Codable, Sendable, Equatable {
     public static let currentSchemaVersion = 2
 
@@ -121,6 +125,12 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     /// only, never a receipt, a transaction ID or a price (encryption.md §3.3). `nil`: no verified
     /// entitlement (never subscribed, lapsed, refunded), or a glance written before this field.
     public let entitledUntil: Date?
+
+    /// ideas2 report #2 (PMO R10): `UserState.hideCourseNamesInNotifications`, mirrored here the
+    /// same way `includeGrades` already is, so `GlanceDisplayPolicy.hidesCourseNames` can read the
+    /// student's real setting instead of a hardcoded `false`. `false` for a glance written before
+    /// this field (see the type's doc comment).
+    public let hideCourseNames: Bool
 
     /// PAY-04, PAY-07: whether the subscription covers the widgets' and intents' content at
     /// `moment` (`EntitlementAccess.covers`, with the glance's `asOf` as a time this device has
@@ -159,10 +169,11 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     }
 
     public init(generation: UInt64, asOf: Date, gradeSummary: GlanceGradeSummary, courses: [GlanceCourse],
-                dueSoon: [GlanceDueItem], entitledUntil: Date? = nil) {
+                dueSoon: [GlanceDueItem], entitledUntil: Date? = nil, hideCourseNames: Bool = false) {
         schemaVersion = Self.currentSchemaVersion
         self.generation = generation; self.asOf = asOf; self.gradeSummary = gradeSummary
         self.courses = courses; self.dueSoon = dueSoon; self.entitledUntil = entitledUntil
+        self.hideCourseNames = hideCourseNames
     }
 
     /// Schema 1's shape, for tests and tools: a band, or no grades shown.
@@ -173,7 +184,7 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, generation, asOf, gradeSummary, courses, dueSoon, entitledUntil
+        case schemaVersion, generation, asOf, gradeSummary, courses, dueSoon, entitledUntil, hideCourseNames
     }
 
     /// Schema 1's grade field.
@@ -187,6 +198,7 @@ public struct GlanceProjection: Codable, Sendable, Equatable {
         courses = try container.decode([GlanceCourse].self, forKey: .courses)
         dueSoon = try container.decode([GlanceDueItem].self, forKey: .dueSoon)
         entitledUntil = try container.decodeIfPresent(Date.self, forKey: .entitledUntil)
+        hideCourseNames = try container.decodeIfPresent(Bool.self, forKey: .hideCourseNames) ?? false
         if schemaVersion >= 2 {
             gradeSummary = try container.decode(GlanceGradeSummary.self, forKey: .gradeSummary)
         } else {
@@ -219,10 +231,16 @@ public enum GlanceProjectionBuilder {
     /// (`UserState.doneAssignments`): an assignment planner item marked done is left out of
     /// `dueSoon`, the same as a submitted or excused one, so the "Mark Done" button's write
     /// (`RefreshCoordinator.updateDoneAssignments`) takes the item off the widget at once.
+    ///
+    /// `hideCourseNames` (ideas2 report #2, PMO R10) is the caller's resolved
+    /// `UserState.hideCourseNamesInNotifications` (never defaulted to `true`, the same discipline
+    /// `includeGrades` uses): mirrored onto the built `GlanceProjection` so
+    /// `GlanceDisplayPolicy.hidesCourseNames` can read it.
     public static func build(from snapshot: CanvasSnapshot, includeGrades: Bool,
                              gradeAvailability: GradeAvailabilityIndex? = nil,
                              entitledUntil: Date? = nil,
-                             doneAssignments: Set<CanvasID<Assignment>> = []) -> GlanceProjection {
+                             doneAssignments: Set<CanvasID<Assignment>> = [],
+                             hideCourseNames: Bool = false) -> GlanceProjection {
         let availability = gradeAvailability
             ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: snapshot.fetchedAt)
         // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
@@ -243,7 +261,7 @@ public enum GlanceProjectionBuilder {
                                 courses: courses,
                                 dueSoon: dueSoon(from: snapshot.planner, asOf: snapshot.fetchedAt, courseByID: courseByID,
                                                  doneAssignments: doneAssignments),
-                                entitledUntil: entitledUntil)
+                                entitledUntil: entitledUntil, hideCourseNames: hideCourseNames)
     }
 
     /// Plan 08 §4.4 row 15: a band only for a course whose grades are in Canvas and not hidden by
