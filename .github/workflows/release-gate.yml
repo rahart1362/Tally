@@ -505,19 +505,21 @@ jobs:
         id: build
         run: |
           set +e -o pipefail
-          # RELCFG-1 fix (gate run 39785596325): project.yml's `UITest` config setting sets
-          # SWIFT_ACTIVE_COMPILATION_CONDITIONS for the Tally.xcodeproj's own targets only -- Xcode
-          # does not propagate a custom per-configuration xcconfig setting into the local Swift
-          # package targets (TallyCore, TallyAppleKit) that actually declare LaunchTestHooks,
-          # SubscriptionTestHooks, AgeAssuranceTestHooks, EmptyLaunchSceneView and AppModel.testHooks.
-          # `make ios-perf` already gets this right for its own Release test build by passing the
-          # flag as an xcodebuild command-line override (Makefile IOS_PERF_CONDITIONS), which *does*
-          # apply uniformly across the whole target graph including packages. Without it here, the
-          # packages compile with TALLY_TEST_HOOKS unset, so `#if DEBUG || TALLY_TEST_HOOKS` drops
-          # those symbols and the app target's own (correctly-flagged) call sites fail with "cannot
-          # find X in scope" -- a real build failure, not a compliance-reporting bug.
+          # RELCFG-1 fix (gate runs 39785596325, 39828374659): project.yml's `UITest` config sets
+          # SWIFT_ACTIVE_COMPILATION_CONDITIONS and ENABLE_TESTABILITY for the Tally.xcodeproj's own
+          # targets only -- Xcode does not propagate a custom per-configuration xcconfig setting into
+          # the local Swift package targets (TallyCore, TallyAppleKit). Run 39785596325 failed with
+          # "cannot find 'LaunchTestHooks' in scope" (and four siblings) because the packages that
+          # declare the hooks never saw TALLY_TEST_HOOKS. Passing that alone got further, but run
+          # 39828374659 then failed TallyAppTests with "unable to resolve Swift module dependency to
+          # a compatible module: 'TallyFeatures'" on its `@testable import`, because the packages
+          # also never saw ENABLE_TESTABILITY=YES, so TallyFeatures.swiftmodule was built non-testable.
+          # `make ios-perf` already gets both right for its own Release test build by passing them as
+          # xcodebuild command-line overrides (Makefile IOS_PERF_CONDITIONS + ENABLE_TESTABILITY=YES
+          # on the same line), which *does* apply uniformly across the whole target graph including
+          # packages -- reusing that exact pair here instead of the configuration's own xcconfig.
           xcodebuild build-for-testing -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration UITest \
-            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) TALLY_TEST_HOOKS' \
+            ENABLE_TESTABILITY=YES 'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) TALLY_TEST_HOOKS' \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-uitest" \
             2>&1 | tee "$RUNNER_TEMP/build-uitest.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
           # 2>&1 above (gate run 39785596325): the final "** TEST BUILD FAILED **" banner came out on
