@@ -3577,6 +3577,78 @@
         }
       }
     },
+    "dashboard.weekAhead.shareButton" : {
+      "comment" : "Dashboard, Week-ahead strip: ShareLink label that shares the student's own plain-text weekly summary.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send My Week"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enviar mi semana"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareDayCountOnly" : {
+      "comment" : "Shared weekly summary text, one day's line with \"Hide Course Names\" on: the weekday abbreviation and how many items are due that day, never a title or course code. Placeholders: the weekday, the count.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %lld due"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@: %lld pendientes"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareDayTitles" : {
+      "comment" : "Shared weekly summary text, one day's line with \"Hide Course Names\" off: the weekday abbreviation and that day's item titles, comma-joined. Placeholders: the weekday, the already-joined titles.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@: %@"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareHeader" : {
+      "comment" : "Shared weekly summary text, first line: how many items are due this week. The placeholder is the count.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This week: %lld due"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esta semana: %lld pendientes"
+          }
+        }
+      }
+    },
     "dashboard.weekAheadHeader" : {
       "comment" : "Dashboard section header above the week strip.",
       "extractionState" : "manual",

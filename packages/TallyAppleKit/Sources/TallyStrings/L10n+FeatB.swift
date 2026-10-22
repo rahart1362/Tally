@@ -12,4 +12,31 @@ extension L10n.Dashboard {
         LocalizedStringResource("dashboard.weekAhead.addButton", defaultValue: "Add This Week to Calendar", bundle: #bundle,
                                 comment: "Dashboard, Week-ahead strip: button that walks the week's due items through the existing per-item \"Add to Calendar\" sheet, one at a time.")
     }
+
+    /// The Week-ahead strip's `ShareLink` (Idea 11): shares the plain-text weekly summary
+    /// `WeekShareText` builds.
+    public static func shareWeekButton() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.shareButton", defaultValue: "Send My Week", bundle: #bundle,
+                                comment: "Dashboard, Week-ahead strip: ShareLink label that shares the student's own plain-text weekly summary.")
+    }
+
+    /// `WeekShareText`'s first line: the week's total due count. The placeholder is that count.
+    public static func shareWeekHeader(_ dueCount: Int) -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.shareHeader", defaultValue: "This week: \(dueCount) due", bundle: #bundle,
+                                comment: "Shared weekly summary text, first line: how many items are due this week. The placeholder is the count.")
+    }
+
+    /// `WeekShareText`'s per-day line with \"Hide Course Names\" on (R10): a weekday and a count,
+    /// never a title or a course code.
+    public static func shareWeekDayCountOnly(_ weekday: String, _ dueCount: Int) -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.shareDayCountOnly", defaultValue: "\(weekday): \(dueCount) due", bundle: #bundle,
+                                comment: "Shared weekly summary text, one day's line with \"Hide Course Names\" on: the weekday abbreviation and how many items are due that day, never a title or course code. Placeholders: the weekday, the count.")
+    }
+
+    /// `WeekShareText`'s per-day line with \"Hide Course Names\" off: a weekday and the day's
+    /// items, titles joined by commas (course code first, like the Calendar tab's own drafts).
+    public static func shareWeekDayTitles(_ weekday: String, _ titles: String) -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.shareDayTitles", defaultValue: "\(weekday): \(titles)", bundle: #bundle,
+                                comment: "Shared weekly summary text, one day's line with \"Hide Course Names\" off: the weekday abbreviation and that day's item titles, comma-joined. Placeholders: the weekday, the already-joined titles.")
+    }
 }

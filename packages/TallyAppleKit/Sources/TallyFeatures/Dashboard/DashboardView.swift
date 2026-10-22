@@ -29,6 +29,13 @@ struct DashboardView: View {
     /// and the rest of the week's drafts still to walk through once it closes.
     @State private var weekAddDraft: CalendarEventDraft?
     @State private var weekAddQueue: [CalendarEventDraft] = []
+    /// Idea 11 ("Send my week"): `UserState.hideCourseNamesInNotifications` (R10), read directly
+    /// rather than through `SettingsModel` -- this screen only ever reads it, like
+    /// `ReminderPipeline` does off the main actor. Loaded once per appearance, like `trend` above;
+    /// a setting changed in Settings and shared again in the very same visit, without ever
+    /// backgrounding or refreshing the app in between, would still share by the value this screen
+    /// loaded before that change (the same visit-scoped staleness `trend` already accepts).
+    @State private var hideCourseNamesInShare = false
 
     var body: some View {
         #if DEBUG
@@ -66,7 +73,9 @@ struct DashboardView: View {
                     // M3-C (UX-WP-12): the reminders tip, once work is due; renders nothing otherwise.
                     RemindersTip(hasUpcomingDueItem: !model.dashboard.dueSoon.isEmpty, isSampleData: model.isSampleData)
                     WeekAheadSection(days: model.dashboard.weekAhead,
-                                     onAddWeek: { startAddingWeek(model.dashboard.weekAhead) })
+                                     onAddWeek: { startAddingWeek(model.dashboard.weekAhead) },
+                                     shareText: WeekShareText.text(days: model.dashboard.weekAhead,
+                                                                   hideCourseNames: hideCourseNamesInShare))
                     // Idea 3 (`ideas1/report.md` "Surface \"Momentum\" streak on the Dashboard"):
                     // the existing Insights streak, reused verbatim. Renders nothing without a
                     // current streak, or in parent mode (`MomentumStreakRow`).
@@ -82,6 +91,8 @@ struct DashboardView: View {
         // UX-SPARK-2: the same trend input the Courses tab's sparklines use; this task runs after
         // the first paint and is cancelled/retried exactly like `CoursesScreen`'s.
         .task(id: model.insightsScreen.trendInput) { await trend.load(model.insightsScreen.trendInput) }
+        // Idea 11: loaded once per appearance, like `trend` above.
+        .task { hideCourseNamesInShare = await model.userState.load().hideCourseNamesInNotifications }
         // Awaits the model-owned refresh until it settles or the live budget passes; never ties
         // the run to this view's task (plan 06 row 7, SH-2).
         .refreshable { await model.refreshUntilSettledOrDelayed() }
@@ -547,12 +558,15 @@ private struct WeekAheadSection: View {
     /// Idea 10 ("Add this week to Calendar"): starts walking the week's due items through the
     /// system's per-item calendar sheet, one at a time.
     let onAddWeek: () -> Void
+    /// Idea 11 ("Send my week"): the plain-text summary `ShareLink` shares.
+    let shareText: String
     /// R1/D09 (round 2): every column reserves this HEIGHT for the glyph row, busy or not — never
     /// the glyph's own WIDTH, which is what forced every Week-ahead column to be at least as wide
     /// as the AX5 icon (7 × 49 pt columns = 415 pt on a 390 pt screen; Gate 2's `R1-overflow.jpg`).
     @ScaledMetric(relativeTo: .caption2) private var glyphRowHeight: CGFloat = 14
 
-    /// The button needs at least one due item this week to add; an empty week has nothing to add.
+    /// Both new rows need at least one due item this week to act on; an empty week has nothing to
+    /// add or share.
     private var hasItemsThisWeek: Bool { days.contains { !$0.items.isEmpty } }
 
     var body: some View {
@@ -601,6 +615,12 @@ private struct WeekAheadSection: View {
                         .frame(minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
                         .accessibilityIdentifier("dashboard.addWeekToCalendar")
+                    ShareLink(item: shareText) {
+                        Text(L10n.Dashboard.shareWeekButton())
+                    }
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("dashboard.shareWeek")
                 }
                 .font(TallyTypography.subheadline)
             }
