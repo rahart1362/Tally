@@ -294,6 +294,38 @@ struct ReminderContentTests {
         #expect(whenToggleOn == message)
     }
 
+    /// ideas2 report #4: `content(for:...)` now carries the reminder's course (never a name) so
+    /// `UNNotificationScheduler` can set the Focus filter's criteria. `.due`'s `subjectID` is the
+    /// assignment's own ID, resolved through `itemsByID` to the assignment's real `courseID`;
+    /// `.belowGoal`'s `subjectID` is already the course's ID. An account-level reminder carries
+    /// none, since it concerns no single course.
+    @Test("content(for:) carries the reminder's course for the Focus filter, never a name")
+    func contentCarriesTheCourseForTheFocusFilter() async throws {
+        let planned = try await makePlan()
+        let format = ReminderTimeFormat(timeZone: ReminderTestSupport.timeZone, locale: ReminderTestSupport.locale)
+        let due = try #require(planned.plan.first { $0.kind == .due })
+        let item = try #require(planned.subjects.openItems.first { $0.assignment.id.rawValue == due.subjectID })
+        let dueContent = try #require(planned.subjects.content(for: due, accountKey: planned.account, hideCourseNames: false,
+                                                                lastSuccess: ReminderTestSupport.anchor, format: format))
+        #expect(dueContent.courseID == item.assignment.courseID.rawValue)
+
+        let course = try #require(planned.snapshot.courses.first)
+        let belowGoal = PendingReminder(id: "bg-course", kind: .belowGoal, fireDate: ReminderTestSupport.anchor,
+                                        interruptionLevel: .passive, subjectID: course.id.rawValue)
+        let belowGoalContent = try #require(planned.subjects.content(for: belowGoal, accountKey: planned.account,
+                                                                      hideCourseNames: false,
+                                                                      lastSuccess: ReminderTestSupport.anchor, format: format))
+        #expect(belowGoalContent.courseID == course.id.rawValue)
+
+        // weekAhead is unconditionally reserved (unlike the digest, which plans only when
+        // something is due in its window), so it is always present to assert against here.
+        let weekAhead = try #require(planned.plan.first { $0.kind == .weekAhead })
+        let weekAheadContent = try #require(planned.subjects.content(for: weekAhead, accountKey: planned.account,
+                                                                      hideCourseNames: false,
+                                                                      lastSuccess: ReminderTestSupport.anchor, format: format))
+        #expect(weekAheadContent.courseID == nil, "an account-level reminder concerns no single course")
+    }
+
     @Test("the final due reminder allows for a submission Tally can't see; the day-before one does not")
     func finalReminderIsConditional() async throws {
         let planned = try await makePlan()
