@@ -160,8 +160,14 @@ final class CourseDetailUITests: TallyUITestCase {
         let whatIf = element("courseDetail.whatIf", in: app)
         XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "no What-If button. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(whatIf, in: app)
+        XCTAssertTrue(element("whatif.simulationLabel", in: app).waitForExistence(timeout: 10),
+                      "What-If never opened. Hierarchy: \(app.debugDescription)")
+        // The goal section is the sheet's last: pull it to `.large` first (as the existing
+        // What-If test does), then scroll generously past every ungraded item's row.
+        let sheetBar = app.navigationBars["What-If"]
+        if sheetBar.waitForExistence(timeout: 5) { sheetBar.swipeUp() }
         let saveAsGoal = element("whatif.goal.saveAsGoal", in: app)
-        XCTAssertTrue(scrollUntilHittable(saveAsGoal, in: app, maxSwipes: 5), "no 'Save as goal' button. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(scrollUntilHittable(saveAsGoal, in: app, maxSwipes: 20), "no 'Save as goal' button. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(saveAsGoal, in: app)
         tapWhenHittable(app.buttons["whatif.done"], in: app)
 
