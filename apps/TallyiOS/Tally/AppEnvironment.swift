@@ -125,9 +125,25 @@ struct AppEnvironment {
         let subscription = SubscriptionModel(engine: SubscriptionEngine(
             source: source, records: KeychainEntitlementStore(),
             gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
+        // AGE-1: account-independent, like `accounts.json` — the age-assurance request happens
+        // before any sign-in (EB-01(b): "first launch after install"), so it uses the app's
+        // PRIVATE root (SEC1-09, #71: the App Group holds only the widget's own inputs; the widget
+        // never reads these files — a blocked minor's widgets rely on Apple's launch block, EB-04).
+        let ageAssuranceRoot: @Sendable () throws -> URL = { try StoreLocation.privateRoot() }
+        var ageAssurance = AgeAssuranceModel(
+            requester: DeclaredAgeRangeAdapter(), consent: SignificantChangeConsentAdapter(),
+            ageRating: AppStoreAgeRatingAdapter(), recordStore: AgeRequestRecordFileStore(root: ageAssuranceRoot),
+            versionStore: SignificantChangeVersionFileStore(root: ageAssuranceRoot), clock: SystemDateProvider())
+        #if DEBUG || TALLY_TEST_HOOKS
+        // AGE-1 (EB-01(h)): UI tests only (AgeAssuranceTestHooks); never compiled into a shipping
+        // Release build.
+        if let hookedAgeAssurance = AgeAssuranceTestHooks(arguments: ProcessInfo.processInfo.arguments).model() {
+            ageAssurance = hookedAgeAssurance
+        }
+        #endif
         let appModel = AppModel(accountRuntime: accountRuntime, logger: logger, accountEnvironment: accountEnvironment,
                                 launcher: LaunchBootstrapper(environment: resolvedEnvironment, launchRecords: launchRecords),
-                                lock: lock, subscription: subscription, storefront: appStore)
+                                lock: lock, subscription: subscription, storefront: appStore, ageAssurance: ageAssurance)
         #if DEBUG || TALLY_TEST_HOOKS
         if hooks.isActive { appModel.testHooks = hooks }
         #endif

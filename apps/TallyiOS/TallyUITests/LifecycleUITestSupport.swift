@@ -13,6 +13,9 @@ enum TestHooks {
     /// (`ReviewPathUITests`' proof of O6, which needs no signed-in account unlike `blockNetwork`).
     static let trapAllNetwork = ["-TallyTestHooks.trapAllNetwork", "YES"]
     static let demoSignIn = ["-TallyTestHooks.demoSignIn", "YES"]
+    /// AGE-1 (EB-01(h)): scripts a minor whose significant-change consent is denied, so
+    /// `AgeRestrictedView` shows over the signed-in Home (`AgeAssuranceTestHooks`).
+    static let ageRestricted = ["-TallyTestHooks.ageAssurance", "restricted"]
     static let signOutButton = ["-TallyTestHooks.signOutButton", "YES"]
     static let appLockOn = ["-TallyTestHooks.appLock", "on"]
 

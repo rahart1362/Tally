@@ -95,7 +95,7 @@
           "introductoryOffer" : {
             "internalID" : "7A11E5F1",
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P1M"
+            "subscriptionPeriod" : "P2W"
           },
           "localizations" : [
             {

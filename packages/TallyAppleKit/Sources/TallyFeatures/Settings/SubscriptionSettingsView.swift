@@ -25,7 +25,9 @@ struct SubscriptionSettingsView: View {
     /// "Check My School"/"Ask My School": Settings closes and the sample data ends.
     let onCheckMySchool: () -> Void
     @State private var actions: SubscriptionActionsModel
-    @State private var paywall: PaywallRequest?
+    /// The paywall, or (EB-21) the retainable confirmation -- one piece of local state so the two
+    /// can never both claim the one sheet below.
+    @State private var sheet: SubscriptionSettingsSheet?
     @State private var showsInterstitial = false
 
     init(appModel: AppModel, school: SchoolGradeSummary, onCheckMySchool: @escaping () -> Void) {
@@ -45,6 +47,11 @@ struct SubscriptionSettingsView: View {
                 if !isActive {
                     Button(String(localized: L10n.Subscription.seePlans())) { seePlans() }
                         .accessibilityIdentifier("subscription.seePlans")
+                } else if !isSchoolSeat {
+                    // EB-21: re-findable afterwards -- the same retainable confirmation the
+                    // paywall showed once, right after the purchase.
+                    Button(String(localized: L10n.Subscription.viewPurchaseConfirmation())) { sheet = .confirmation }
+                        .accessibilityIdentifier("subscription.viewConfirmation")
                 }
             } footer: {
                 Text(isSchoolSeat ? L10n.Subscription.settingsFooterSchool() : L10n.Subscription.settingsFooter())
@@ -101,7 +108,7 @@ struct SubscriptionSettingsView: View {
                     .accessibilityIdentifier("subscription.interstitial.askMySchool")
             }
             Button(String(localized: L10n.Subscription.continueToPlans())) {
-                paywall = PaywallRequest(trigger: .settings)
+                sheet = .paywall(PaywallRequest(trigger: .settings))
             }
             .accessibilityIdentifier(interstitialState.isNamed ? "subscription.interstitial.continue" : "")
         } message: {
@@ -112,19 +119,43 @@ struct SubscriptionSettingsView: View {
                 Text(L10n.Subscription.interstitialMessageNamedSchool(school: schoolName))
             }
         }
-        // The paywall from a view of its own, apart from Apple's sheets above (two presentations on one
-        // view can close each other: run 36976774341).
+        // The paywall (or, EB-21, the confirmation after it) from a view of its own, apart from
+        // Apple's sheets above (two presentations on one view can close each other: run
+        // 36976774341) -- `presentedSheet` below is the one binding for both, the same fix
+        // `HomeShellView.presentedSheet` uses for its own three.
         .background {
             Color.clear
-                .sheet(item: $paywall) { request in
+                .sheet(item: presentedSheet) { current in
                     // D30: a `.sheet` starts a fresh environment (HomeShellView's own sheet needs
                     // the same explicit `.tint` for the same reason), so the TabView's tint does
-                    // not reach this Paywall sheet either.
-                    PaywallView(model: PaywallModel(trigger: request.trigger, school: school, subscription: appModel.subscription,
-                                                    storefront: appModel.storefront))
-                        .tint(TallyColor.accent)
+                    // not reach this sheet either.
+                    switch current {
+                    case .paywall(let request):
+                        PaywallView(model: PaywallModel(trigger: request.trigger, school: school, subscription: appModel.subscription,
+                                                        storefront: appModel.storefront))
+                            .tint(TallyColor.accent)
+                    case .confirmation:
+                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront)
+                            .tint(TallyColor.accent)
+                    }
                 }
         }
+    }
+
+    /// EB-21: the local sheet (the paywall), or, once a direct purchase or trial start just
+    /// completed and nothing local is up, the retainable confirmation.
+    private var presentedSheet: Binding<SubscriptionSettingsSheet?> {
+        Binding(get: {
+            if let sheet { return sheet }
+            return appModel.subscription.justPurchased ? .confirmation : nil
+        }, set: { newValue in
+            guard newValue == nil else { return }
+            if sheet != nil {
+                sheet = nil
+            } else {
+                appModel.subscription.acknowledgeDirectPurchase()
+            }
+        })
     }
 
     private var statusText: String {
@@ -155,7 +186,7 @@ struct SubscriptionSettingsView: View {
         if PaywallPlacement.needsInterstitial(.settings, in: context) {
             showsInterstitial = true
         } else if PaywallPlacement.shows(.settings, in: context) {
-            paywall = PaywallRequest(trigger: .settings)
+            sheet = .paywall(PaywallRequest(trigger: .settings))
         }
     }
 
@@ -164,6 +195,21 @@ struct SubscriptionSettingsView: View {
     /// alert is up (there is none today) could not flip it under the student.
     private var interstitialState: SampleInterstitialState {
         SampleInterstitialState(notEnabledSchoolName: appModel.notEnabledSchoolName)
+    }
+}
+
+/// EB-21: `SubscriptionSettingsView`'s one sheet -- the paywall, or the retainable purchase
+/// confirmation right after a direct purchase or trial start (same reasoning as `HomeSheet`,
+/// `SubscriptionLockViews.swift`: one presenter so neither can close the other).
+nonisolated enum SubscriptionSettingsSheet: Identifiable, Equatable, Sendable {
+    case paywall(PaywallRequest)
+    case confirmation
+
+    var id: String {
+        switch self {
+        case .paywall(let request): request.id.uuidString
+        case .confirmation: "confirmation"
+        }
     }
 }
 
