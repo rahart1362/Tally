@@ -447,6 +447,13 @@ struct SettingsView: View {
     /// never `UserState`) feeding `CanvasLinkOpener`, which still runs `isSafe` first in both
     /// modes (SEC1-15). Shown whether or not an account is signed in: the choice has nothing
     /// Canvas-specific to show, only to act on later.
+    ///
+    /// Audit tour run 39738635603 (std and AX5, light and dark): a section header repeating the
+    /// Picker's own label read as a visible duplicate ("Open Canvas Links In" stacked on "Open
+    /// Canvas Links In · App") and, at AX5, an `overlap` finding between the two. No header here —
+    /// the Picker's own label is already the row's visible name, the same way `AppLockRows`'
+    /// "Require Unlock" grace-period picker (`privacySection`, same `.pickerStyle(.menu)`) carries
+    /// no section header of its own.
     private var canvasLinksSection: some View {
         Section {
             Picker(String(localized: L10n.Settings.canvasLinksLabel()), selection: Binding(
@@ -457,9 +464,6 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier("settings.canvasLinks")
-        } header: {
-            Text(L10n.Settings.canvasLinksLabel())
-                .tallySectionText()
         }
     }
 
