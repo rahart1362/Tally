@@ -57,6 +57,11 @@ let package = Package(
                 // (depending on it directly, rather than relying on the transitive re-export
                 // `TallyFeatures` doesn't provide: SwiftPM dependencies are not transitive).
                 "TallyStrings",
+                // ideas2 report #4: `UNNotificationScheduler` sets each notification's Focus-filter
+                // criteria through `FocusFilterCriteria.criteria(courseID:level:)`. `TallyIntents`
+                // depends only on TallyDomain/TallySync/TallyStrings (never on TallyPlatform or
+                // TallyFeatures), so this is a sibling edge, not a cycle.
+                "TallyIntents",
             ]
         ),
 

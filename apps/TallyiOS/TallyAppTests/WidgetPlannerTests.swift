@@ -36,9 +36,10 @@ struct WidgetPlannerTests {
 
     private static func glance(_ items: [GlanceDueItem], courses: [GlanceCourse] = [],
                                grades: GlanceGradeSummary = .notOptedIn,
-                               entitledUntil: Date? = WidgetPlannerTests.entitledUntil) -> GlanceProjection {
+                               entitledUntil: Date? = WidgetPlannerTests.entitledUntil,
+                               hideCourseNames: Bool = false) -> GlanceProjection {
         GlanceProjection(generation: 1, asOf: asOf, gradeSummary: grades, courses: courses, dueSoon: items,
-                         entitledUntil: entitledUntil)
+                         entitledUntil: entitledUntil, hideCourseNames: hideCourseNames)
     }
 
     private static func summary(_ glance: GlanceProjection, at moment: Date = now) throws -> GlanceSummary {
@@ -175,7 +176,7 @@ struct WidgetPlannerTests {
         let glance = Self.glance(items)
         #expect(GlanceAccess.isUnlocked(glance, at: Self.now))
         #expect(GlanceTimelinePlanner.moment(of: glance, at: Self.now, calendar: Self.calendar).content != .message(.subscriptionRequired))
-        #expect(!GlanceDisplayPolicy.hidesCourseNames(glance), "the glance does not carry 'Hide course names' yet")
+        #expect(!GlanceDisplayPolicy.hidesCourseNames(glance), "off by default")
         let summary = try Self.summary(glance)
         #expect(!summary.hidesCourseNames)
 
@@ -189,6 +190,28 @@ struct WidgetPlannerTests {
         let expired = Self.glance(items, entitledUntil: Self.asOf)
         #expect(GlanceAccess.isUnlocked(expired, at: Self.asOf + grace - 1))
         #expect(!GlanceAccess.isUnlocked(expired, at: Self.asOf + grace))
+    }
+
+    /// ideas2 report #2: `GlanceDisplayPolicy.hidesCourseNames` used to read a hardcoded `false`
+    /// because `GlanceProjection` carried no field for it. Now it reads `glance.hideCourseNames`,
+    /// so a glance built with the setting on reaches the widgets, the Lock Screen and Siri (the
+    /// views and intent answers already branched on this flag; `GlanceSummary.hidesCourseNames` is
+    /// the one value every one of them reads).
+    @Test("Hide Course Names (ideas2 #2): the glance's own flag decides, on or off")
+    func hideCourseNamesReachesTheGlance() throws {
+        let items = [Self.item("noon", Self.date(6, 12))]
+
+        let off = Self.glance(items, hideCourseNames: false)
+        #expect(!GlanceDisplayPolicy.hidesCourseNames(off))
+        #expect(!(try Self.summary(off)).hidesCourseNames)
+
+        let on = Self.glance(items, hideCourseNames: true)
+        #expect(GlanceDisplayPolicy.hidesCourseNames(on))
+        #expect(try Self.summary(on).hidesCourseNames)
+
+        // Access (PAY-04) and the privacy flag are independent fields: toggling one never flips
+        // the other.
+        #expect(GlanceAccess.isUnlocked(on, at: Self.now))
     }
 
     @Test("M3-B2 O1: a timeline built before access ends gets a boundary right there, not just at the next one")

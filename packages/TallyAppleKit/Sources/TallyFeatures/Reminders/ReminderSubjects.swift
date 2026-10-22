@@ -55,7 +55,11 @@ nonisolated struct ReminderSubjects: Sendable {
                                                    courseWeight: weights.weight(of: assignment),
                                                    modifiers: Self.modifiers(assignment: assignment, course: course,
                                                                              availability: gradeAvailability[course.id], now: now))
-                candidates.append(ReminderCandidate(assignment: assignment, priority: priority))
+                // ideas2 report #1: the exam-title detector already shipped for Calendar/AlertEngine
+                // (`CalendarBuilder.isExam`) was never consulted here, so `isExam` stayed `false` and
+                // `ReminderPlanner`'s complete T-3d/T-1d/morning-of exam schedule never fired.
+                candidates.append(ReminderCandidate(assignment: assignment, isExam: CalendarBuilder.isExam(assignment.name),
+                                                    priority: priority))
                 items.append(Item(assignment: assignment, courseCode: course.courseCode, dueAt: due))
             }
         }
@@ -85,9 +89,28 @@ nonisolated struct ReminderSubjects: Sendable {
     /// (its subject is gone, or a digest has nothing due) and must not be scheduled.
     func content(for reminder: PendingReminder, accountKey: AccountKey, hideCourseNames: Bool,
                  lastSuccess: Date?, format: ReminderTimeFormat) -> NotificationContent.Rendered? {
-        message(for: reminder, accountKey: accountKey, hideCourseNames: hideCourseNames, lastSuccess: lastSuccess,
-                format: format)
-            .map { format.render($0, seenAt: reminder.fireDate) }
+        guard let message = message(for: reminder, accountKey: accountKey, hideCourseNames: hideCourseNames,
+                                    lastSuccess: lastSuccess, format: format) else { return nil }
+        let rendered = format.render(message, seenAt: reminder.fireDate)
+        // ideas2 report #4: carried alongside the words so `UNNotificationScheduler` can set the
+        // notification's Focus-filter criteria; never affects `Rendered`'s own equality (see its
+        // doc comment).
+        return NotificationContent.Rendered(title: rendered.title, body: rendered.body, courseID: courseID(for: reminder))
+    }
+
+    /// ideas2 report #4: the course this reminder concerns, for the Focus filter's criteria.
+    /// `subjectID` is the assignment's own ID for an item-level reminder (`itemsByID`'s key), and
+    /// already the course's own ID for `.belowGoal`/`.gradePosted` (`courseCodes`' key space, see
+    /// `message(for:...)`). `nil` for an account-level reminder, which concerns no single course.
+    private func courseID(for reminder: PendingReminder) -> String? {
+        switch reminder.kind {
+        case .due, .followup, .exam, .adHoc:
+            return itemsByID[reminder.subjectID]?.assignment.courseID.rawValue
+        case .belowGoal, .gradePosted:
+            return reminder.subjectID
+        case .digest, .weekAhead, .sentinel:
+            return nil
+        }
     }
 
     /// What `reminder` says, as values (plan 08 L10N-02), or `nil` as for `content`.

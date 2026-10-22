@@ -1,6 +1,8 @@
 import Foundation
 import TallyDomain
 import TallyFeatures
+// ideas2 report #4: FocusFilterCriteria, to set each notification's Focus-filter criteria.
+import TallyIntents
 import TallyStrings
 import TallySync
 import UserNotifications
@@ -167,17 +169,34 @@ public struct UNNotificationScheduler: NotificationScheduling {
         await schedule(reminder, text: content(reminder))
     }
 
-    private func schedule(_ reminder: PendingReminder, text: ReminderContent) async {
+    /// `courseID` (ideas2 report #4): the reminder's course, `nil` for the generic fallback
+    /// content (no snapshot to resolve a course from) and for an account-level reminder.
+    private func schedule(_ reminder: PendingReminder, text: ReminderContent, courseID: String? = nil) async {
         guard Self.mayAdd(await center.authorizationStatus()) else {
             logger.log(.notificationsNotAuthorized)
             return
         }
+        let criteria = FocusFilterCriteria.criteria(courseID: courseID, level: Self.focusLevel(for: reminder))
         let request = Self.request(id: reminder.id, title: text.title, body: text.body,
-                                   interruptionLevel: reminder.interruptionLevel, fireDate: reminder.fireDate)
+                                   interruptionLevel: reminder.interruptionLevel, fireDate: reminder.fireDate,
+                                   filterCriteria: criteria)
         do {
             try await center.add(request)
         } catch {
             logger.log(.notificationScheduleFailed)
+        }
+    }
+
+    /// ideas2 report #4: maps a reminder's existing kind and interruption level (no new data) to
+    /// the Focus filter's severity (`FocusFilterCriteria.Level`, `urgentLevels == [.critical,
+    /// .high]`). A Time Sensitive reminder is always critical; an exam reminder counts as urgent
+    /// even before it reaches Time Sensitive (T-3d/T-1d), since an exam matters more than a
+    /// routine due-date nudge at the same interruption level.
+    static func focusLevel(for reminder: PendingReminder) -> FocusFilterCriteria.Level {
+        switch reminder.interruptionLevel {
+        case .timeSensitive: .critical
+        case .active: reminder.kind == .exam ? .high : .medium
+        case .passive: .info
         }
     }
 
@@ -215,14 +234,23 @@ public struct UNNotificationScheduler: NotificationScheduling {
 
     /// Pure content/trigger construction, split out of `schedule` so it is
     /// directly testable without depending on notification authorization.
+    ///
+    /// `filterCriteria` (ideas2 report #4): a Focus filter (`TallyFocusFilter`,
+    /// `FocusFilterCriteria.predicate(courseIDs:onlyUrgent:)`) silences a notification only when
+    /// it carries criteria that fail that predicate; one with none (`nil`) always gets through.
+    /// `FocusFilterCriteria.criteria(courseID:level:)` never returns `nil`, so every reminder this
+    /// scheduler adds now actually participates in a Focus filter the student has configured,
+    /// where before none did.
     static func request(
-        id: String, title: String, body: String, interruptionLevel: InterruptionLevel, fireDate: Date
+        id: String, title: String, body: String, interruptionLevel: InterruptionLevel, fireDate: Date,
+        filterCriteria: String? = nil
     ) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.categoryIdentifier = reminderCategoryIdentifier
         content.interruptionLevel = unInterruptionLevel(interruptionLevel)
+        content.filterCriteria = filterCriteria
 
         let interval = max(1, fireDate.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
@@ -259,7 +287,7 @@ extension UNNotificationScheduler: ReminderPlatform {
     }
 
     public func schedule(_ reminder: PendingReminder, content: NotificationContent.Rendered) async {
-        await schedule(reminder, text: ReminderContent(title: content.title, body: content.body))
+        await schedule(reminder, text: ReminderContent(title: content.title, body: content.body), courseID: content.courseID)
     }
 
     public func pendingContents() async -> [String: NotificationContent.Rendered] {
