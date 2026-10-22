@@ -40,7 +40,7 @@ struct CourseGoalTests {
         // Every other course is unaffected: only SPAN-2's goal was set.
         for card in withGoal.courseCards where card.id != spanish.id {
             let before = try #require(withoutGoal.courseCards.first { $0.id == card.id })
-            #expect(card.health == before.health, card.code)
+            #expect(card.health == before.health, "\(card.code)")
         }
     }
 
