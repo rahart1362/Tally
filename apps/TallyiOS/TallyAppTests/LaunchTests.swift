@@ -116,9 +116,12 @@ struct LaunchBootstrapperTests {
         // record, so only the dependent steps are ordered: the reconcile before any file,
         // `accounts.json` before the account's glance and record.
         // SEC1-08: the pending-purge retry runs after the reconcile and before `accounts.json` is read.
+        // SEC1-09: the store migration (App Group → the app's private root) runs first, before the
+        // reconcile, so an upgrading install is never mistaken for a fresh one.
         #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall", "refreshRecord",
-                                   "retryPendingPurges"], "\(names)")
+                                   "retryPendingPurges", "storeMigration"], "\(names)")
         let order = { (step: String) in names.firstIndex(of: step) ?? .max }
+        #expect(order("storeMigration") < order("reconcileInstall"), "\(names)")
         #expect(order("reconcileInstall") < order("accounts"), "\(names)")
         #expect(order("reconcileInstall") < order("retryPendingPurges") && order("retryPendingPurges") < order("accounts"),
                 "\(names)")

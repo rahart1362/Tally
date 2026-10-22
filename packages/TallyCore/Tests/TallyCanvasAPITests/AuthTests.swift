@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TallyDomain
 import TallyTestSupport
 @testable import TallyCanvasAPI
 
@@ -105,5 +106,57 @@ struct AuthTests {
     ])
     func rejectsBadSchoolAddresses(_ input: String, _ expected: InstitutionHostError) {
         #expect(throws: expected) { try InstitutionHost.normalize(input) }
+    }
+
+    // MARK: - SEC1-05: per-institution redirect (RFC 9700 §4.4.2 mix-up defence)
+
+    @Test("the same host always derives the same id; two different hosts never collide")
+    func institutionIDIsStableAndDistinct() {
+        #expect(InstitutionID.derive(host: "canvas.northfield.example") == InstitutionID.derive(host: "canvas.northfield.example"))
+        #expect(InstitutionID.derive(host: "canvas.northfield.example") != InstitutionID.derive(host: "canvas.riverside.example"))
+        #expect(InstitutionID.derive(host: "canvas.northfield.example").count == TallyConfig.institutionIdHexLength)
+    }
+
+    @Test("case never changes the id: the host is normalized before hashing")
+    func institutionIDIsCaseInsensitive() {
+        #expect(InstitutionID.derive(host: "Canvas.Northfield.EXAMPLE") == InstitutionID.derive(host: "canvas.northfield.example"))
+    }
+
+    @Test("the id never leaks the host as readable text")
+    func institutionIDIsOpaque() {
+        let id = InstitutionID.derive(host: "canvas.northfield.example")
+        #expect(!id.lowercased().contains("northfield"))
+        #expect(id.allSatisfy { $0.isHexDigit })
+    }
+
+    /// The actual mix-up defence (security.md §3.2 item 3; SEC1-05): two institutions' requests
+    /// carry two different redirect paths (derived from their own hosts), so a callback meant for
+    /// one can never validate against the other's pending request, even with a correct `state` and
+    /// `code` -- `OAuthCallback.code(from:for:now:)` needs no new logic for this: path equality
+    /// against `request.redirectURI.path` was already exact, so binding the path to the
+    /// institution is sufficient on its own.
+    @Test func aCallbackPathFromOneInstitutionNeverValidatesAgainstAnothers() throws {
+        func redirect(for host: String) -> URL {
+            URL(string: "https://tally-app.dev/oauth/callback/\(InstitutionID.derive(host: host))")!
+        }
+        var rng = SeededRandom(seed: 1)
+        let northfield = AuthorizationRequest.begin(host: "canvas.northfield.example", clientID: "170000000000001",
+                                                    redirectURI: redirect(for: "canvas.northfield.example"),
+                                                    now: clock.now(), using: &rng)
+        let riverside = AuthorizationRequest.begin(host: "canvas.riverside.example", clientID: "170000000000002",
+                                                   redirectURI: redirect(for: "canvas.riverside.example"),
+                                                   now: clock.now(), using: &rng)
+        #expect(northfield.redirectURI.path != riverside.redirectURI.path)
+
+        // Riverside's own callback, forged with Northfield's state (the mix-up this defence
+        // targets: Canvas sends no `iss`, so without a distinct path the client can't otherwise
+        // tell these two authorization servers' callbacks apart).
+        let mixedUpCallback = URL(string: "https://tally-app.dev\(riverside.redirectURI.path)?code=stolen&state=\(northfield.state)")!
+        #expect(throws: OAuthCallbackError.wrongRedirect) {
+            try OAuthCallback.code(from: mixedUpCallback, for: northfield, now: clock.now())
+        }
+        // Each institution's own, matching callback still works.
+        let northfieldCallback = URL(string: "https://tally-app.dev\(northfield.redirectURI.path)?code=abc&state=\(northfield.state)")!
+        #expect(try OAuthCallback.code(from: northfieldCallback, for: northfield, now: clock.now()) == "abc")
     }
 }
