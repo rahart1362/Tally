@@ -48,8 +48,11 @@ class TallyUITestCase: XCTestCase {
     /// maximum is 300 s). The 120 s default was too tight for this environment: in run
     /// 36370850272 `testSchoolNotEnabledToSampleData` spent 80 s in "Open app" (the app process
     /// started 76 s after the test began) and 20.7 s in its first search-field tap (first keyboard
-    /// presentation), then hit 120 s. A real hang still fails within 4 minutes.
-    static let executionAllowance: TimeInterval = 240
+    /// presentation), then hit 120 s. PMO 2026-10-22: 240 s was exceeded on loaded runners by
+    /// `testSchoolNotEnabledToSampleData` (#62, #74) and `CalendarUITests` (#77) on both tries, with
+    /// the suite much larger post-MVP. Raised to 360 s (the command line's max is now 420, the
+    /// Makefile's IOS_MAX_TEST_ALLOWANCE). A real hang still fails within 6 minutes.
+    static let executionAllowance: TimeInterval = 360
 
     /// How much longer the helpers below wait when this test process runs under a sanitizer. The
     /// instrumented simulator is several times slower: on PR #2 (run 36434300284) the UI tests under

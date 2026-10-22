@@ -35,6 +35,47 @@ struct SnapshotStoreTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted() == ["glance.v1.sealed", "snapshot.v1.sealed"])
     }
 
+    /// SEC1-09: with `sharedRoot` given, a commit puts the glance there and only there — `root`
+    /// (the app's own storage) ends up with the snapshot alone, exactly the files the widget
+    /// never needs to read.
+    @Test func sharedRootPutsOnlyTheGlanceInTheAppGroupDirectory() async throws {
+        let root = try tempStoreDirectory()
+        let sharedRoot = try tempStoreDirectory()
+        let store = SnapshotStore(root: root, accountKey: accountKey, sealer: makeSealer(), sharedRoot: sharedRoot)
+
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1), includeGrades: false)
+
+        let privateDir = StoreLayout(root: root, accountKey: accountKey).accountDirectory
+        let sharedDir = StoreLayout(root: sharedRoot, accountKey: accountKey).accountDirectory
+        #expect(try FileManager.default.contentsOfDirectory(atPath: privateDir.path) == ["snapshot.v1.sealed"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: sharedDir.path) == ["glance.v1.sealed"])
+
+        guard case .loaded(let loaded) = await store.loadSnapshot() else { Issue.record("expected a loaded snapshot"); return }
+        #expect(loaded.generation == 1)
+        guard case .loaded(let glance) = await store.loadGlance() else { Issue.record("expected a loaded glance"); return }
+        #expect(glance.generation == 1)
+    }
+
+    /// The widget's own construction (`GlanceReader`): a non-owner, widget-audience reader built
+    /// with only the shared root can read the glance an owner committed there, with no access to
+    /// the private root at all.
+    @Test func aWidgetStyleReaderOverOnlyTheSharedRootReadsTheGlance() async throws {
+        let root = try tempStoreDirectory()
+        let sharedRoot = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let ownerSealer = VaultSealer(account: accountKey.rawValue, keyring: ring, mayCreateKeys: true)
+        let owner = SnapshotStore(root: root, accountKey: accountKey, sealer: ownerSealer, sharedRoot: sharedRoot)
+        try await owner.commit(CanvasSnapshotFixture.make(generation: 1), includeGrades: false)
+
+        let widgetSealer = VaultSealer(account: accountKey.rawValue, keyring: ring, mayCreateKeys: false)
+        // The widget only ever sees the App Group container: both of the reader's own roots are
+        // `sharedRoot` (it has no notion of the app's private storage at all).
+        let widget = SnapshotStore(root: sharedRoot, accountKey: accountKey, sealer: widgetSealer, isOwner: false)
+        guard case .loaded(let glance) = await widget.loadGlance() else { Issue.record("expected the widget to read the glance"); return }
+        #expect(glance.generation == 1)
+    }
+
     @Test func staleOrEqualGenerationIsRejectedAndOriginalSurvives() async throws {
         let root = try tempStoreDirectory()
         let store = SnapshotStore(root: root, accountKey: accountKey, sealer: makeSealer())

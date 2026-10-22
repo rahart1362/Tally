@@ -39,6 +39,7 @@ public enum SignOutUseCase {
         ledgerStore: SyncLedgerStore,
         notifications: any NotificationScheduling,
         storeRoot: URL,
+        sharedRoot: URL? = nil,
         keyring: VaultKeyring,
         now: Date = Date(),
         logger: any TallyLogger = NoOpLogger()
@@ -78,9 +79,10 @@ public enum SignOutUseCase {
         let idsToRemove = Set(ledger.notifications.keys).union(pendingOnPlatform)
         if !idsToRemove.isEmpty { await notifications.cancel(ids: idsToRemove) }
 
-        // 3. Crypto-shred the vault keys and delete the account's store files (snapshot, glance,
-        // user-state and the ledger all live in the one directory this removes).
-        try? AccountPurger.purge(accountKey: accountKey, root: storeRoot, keyring: keyring)
+        // 3. Crypto-shred the vault keys and delete the account's store files: the snapshot,
+        // user-state and the ledger under `storeRoot`, and the glance under `sharedRoot` when
+        // SEC1-09 put it in a different (App Group) directory.
+        try? AccountPurger.purge(accountKey: accountKey, root: storeRoot, sharedRoot: sharedRoot, keyring: keyring)
 
         // 4. Delete the Keychain credential.
         await credentialStore.delete()

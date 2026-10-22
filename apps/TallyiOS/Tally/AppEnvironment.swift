@@ -13,7 +13,8 @@ import TallyStore
 ///
 /// - `accountEnvironment`: the platform services an account needs (Keychain credential and vault
 ///   keys, the Keychain app-lock setting, the ephemeral `URLSession` transport, notifications,
-///   widget reloads, the App Group store root). Only `@concurrent` functions and actors use them.
+///   widget reloads, the app's private store root and the App Group's shared one — SEC1-09: only
+///   the glance ever goes in the shared root). Only `@concurrent` functions and actors use them.
 /// - `accountRuntime` (perf-app-runtime.md §7 step 7) owns the signed-in account's one
 ///   `RefreshCoordinator`, shared by the Home (through `appModel`) and `.backgroundTask`. It
 ///   resolves the account lazily, off the main actor (`AccountSessionFactory.activeCoordinator`:
@@ -53,17 +54,21 @@ struct AppEnvironment {
         // issue), so every key lives in the app's default group until a real Team ID exists
         // (GL-02). The widget's glance key needs the App Group group then (M2-C2).
         var accountEnvironment = AccountEnvironment(
-            storeRoot: { try StoreLocation.root(appGroupID: appGroupID) },
+            // SEC1-09: `storeRoot` is the app's own storage now (accounts.json and every account
+            // file except the glance); `sharedRoot` is the App Group container, the one place the
+            // widget can read, and holds only the glance.
+            storeRoot: { try StoreLocation.privateRoot() },
+            sharedRoot: { StoreLocation.sharedRoot(appGroupID: appGroupID) },
             // The legacy mock item is removed on a fresh install's first launch instead
             // (`removeLegacyCredentials`), off the main actor.
             credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false, logger: logger),
             keyring: VaultKeyring(store: KeychainVaultKeyStore()),
             lockPreferences: KeychainAppLockPreferenceStore(),
-            // FEAT-2: not sensitive the way the lock flag is, so a plain file beside the account
-            // stores (never Keychain) — `StoreLocation.root` already resolves the App Group
-            // container with its Application Support fallback.
+            // FEAT-2: not sensitive the way the lock flag is, so a plain file (never Keychain), in
+            // the app's PRIVATE root, not the App Group: SEC1-09 keeps the shared container to
+            // the widget's own inputs, and the widget never reads this (PMO, merging #68 into SEC-FIX-4).
             notEnabledSchoolPreferences: FileNotEnabledSchoolPreferenceStore(fileURL: {
-                try StoreLocation.root(appGroupID: appGroupID).appendingPathComponent("not-enabled-school.txt")
+                try StoreLocation.privateRoot().appendingPathComponent("not-enabled-school.txt")
             }),
             // FEAT-8 (Idea 7): also not sensitive, and never needed by the widget, so this one
             // lives in the app's own private root, never the shared App Group container.

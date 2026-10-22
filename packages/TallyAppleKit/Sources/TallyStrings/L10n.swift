@@ -575,6 +575,26 @@ public enum L10n {
             LocalizedStringResource("reminders.status.on", defaultValue: "On", bundle: #bundle,
                                     comment: "Settings, reminders row value: the permission is granted.")
         }
+
+        // MARK: - Idea 5 (FEAT-3): a per-student Quiet Hours override
+
+        public static func quietHoursStart() -> LocalizedStringResource {
+            LocalizedStringResource("reminders.quietHours.start", defaultValue: "Quiet Hours Start", bundle: #bundle,
+                                    comment: "Settings, Reminders section: label for the time picker that sets when quiet hours begin.")
+        }
+
+        public static func quietHoursEnd() -> LocalizedStringResource {
+            LocalizedStringResource("reminders.quietHours.end", defaultValue: "Quiet Hours End", bundle: #bundle,
+                                    comment: "Settings, Reminders section: label for the time picker that sets when quiet hours end.")
+        }
+
+        public static func quietHoursFooter() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "reminders.quietHours.footer",
+                defaultValue: "No reminder rings during quiet hours; it moves to just before quiet hours begin instead.",
+                bundle: #bundle,
+                comment: "Settings, Quiet Hours section footer: explains what the two time pickers above control.")
+        }
     }
 
     /// Onboarding (`TallyFeatures/Onboarding`; ux-ui.md §3.2).

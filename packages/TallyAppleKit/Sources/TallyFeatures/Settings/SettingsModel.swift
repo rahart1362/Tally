@@ -37,6 +37,11 @@ public final class SettingsModel {
     public private(set) var hideCourseNamesInNotifications = false
     /// The same, for the notification-names setting.
     public private(set) var hideCourseNamesSaveFailed = false
+    /// Idea 5 (FEAT-3): `UserState.quietHoursOverride`, or the Balanced default while unset
+    /// ("defaults stay as today when unset").
+    public private(set) var quietHours = QuietHours()
+    /// The same, for the Quiet Hours setting.
+    public private(set) var quietHoursSaveFailed = false
 
     private let userState: any UserStateAccess
     /// M3-C: runs a reminders pass once a notification setting is saved, so pending reminders are
@@ -56,6 +61,7 @@ public final class SettingsModel {
         thresholds = state.digestThresholds
         showGradesInWidgets = state.showGradesInGlance
         hideCourseNamesInNotifications = state.hideCourseNamesInNotifications
+        quietHours = state.quietHoursOverride ?? QuietHours()
         hasLoaded = true
     }
 
@@ -66,6 +72,18 @@ public final class SettingsModel {
         hideCourseNamesInNotifications = hide
         save({ $0.hideCourseNamesInNotifications = hide }, failed: { model, failed in
             model.hideCourseNamesSaveFailed = failed
+            if !failed { model.notificationSettingsSaved() }
+        })
+    }
+
+    /// Idea 5 (FEAT-3): either end of the Quiet Hours window, once saved feeding the pending
+    /// reminders exactly like `setHideCourseNamesInNotifications` does — a shifted fire time
+    /// changes under the same deterministic ID, so the next pass re-schedules it with the new time.
+    public func setQuietHours(_ newValue: QuietHours) {
+        guard newValue != quietHours else { return }
+        quietHours = newValue
+        save({ $0.quietHoursOverride = newValue }, failed: { model, failed in
+            model.quietHoursSaveFailed = failed
             if !failed { model.notificationSettingsSaved() }
         })
     }

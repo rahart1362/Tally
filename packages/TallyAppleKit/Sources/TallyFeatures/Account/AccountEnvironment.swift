@@ -10,9 +10,16 @@ import TallySync
 /// I/O is used only from `@concurrent` functions and actors (`LaunchBootstrapper`,
 /// `AccountSessionFactory`, `AccountSignOut`), never on the main actor.
 public nonisolated struct AccountEnvironment: Sendable {
-    /// Resolves the store root: the App Group container's `Library/Application Support/Tally`
-    /// (architecture.md §3.2). File-system I/O, so only ever called off the main actor.
+    /// Resolves the app-private store root (`StoreLocation.privateRoot()`; SEC1-09): `accounts.json`
+    /// and every account file except the glance. File-system I/O, so only ever called off the main
+    /// actor.
     public let storeRoot: @Sendable () throws -> URL
+    /// Resolves the App Group container (`StoreLocation.sharedRoot(appGroupID:)`; SEC1-09), or
+    /// `nil` when its entitlement is unavailable. The only file that ever goes here is the glance
+    /// — the one thing the widget reads. Defaults to `{ nil }`, which keeps every store on the one
+    /// root `storeRoot` resolves (what every test harness and test hook still wants); only the
+    /// composition root (`AppEnvironment.live()`) passes a real resolver.
+    public let sharedRoot: @Sendable () -> URL?
     /// Canvas tokens (Keychain, `AfterFirstUnlockThisDeviceOnly`).
     public let credentialStore: any CredentialStore
     /// The process's one keyring (`VaultKeyring`: "One instance per process, built at the
@@ -46,6 +53,7 @@ public nonisolated struct AccountEnvironment: Sendable {
 
     public init(
         storeRoot: @escaping @Sendable () throws -> URL,
+        sharedRoot: @escaping @Sendable () -> URL? = { nil },
         credentialStore: any CredentialStore,
         keyring: VaultKeyring,
         lockPreferences: any AppLockPreferenceStoring,
@@ -61,6 +69,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         entitlement: any EntitlementGating = UngatedEntitlement()
     ) {
         self.storeRoot = storeRoot
+        self.sharedRoot = sharedRoot
         self.credentialStore = credentialStore
         self.keyring = keyring
         self.lockPreferences = lockPreferences
@@ -78,7 +87,7 @@ public nonisolated struct AccountEnvironment: Sendable {
 
     /// A copy with the gateway replaced (test hooks).
     public func replacingGateway(_ override: @escaping @Sendable (AccountRecord) async -> any CanvasGateway) -> AccountEnvironment {
-        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+        AccountEnvironment(storeRoot: storeRoot, sharedRoot: sharedRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
                            canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
@@ -88,7 +97,7 @@ public nonisolated struct AccountEnvironment: Sendable {
 
     /// A copy with the transport replaced (test hooks: the stubbed token endpoint).
     public func replacingTransport(_ transport: any HTTPTransport) -> AccountEnvironment {
-        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+        AccountEnvironment(storeRoot: storeRoot, sharedRoot: sharedRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
                            canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
@@ -99,7 +108,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     /// A copy with the entitlement gate replaced (PAY-06, M3-B1 O3: a sign-in's coordinator asks
     /// `FirstSyncAllowance` until its first sync has finished).
     public func replacingEntitlement(_ entitlement: any EntitlementGating) -> AccountEnvironment {
-        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+        AccountEnvironment(storeRoot: storeRoot, sharedRoot: sharedRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
                            canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
@@ -112,7 +121,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     /// read `clock` through, never a shipping-code change: production always passes
     /// `SystemDateProvider()` here and nothing calls this outside `LaunchTestHooks`).
     public func replacingClock(_ clock: any DateProviding) -> AccountEnvironment {
-        AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
+        AccountEnvironment(storeRoot: storeRoot, sharedRoot: sharedRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
                            canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
@@ -120,9 +129,13 @@ public nonisolated struct AccountEnvironment: Sendable {
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
     }
 
-    /// The account's sealed snapshot store (its `glance` and `snapshot` files).
-    func snapshotStore(for account: AccountKey, root: URL) -> SnapshotStore {
-        SnapshotStore(root: root, accountKey: account, sealer: sealer(for: account))
+    /// The account's sealed snapshot store (its `glance` and `snapshot` files). `sharedRoot`
+    /// defaults to `nil`, which keeps the glance under `root` with everything else — pass
+    /// `environment.sharedRoot()` explicitly wherever SEC1-09's split should actually apply
+    /// (every production call site; test call sites that do not care about the split keep the
+    /// single-root behaviour by omitting it).
+    func snapshotStore(for account: AccountKey, root: URL, sharedRoot: URL? = nil) -> SnapshotStore {
+        SnapshotStore(root: root, accountKey: account, sealer: sealer(for: account), sharedRoot: sharedRoot)
     }
 
     func sealer(for account: AccountKey) -> VaultSealer {

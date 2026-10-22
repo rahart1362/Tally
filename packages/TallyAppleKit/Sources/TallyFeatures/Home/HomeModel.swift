@@ -86,6 +86,11 @@ public final class HomeModel {
     @ObservationIgnored private var hasEnded = false
     /// XG-04: hands a changed "grades kept outside Canvas" answer to the projector, then re-projects.
     private let overrideChanges = TaskBox()
+    /// Idea 4 (FEAT-3): the latest "Remind me" save, for tests to await. `userState`'s own
+    /// actor isolation (`AccountUserStateAccess`) already serializes overlapping read-modify-
+    /// write calls, so `TaskBox.replace`'s cancellation of the box's own reference never drops a
+    /// write that is already running.
+    private let remindMeSaving = TaskBox()
     /// The revision of the answers last handed to the projector (`HomeProjector` keeps the newest).
     @ObservationIgnored private var overridesRevision: UInt64 = 0
     /// FEAT-8: the store `canvasLinkPreference` is loaded from and saved to.
@@ -309,6 +314,23 @@ public final class HomeModel {
     /// Waits for the last `setCanvasLinkPreference(_:)` write (tests).
     func awaitCanvasLinkPreferencePersistence() async {
         await canvasLinkPreferencePersist.value()
+    }
+
+    /// Idea 4 (FEAT-3): To-Do's "Remind me" swipe/menu action. Persists `id`'s requested
+    /// `fireDate` into `UserState.adHocReminders` — the same storage, and so the same pipeline
+    /// pass, that plans every other reminder — rather than scheduling anything itself. The next
+    /// pass (triggered by the caller, same as "Hide Course Names") plans it through
+    /// `ReminderPlanner.plan`, which already drops it once the item is done, submitted or graded.
+    public func scheduleReminder(for id: CanvasID<Assignment>, fireDate: Date) {
+        let access = userState
+        remindMeSaving.replace(with: Task {
+            _ = try? await access.update { $0.adHocReminders[id] = fireDate }
+        })
+    }
+
+    /// Waits for the latest "Remind me" save (tests).
+    func awaitReminderScheduled() async {
+        await remindMeSaving.value()
     }
 
     /// Ends the subscriptions, the source and the projector: the snapshot is released.

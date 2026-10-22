@@ -1,3 +1,11 @@
+# General style, for a manual `swiftlint lint` from the repo root. Not run by CI or `make
+# lint` (that's `.swiftlint-crash-safety.yml`, CS-06's own four-rule gate, scoped to
+# packages/TallyCore/Sources, packages/TallyAppleKit/Sources and the app/widget targets).
+#
+# CLEANUP-1 deleted the legacy packages/Tally{AppFeature,Cache,...} tree and the old root
+# Package.swift this file used to also cover; its scope is now, by default (no `included:`
+# here), whatever SwiftLint finds under the repo root minus `excluded:` below -- in practice
+# packages/TallyCore, packages/TallyAppleKit and apps/TallyiOS.
 disabled_rules:
   - trailing_whitespace
 opt_in_rules:

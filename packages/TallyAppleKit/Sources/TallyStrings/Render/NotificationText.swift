@@ -29,6 +29,8 @@ public enum NotificationText {
                          body: resolve(until.map { Key.stillAcceptedUntil(when($0)) } ?? Key.noClosingDate(), locale))
         case .examReminder(let subject, let dueAt):
             return .init(title: subjectTitle(subject, locale: locale), body: resolve(Key.examBody(when(dueAt)), locale))
+        case .adHocReminder(let subject, let dueAt):
+            return .init(title: subjectTitle(subject, locale: locale), body: resolve(Key.adHocBody(when(dueAt)), locale))
         case .gradePosted(let course):
             return .init(title: resolve(Key.gradePostedTitle(), locale), body: courseLabel(course, locale: locale))
         case .belowGoal(let course):
@@ -138,6 +140,11 @@ public enum NotificationText {
         static func examBody(_ when: String) -> LocalizedStringResource {
             LocalizedStringResource("notification.exam.body", defaultValue: "Due \(when).", bundle: #bundle,
                                     comment: "Exam reminder body. The argument is a day and time, such as 'tomorrow at 9:00 AM'.")
+        }
+        static func adHocBody(_ when: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "notification.adHoc.body", defaultValue: "Due \(when).", bundle: #bundle,
+                comment: "The To-Do 'Remind me' action's one-off reminder body (idea 4, FEAT-3). The argument is the item's own due date and time, such as 'today at 6:00 PM'.")
         }
         static func gradePostedTitle() -> LocalizedStringResource {
             LocalizedStringResource("notification.gradePosted.title", defaultValue: "New grade posted", bundle: #bundle,

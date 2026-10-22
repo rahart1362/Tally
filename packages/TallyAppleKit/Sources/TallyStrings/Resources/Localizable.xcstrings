@@ -7201,6 +7201,24 @@
         }
       }
     },
+    "notification.adHoc.body" : {
+      "comment" : "The To-Do 'Remind me' action's one-off reminder body (idea 4, FEAT-3). The argument is the item's own due date and time, such as 'today at 6:00 PM'.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vence %@"
+          }
+        }
+      }
+    },
     "notification.belowGoal.body" : {
       "comment" : "Body of the 'needs attention' notification. 'Tally' is the app's name. The score is never shown in a notification.",
       "extractionState" : "manual",
@@ -7593,6 +7611,42 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Recordatorio de Tally"
+          }
+        }
+      }
+    },
+    "notifications.generic.adHoc.body" : {
+      "comment" : "Generic notification body: the student's own 'Remind me' request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally for the details."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abre Tally para ver los detalles."
+          }
+        }
+      }
+    },
+    "notifications.generic.adHoc.title" : {
+      "comment" : "Generic notification title: the student's own 'Remind me' request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Recordatorio"
           }
         }
       }
@@ -8907,6 +8961,60 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Abrir Configuración"
+          }
+        }
+      }
+    },
+    "reminders.quietHours.end" : {
+      "comment" : "Settings, Reminders section: label for the time picker that sets when quiet hours end.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quiet Hours End"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fin del horario sin interrupciones"
+          }
+        }
+      }
+    },
+    "reminders.quietHours.footer" : {
+      "comment" : "Settings, Quiet Hours section footer: explains what the two time pickers above control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reminder rings during quiet hours; it moves to just before quiet hours begin instead."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ningún recordatorio sonará durante el horario sin interrupciones; se adelanta a justo antes de que comience."
+          }
+        }
+      }
+    },
+    "reminders.quietHours.start" : {
+      "comment" : "Settings, Reminders section: label for the time picker that sets when quiet hours begin.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quiet Hours Start"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Inicio del horario sin interrupciones"
           }
         }
       }
@@ -11533,6 +11641,24 @@
         }
       }
     },
+    "todo.remindMe.confirmation" : {
+      "comment" : "VoiceOver announcement after tapping Remind Me on a To-Do row.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder set"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Recordatorio programado"
+          }
+        }
+      }
+    },
     "todo.section.dueLater" : {
       "comment" : "To-Do section header: work due later than 7 days out.",
       "extractionState" : "manual",
@@ -11889,6 +12015,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "No hecho"
+          }
+        }
+      }
+    },
+    "todo.swipe.remindMe" : {
+      "comment" : "To-Do row swipe/menu action: schedules one extra reminder for this item.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remind Me"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Recordarme"
           }
         }
       }

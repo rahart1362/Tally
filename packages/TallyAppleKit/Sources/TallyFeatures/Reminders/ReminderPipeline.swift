@@ -135,23 +135,33 @@ public nonisolated enum ReminderPipeline {
         // The done marks too (M3-C O2): an unreadable state keeps every reminder (none marked).
         // XG-04 O1 (plan 08 G-3): the student's "grades kept outside Canvas" answers, so the
         // priority's course modifiers classify each course as the Dashboard does; with no readable
-        // state every course is Automatic, as on a fresh install.
+        // state every course is Automatic, as on a fresh install. FEAT-3: idea 5's Quiet Hours
+        // override (nil keeps the Balanced default) and idea 4's pending "Remind me" requests (none
+        // with no readable state, same as every other field above).
         let hideCourseNames: Bool
         let doneAssignments: Set<CanvasID<Assignment>>
         let gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride]
+        let quietHoursOverride: QuietHours?
+        let adHocReminders: [CanvasID<Assignment>: Date]
         switch await UserStateStore(root: root, accountKey: accountKey, sealer: sealer, isOwner: false).load() {
         case .loaded(let state):
             hideCourseNames = state.hideCourseNamesInNotifications
             doneAssignments = state.doneAssignments
             gradeAvailabilityOverrides = state.gradeAvailabilityOverrides
+            quietHoursOverride = state.quietHoursOverride
+            adHocReminders = state.adHocReminders
         case .absent:
             hideCourseNames = UserState().hideCourseNamesInNotifications
             doneAssignments = []
             gradeAvailabilityOverrides = [:]
+            quietHoursOverride = nil
+            adHocReminders = [:]
         case .unavailable:
             hideCourseNames = true
             doneAssignments = []
             gradeAvailabilityOverrides = [:]
+            quietHoursOverride = nil
+            adHocReminders = [:]
         }
 
         let now = environment.clock.now()
@@ -164,8 +174,8 @@ public nonisolated enum ReminderPipeline {
         let remindersAllowed = await environment.entitlement.allows(.reminders)
         let plan = !remindersAllowed ? [] : ReminderPlanner.plan(
             accountKey: accountKey, candidates: subjects.candidates,
-            settings: ReminderSettings(preset: .balanced, hideCourseNames: hideCourseNames),
-            now: now, timeZone: format.timeZone, refresh: refresh)
+            settings: ReminderSettings(preset: .balanced, quietHours: quietHoursOverride ?? QuietHours(), hideCourseNames: hideCourseNames),
+            now: now, timeZone: format.timeZone, refresh: refresh, adHocReminders: adHocReminders)
         var desired: [PendingReminder] = []
         var contents: [String: NotificationContent.Rendered] = [:]
         for reminder in plan {

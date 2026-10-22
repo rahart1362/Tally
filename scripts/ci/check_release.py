@@ -153,10 +153,26 @@ DISCLAIMER = re.compile(r"not affiliated with.{0,80}Instructure", re.S)
 # shipping Swift tree is one of those two calls' argument, never an unrelated parameter of the same
 # name). A real string (defaultValue, or any other literal) is never matched by this.
 TRANSLATOR_COMMENT = re.compile(r'\bcomment\s*:\s*"(?:[^"\\]|\\.)*"')
-# Lines find-placeholders.sh lists on purpose, with the reason. Anything else in shipping code fails.
+# Lines find-placeholders.sh lists on purpose, with the reason. Anything else in shipping code
+# fails (REL.go-live.shipping-identifiers); anywhere else the scanner looks, anything not here
+# fails too (REL.go-live.unlinked-legacy) -- CLEANUP-1 deleted the unlinked pre-rewrite packages
+# that check used to name; what is left and allowlisted below is legitimate, intentional code,
+# never a leftover.
 PLACEHOLDER_ALLOWLIST = {
     "packages/TallyAppleKit/Sources/TallyPlatform/KeychainCredentialStore.swift":
         "deletes the pre-rewrite build's mock credential item (its legacy Keychain service) on init",
+    # The test proving the shipping behaviour above: it plants the pre-rewrite build's exact
+    # legacy Keychain item first, so it necessarily hard-codes the same legacy identifier.
+    "apps/TallyiOS/TallyAppTests/KeychainCredentialStoreTests.swift":
+        "plants, then asserts the removal of, the pre-rewrite build's legacy mock Keychain item",
+    # A deliberately-fake product ID, asserting the product catalogue has no role for it (the
+    # negative case placeholder domains exist to test in the first place).
+    "packages/TallyCore/Tests/TallyDomainTests/EntitlementPolicyTests.swift":
+        "asserts an unknown/placeholder product id has no entitlement role (a negative test case)",
+    # A test-only xcconfig fixture exercising the release checker's own bundle-ID-prefix
+    # detection; never a value this app's config ever carries.
+    "scripts/ci/check_storekit_products.py":
+        "builds a synthetic xcconfig fixture with a placeholder prefix, to test this checker's own prefix detection",
 }
 
 
@@ -376,8 +392,10 @@ def source_checks(root: pathlib.Path) -> list[Check]:
            if allowed else ""))
     add("REL.go-live.unlinked-legacy", "No legacy identifiers remain anywhere the scanner looks (GL-02)",
         not elsewhere, fmt(elsewhere) or "none", due="M5",
-        owner="PMO: delete the unlinked pre-rewrite packages (packages/Tally{Security,Data,CanvasKit,...}) and "
-              "update the legacy-cleanup test")
+        owner="PMO: CLEANUP-1 deleted the unlinked pre-rewrite packages this check used to name. A new hit "
+              "here is either a genuinely new legacy/placeholder identifier to remove, or legitimate, "
+              "intentional code (a test exercising the exact legacy value, say) that belongs in "
+              "PLACEHOLDER_ALLOWLIST (this file) instead")
 
     # Store listing metadata (§3.5), one check per locale folder.
     checks.extend(metadata_checks(root))
@@ -601,8 +619,8 @@ FLOWS = (
     Flow("REL.flow.11-denied-permissions", "Denied notifications and calendar leave the app usable",
          ("RemindersUITests/testTipAsksInContextAndSettingsShowsTheReminderState",), "Debug", "MVP",
          "proven for notifications only: calendar has no shipping feature yet (no EventKit import under "
-         "apps/TallyiOS/project.yml's dependency closure; packages/TallyCalendarSync is an unlinked legacy "
-         "package, REL.go-live.unlinked-legacy) — mvp1-report.md open items"),
+         "apps/TallyiOS/project.yml's dependency closure; the old TallyCalendarSync package this once named "
+         "was deleted, unlinked, by CLEANUP-1) — mvp1-report.md open items"),
     Flow("REL.flow.12-privacy-policy-link", "The privacy policy link opens",
          ("PaywallUITests/testPrivacyPolicyLinkOpens",), "Debug", "MVP", ""),
     Flow("REL.flow.13-sign-out-erase", "Sign out & erase leaves no Keychain item, cache, notification or widget data",

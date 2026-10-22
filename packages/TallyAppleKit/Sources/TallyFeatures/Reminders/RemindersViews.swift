@@ -1,5 +1,6 @@
 import SwiftUI
 import TallyDesignSystem
+import TallyDomain
 import TallyStrings
 import UIKit
 
@@ -18,6 +19,10 @@ nonisolated enum RemindersViewCopy {
     static var hideCourseNames: LocalizedStringResource { L10n.Reminders.hideCourseNames() }
     static var footer: LocalizedStringResource { L10n.Reminders.footer() }
     static var hideCourseNamesFooter: LocalizedStringResource { L10n.Reminders.hideCourseNamesFooter() }
+    // Idea 5 (FEAT-3): the Quiet Hours override.
+    static var quietHoursStart: LocalizedStringResource { L10n.Reminders.quietHoursStart() }
+    static var quietHoursEnd: LocalizedStringResource { L10n.Reminders.quietHoursEnd() }
+    static var quietHoursFooter: LocalizedStringResource { L10n.Reminders.quietHoursFooter() }
 }
 
 /// UX-WP-12: the Dashboard's reminders tip, under "Needs attention", once there is work due. It
@@ -137,6 +142,24 @@ struct RemindersSettingsSection: View {
                         Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
                             .font(TallyTypography.footnote)
                     }
+                    // Idea 5 (FEAT-3): a per-student Quiet Hours override, written to
+                    // `UserState.quietHoursOverride` and fed into the existing planner
+                    // (`ReminderPipeline`/`shiftOutOfQuietHours`). Each picker's own label names
+                    // "Quiet Hours" so the pair reads on its own, with no separate group title row.
+                    DatePicker(String(localized: RemindersViewCopy.quietHoursStart), selection: Binding(
+                        get: { Self.date(hour: settings.quietHours.startHour, minute: settings.quietHours.startMinute) },
+                        set: { settings.setQuietHours(Self.withStart($0, of: settings.quietHours)) }),
+                              displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("settings.reminders.quietHours.start")
+                    DatePicker(String(localized: RemindersViewCopy.quietHoursEnd), selection: Binding(
+                        get: { Self.date(hour: settings.quietHours.endHour, minute: settings.quietHours.endMinute) },
+                        set: { settings.setQuietHours(Self.withEnd($0, of: settings.quietHours)) }),
+                              displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("settings.reminders.quietHours.end")
+                    if settings.quietHoursSaveFailed {
+                        Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
+                            .font(TallyTypography.footnote)
+                    }
                 }
             } header: {
                 Text(RemindersViewCopy.sectionTitle)
@@ -146,6 +169,7 @@ struct RemindersSettingsSection: View {
                     // Built outside the Text(...) call (not literal-concatenated inside it): the
                     // separator is two plain newlines, not user-facing words.
                     let combined = String(localized: RemindersViewCopy.footer) + "\n\n" + String(localized: RemindersViewCopy.hideCourseNamesFooter)
+                        + "\n\n" + String(localized: RemindersViewCopy.quietHoursFooter)
                     Text(combined)
                         .tallySectionText()
                 }
@@ -154,5 +178,23 @@ struct RemindersSettingsSection: View {
                 if scenePhase == .active, !isSampleData { await reminders.refreshPermission() }
             }
         }
+    }
+
+    /// A `Date` carrying `hour:minute` (today, in the current calendar): `DatePicker`'s own
+    /// currency. Only the hour and minute ever round-trip back out (`withStart`/`withEnd`).
+    private static func date(hour: Int, minute: Int) -> Date {
+        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+    }
+
+    private static func withStart(_ newDate: Date, of quietHours: QuietHours) -> QuietHours {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+        return QuietHours(startHour: comps.hour ?? quietHours.startHour, startMinute: comps.minute ?? quietHours.startMinute,
+                          endHour: quietHours.endHour, endMinute: quietHours.endMinute)
+    }
+
+    private static func withEnd(_ newDate: Date, of quietHours: QuietHours) -> QuietHours {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+        return QuietHours(startHour: quietHours.startHour, startMinute: quietHours.startMinute,
+                          endHour: comps.hour ?? quietHours.endHour, endMinute: comps.minute ?? quietHours.endMinute)
     }
 }

@@ -26,13 +26,15 @@ public nonisolated enum AccountSignOut {
             await environment.lockPreferences.reset()
             return false
         }
+        let sharedRoot = environment.sharedRoot()
         let sealer = environment.sealer(for: account.accountKey)
         // `SignOutUseCase` bumps the coordinator's epoch again (idempotent) and needs one to exist.
         // When the Home never resolved one (for example, sign-out from the lock screen before any
         // projection), a coordinator over the store that never fetches stands in: it holds no
         // snapshot and is retired at once.
         let coordinator = coordinator ?? RefreshCoordinator(
-            gateway: RetiredGateway(), store: SnapshotStore(root: root, accountKey: account.accountKey, sealer: sealer),
+            gateway: RetiredGateway(),
+            store: SnapshotStore(root: root, accountKey: account.accountKey, sealer: sealer, sharedRoot: sharedRoot),
             clock: environment.clock, initialSnapshot: nil)
         let revokeDidFail = await SignOutUseCase.signOut(
             accountKey: account.accountKey,
@@ -43,6 +45,7 @@ public nonisolated enum AccountSignOut {
             ledgerStore: SyncLedgerStore(root: root, accountKey: account.accountKey, sealer: sealer),
             notifications: environment.notifications,
             storeRoot: root,
+            sharedRoot: sharedRoot,
             keyring: environment.keyring,
             now: environment.clock.now(),
             logger: environment.logger)
