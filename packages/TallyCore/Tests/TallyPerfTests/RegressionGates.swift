@@ -157,6 +157,19 @@ extension CoreBenchmarks {
             // recorded, still visible in the log, never silently green. This is the real open
             // risk this report calls out for the PMO -- resolving it needs an actual A13 (or
             // comparable) measurement, not a wider estimate guessed from this container alone.
+            // PERF-FIX-2 item 2 (perf1/report.md §4 opportunity 2, 2026-10-21): investigated
+            // before deciding whether to resolve this with an optimisation or a documented budget
+            // change. `CanvasSnapshot.init(from:)` (CanvasSnapshot.swift) is a plain field-by-field
+            // decode -- no ISO8601 string dates, no double-parsing, nothing a code change could
+            // cheaply remove -- so this is the JSON decoder's own cost for this much data, on this
+            // platform, not an app-code inefficiency. Three consecutive local `make core-perf`
+            // runs on this container (podman, same image CI uses, zero code changes between runs)
+            // all landed *positive*: +8.69ms, +8.32ms, +8.27ms headroom, nowhere near the -56.47ms
+            // this file already recorded on a contended run. That is further evidence for the
+            // existing conclusion, not a new one: the sign of this gate's headroom tracks shared-
+            // runner contention, not the code. No budget or ceiling number changed here -- doing so
+            // without real device data would only trade one guess for another -- see
+            // docs/pmo/reviews/perffix2-report.md for the proposal this leaves for the owner.
             withKnownIssue(
                 "snapshotDecodeDevice/stress sits within this container's own noise floor of its gated ceiling; needs real device data",
                 isIntermittent: true

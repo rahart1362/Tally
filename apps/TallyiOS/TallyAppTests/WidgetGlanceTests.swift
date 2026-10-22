@@ -32,6 +32,65 @@ final class WidgetGlanceTests: XCTestCase {
     private static let widgetSize = CGSize(width: 170, height: 170)
     private static let renderScale: CGFloat = 3
 
+    /// PERF-FIX-2 item 1 (perf1/report.md §4 opportunity 3): `GlanceReadCache` shares one
+    /// Keychain-backed glance read across every widget kind one process invocation serves,
+    /// instead of each kind opening the Keychain itself. Simulates `TallyWidgetsBundle`'s 5
+    /// `AppIntentConfiguration` kinds (`TallyWidgets.swift`) asking for the same scope: two race
+    /// concurrently (WidgetKit can ask for more than one kind's timeline at once), the rest ask
+    /// only once those two have settled, like a staggered refresh. The real read -- the app
+    /// commits a glance, the widget's own `GlanceReader` opens the real Keychain item through
+    /// `WidgetVaultKeyReader` -- must happen exactly once (`GlanceReadCache.realReadCount`, the
+    /// same call-count-probe pattern `HomeProjector.projectionCount` uses to prove "recomputes
+    /// exactly once" elsewhere), and every kind must get back the one correct, loaded glance.
+    func testSharedReadCacheAnswersEveryWidgetKindWithOneKeychainRead() async throws {
+        let bundleID = "dev.tally-app.tally.tests.widget-shared-read.\(UUID().uuidString)"
+        let appStore = KeychainVaultKeyStore(bundleID: bundleID)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("glance-shared-read-\(UUID().uuidString)",
+                                                                                 isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? appStore.deleteEverything()
+        }
+        let account = AccountKey.derive(host: "canvas.example.edu", userID: "shared-read")
+        let snapshot = CanvasSnapshotFixture.make(accountKey: account, courseCount: 3, dueItemCount: 5)
+        let owner = SnapshotStore(root: root, accountKey: account,
+                                  sealer: VaultSealer(account: account.rawValue, keyring: VaultKeyring(store: appStore),
+                                                      mayCreateKeys: true))
+        let committed = try await owner.commit(snapshot, includeGrades: true, entitledUntil: GlanceStoreFixture.entitledUntil)
+
+        let reader = GlanceReader(storeRoot: root, keyStore: WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: nil))
+        let cache = GlanceReadCache() // a fresh instance: never GlanceReadCache.shared in a test
+        let widgetKindCount = 5 // TallyWidgetsBundle's 5 AppIntentConfiguration widgets (TallyWidgets.swift)
+
+        async let firstKind = cache.read(.signedInStudent) { _ in await reader.read() }
+        async let secondKind = cache.read(.signedInStudent) { _ in await reader.read() }
+        var results = await [firstKind, secondKind]
+        while results.count < widgetKindCount {
+            results.append(await cache.read(.signedInStudent) { _ in await reader.read() })
+        }
+
+        XCTAssertEqual(results.count, widgetKindCount)
+        for result in results {
+            XCTAssertEqual(result, .loaded(committed), "every widget kind must see the one shared read's result")
+        }
+        let realReadCount = await cache.realReadCount
+        XCTAssertEqual(realReadCount, 1, "\(widgetKindCount) widget kinds must share one Keychain-backed read, not one each")
+    }
+
+    /// PMO review (2026-10-21): the shared read must never outlive its window. A widget extension
+    /// process can stay alive across timeline reloads, and a cached glance served after the app's
+    /// next refresh, or after Sign Out & Erase, would show stale data, or grades on a signed-out
+    /// Home Screen. Past `maxAge`, the next caller gets a fresh read with the new result.
+    func testSharedReadCacheRereadsAfterItsWindow() async {
+        let cache = GlanceReadCache(maxAge: .zero)
+        let first = await cache.read(.signedInStudent) { _ in .noGlance }
+        let second = await cache.read(.signedInStudent) { _ in .noAccount } // e.g. after sign-out
+        XCTAssertEqual(first, .noGlance)
+        XCTAssertEqual(second, .noAccount, "a read past the window must not be answered from the cache")
+        let realReadCount = await cache.realReadCount
+        XCTAssertEqual(realReadCount, 2)
+    }
+
     func testGlanceTimelineMemory() throws {
         try XCTSkipIf(Self.sanitizerRuntimeIsLoaded, "memory metrics are meaningless under a sanitizer's allocator")
         let bundleID = "dev.tally-app.tally.tests.widget-memory.\(UUID().uuidString)"
