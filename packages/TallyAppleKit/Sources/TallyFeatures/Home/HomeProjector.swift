@@ -27,6 +27,11 @@ public actor HomeProjector {
     /// The revision of `gradeAvailabilityOverrides`, so an older hand-over that arrives late never
     /// replaces a newer one.
     private var overridesRevision: UInt64 = 0
+    /// Idea 2 (FEAT-4): the student's own per-course grade goals; a course that is absent has none.
+    private(set) var courseGoals: [CanvasID<Course>: Double] = [:]
+    /// The revision of `courseGoals`, so an older hand-over that arrives late never replaces a
+    /// newer one.
+    private var goalsRevision: UInt64 = 0
     /// How many projections this projector has built (tests: "recomputes exactly once").
     private(set) var projectionCount = 0
     /// The snapshot being projected (tests: the signed-in Home projects the coordinator's
@@ -56,6 +61,18 @@ public actor HomeProjector {
         return true
     }
 
+    /// Idea 2 (FEAT-4): takes the student's own per-course grade goals for every later
+    /// projection. `revision` orders hand-overs the same way `setGradeAvailabilityOverrides` does.
+    /// Returns whether the goals changed, so the caller re-projects only then.
+    @discardableResult
+    public func setCourseGoals(_ goals: [CanvasID<Course>: Double], revision: UInt64) -> Bool {
+        guard revision >= goalsRevision else { return false }
+        goalsRevision = revision
+        guard goals != courseGoals else { return false }
+        courseGoals = goals
+        return true
+    }
+
     /// The projection of the installed snapshot at `now`, or `nil` when there is no snapshot yet.
     public func project(now: Date) -> HomeProjection? {
         guard let update = installed, let snapshot = update.snapshot else { return nil }
@@ -80,7 +97,7 @@ public actor HomeProjector {
             // M3-A: every screen's rows, in the student's locale, off the main actor.
             screens: ScreenProjections.build(
                 from: snapshot, formatter: ScreenFormatter(now: now, calendar: calendar, locale: locale),
-                gradeAvailability: gradeAvailability))
+                gradeAvailability: gradeAvailability, courseGoals: courseGoals))
     }
 
     /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).

@@ -14,6 +14,11 @@ import TallyStrings
 /// category sections name the category only (its weight is in the weights section).
 struct WhatIfSheet: View {
     let model: WhatIfModel
+    /// Idea 6 (FEAT-4): Course Detail passes this so the goal-mode section can offer a one-tap
+    /// "Set {percent}% as my goal", writing into `UserState.courseGoals` (idea 2). `nil` keeps
+    /// the sheet's own "nothing here persists" rule unchanged with no button shown — previews,
+    /// and the accessibility-tree tests in `GradeControlsViewTests.swift`, which never set it.
+    var onSaveGoal: ((Double) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -51,7 +56,7 @@ struct WhatIfSheet: View {
                     }
                     .tallyRow()
                 }
-                WhatIfGoalSection(model: model)
+                WhatIfGoalSection(model: model, onSaveGoal: onSaveGoal)
             }
             .listStyle(.insetGrouped)
             // D27/D31: 16 pt edges and the Tally dark palette, matching the ScrollView tabs.
@@ -465,6 +470,9 @@ private struct ScoreStepper: View {
 /// from `GoalSeek` through `GradeWork`.
 private struct WhatIfGoalSection: View {
     let model: WhatIfModel
+    /// Idea 6 (FEAT-4): `nil` shows no "Save as goal" button (previews, and the two
+    /// accessibility-tree tests in `GradeControlsViewTests.swift`).
+    var onSaveGoal: ((Double) -> Void)?
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -486,6 +494,18 @@ private struct WhatIfGoalSection: View {
                 .font(TallyTypography.cardTitle)
                 .foregroundStyle(TallyColor.textPrimary)
                 .accessibilityIdentifier("whatif.goal")
+            // Idea 6: a one-tap save of the target above into `UserState.courseGoals` (idea 2).
+            // The owner's "session-only" rule for What-If is otherwise unchanged: nothing else
+            // here persists, only this target percentage, only on this explicit tap.
+            if let onSaveGoal {
+                Button {
+                    onSaveGoal(model.goalPercent)
+                    AccessibilityAnnouncer.announce(String(localized: L10n.CourseDetail.whatIfGoalSavedConfirmation(goalPercentText)))
+                } label: {
+                    Text(L10n.CourseDetail.whatIfSaveAsGoalButton(goalPercentText))
+                }
+                .accessibilityIdentifier("whatif.goal.saveAsGoal")
+            }
         } header: {
             Text(L10n.CourseDetail.whatIfGoalHeader()).tallySectionText()
         } footer: {

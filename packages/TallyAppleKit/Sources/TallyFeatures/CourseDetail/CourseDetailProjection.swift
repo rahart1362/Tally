@@ -197,8 +197,11 @@ public nonisolated enum CourseDetailBuilder {
 
     /// - Parameter gradeAvailability: the projection's `GradeAvailabilityIndex` (plan 08 §4.3);
     ///   `nil` classifies the snapshot at `formatter.now` with no override.
+    /// - Parameter courseGoals: idea 2 (FEAT-4), the student's own per-course grade goals; a
+    ///   course absent from it has no goal, same as before this parameter existed.
     public static func details(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
-                               gradeAvailability: GradeAvailabilityIndex? = nil)
+                               gradeAvailability: GradeAvailabilityIndex? = nil,
+                               courseGoals: [CanvasID<Course>: Double] = [:])
         -> [CanvasID<Course>: CourseDetailProjection] {
         let availability = gradeAvailability
             ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
@@ -206,7 +209,7 @@ public nonisolated enum CourseDetailBuilder {
         for (index, course) in snapshot.courses.enumerated() where details[course.id] == nil {
             details[course.id] = detail(course: course, paletteIndex: index, snapshot: snapshot,
                                         availability: availability[course.id], school: availability.school,
-                                        formatter: formatter)
+                                        formatter: formatter, goal: courseGoals[course.id])
         }
         return details
     }
@@ -216,12 +219,12 @@ public nonisolated enum CourseDetailBuilder {
     /// and there is no category chart, no category percentage and no what-if.
     static func detail(course: Course, paletteIndex: Int, snapshot: CanvasSnapshot,
                        availability: GradeAvailability? = nil, school: SchoolGradeSummary = .undetermined,
-                       formatter: ScreenFormatter) -> CourseDetailProjection {
+                       formatter: ScreenFormatter, goal: Double? = nil) -> CourseDetailProjection {
         let groups = snapshot.groups[course.id] ?? []
         let periods = snapshot.gradingPeriods[course.id] ?? []
         let grade = GradeDisplay(course: course, availability: availability, school: school, formatter: formatter)
         let health = CourseHealthRules.evaluate(course: course, groups: groups, gradingPeriods: periods,
-                                                availability: availability, formatter: formatter).health
+                                                goal: goal, availability: availability, formatter: formatter).health
         let next = CourseCardBuilder.nextDue(in: groups, now: formatter.now)
         let inCanvas = grade.notInCanvas == nil
         let weights = inCanvas ? categoryWeights(course: course, groups: groups, formatter: formatter) : []

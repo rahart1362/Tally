@@ -131,6 +131,51 @@ final class CourseDetailUITests: TallyUITestCase {
         assertEveryButtonHasALabel(app, screen: "What-If")
     }
 
+    /// FEAT-4 idea 2 (per-course goal) and idea 6 (save a What-If goal as the course goal):
+    /// "Set a goal" starts an editable stepper plus "Remove goal", by identifier, never English
+    /// text (L10N-04). The what-if sheet's one-tap "Save as goal" then writes the same storage,
+    /// which Course Detail shows once the sheet closes.
+    @MainActor
+    func testSetAndRemoveACourseGoalAndSaveOneFromWhatIf() throws {
+        let app = launchSample()
+        openMath(app)
+
+        let setGoal = element("courseDetail.goal.set", in: app)
+        XCTAssertTrue(scrollUntilHittable(setGoal, in: app), "no 'Set a goal' button. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(setGoal, in: app)
+
+        let stepper = element("courseDetail.goal.stepper", in: app)
+        let remove = element("courseDetail.goal.remove", in: app)
+        XCTAssertTrue(stepper.waitForExistence(timeout: 5), "the goal stepper never appeared. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(stepper.label.contains("90"), "stepper: '\(stepper.label)'")
+        XCTAssertTrue(remove.exists, "Hierarchy: \(app.debugDescription)")
+
+        // Remove it: back to the entry button, and the stepper and Remove are both gone.
+        tapWhenHittable(remove, in: app)
+        XCTAssertTrue(eventually { setGoal.exists }, "Removing the goal did not bring back 'Set a goal'. Hierarchy: \(app.debugDescription)")
+        XCTAssertFalse(stepper.exists)
+        XCTAssertFalse(remove.exists)
+
+        // Idea 6: the what-if sheet's one-tap "Save as goal" writes the same per-course storage.
+        let whatIf = element("courseDetail.whatIf", in: app)
+        XCTAssertTrue(scrollUntilHittable(whatIf, in: app), "no What-If button. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(whatIf, in: app)
+        let saveAsGoal = element("whatif.goal.saveAsGoal", in: app)
+        XCTAssertTrue(scrollUntilHittable(saveAsGoal, in: app, maxSwipes: 5), "no 'Save as goal' button. Hierarchy: \(app.debugDescription)")
+        tapWhenHittable(saveAsGoal, in: app)
+        tapWhenHittable(app.buttons["whatif.done"], in: app)
+
+        // The goal section sits above where What-If was found, so scroll back up (the same
+        // `swipeDown` retry `ToDoUITests.swift` uses when a row may have scrolled off the top).
+        var reappeared = eventually(timeout: 5) { stepper.exists }
+        for _ in 0..<5 where !reappeared {
+            app.swipeDown(velocity: .slow)
+            reappeared = eventually(timeout: 2) { stepper.exists }
+        }
+        XCTAssertTrue(reappeared, "the goal stepper never reappeared after saving from What-If. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(eventually { stepper.label.contains("90") }, "stepper: '\(stepper.label)'")
+    }
+
     /// ux-fp2 D02 (S1): at AX XXXL a recent grade's score sits under its title on ONE line, and no
     /// text in its row overlaps another. The audit (run 37649050231) read "93.2/100" as
     /// "9 / 3.2/10 / 0": three lines in a column squeezed beside the title.

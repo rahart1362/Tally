@@ -118,8 +118,8 @@ struct UserStateStoreTests {
 
         let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
         guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
-        // FEAT-3: this fixture jumps straight from v4 to whatever is current (now v6), same as
-        // every other "payload older than the latest migration step" case already does.
+        // FEAT-3/FEAT-4: this fixture jumps straight from v4 to whatever is current (now v7),
+        // same as every other "payload older than the latest migration step" case already does.
         #expect(migrated.schemaVersion == UserState.currentSchemaVersion)
         #expect(migrated == v4State, "every v4 field kept, and no override")
         #expect(migrated.gradesOutsideCanvasOverride.isEmpty && migrated.gradeAvailabilityOverrides.isEmpty)
@@ -147,10 +147,51 @@ struct UserStateStoreTests {
 
         let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
         guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
-        #expect(migrated.schemaVersion == 6 && UserState.currentSchemaVersion == 6)
+        // FEAT-4: this fixture also jumps straight from v5 to whatever is current (now v7): the
+        // decode switch has no v6-specific case to land on, same as every "older than the latest
+        // migration step" payload.
+        #expect(migrated.schemaVersion == UserState.currentSchemaVersion && UserState.currentSchemaVersion == 7)
         #expect(migrated == v5State, "every v5 field kept, with no override and no ad-hoc reminders")
         #expect(migrated.quietHoursOverride == nil)
         #expect(migrated.adHocReminders.isEmpty)
+    }
+
+    /// v6 → v7 (FEAT-4 idea 2): every v6 field survives, and no course has a goal yet.
+    @Test func migratesV6PayloadAddingNoCourseGoals() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        let manual = ManualClassTime(id: "fixed-id", courseID: "202", weekday: 3, startMinutesFromMidnight: 480, endMinutesFromMidnight: 540)
+        let override = QuietHours(startHour: 22, startMinute: 30, endHour: 6, endMinute: 45)
+        let fireDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let v6State = UserState(showGradesInGlance: true, hideCourseNamesInNotifications: true, manualClassTimes: [manual],
+                                digestThresholds: DigestThresholds(global: .all, perCourse: ["51845": .points(2)]),
+                                courseOrder: ["51842", "51840"], doneAssignments: ["9001"],
+                                reminderTipDismissedUntil: Date(timeIntervalSince1970: 1_800_000_000),
+                                gradeAvailabilityOverrides: ["77301": .inCanvas, "77306": .keptOutsideCanvas],
+                                quietHoursOverride: override, adHocReminders: ["9002": fireDate])
+        var v6JSON = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(v6State)) as? [String: Any])
+        v6JSON["schemaVersion"] = 6
+        v6JSON["courseGoals"] = nil
+        let v6Data = try JSONSerialization.data(withJSONObject: v6JSON)
+        try ProtectedFile.atomicWrite(try sealer.seal(v6Data, file: .userState), to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
+        #expect(migrated.schemaVersion == 7 && UserState.currentSchemaVersion == 7)
+        #expect(migrated == v6State, "every v6 field kept, with no course goal")
+        #expect(migrated.courseGoals.isEmpty)
+    }
+
+    /// Idea 2 (FEAT-4): a course goal round-trips through the sealed store like any other field,
+    /// keyed by course ID.
+    @Test func courseGoalsRoundTrip() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let state = UserState(courseGoals: ["51845": 90, "51842": 85.5])
+        try await store.save(state)
+        guard case .loaded(let loaded) = await store.load() else { Issue.record("expected the saved UserState"); return }
+        #expect(loaded.courseGoals == ["51845": 90, "51842": 85.5])
     }
 
     /// Idea 5: the override round-trips through the sealed store like any other field.

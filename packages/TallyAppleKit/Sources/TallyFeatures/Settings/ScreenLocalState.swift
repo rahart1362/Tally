@@ -11,14 +11,19 @@ public nonisolated struct LocalScreenState: Codable, Equatable, Sendable {
     public var courseOrder: [CanvasID<Course>]
     public var doneAssignments: Set<CanvasID<Assignment>>
     public var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride]
+    /// Idea 2 (FEAT-4): the student's own per-course grade goal, a percentage; a course absent
+    /// here has no goal.
+    public var courseGoals: [CanvasID<Course>: Double]
     /// Increases with every change, so a store keeps the newest of two saves that race.
     public var revision: UInt64
 
     public init(courseOrder: [CanvasID<Course>] = [], doneAssignments: Set<CanvasID<Assignment>> = [],
-                gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:], revision: UInt64 = 0) {
+                gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:],
+                courseGoals: [CanvasID<Course>: Double] = [:], revision: UInt64 = 0) {
         self.courseOrder = courseOrder
         self.doneAssignments = doneAssignments
         self.gradeAvailabilityOverrides = gradeAvailabilityOverrides
+        self.courseGoals = courseGoals
         self.revision = revision
     }
 }
@@ -59,6 +64,8 @@ public final class ScreenLocalState {
     public private(set) var doneAssignments: Set<CanvasID<Assignment>> = []
     /// Plan 08 G-3 (XG-04): the student's per-course answers; a course that is absent is Automatic.
     public private(set) var gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:]
+    /// Idea 2 (FEAT-4): the student's own per-course grade goal; a course that is absent has none.
+    public private(set) var courseGoals: [CanvasID<Course>: Double] = [:]
 
     private let store: any LocalScreenStateStoring
     @ObservationIgnored private var revision: UInt64 = 0
@@ -79,6 +86,7 @@ public final class ScreenLocalState {
         courseOrder = stored.courseOrder
         doneAssignments = stored.doneAssignments
         gradeAvailabilityOverrides = stored.gradeAvailabilityOverrides
+        courseGoals = stored.courseGoals
     }
 
     public func setCourseOrder(_ order: [CanvasID<Course>]) {
@@ -112,6 +120,21 @@ public final class ScreenLocalState {
         return true
     }
 
+    /// Idea 2 (FEAT-4): the student's own goal for `course`, or `nil` for none.
+    public func courseGoal(for course: CanvasID<Course>) -> Double? {
+        courseGoals[course]
+    }
+
+    /// Sets (or, with `nil`, clears) one course's goal. Returns whether it changed; a change is
+    /// saved like any other.
+    @discardableResult
+    public func setCourseGoal(_ value: Double?, for course: CanvasID<Course>) -> Bool {
+        guard courseGoals[course] != value else { return false }
+        courseGoals[course] = value
+        persist()
+        return true
+    }
+
     /// Waits for the latest save (tests).
     func awaitSaved() async {
         await saving.value()
@@ -120,7 +143,8 @@ public final class ScreenLocalState {
     private func persist() {
         revision &+= 1
         let state = LocalScreenState(courseOrder: courseOrder, doneAssignments: doneAssignments,
-                                     gradeAvailabilityOverrides: gradeAvailabilityOverrides, revision: revision)
+                                     gradeAvailabilityOverrides: gradeAvailabilityOverrides,
+                                     courseGoals: courseGoals, revision: revision)
         let store = store
         saving.replace(with: Task { await store.save(state) })
     }

@@ -43,24 +43,27 @@ public nonisolated enum CourseCardBuilder {
     /// - Parameter gradeAvailability: the projection's `GradeAvailabilityIndex` (plan 08 §4.3,
     ///   built once by `HomeProjector`); `nil` classifies the snapshot at `formatter.now` with no
     ///   override.
+    /// - Parameter courseGoals: idea 2 (FEAT-4), the student's own per-course grade goals; a
+    ///   course absent from it has no goal, same as before this parameter existed.
     public static func cards(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
-                             gradeAvailability: GradeAvailabilityIndex? = nil) -> [CourseCard] {
+                             gradeAvailability: GradeAvailabilityIndex? = nil,
+                             courseGoals: [CanvasID<Course>: Double] = [:]) -> [CourseCard] {
         let index = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
         var seen = Set<CanvasID<Course>>()
         return snapshot.courses.enumerated().compactMap { position, course in
             // CS-07: a repeated course ID keeps its first position (List and ForEach need unique IDs).
             guard seen.insert(course.id).inserted else { return nil }
             return card(course: course, paletteIndex: position, snapshot: snapshot, availability: index[course.id],
-                        school: index.school, formatter: formatter)
+                        school: index.school, formatter: formatter, goal: courseGoals[course.id])
         }
     }
 
     static func card(course: Course, paletteIndex: Int, snapshot: CanvasSnapshot, availability: GradeAvailability?,
-                     school: SchoolGradeSummary, formatter: ScreenFormatter) -> CourseCard {
+                     school: SchoolGradeSummary, formatter: ScreenFormatter, goal: Double? = nil) -> CourseCard {
         let groups = snapshot.groups[course.id] ?? []
         let health = CourseHealthRules.evaluate(course: course, groups: groups,
                                                 gradingPeriods: snapshot.gradingPeriods[course.id] ?? [],
-                                                availability: availability, formatter: formatter)
+                                                goal: goal, availability: availability, formatter: formatter)
         let grade = GradeDisplay(course: course, availability: availability, school: school, formatter: formatter)
         let next = nextDue(in: groups, now: formatter.now)
         let nextText = next.map {

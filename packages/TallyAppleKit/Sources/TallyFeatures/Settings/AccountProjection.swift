@@ -34,16 +34,22 @@ public nonisolated struct ScreenProjections: Equatable, Sendable {
 
     /// `gradeAvailability`: the projection's `GradeAvailabilityIndex` (plan 08 §4.3, built once
     /// by `HomeProjector`); `nil` classifies the snapshot at `formatter.now` with no override.
+    /// `courseGoals`: idea 2 (FEAT-4), the student's own per-course grade goals; a course absent
+    /// from it has no goal, same as before this parameter existed.
     public static func build(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
-                             gradeAvailability: GradeAvailabilityIndex? = nil) -> ScreenProjections {
+                             gradeAvailability: GradeAvailabilityIndex? = nil,
+                             courseGoals: [CanvasID<Course>: Double] = [:]) -> ScreenProjections {
         // Plan 08 XG-03: one index for every screen (classified here when the caller has none).
         let index = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
         return ScreenProjections(
-            courseCards: CourseCardBuilder.cards(from: snapshot, formatter: formatter, gradeAvailability: index),
-            courseDetails: CourseDetailBuilder.details(from: snapshot, formatter: formatter, gradeAvailability: index),
+            courseCards: CourseCardBuilder.cards(from: snapshot, formatter: formatter, gradeAvailability: index,
+                                                 courseGoals: courseGoals),
+            courseDetails: CourseDetailBuilder.details(from: snapshot, formatter: formatter, gradeAvailability: index,
+                                                       courseGoals: courseGoals),
             toDo: ToDoBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: index),
             calendar: CalendarBuilder.projection(from: snapshot, formatter: formatter),
-            insights: InsightsBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: index),
+            insights: InsightsBuilder.projection(from: snapshot, formatter: formatter, gradeAvailability: index,
+                                                courseGoals: courseGoals),
             account: AccountProjection.build(from: snapshot))
     }
 }
