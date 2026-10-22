@@ -5,7 +5,10 @@ import TallyStrings
 
 /// `RootRoute.welcome`: onboarding's `NavigationStack` (Welcome, school search, sign-in hand-off,
 /// first sync), per the iOS 26 navigation shell in ux-ui.md §3.4. `RootView` creates a new
-/// instance each time the route becomes `.welcome`, so the stack's path always starts empty.
+/// instance each time the route becomes `.welcome`, so the stack's path always starts empty —
+/// except FEAT-2's one seeded case: `AppModel.checkMySchool()` leaves a destination
+/// (`consumePendingWelcomeRoute()`) that this `init` reads once, so "Check My School"/"Ask My
+/// School" lands on the remembered school's own "not enabled" page instead of a blank Welcome.
 ///
 /// Sign-in's first sync (plan 06 step 9) is the stack's last page, a plain page: when it finishes,
 /// `AppModel.finishFirstSync()` switches the root to the signed-in Home, which removes this whole
@@ -15,7 +18,14 @@ struct WelcomeFlowView: View {
     /// The sign-in pages' platform services (the composition root's).
     let signIn: SignInServices
 
-    @State private var path: [WelcomeRoute] = []
+    @State private var path: [WelcomeRoute]
+
+    init(appModel: AppModel, signIn: SignInServices) {
+        self.appModel = appModel
+        self.signIn = signIn
+        let seeded = appModel.consumePendingWelcomeRoute()
+        _path = State(initialValue: seeded.map { [$0] } ?? [])
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -65,6 +75,9 @@ struct WelcomeFlowView: View {
                                        schoolDisplayName: match.name))
                 },
                 onSelectNotEnabled: { school in
+                    // FEAT-2: persisted locally (never transmitted), so the sample-mode
+                    // interstitial and "Check My School" can name this school later.
+                    appModel.recordNotEnabledSchool(school)
                     path.append(.schoolNotEnabled(school: school))
                 }
             )

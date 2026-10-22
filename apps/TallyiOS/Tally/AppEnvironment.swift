@@ -64,6 +64,12 @@ struct AppEnvironment {
             credentialStore: KeychainCredentialStore(removeLegacyMockItemOnInit: false, logger: logger),
             keyring: VaultKeyring(store: KeychainVaultKeyStore()),
             lockPreferences: KeychainAppLockPreferenceStore(),
+            // FEAT-2: not sensitive the way the lock flag is, so a plain file (never Keychain), in
+            // the app's PRIVATE root, not the App Group: SEC1-09 keeps the shared container to
+            // the widget's own inputs, and the widget never reads this (PMO, merging #68 into SEC-FIX-4).
+            notEnabledSchoolPreferences: FileNotEnabledSchoolPreferenceStore(fileURL: {
+                try StoreLocation.privateRoot().appendingPathComponent("not-enabled-school.txt")
+            }),
             transport: transport,
             notifications: UNNotificationScheduler(),
             reloadWidgets: { WidgetReloader().reloadAllTimelines() },
