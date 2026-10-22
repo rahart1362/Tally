@@ -214,6 +214,16 @@ struct ToDoRowView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
+                // ideas2 report #5: a success haptic the moment the student completes a to-do —
+                // the row's single most rewarding micro-moment had no tactile acknowledgment at
+                // all, though `.sensoryFeedback` already shipped for far less consequential
+                // interactions (`WhatIfSheet.swift`, `StudentSwitcher.swift`). Attached once here
+                // (not also on the swipe action below, which toggles this same `isDone`) so the
+                // row toggle and the swipe action never double-fire it. The `condition` closure
+                // fires only on the done transition (`new == true`), never on undoing it: undoing
+                // a completion is not a success moment. `.sensoryFeedback` already respects the
+                // system's Reduce Motion/haptics settings on its own; no separate branch needed.
+                .sensoryFeedback(.success, trigger: isDone) { _, isNowDone in isNowDone }
                 .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
                                     : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
                 .accessibilityIdentifier("todo.complete")
