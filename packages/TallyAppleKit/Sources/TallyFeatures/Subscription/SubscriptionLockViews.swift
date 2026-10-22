@@ -165,15 +165,18 @@ struct FirstSyncPaywallTrigger: ViewModifier {
     }
 }
 
-/// The Home shell's one sheet (`HomeShellView.presentedSheet`): Settings, or the paywall.
+/// The Home shell's one sheet (`HomeShellView.presentedSheet`): Settings, the paywall, or (EB-21)
+/// the retainable purchase confirmation right after a direct purchase or trial start.
 nonisolated enum HomeSheet: Identifiable, Equatable, Sendable {
     case settings
     case paywall(PaywallRequest)
+    case purchaseConfirmation
 
     var id: String {
         switch self {
         case .settings: "settings"
         case .paywall(let request): request.id.uuidString
+        case .purchaseConfirmation: "purchaseConfirmation"
         }
     }
 }

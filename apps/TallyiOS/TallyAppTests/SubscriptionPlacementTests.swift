@@ -211,12 +211,55 @@ struct SubscriptionModelsTests {
         #expect(SubscriptionOfferText.price(Self.offer) == "$9.99/year")
         #expect(SubscriptionOfferText.spokenPrice(Self.offer) == "$9.99 per year")
         #expect(SubscriptionOfferText.duration(Self.offer) == "Subscription length: 1 year")
-        #expect(SubscriptionOfferText.trial(Self.offer) == "1 month free, then $9.99/year")
+        #expect(SubscriptionOfferText.trial(Self.offer) == "2 weeks free, then $9.99/year")
         let euro = SubscriptionOffer(displayPrice: "9,99 €", period: SubscriptionOffer.Period(value: 1, unit: .year), freeTrial: nil)
         #expect(SubscriptionOfferText.price(euro) == "9,99 €/year", "the App Store's text, as it is")
         #expect(SubscriptionOfferText.trial(euro) == nil)
         let halfYear = SubscriptionOffer(displayPrice: "$5.49", period: SubscriptionOffer.Period(value: 6, unit: .month), freeTrial: nil)
         #expect(SubscriptionOfferText.price(halfYear) == "$5.49 every 6 months")
+    }
+
+    /// EB-18: the trial-end date computation, as a pure function over fixed inputs (Gregorian/UTC
+    /// calendar math, never the device's own calendar or time zone) -- every unit StoreKit can
+    /// report, plus no trial at all.
+    @Test("EB-18: the trial ends 'now' plus the offer's trial length, in every period unit; nil with no trial")
+    func trialEndDate() {
+        let now = Date(timeIntervalSince1970: 1_793_000_000) // 2026-10-20T13:06:40Z
+        let twoWeeks = SubscriptionOffer(displayPrice: "$9.99", period: SubscriptionOffer.Period(value: 1, unit: .year),
+                                         freeTrial: SubscriptionOffer.Period(value: 2, unit: .week))
+        #expect(SubscriptionOfferText.trialEndDate(twoWeeks, now: now) == now.addingTimeInterval(14 * 24 * 60 * 60))
+
+        let sevenDays = SubscriptionOffer(displayPrice: "$9.99", period: twoWeeks.period,
+                                          freeTrial: SubscriptionOffer.Period(value: 7, unit: .day))
+        #expect(SubscriptionOfferText.trialEndDate(sevenDays, now: now) == now.addingTimeInterval(7 * 24 * 60 * 60))
+
+        let oneMonth = SubscriptionOffer(displayPrice: "$9.99", period: twoWeeks.period,
+                                         freeTrial: SubscriptionOffer.Period(value: 1, unit: .month))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        #expect(SubscriptionOfferText.trialEndDate(oneMonth, now: now) == calendar.date(byAdding: .month, value: 1, to: now))
+
+        let oneYear = SubscriptionOffer(displayPrice: "$9.99", period: twoWeeks.period,
+                                        freeTrial: SubscriptionOffer.Period(value: 1, unit: .year))
+        #expect(SubscriptionOfferText.trialEndDate(oneYear, now: now) == calendar.date(byAdding: .year, value: 1, to: now))
+
+        let noTrial = SubscriptionOffer(displayPrice: "$9.99", period: twoWeeks.period, freeTrial: nil)
+        #expect(SubscriptionOfferText.trialEndDate(noTrial, now: now) == nil)
+        #expect(SubscriptionOfferText.trialEndsThenCharged(noTrial, now: now) == nil)
+    }
+
+    /// EB-18: the renewal disclosure's two sentences, clear and conspicuous next to the purchase
+    /// button -- the price and period, the trial's end date, that it renews automatically until
+    /// cancelled, and how to cancel.
+    @Test("EB-18: the trial-ends and renewal sentences state the price, the date and how to cancel")
+    func renewalDisclosureText() throws {
+        let now = Date(timeIntervalSince1970: 1_793_000_000)
+        let dateText = try #require(SubscriptionOfferText.trialEndDateText(Self.offer, now: now))
+        #expect(SubscriptionOfferText.trialEndsThenCharged(Self.offer, now: now)
+            == "Your free trial ends \(dateText). Unless you cancel at least 24 hours before, you're then charged $9.99/year.")
+        #expect(SubscriptionOfferText.renewalAutoCancel(Self.offer)
+            == "Renews automatically at $9.99/year until you cancel. Cancel anytime in Settings > your name > Subscriptions, "
+            + "or Manage Subscription in Tally's Settings.")
     }
 
     @Test("PAY-05: the paywall loads the offer, follows the school (G-6) and the trial; purchase outcomes become notices")
@@ -235,17 +278,25 @@ struct SubscriptionModelsTests {
         rig.source.setPurchase(.pending)
         await model.purchase()
         #expect(model.notice == .pending, "Ask to Buy said nothing")
+        #expect(!subscription.justPurchased, "EB-21: pending is not a direct purchase yet")
         rig.source.setPurchase(.cancelled)
         await model.purchase()
         #expect(model.notice == nil)
+        #expect(!subscription.justPurchased, "EB-21: a cancelled purchase sets no confirmation")
         rig.source.setPurchase(.failed)
         await model.purchase()
         #expect(model.notice == .failed)
         #expect(!model.isComplete)
+        #expect(!subscription.justPurchased, "EB-21: a failed purchase sets no confirmation")
         rig.source.setPurchase(.purchased, factsAfter: [F.active()])
         await model.purchase()
         #expect(model.notice == nil)
         #expect(model.isComplete, "the purchase was granted, but the paywall would stay open")
+        // EB-21: the one-shot signal either presenter reads to show the retainable confirmation
+        // once the paywall has closed; acknowledging it clears it so it does not reappear.
+        #expect(subscription.justPurchased, "a direct purchase must set the confirmation's signal")
+        subscription.acknowledgeDirectPurchase()
+        #expect(!subscription.justPurchased)
     }
 
     @Test("PAY-05: with no answer from the App Store the paywall offers nothing to buy")
@@ -274,6 +325,7 @@ struct SubscriptionModelsTests {
         rig.source.setFacts([F.active()])
         await model.restore()
         #expect(model.notice == nil && model.isComplete)
+        #expect(!subscription.justPurchased, "EB-21: Restore Purchases finding an active subscription is not a direct purchase")
 
         let unreachable = ScriptedStorefront(offer: Self.offer, restores: false)
         let lapsedRig = SubscriptionRig()
@@ -305,6 +357,21 @@ struct SubscriptionModelsTests {
         let nothing = SubscriptionActionsModel(subscription: subscription, storefront: ScriptedStorefront(offer: nil, refundable: nil))
         await nothing.requestRefund()
         #expect(nothing.notice == .noRefund && !nothing.presentsRefund)
+    }
+
+    /// EB-21: the retainable purchase confirmation's facts, read fresh from the current entitlement
+    /// and the App Store's own offer -- nothing persisted, so nothing here can go stale.
+    @Test("EB-21: the purchase confirmation states the plan, amount, renewal date and how to cancel")
+    func purchaseConfirmation() async throws {
+        let rig = SubscriptionRig(facts: [F.active()])
+        let subscription = try await startedSubscription(rig)
+        let model = PurchaseConfirmationModel(subscription: subscription, storefront: ScriptedStorefront(offer: Self.offer))
+        #expect(model.planName == "Tally Annual")
+        #expect(model.amountText == nil, "the offer has not loaded yet")
+        await model.load()
+        #expect(model.amountText == "$9.99/year")
+        #expect(model.renewsDateText == F.now.addingTimeInterval(300 * F.day).formatted(date: .abbreviated, time: .omitted))
+        #expect(model.renewalDetailText == SubscriptionOfferText.renewalAutoCancel(Self.offer))
     }
 
     @Test("Settings → Subscription's status, from the Apple Account's state")
@@ -341,7 +408,7 @@ struct SubscriptionModelsTests {
         #expect(await source.purchase(products.studentAnnual, onGranted: {}) == .purchased)
         let facts = await source.currentFacts()
         #expect(EntitlementPolicy.accountState(facts, role: .student, products: products, now: F.now).entitledUntil != nil)
-        #expect(await hooks.storefront()?.offer(for: .student)?.freeTrial == SubscriptionOffer.Period(value: 1, unit: .month))
+        #expect(await hooks.storefront()?.offer(for: .student)?.freeTrial == SubscriptionOffer.Period(value: 2, unit: .week))
         let lapsed = SubscriptionTestHooks(arguments: ["-TallyTestHooks.entitlement", "lapsed"])
         #expect(await lapsed.storefront()?.offer(for: .student)?.freeTrial == nil, "a lapsed account offered the trial")
         let lapsedFacts = await lapsed.source(products: products, clock: TestClock(F.now))?.currentFacts() ?? []
@@ -361,10 +428,11 @@ struct SubscriptionModelsTests {
     }
 }
 
-/// Tally Annual as `Products.storekit` defines it: a year at a synthetic "$9.99", a one-month free trial.
+/// Tally Annual as `Products.storekit` defines it: a year at a synthetic "$9.99", a two-week free
+/// trial (EB-19, owner decision 2026-10-21).
 enum SubscriptionTestOffers {
     static let annual = SubscriptionOffer(displayPrice: "$9.99", period: SubscriptionOffer.Period(value: 1, unit: .year),
-                                          freeTrial: SubscriptionOffer.Period(value: 1, unit: .month))
+                                          freeTrial: SubscriptionOffer.Period(value: 2, unit: .week))
 }
 
 /// A storefront the test scripts: its offer, whether Restore Purchases reaches the App Store, and the

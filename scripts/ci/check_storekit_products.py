@@ -9,7 +9,8 @@ and apps/TallyiOS/Config/Products.storekit, and checks that:
     and `<bundle-id><parentAnnualSuffix>`, as the app derives them (`SubscriptionProducts`);
   - there are exactly two subscription groups, "Tally" and "Tally Parent", one product each, and no
     other product of any kind;
-  - "Tally": US$9.99 every year, a one-month free trial, one custom offer code, one win-back offer;
+  - "Tally": US$9.99 every year, a two-week free trial (EB-19, owner decision 2026-10-21), one
+    custom offer code, one win-back offer;
   - "Tally Parent": US$4.99 every year;
   - Family Sharing is off for both (PRD §11.1, owner decision 2026-09-27);
   - apps/TallyiOS/project.yml bundles the file into TallyAppTests and names it as the scheme's
@@ -110,9 +111,10 @@ def check(xcconfig: str, storekit: dict, config_swift: str, project_yml: str) ->
         if student.get("displayPrice") != "9.99":
             errors.append("Tally Annual must be 9.99 a year")
         intro = student.get("introductoryOffer") or {}
-        if not (intro.get("paymentMode") == "free" and intro.get("subscriptionPeriod") == "P1M"
+        if not (intro.get("paymentMode") == "free" and intro.get("subscriptionPeriod") == "P2W"
                 and intro.get("numberOfPeriods", 1) == 1):
-            errors.append("Tally Annual needs a one-month free trial (introductory offer: free, P1M)")
+            errors.append("Tally Annual needs a two-week free trial (introductory offer: free, P2W; "
+                          "EB-19, owner decision 2026-10-21)")
         if len(student.get("codeOffers") or []) != 1:
             errors.append("Tally Annual needs exactly one custom offer code")
         if len(student.get("winbackOffers") or []) != 1:

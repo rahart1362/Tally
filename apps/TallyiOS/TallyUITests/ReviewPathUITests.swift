@@ -172,6 +172,10 @@ class ReviewPathUITestsBase: TallyUITestCase {
         XCTAssertTrue(scrollUntilHittable(privacyPolicyRow, in: app),
                      "EB-06's Settings → About Privacy Policy row is missing. Hierarchy: \(app.debugDescription)",
                      file: file, line: line)
+        let termsOfUseRow = element("settings.termsOfUse", in: app)
+        XCTAssertTrue(scrollUntilHittable(termsOfUseRow, in: app),
+                     "EB-22's Settings → About Terms of Use row is missing. Hierarchy: \(app.debugDescription)",
+                     file: file, line: line)
         tapWhenHittable(element("settings.done", in: app), in: app, file: file, line: line)
 
         // --- Settings, visit 2: parent mode -- the Sample Data family (FAM-14's own "App Review
