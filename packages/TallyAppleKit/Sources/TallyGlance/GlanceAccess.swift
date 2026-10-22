@@ -23,12 +23,13 @@ public enum GlanceAccess {
 /// intents): when it is on, titles and course codes give way to a generic word
 /// (insights-at-a-glance.md §1.5: "Assignment · 6:00 PM").
 ///
-/// The setting lives in `UserState.hideCourseNamesInNotifications`, and the glance does not carry
-/// it yet (m2-widget-compliance-report OI4; `GlanceProjection` is not this stream's file), so this
-/// reads `false` for every glance until the glance gains the field. The views and the intent
-/// answers already honour the flag, and tests cover both values.
+/// The setting lives in `UserState.hideCourseNamesInNotifications`, carried into
+/// `GlanceProjection.hideCourseNames` the same way `includeGrades` is (ideas2 report #2;
+/// `GlanceProjectionBuilder.build(hideCourseNames:)`, `SnapshotStore.commit`/`rewriteGlance`,
+/// `RefreshCoordinator.hideCourseNames`). The views and the intent answers already honour this
+/// flag, and tests cover both values.
 public enum GlanceDisplayPolicy {
     public static func hidesCourseNames(_ glance: GlanceProjection) -> Bool {
-        false
+        glance.hideCourseNames
     }
 }
