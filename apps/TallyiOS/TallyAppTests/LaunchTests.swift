@@ -14,6 +14,12 @@ import TallyTestSupport
 @Suite("LaunchBootstrapper: accounts.json, the lock setting, the reconcile and the glance, off the main actor", .serialized)
 @MainActor
 struct LaunchBootstrapperTests {
+    /// `.welcome` as a fresh install's first launch resolves it: no account, the lock off, and
+    /// AGE-1's `isFirstLaunchAfterInstall` set (the reconcile just ran).
+    static var freshInstallWelcome: LaunchResolution {
+        LaunchResolution(account: nil, lock: .disabled, glance: nil, isFirstLaunchAfterInstall: true)
+    }
+
     @Test("nothing on disk: Welcome with the lock off; the fresh-install reconcile runs once")
     func freshInstallGoesToWelcome() async throws {
         let harness = try AccountHarness()
@@ -23,7 +29,8 @@ struct LaunchBootstrapperTests {
         try await harness.credentials.save(harness.credential)
 
         let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
-        #expect(resolution == .welcome)
+        // AGE-1 (EB-01(b)): a fresh install's first launch is flagged, so age assurance requests once.
+        #expect(resolution == Self.freshInstallWelcome)
         #expect(harness.vaultKeys.count(KeyScope(account: "earlier", audience: .app)) == 0, "inherited keys survived")
         #expect(harness.credentials.credential == nil, "an inherited credential survived the fresh install")
         let sentinel = StoreLayout(root: harness.root, accountKey: AccountKey("install")).installSentinel
@@ -151,7 +158,7 @@ struct LaunchBootstrapperTests {
         // begun, so the launch's first read always sees the inherited value.
         let lock = ProbedLockPreferences(AppLockPreference(isEnabled: true), resetWaitsForALoad: true)
         let resolution = await LaunchBootstrapper(environment: harness.lockEnvironment(lock)).resolve()
-        #expect(resolution == .welcome, "the inherited lock setting survived the reconcile: \(resolution.lock)")
+        #expect(resolution == Self.freshInstallWelcome, "the inherited lock setting survived the reconcile: \(resolution.lock)")
         #expect(lock.loads == 2, "the setting was not read again after the reconcile")
         #expect(lock.loadsThatWaitedOut == 0)
     }
