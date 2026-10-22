@@ -109,6 +109,9 @@ public struct ReminderContent: Sendable, Equatable {
         case .sentinel:
             ReminderContent(title: String(localized: L10n.Notifications.sentinelTitle()),
                             body: String(localized: L10n.Notifications.sentinelBody()))
+        case .adHoc:
+            ReminderContent(title: String(localized: L10n.Notifications.adHocTitle()),
+                            body: String(localized: L10n.Notifications.adHocBody()))
         }
     }
 }

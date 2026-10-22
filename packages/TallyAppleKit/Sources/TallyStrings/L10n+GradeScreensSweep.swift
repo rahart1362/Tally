@@ -1083,6 +1083,18 @@ extension L10n {
                                     comment: "To-Do row swipe action: marks an item done.")
         }
 
+        /// Idea 4 (FEAT-3): schedules one ad-hoc local notification through the existing
+        /// reminders pipeline.
+        public static func swipeRemindMe() -> LocalizedStringResource {
+            LocalizedStringResource("todo.swipe.remindMe", defaultValue: "Remind Me", bundle: #bundle,
+                                    comment: "To-Do row swipe/menu action: schedules one extra reminder for this item.")
+        }
+
+        public static func remindMeConfirmation() -> LocalizedStringResource {
+            LocalizedStringResource("todo.remindMe.confirmation", defaultValue: "Reminder set", bundle: #bundle,
+                                    comment: "VoiceOver announcement after tapping Remind Me on a To-Do row.")
+        }
+
         public static func loading() -> LocalizedStringResource {
             LocalizedStringResource("todo.loading", defaultValue: "Loading your work\u{2026}", bundle: #bundle,
                                     comment: "To-Do tab: shown while the first projection is loading.")
@@ -1200,6 +1212,18 @@ extension L10n {
             LocalizedStringResource(
                 "notifications.generic.sentinel.body", defaultValue: "Open Tally to update your data.", bundle: #bundle,
                 comment: "Generic notification body: Tally has not refreshed in a while.")
+        }
+
+        /// Idea 4 (FEAT-3): the To-Do "Remind me" action's generic fallback (`ReminderContent.generic`'s
+        /// default, before the pipeline's own resolved content is injected).
+        public static func adHocTitle() -> LocalizedStringResource {
+            LocalizedStringResource("notifications.generic.adHoc.title", defaultValue: "Reminder", bundle: #bundle,
+                                    comment: "Generic notification title: the student's own 'Remind me' request.")
+        }
+
+        public static func adHocBody() -> LocalizedStringResource {
+            LocalizedStringResource("notifications.generic.adHoc.body", defaultValue: "Open Tally for the details.",
+                                    bundle: #bundle, comment: "Generic notification body: the student's own 'Remind me' request.")
         }
 
         public static func hiddenPreviewPlaceholder() -> LocalizedStringResource {

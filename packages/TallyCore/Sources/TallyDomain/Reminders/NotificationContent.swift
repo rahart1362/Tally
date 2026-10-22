@@ -81,4 +81,8 @@ public enum NotificationMessage: Sendable, Equatable {
     case weekAhead(dueCount: Int, busiestDay: Date?)
     /// R17 freshness sentinel: when Tally last refreshed.
     case sentinel(lastSuccess: Date)
+    /// Idea 4 (FEAT-3): the To-Do "Remind me" swipe/menu action's one ad-hoc reminder. Never a
+    /// grade value (R10, structurally, like every other case); `dueAt` is the item's own due
+    /// date, not when this reminder fires.
+    case adHocReminder(Subject, dueAt: Date)
 }

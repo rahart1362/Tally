@@ -23,10 +23,11 @@ struct NotificationMessageTests {
         case .eveningDigest: "eveningDigest"
         case .weekAhead: "weekAhead"
         case .sentinel: "sentinel"
+        case .adHocReminder: "adHocReminder"
         }
     }
 
-    static let caseCount = 8
+    static let caseCount = 9
 
     /// Every case, with every optional both present and absent, and every name both shown and hidden.
     static let samples: [NotificationMessage] = {
@@ -40,6 +41,7 @@ struct NotificationMessageTests {
                 .missingFollowup(subject, stillAcceptedUntil: date),
                 .missingFollowup(subject, stillAcceptedUntil: nil),
                 .examReminder(subject, dueAt: date),
+                .adHocReminder(subject, dueAt: date),
                 .gradePosted(course),
                 .belowGoal(course),
                 .eveningDigest(dueCount: 2, firstItem: .init(title: "Lab Report 4", hideCourseNames: hide)),
@@ -141,6 +143,7 @@ struct NotificationMessageTests {
                         .due(subject, dueAt: Self.date, isFinalReminder: true),
                         .missingFollowup(subject, stillAcceptedUntil: assignment.lockAt),
                         .examReminder(subject, dueAt: Self.date),
+                        .adHocReminder(subject, dueAt: Self.date),
                         .eveningDigest(dueCount: 3, firstItem: .init(title: assignment.name, hideCourseNames: hide)),
                         .gradePosted(.init(courseCode: code, hideCourseNames: hide)),
                         .belowGoal(.init(courseCode: code, hideCourseNames: hide)),

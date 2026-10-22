@@ -118,9 +118,60 @@ struct UserStateStoreTests {
 
         let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
         guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
-        #expect(migrated.schemaVersion == 5 && UserState.currentSchemaVersion == 5)
+        // FEAT-3: this fixture jumps straight from v4 to whatever is current (now v6), same as
+        // every other "payload older than the latest migration step" case already does.
+        #expect(migrated.schemaVersion == UserState.currentSchemaVersion)
         #expect(migrated == v4State, "every v4 field kept, and no override")
         #expect(migrated.gradesOutsideCanvasOverride.isEmpty && migrated.gradeAvailabilityOverrides.isEmpty)
+    }
+
+    /// v5 → v6 (FEAT-3, ideas 4 and 5): every v5 field survives, no Quiet Hours override yet
+    /// ("defaults stay as today when unset") and no ad-hoc reminders pending yet.
+    @Test func migratesV5PayloadAddingNoQuietHoursOverrideAndNoAdHocReminders() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        try ProtectedFile.prepareDirectory(layout.accountDirectory, excludeFromBackup: true)
+        let manual = ManualClassTime(id: "fixed-id", courseID: "202", weekday: 3, startMinutesFromMidnight: 480, endMinutesFromMidnight: 540)
+        let v5State = UserState(showGradesInGlance: true, hideCourseNamesInNotifications: true, manualClassTimes: [manual],
+                                digestThresholds: DigestThresholds(global: .all, perCourse: ["51845": .points(2)]),
+                                courseOrder: ["51842", "51840"], doneAssignments: ["9001"],
+                                reminderTipDismissedUntil: Date(timeIntervalSince1970: 1_800_000_000),
+                                gradeAvailabilityOverrides: ["77301": .inCanvas, "77306": .keptOutsideCanvas])
+        var v5JSON = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(v5State)) as? [String: Any])
+        v5JSON["schemaVersion"] = 5
+        v5JSON["quietHoursOverride"] = nil
+        v5JSON["adHocReminders"] = nil
+        let v5Data = try JSONSerialization.data(withJSONObject: v5JSON)
+        try ProtectedFile.atomicWrite(try sealer.seal(v5Data, file: .userState), to: layout.url(for: .userState), excludeFromBackup: true)
+
+        let store = UserStateStore(root: root, accountKey: accountKey, sealer: sealer)
+        guard case .loaded(let migrated) = await store.load() else { Issue.record("expected a migrated UserState"); return }
+        #expect(migrated.schemaVersion == 6 && UserState.currentSchemaVersion == 6)
+        #expect(migrated == v5State, "every v5 field kept, with no override and no ad-hoc reminders")
+        #expect(migrated.quietHoursOverride == nil)
+        #expect(migrated.adHocReminders.isEmpty)
+    }
+
+    /// Idea 5: the override round-trips through the sealed store like any other field.
+    @Test func quietHoursOverrideRoundTrips() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let override = QuietHours(startHour: 22, startMinute: 30, endHour: 6, endMinute: 45)
+        let state = UserState(quietHoursOverride: override)
+        try await store.save(state)
+        #expect(await store.load() == .loaded(state))
+        guard case .loaded(let loaded) = await store.load() else { Issue.record("expected the saved UserState"); return }
+        #expect(loaded.quietHoursOverride == override)
+    }
+
+    /// Idea 4: ad-hoc reminder requests round-trip, keyed by assignment ID.
+    @Test func adHocRemindersRoundTrip() async throws {
+        let store = UserStateStore(root: try tempStoreDirectory(), accountKey: accountKey, sealer: makeSealer())
+        let fireDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let state = UserState(adHocReminders: ["9001": fireDate])
+        try await store.save(state)
+        guard case .loaded(let loaded) = await store.load() else { Issue.record("expected the saved UserState"); return }
+        #expect(loaded.adHocReminders == ["9001": fireDate])
     }
 
     /// v5 round trip, and the persisted contract: `GradeAvailabilityOverride`'s raw values, keyed
