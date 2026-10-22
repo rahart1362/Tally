@@ -23,6 +23,10 @@ public nonisolated struct AccountEnvironment: Sendable {
     /// searched and found not enabled. Defaulted so every existing call site (tests, previews) is
     /// unaffected; only the composition root injects the real file-backed store.
     public let notEnabledSchoolPreferences: any NotEnabledSchoolPreferenceStoring
+    /// FEAT-8 (Idea 7): the local, non-account preference for "Open Canvas links in: App /
+    /// Browser". Defaulted so every existing call site (tests, previews) is unaffected; only the
+    /// composition root injects the real file-backed store.
+    public let canvasLinkPreferences: any CanvasLinkPreferenceStoring
     /// Canvas networking (`URLSessionTransport` in the app): API calls, token refresh and revoke.
     public let transport: any HTTPTransport
     public let notifications: any NotificationScheduling
@@ -46,6 +50,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         keyring: VaultKeyring,
         lockPreferences: any AppLockPreferenceStoring,
         notEnabledSchoolPreferences: any NotEnabledSchoolPreferenceStoring = InMemoryNotEnabledSchoolPreferenceStore(),
+        canvasLinkPreferences: any CanvasLinkPreferenceStoring = InMemoryCanvasLinkPreferenceStore(),
         transport: any HTTPTransport,
         notifications: any NotificationScheduling,
         reloadWidgets: @escaping @Sendable () -> Void = {},
@@ -60,6 +65,7 @@ public nonisolated struct AccountEnvironment: Sendable {
         self.keyring = keyring
         self.lockPreferences = lockPreferences
         self.notEnabledSchoolPreferences = notEnabledSchoolPreferences
+        self.canvasLinkPreferences = canvasLinkPreferences
         self.transport = transport
         self.notifications = notifications
         self.reloadWidgets = reloadWidgets
@@ -74,6 +80,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     public func replacingGateway(_ override: @escaping @Sendable (AccountRecord) async -> any CanvasGateway) -> AccountEnvironment {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
+                           canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: override,
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
@@ -83,6 +90,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     public func replacingTransport(_ transport: any HTTPTransport) -> AccountEnvironment {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
+                           canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
@@ -93,6 +101,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     public func replacingEntitlement(_ entitlement: any EntitlementGating) -> AccountEnvironment {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
+                           canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)
@@ -105,6 +114,7 @@ public nonisolated struct AccountEnvironment: Sendable {
     public func replacingClock(_ clock: any DateProviding) -> AccountEnvironment {
         AccountEnvironment(storeRoot: storeRoot, credentialStore: credentialStore, keyring: keyring,
                            lockPreferences: lockPreferences, notEnabledSchoolPreferences: notEnabledSchoolPreferences,
+                           canvasLinkPreferences: canvasLinkPreferences,
                            transport: transport, notifications: notifications,
                            reloadWidgets: reloadWidgets, logger: logger, clock: clock, gatewayOverride: gatewayOverride,
                            removeLegacyCredentials: removeLegacyCredentials, entitlement: entitlement)

@@ -40,3 +40,24 @@ extension L10n.Dashboard {
                                 comment: "Shared weekly summary text, one day's line with \"Hide Course Names\" off: the weekday abbreviation and that day's item titles, comma-joined. Placeholders: the weekday, the already-joined titles.")
     }
 }
+
+extension L10n.Settings {
+    /// Idea 7's picker row and section header (the same string serves both, so one key covers
+    /// both places it reads).
+    public static func canvasLinksLabel() -> LocalizedStringResource {
+        LocalizedStringResource("settings.canvasLinks.label", defaultValue: "Open Canvas Links In", bundle: #bundle,
+                                comment: "Settings: section header and picker label for the \"App\"/\"Browser\" choice that feeds CanvasLinkOpener.")
+    }
+
+    /// The Canvas Student app option (today's default).
+    public static func canvasLinksOptionApp() -> LocalizedStringResource {
+        LocalizedStringResource("settings.canvasLinks.optionApp", defaultValue: "App", bundle: #bundle,
+                                comment: "Settings, \"Open Canvas Links In\" picker option: the Canvas Student app (falling back to the browser if it isn't installed) -- today's default.")
+    }
+
+    /// The device's default web browser option.
+    public static func canvasLinksOptionBrowser() -> LocalizedStringResource {
+        LocalizedStringResource("settings.canvasLinks.optionBrowser", defaultValue: "Browser", bundle: #bundle,
+                                comment: "Settings, \"Open Canvas Links In\" picker option: always the device's browser, never the Canvas Student app.")
+    }
+}

@@ -9289,6 +9289,60 @@
         }
       }
     },
+    "settings.canvasLinks.label" : {
+      "comment" : "Settings: section header and picker label for the \"App\"/\"Browser\" choice that feeds CanvasLinkOpener.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Canvas Links In"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir enlaces de Canvas en"
+          }
+        }
+      }
+    },
+    "settings.canvasLinks.optionApp" : {
+      "comment" : "Settings, \"Open Canvas Links In\" picker option: the Canvas Student app (falling back to the browser if it isn't installed) -- today's default.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App"
+          }
+        }
+      }
+    },
+    "settings.canvasLinks.optionBrowser" : {
+      "comment" : "Settings, \"Open Canvas Links In\" picker option: always the device's browser, never the Canvas Student app.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browser"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Navegador"
+          }
+        }
+      }
+    },
     "settings.dataAndRefresh.header" : {
       "comment" : "Settings section header: data and refresh.",
       "extractionState" : "manual",

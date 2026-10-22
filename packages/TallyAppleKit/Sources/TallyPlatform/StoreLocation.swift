@@ -25,4 +25,14 @@ public enum StoreLocation {
                                           appropriateFor: nil, create: true)
         return support.appendingPathComponent(folderName, isDirectory: true)
     }
+
+    /// FEAT-8 (Idea 7, "Open Canvas links in: App / Browser"): a private location for a device
+    /// preference that has no reason to live in the App Group container `root(appGroupID:)`
+    /// resolves -- nothing here needs the widget. Always the app's own `Application Support/Tally`,
+    /// never the App Group's, whatever `appGroupID` is or isn't provisioned.
+    public static func privateRoot() throws -> URL {
+        let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                                   appropriateFor: nil, create: true)
+        return support.appendingPathComponent(folderName, isDirectory: true)
+    }
 }

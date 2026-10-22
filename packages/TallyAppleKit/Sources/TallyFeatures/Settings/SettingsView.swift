@@ -81,6 +81,7 @@ struct SettingsView: View {
                 thresholdSection
                 dataSection
                 calendarSection
+                canvasLinksSection
                 privacySection
                 // FAM-10 (M3-E2): a student's Family & Sharing (§7.2), additive; FAM-14's way in.
                 if app?.family == nil, let familySharing {
@@ -437,6 +438,28 @@ struct SettingsView: View {
                 Text(L10n.Settings.calendarFooter())
                     .tallySectionText()
             }
+        }
+    }
+
+    // MARK: - Canvas links (FEAT-8, Idea 7)
+
+    /// "Open Canvas links in: App / Browser": a device preference (`HomeModel.canvasLinkPreference`,
+    /// never `UserState`) feeding `CanvasLinkOpener`, which still runs `isSafe` first in both
+    /// modes (SEC1-15). Shown whether or not an account is signed in: the choice has nothing
+    /// Canvas-specific to show, only to act on later.
+    private var canvasLinksSection: some View {
+        Section {
+            Picker(String(localized: L10n.Settings.canvasLinksLabel()), selection: Binding(
+                get: { home.canvasLinkPreference },
+                set: { home.setCanvasLinkPreference($0) })) {
+                Text(L10n.Settings.canvasLinksOptionApp()).tag(CanvasLinkPreference.app)
+                Text(L10n.Settings.canvasLinksOptionBrowser()).tag(CanvasLinkPreference.browser)
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("settings.canvasLinks")
+        } header: {
+            Text(L10n.Settings.canvasLinksLabel())
+                .tallySectionText()
         }
     }
 

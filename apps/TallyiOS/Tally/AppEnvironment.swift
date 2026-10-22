@@ -65,6 +65,11 @@ struct AppEnvironment {
             notEnabledSchoolPreferences: FileNotEnabledSchoolPreferenceStore(fileURL: {
                 try StoreLocation.root(appGroupID: appGroupID).appendingPathComponent("not-enabled-school.txt")
             }),
+            // FEAT-8 (Idea 7): also not sensitive, and never needed by the widget, so this one
+            // lives in the app's own private root, never the shared App Group container.
+            canvasLinkPreferences: FileCanvasLinkPreferenceStore(fileURL: {
+                try StoreLocation.privateRoot().appendingPathComponent("canvas-link-preference.txt")
+            }),
             transport: transport,
             notifications: UNNotificationScheduler(),
             reloadWidgets: { WidgetReloader().reloadAllTimelines() },

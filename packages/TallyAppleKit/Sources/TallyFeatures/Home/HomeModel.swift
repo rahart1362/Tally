@@ -59,6 +59,11 @@ public final class HomeModel {
     public let userState: any UserStateAccess
     /// Sample mode (ASC-14): links into a real Canvas and the calendar feed have nowhere to go.
     public var isSampleData: Bool { source is SampleSession }
+    /// FEAT-8 (Idea 7, "Open Canvas links in: App / Browser"): the student's choice, read by
+    /// Settings' picker and by every "Open in Canvas" button (`ToDoScreen`, `CourseDetailView`).
+    /// Device-wide, never `UserState` (FEAT-3 and FEAT-4 own the next schema bumps) -- loaded in
+    /// `prepare()`, like `local`, below.
+    public private(set) var canvasLinkPreference: CanvasLinkPreference = .app
 
     /// Internal so lifecycle tests can hold weak references.
     let source: any HomeDataSource
@@ -83,21 +88,30 @@ public final class HomeModel {
     private let overrideChanges = TaskBox()
     /// The revision of the answers last handed to the projector (`HomeProjector` keeps the newest).
     @ObservationIgnored private var overridesRevision: UInt64 = 0
+    /// FEAT-8: the store `canvasLinkPreference` is loaded from and saved to.
+    @ObservationIgnored private let canvasLinkPreferenceStore: any CanvasLinkPreferenceStoring
+    /// FEAT-8: `setCanvasLinkPreference(_:)`'s write, owned here like every other session task.
+    private let canvasLinkPreferencePersist = TaskBox()
 
     /// - Parameters:
     ///   - localStore: where the course order and "done" marks live; in memory by default (sample
     ///     mode keeps nothing, ASC-14).
     ///   - userState: Settings' `UserState`; in memory by default. A signed-in account passes an
     ///     `AccountUserStateAccess` over its `UserStateStore` and `AccountRuntime`.
+    ///   - canvasLinkPreferences: FEAT-8's device-wide preference store; in memory by default.
+    ///     `AppModel` passes the one store it holds from `AccountEnvironment`, so Settings and
+    ///     every "Open in Canvas" button read and write the same place.
     public init(source: any HomeDataSource, projector: HomeProjector = HomeProjector(),
                 clock: any DateProviding = SystemDateProvider(),
                 localStore: any LocalScreenStateStoring = InMemoryLocalScreenStateStore(),
-                userState: any UserStateAccess = InMemoryUserStateAccess()) {
+                userState: any UserStateAccess = InMemoryUserStateAccess(),
+                canvasLinkPreferences: any CanvasLinkPreferenceStoring = InMemoryCanvasLinkPreferenceStore()) {
         self.source = source
         self.projector = projector
         self.clock = clock
         self.local = ScreenLocalState(store: localStore)
         self.userState = userState
+        self.canvasLinkPreferenceStore = canvasLinkPreferences
     }
 
     /// Subscribes to the source, then loads. Runs once, from the shell's `.task`.
@@ -145,6 +159,9 @@ public final class HomeModel {
         // outside Canvas" answers, so it classifies every course as the glance on disk does.
         await local.load()
         await projector.setGradeAvailabilityOverrides(local.gradeAvailabilityOverrides, revision: overridesRevision)
+        // FEAT-8: concurrent with the rest of this prepare step -- Settings and "Open in Canvas"
+        // are several taps away from the first paint, like FEAT-2's own local preference load.
+        canvasLinkPreference = await canvasLinkPreferenceStore.load() ?? .app
         let updates = await source.updates()
         guard !hasEnded else { return }
         await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
@@ -279,6 +296,21 @@ public final class HomeModel {
         await overrideChanges.value()
     }
 
+    /// FEAT-8 (Idea 7): Settings' picker. Updates the cached value at once so this session's own
+    /// "Open in Canvas" buttons see it without waiting on the write (the same pattern
+    /// `AppModel.recordNotEnabledSchool` uses).
+    public func setCanvasLinkPreference(_ preference: CanvasLinkPreference) {
+        guard preference != canvasLinkPreference else { return }
+        canvasLinkPreference = preference
+        let store = canvasLinkPreferenceStore
+        canvasLinkPreferencePersist.replace(with: Task { await store.save(preference) })
+    }
+
+    /// Waits for the last `setCanvasLinkPreference(_:)` write (tests).
+    func awaitCanvasLinkPreferencePersistence() async {
+        await canvasLinkPreferencePersist.value()
+    }
+
     /// Ends the subscriptions, the source and the projector: the snapshot is released.
     public func end() async {
         hasEnded = true
@@ -286,6 +318,7 @@ public final class HomeModel {
         subscription.cancel()
         timeChanges.cancel()
         overrideChanges.cancel()
+        canvasLinkPreferencePersist.cancel()
         manualRunOwner.cancel()
         manualRun = nil
         await source.end()
