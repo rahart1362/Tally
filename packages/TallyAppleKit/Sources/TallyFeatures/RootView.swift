@@ -78,8 +78,11 @@ public struct RootView: View {
                 if let home = appModel.home {
                     HomeShellView(model: home, banner: AnyView(SubscriptionRefreshBanner(appModel: appModel, home: home)))
                         .environment(appModel) // M3-A: Settings' "Sign Out & Erase" and App Lock
-                        // In a view of its own, so its presentation never touches the Home's sheet.
+                        // In views of their own, so these presentations never touch the Home's sheet.
                         .background { SchoolRevokedNoticePresenter(appModel: appModel) }
+                        // AGE-1 (EB-01(e)/EB-02(b)): over real account data only, never Welcome or
+                        // Sample Data.
+                        .background { AgeRestrictedPresenter(appModel: appModel) }
                 }
             }
         }

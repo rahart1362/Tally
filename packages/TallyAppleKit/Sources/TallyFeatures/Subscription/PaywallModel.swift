@@ -97,6 +97,11 @@ final class PaywallModel {
         let outcome = await engine.purchase(role)
         isWorking = false
         notice = Self.notice(after: outcome)
+        // EB-21: a direct purchase or trial start (never a restore or a redeemed code, which never
+        // call this method) -- the shared `SubscriptionModel` carries the one-shot signal so either
+        // presenter (the Home's sheet, Settings → Subscription's own) shows the retainable
+        // confirmation once the paywall has closed.
+        if case .purchased = outcome { subscription.recordDirectPurchase() }
     }
 
     /// What the paywall says after a purchase ended this way (nothing when it worked or was cancelled).
@@ -158,9 +163,49 @@ nonisolated enum SubscriptionOfferText {
         String(localized: L10n.Subscription.duration(period(offer.period)))
     }
 
-    /// "1 month free, then $9.99/year", only with an eligible free trial.
+    /// "2 weeks free, then $9.99/year" (EB-19), only with an eligible free trial.
     static func trial(_ offer: SubscriptionOffer) -> String? {
         guard let trial = offer.freeTrial else { return nil }
         return String(localized: L10n.Subscription.trial(period(trial), then: price(offer)))
+    }
+
+    // MARK: - EB-18: the renewal disclosure, clear and conspicuous next to the purchase button
+
+    /// EB-18: `now` plus the trial's length, in Gregorian/UTC calendar math so the result does not
+    /// depend on the device's own calendar or time zone -- a pure function so the date math is
+    /// unit-testable apart from the view (never `Date()`/`Calendar.current` in a view body,
+    /// `scripts/ci/check_view_bodies.py`). `nil` with no trial.
+    static func trialEndDate(_ offer: SubscriptionOffer, now: Date) -> Date? {
+        guard let trial = offer.freeTrial else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let component: Calendar.Component
+        switch trial.unit {
+        case .day: component = .day
+        case .week: component = .weekOfYear
+        case .month: component = .month
+        case .year: component = .year
+        }
+        return calendar.date(byAdding: component, value: trial.value, to: now)
+    }
+
+    /// `trialEndDate`, formatted the same way Settings → Subscription formats a renewal date
+    /// (`.formatted(date: .abbreviated, time: .omitted)`, the device's own locale and calendar for
+    /// display -- only the math above is pinned to UTC/Gregorian).
+    static func trialEndDateText(_ offer: SubscriptionOffer, now: Date) -> String? {
+        trialEndDate(offer, now: now).map { $0.formatted(date: .abbreviated, time: .omitted) }
+    }
+
+    /// "Your free trial ends Nov 21, 2026. Unless you cancel at least 24 hours before, you're then
+    /// charged $9.99/year." `nil` without an eligible trial.
+    static func trialEndsThenCharged(_ offer: SubscriptionOffer, now: Date) -> String? {
+        guard let date = trialEndDateText(offer, now: now) else { return nil }
+        return String(localized: L10n.Subscription.trialEndsThenCharged(date, then: price(offer)))
+    }
+
+    /// "Renews automatically at $9.99/year until you cancel. Cancel anytime: …" -- replaces the old
+    /// footnote-size, secondary-colour `subscription.paywall.renewal` (EB-18).
+    static func renewalAutoCancel(_ offer: SubscriptionOffer) -> String {
+        String(localized: L10n.Subscription.renewalAutoCancel(price(offer)))
     }
 }

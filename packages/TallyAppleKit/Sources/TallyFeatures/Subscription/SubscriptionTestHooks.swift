@@ -49,7 +49,7 @@ public nonisolated struct SubscriptionTestHooks: Sendable {
     }
 
     /// The storefront's stand-in, or nil when the hook is off: Tally Annual for a year at a synthetic
-    /// price text, with `Products.storekit`'s one-month free trial unless the account has lapsed.
+    /// price text, with `Products.storekit`'s two-week free trial (EB-19) unless the account has lapsed.
     public func storefront() -> (any SubscriptionStorefront)? {
         guard let entitlement else { return nil }
         return HookStorefront(isTrialEligible: entitlement == .notSubscribed)
@@ -116,7 +116,7 @@ nonisolated struct HookStorefront: SubscriptionStorefront {
 
     func offer(for role: SubscriptionRole) async -> SubscriptionOffer? {
         SubscriptionOffer(displayPrice: Self.displayPrice, period: SubscriptionOffer.Period(value: 1, unit: .year),
-                          freeTrial: isTrialEligible ? SubscriptionOffer.Period(value: 1, unit: .month) : nil)
+                          freeTrial: isTrialEligible ? SubscriptionOffer.Period(value: 2, unit: .week) : nil)
     }
 
     func restorePurchases() async -> Bool { true }

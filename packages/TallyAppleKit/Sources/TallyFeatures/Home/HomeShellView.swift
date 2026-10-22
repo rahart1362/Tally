@@ -200,6 +200,13 @@ public struct HomeShellView: View {
                         PaywallView(model: PaywallModel(trigger: request.trigger, school: home.dashboard.hero.school,
                                                         subscription: appModel.subscription, storefront: appModel.storefront))
                     }
+                case .purchaseConfirmation:
+                    // EB-21: right after a direct purchase or trial start (never a restore or a
+                    // redeemed code), shown once (`presentedSheet` below clears the signal on
+                    // dismiss).
+                    if let appModel {
+                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront)
+                    }
                 }
             }
             .tint(TallyColor.accent)
@@ -238,17 +245,25 @@ public struct HomeShellView: View {
         isSettingsPresented = true
     }
 
-    /// Settings while its button asked for it; otherwise the paywall `AppModel` asked for, if any.
+    /// Settings while its button asked for it; otherwise the paywall `AppModel` asked for, if any;
+    /// otherwise (EB-21) the retainable purchase confirmation, once a direct purchase or trial
+    /// start just completed (`SubscriptionModel.justPurchased`) -- one presenter for all three, so
+    /// none of them can close another the way two independent `.sheet` modifiers did (run
+    /// 36976774341, this view's own doc comment above).
     private var presentedSheet: Binding<HomeSheet?> {
         Binding(get: {
             if isSettingsPresented { return .settings }
-            return appModel?.paywall.map(HomeSheet.paywall)
+            if let request = appModel?.paywall { return .paywall(request) }
+            if appModel?.subscription.justPurchased == true { return .purchaseConfirmation }
+            return nil
         }, set: { sheet in
             guard sheet == nil else { return }
             if isSettingsPresented {
                 isSettingsPresented = false
-            } else {
+            } else if appModel?.paywall != nil {
                 appModel?.dismissPaywall()
+            } else {
+                appModel?.subscription.acknowledgeDirectPurchase()
             }
         })
     }

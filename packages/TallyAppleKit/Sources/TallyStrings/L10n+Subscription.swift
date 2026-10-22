@@ -68,10 +68,30 @@ extension L10n {
                 comment: "Paywall, only when this Apple Account can get the free trial. 1: the trial's length, such as '1 month'. 2: the price per period, such as '$9.99/year'.")
         }
 
-        public static func renewal() -> LocalizedStringResource {
+        /// EB-18 (Cal. B&P 17601/17602(a)(1); ROSCA 8403(1) [U3]): clear and conspicuous next to the
+        /// purchase button — body size, the primary text colour, never the footnote-size secondary
+        /// colour `subscription.paywall.renewal` read before this change. Retires that key rather
+        /// than editing its value in place (the copy rules never edit a shipped English string):
+        /// the two facts it stated — renews until cancelled, and how to cancel — are restated here
+        /// together with the price, so a translator sees one sentence instead of two. The argument
+        /// is the per-period price text, such as "$9.99/year" (StoreKit's own, never reformatted).
+        public static func renewalAutoCancel(_ price: String) -> LocalizedStringResource {
             LocalizedStringResource(
-                "subscription.paywall.renewal", defaultValue: "Renews automatically until you cancel. Cancel anytime in Settings at least 24 hours before it renews.", bundle: #bundle,
-                comment: "Paywall: the auto-renewal disclosure under the price.")
+                "subscription.paywall.renewalAutoCancel",
+                defaultValue: "Renews automatically at \(price) until you cancel. Cancel anytime in Settings > your name > Subscriptions, or Manage Subscription in Tally's Settings.",
+                bundle: #bundle,
+                comment: "EB-18. Paywall, body size and the primary text colour, next to the purchase button: the price and period, that it renews automatically until cancelled, and how to cancel. The argument is the per-period price text, such as '$9.99/year' (never reformatted).")
+        }
+
+        /// EB-18 (Minn. 325G.57 subd. 4 [U7]; NY 527-a(h) [U6]): only while this Apple Account is
+        /// eligible for the free trial. The date is computed off the paywall's own clock
+        /// (`SubscriptionOfferText.trialEndDate`), never `Date()` in a view body.
+        public static func trialEndsThenCharged(_ date: String, then price: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.paywall.trialEndsThenCharged",
+                defaultValue: "Your free trial ends \(date). Unless you cancel at least 24 hours before, you're then charged \(price).",
+                bundle: #bundle,
+                comment: "EB-18. Paywall, body size and the primary text colour, shown only with an eligible free trial: the date the trial ends and the charge that follows unless cancelled in time. 1: the trial's end date, such as 'Nov 21, 2026'. 2: the price per period, such as '$9.99/year'.")
         }
 
         public static func includedHeader() -> LocalizedStringResource {
@@ -110,10 +130,21 @@ extension L10n {
                 comment: "Paywall, what's included, for a school whose grades are not in Canvas: insights about the workload (no grades), widgets and Shortcuts.")
         }
 
-        public static func featurePrivacy() -> LocalizedStringResource {
+        /// EB-24(a) (FTC Act §5; 16 CFR 251.1(c) [U42]): qualifies the absolute claim
+        /// `subscription.feature.privacy` read before this change (retired, never edited in place
+        /// per the copy rules). Tally still has no server and the student's Canvas data stays on
+        /// the device, but "Add to Calendar > Subscribe" hands the Canvas feed's address to
+        /// Apple's own Calendar sync (dossier F14), and Siri/Shortcuts answers can leave the device
+        /// through Apple's own processing (dossier F32). DRAFT for owner/counsel approval. Visiting
+        /// the Terms/Privacy links and the OAuth sign-in redirect also touch Tally's static web
+        /// host's access logs (dossier F6, F19) — that is the Privacy Policy's claim to qualify
+        /// (EB-28), not restated in this one-line paywall bullet.
+        public static func featurePrivacyQualified() -> LocalizedStringResource {
             LocalizedStringResource(
-                "subscription.feature.privacy", defaultValue: "Your data stays on this iPhone", bundle: #bundle,
-                comment: "Paywall, what's included: Tally has no server; the student's Canvas data stays on the device.")
+                "subscription.feature.privacyQualified",
+                defaultValue: "Tally has no server: your Canvas data stays on this iPhone, except what you choose to share with Calendar, Siri or Handoff.",
+                bundle: #bundle,
+                comment: "EB-24(a), DRAFT for owner/counsel approval. Paywall, what's included: Tally has no server, but Calendar subscribing and Siri/Shortcuts leave the device through Apple's own systems.")
         }
 
         public static func startFreeTrial() -> LocalizedStringResource {
@@ -377,6 +408,38 @@ extension L10n {
             LocalizedStringResource(
                 "subscription.erase.note", defaultValue: "This doesn't cancel your Tally subscription. To cancel it, choose Manage Subscription.", bundle: #bundle,
                 comment: "Added to the Sign Out & Erase confirmation (PAY-11): erasing Tally's data leaves the App Store subscription as it is.")
+        }
+
+        // MARK: - EB-21: the retainable purchase confirmation
+
+        public static func confirmationTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.confirmation.title", defaultValue: "You're All Set", bundle: #bundle,
+                comment: "EB-21. The retainable confirmation shown once after a purchase or trial start, and re-findable afterwards from Settings > Subscription: its title.")
+        }
+
+        public static func confirmationAmountLabel() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.confirmation.amountLabel", defaultValue: "Amount", bundle: #bundle,
+                comment: "EB-21. The purchase confirmation: the label of the row naming the price per period, such as '$9.99/year'.")
+        }
+
+        public static func confirmationRenewsLabel() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.confirmation.renewsLabel", defaultValue: "Renews", bundle: #bundle,
+                comment: "EB-21. The purchase confirmation: the label of the row naming the renewal date.")
+        }
+
+        public static func confirmationDone() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.confirmation.done", defaultValue: "Done", bundle: #bundle,
+                comment: "EB-21. The purchase confirmation's button that closes it.")
+        }
+
+        public static func viewPurchaseConfirmation() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.settings.viewConfirmation", defaultValue: "View Purchase Confirmation", bundle: #bundle,
+                comment: "EB-21. Settings > Subscription: re-opens the same retainable purchase confirmation shown once after the purchase. Shown only for the student's own purchase, never a school-assigned seat.")
         }
     }
 }

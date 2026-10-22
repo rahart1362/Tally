@@ -498,6 +498,20 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings.privacyPolicy")
             }
+            // EB-22: reuses the paywall's own key (`subscription.termsOfUse`) and URL source
+            // (`SubscriptionLinks`) exactly as EB-06 did for the policy row above -- no new string.
+            if let terms = SubscriptionLinks.termsOfUse {
+                Link(destination: terms) {
+                    LabeledContent {
+                        Image(systemName: "arrow.up.forward")
+                            .accessibilityHidden(true)
+                    } label: {
+                        Text(L10n.Subscription.termsOfUse())
+                            .foregroundStyle(TallyColor.textPrimary)
+                    }
+                }
+                .accessibilityIdentifier("settings.termsOfUse")
+            }
         } header: {
             Text(L10n.Settings.aboutHeader())
                 .tallySectionText()
