@@ -121,9 +121,10 @@ struct AppEnvironment {
             source: source, records: KeychainEntitlementStore(),
             gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
         // AGE-1: account-independent, like `accounts.json` — the age-assurance request happens
-        // before any sign-in (EB-01(b): "first launch after install"), so it shares the same store
-        // root rather than an account's.
-        let ageAssuranceRoot: @Sendable () throws -> URL = { try StoreLocation.root(appGroupID: appGroupID) }
+        // before any sign-in (EB-01(b): "first launch after install"), so it uses the app's
+        // PRIVATE root (SEC1-09, #71: the App Group holds only the widget's own inputs; the widget
+        // never reads these files — a blocked minor's widgets rely on Apple's launch block, EB-04).
+        let ageAssuranceRoot: @Sendable () throws -> URL = { try StoreLocation.privateRoot() }
         var ageAssurance = AgeAssuranceModel(
             requester: DeclaredAgeRangeAdapter(), consent: SignificantChangeConsentAdapter(),
             ageRating: AppStoreAgeRatingAdapter(), recordStore: AgeRequestRecordFileStore(root: ageAssuranceRoot),
