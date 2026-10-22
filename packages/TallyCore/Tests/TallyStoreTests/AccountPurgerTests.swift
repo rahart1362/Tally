@@ -114,4 +114,29 @@ struct AccountPurgerTests {
         let root = try tempStoreDirectory()
         AccountPurger.retryPending(root: root, keyring: VaultKeyring(store: InMemoryVaultKeyStore()))
     }
+
+    /// SEC1-09: when the glance lives in a different (App Group) root than everything else, the
+    /// purge must remove both directories — "Sign Out & Erase" must leave nothing in either place.
+    @Test func purgeRemovesBothDirectoriesWhenTheGlanceIsSplitOut() async throws {
+        let privateRoot = try tempStoreDirectory()
+        let sharedRoot = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-split")
+        let sealer = VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true)
+        let store = SnapshotStore(root: privateRoot, accountKey: account, sealer: sealer, sharedRoot: sharedRoot)
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1, accountKey: account), includeGrades: false)
+        let privateLayout = StoreLayout(root: privateRoot, accountKey: account)
+        let sharedLayout = StoreLayout(root: sharedRoot, accountKey: account)
+        #expect(FileManager.default.fileExists(atPath: privateLayout.url(for: .snapshot).path))
+        #expect(FileManager.default.fileExists(atPath: sharedLayout.url(for: .glance).path))
+
+        try AccountPurger.purge(accountKey: account, root: privateRoot, sharedRoot: sharedRoot, keyring: ring)
+
+        #expect(!FileManager.default.fileExists(atPath: privateLayout.accountDirectory.path))
+        #expect(!FileManager.default.fileExists(atPath: sharedLayout.accountDirectory.path),
+                "the glance's own directory in the App Group root must go with the rest")
+        #expect(keys.count(KeyScope(account: account.rawValue, audience: .app)) == 0)
+        #expect(!FileManager.default.fileExists(atPath: privateLayout.purgePendingMarker.path))
+    }
 }

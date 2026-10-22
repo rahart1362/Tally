@@ -88,7 +88,8 @@ struct WelcomeFlowView: View {
                 viewModel: SignInHandoffViewModel(
                     host: host, clientID: clientID, schoolDisplayName: schoolDisplayName,
                     presenter: signIn.webAuthPresenter, tokenExchange: signIn.makeTokenExchange(host, clientID),
-                    redirectURI: SignInHandoffViewModel.defaultRedirectURI,
+                    // SEC1-05: a redirect distinct to this institution's host (mix-up defence).
+                    redirectURI: SignInHandoffViewModel.redirectURI(forHost: host),
                     onSuccess: { credential in
                         // perf-app-runtime.md §2.4 S2 → S4: the credential goes to `AppModel` (never into
                         // the navigation path), which builds the first sync; then the page is pushed.

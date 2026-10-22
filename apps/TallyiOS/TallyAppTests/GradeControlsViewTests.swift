@@ -343,7 +343,9 @@ struct GradeOverrideTests {
         #expect(reloads.value == 1)
         #expect(await coordinator.includeGrades, "still opted in: the rewrite is the answer's")
         guard case .loaded(let stored) = await userStateStore.load() else { Issue.record("no UserState"); return }
-        #expect(stored.schemaVersion == 5 && stored.gradesOutsideCanvasOverride == [spanish.id: "keptOutsideCanvas"])
+        // FEAT-3: whatever the current schema version is (now v6, after idea 4/5's bump).
+        #expect(stored.schemaVersion == UserState.currentSchemaVersion
+                && stored.gradesOutsideCanvasOverride == [spanish.id: "keptOutsideCanvas"])
         #expect(stored.showGradesInGlance)
 
         local.setCourseOrder([spanish.id]) // another change: the glance is already right

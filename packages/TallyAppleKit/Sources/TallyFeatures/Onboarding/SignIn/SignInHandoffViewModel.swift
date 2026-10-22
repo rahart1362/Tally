@@ -94,10 +94,29 @@ public final class SignInHandoffViewModel {
         self.onSuccess = onSuccess
     }
 
-    /// `https://<TallyOrgDomain>/oauth/callback` — the one https redirect
-    /// registered with every institution key (security.md §3.2 item 4: "Register
-    /// only this https redirect in every institution key").
-    public static var defaultRedirectURI: URL {
+    /// `https://<TallyOrgDomain>/oauth/callback/<institutionId>` — SEC1-05: a distinct https
+    /// redirect per institution, the RFC 9700 §4.4.2 mix-up defence (`InstitutionID`'s doc
+    /// comment has the full reasoning). `host` is the institution's Canvas host
+    /// (`ClientRegistration.host`); the path never carries it directly.
+    ///
+    /// Before SEC1-05 this was one fixed URL (`/oauth/callback`, no suffix) registered with every
+    /// institution key. That exact path keeps resolving to the same, now-unused page
+    /// (`site/oauth/callback/`), so a key that was already registered against it is never broken
+    /// — the fix only changes what *new* sign-ins ask Canvas to redirect to.
+    public static func redirectURI(forHost host: String) -> URL {
+        let path = "/oauth/callback/\(InstitutionID.derive(host: host))"
+        guard let url = URL(string: "https://\(TallyOrgDomainInfo.current)\(path)") else {
+            // https scheme + a fixed, valid domain + a hex-only path segment is always
+            // well-formed; this is unreachable, but never force-unwrap (plan 06 A6).
+            return defaultRedirectURI
+        }
+        return url
+    }
+
+    /// The pre-SEC1-05 fixed redirect, kept only as `redirectURI(forHost:)`'s unreachable-fallback
+    /// value above (never used for a real sign-in) and so a key an admin already registered
+    /// against it still has a page to land on.
+    static var defaultRedirectURI: URL {
         URL(string: "https://\(TallyOrgDomainInfo.current)/oauth/callback")! // swiftlint:disable:this force_unwrapping — https scheme + a fixed, valid domain is always a well-formed URL
     }
 

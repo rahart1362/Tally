@@ -29,6 +29,9 @@ public enum InterruptionLevel: String, Sendable, Equatable, CaseIterable {
 
 public enum NotificationKind: String, Sendable, Equatable, CaseIterable {
     case due, followup, exam, digest, weekAhead, gradePosted, belowGoal, sentinel
+    /// Idea 4 (FEAT-3): the To-Do "Remind me" swipe/menu action's one ad-hoc reminder, student-
+    /// requested rather than planned from the Balanced preset's own offsets.
+    case adHoc
 }
 
 /// Builds the deterministic `tally.<accountKey>.<kind>.<canvasID>.<ruleID>.<offset>`
@@ -41,8 +44,9 @@ public enum NotificationID {
 }
 
 /// A local reminder's quiet-hours window: `start...end` may wrap midnight
-/// (the default 23:00-07:00 does).
-public struct QuietHours: Sendable, Equatable {
+/// (the default 23:00-07:00 does). Codable (idea 5, FEAT-3): a per-student override is persisted
+/// as `UserState.quietHoursOverride`.
+public struct QuietHours: Sendable, Equatable, Codable {
     public let startHour: Int
     public let startMinute: Int
     public let endHour: Int

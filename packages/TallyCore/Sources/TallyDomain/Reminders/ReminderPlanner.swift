@@ -17,7 +17,11 @@ public enum ReminderPlanner {
     ///    needs action (`PriorityScore.isExcluded` gates this the same way
     ///    "Next up" does: not submitted, graded, excused, marked done, or
     ///    overdue-and-locked).
-    /// 3. Quiet-hour shifts (earlier only), a 14-day horizon, and then
+    /// 3. Idea 4 (FEAT-3): one ad-hoc reminder per entry in `adHocReminders` (the To-Do "Remind
+    ///    me" action), for whichever of those assignments is still an open candidate — so it is
+    ///    silently dropped once the item is done, submitted, graded or otherwise excluded, the
+    ///    same gate the regular item reminders above use.
+    /// 4. Quiet-hour shifts (earlier only), a 14-day horizon, and then
     ///    **never exceeding `cap`**: item reminders are sorted soonest-first
     ///    and truncated to whatever budget remains after the reserved ones
     ///    (WP-D02: "keep the soonest").
@@ -32,6 +36,7 @@ public enum ReminderPlanner {
         now: Date,
         timeZone: TimeZone,
         refresh: RefreshRecord,
+        adHocReminders: [CanvasID<Assignment>: Date] = [:],
         cap: Int = TallyConfig.pendingNotificationCap
     ) -> [PendingReminder] {
         var reserved: [PendingReminder] = []
@@ -53,6 +58,8 @@ public enum ReminderPlanner {
             guard !PriorityScore.isExcluded(assignment: candidate.assignment, markedDone: candidate.markedDone, now: now) else { continue }
             itemReminders.append(contentsOf: reminders(for: candidate, settings: settings, accountKey: accountKey, timeZone: timeZone))
         }
+        itemReminders.append(contentsOf: adHocItemReminders(adHocReminders, candidates: candidates, settings: settings,
+                                                            accountKey: accountKey, timeZone: timeZone, now: now))
         itemReminders = itemReminders
             .filter { $0.fireDate > now && $0.fireDate <= horizonEnd }
             .sorted(by: bySoonestThenID)
@@ -68,6 +75,34 @@ public enum ReminderPlanner {
 
     private static func bySoonestThenID(_ a: PendingReminder, _ b: PendingReminder) -> Bool {
         a.fireDate != b.fireDate ? a.fireDate < b.fireDate : a.id < b.id
+    }
+
+    // MARK: - Ad-hoc "Remind me" reminders (idea 4, FEAT-3)
+
+    /// One `PendingReminder` per `adHocReminders` entry whose assignment is still an open
+    /// candidate (not done, submitted, graded, excused or overdue-and-locked — the same
+    /// `PriorityScore.isExcluded` gate `plan` applies to every other item reminder): the
+    /// reconciler then cancels it on the very next pass once the student marks the item done,
+    /// with no separate "cancel" call needed. CS-07: `candidates` can repeat an assignment ID
+    /// (never `Dictionary(uniqueKeysWithValues:)`, which traps); the first occurrence wins.
+    private static func adHocItemReminders(
+        _ adHocReminders: [CanvasID<Assignment>: Date], candidates: [ReminderCandidate], settings: ReminderSettings,
+        accountKey: AccountKey, timeZone: TimeZone, now: Date
+    ) -> [PendingReminder] {
+        guard !adHocReminders.isEmpty else { return [] }
+        let candidatesByID = Dictionary(candidates.map { ($0.assignment.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var out: [PendingReminder] = []
+        for (assignmentID, requested) in adHocReminders {
+            guard requested > now, let candidate = candidatesByID[assignmentID],
+                  !PriorityScore.isExcluded(assignment: candidate.assignment, markedDone: candidate.markedDone, now: now)
+            else { continue }
+            let shifted = shiftOutOfQuietHours(requested, quietHours: settings.quietHours, timeZone: timeZone)
+            guard shifted > now else { continue }
+            out.append(PendingReminder(
+                id: NotificationID.make(accountKey: accountKey, kind: .adHoc, canvasID: assignmentID.rawValue, ruleID: "manual", offset: "0"),
+                kind: .adHoc, fireDate: shifted, interruptionLevel: .active, subjectID: assignmentID.rawValue))
+        }
+        return out
     }
 
     // MARK: - Per-item reminders

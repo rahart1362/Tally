@@ -10,6 +10,9 @@ import TallyStrings
 /// expects a submission.
 struct ToDoScreen: View {
     @Environment(HomeModel.self) private var model
+    /// Idea 4 (FEAT-3): "Remind me" asks for one reminders pass right after scheduling, the same
+    /// way Settings' "Hide Course Names" does.
+    @Environment(AppModel.self) private var app: AppModel?
     @State private var sortOrder: ToDoSortOrder = .dueDate
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<CanvasID<Assignment>>()
@@ -137,7 +140,32 @@ struct ToDoScreen: View {
                 // blue failure in dark.
                 .tint(TallyColor.accentFill)
             }
+            // Idea 4 (FEAT-3): one ad-hoc reminder through the existing pipeline — never a grade
+            // value, respects "Hide Course Names" (same content rules as every other reminder).
+            // Sample data schedules nothing (ASC-14), and an undated item has no due date for the
+            // pipeline to say anything honest about (`ReminderSubjects` only carries dated items).
+            if !model.isSampleData, item.dueText != nil {
+                Button {
+                    remindMe(for: item)
+                } label: {
+                    Label(String(localized: L10n.ToDo.swipeRemindMe()), systemImage: "bell")
+                }
+                .tint(TallyColor.accentFill)
+                .accessibilityIdentifier("todo.swipe.remindMe")
+            }
         }
+    }
+
+    /// Idea 4 (FEAT-3): schedules one ad-hoc reminder one hour from now (`SnoozeOption.oneHour`,
+    /// already built and tested for this exact purpose, `ReminderPlanner.snoozeDate`), persisted
+    /// so every later reminders pass keeps planning it until the item is done, submitted or
+    /// graded. `Date()`/`.current` stay out of `body` itself (`check_view_bodies.py`); this is a
+    /// plain method, called only from a tap.
+    private func remindMe(for item: ToDoItem) {
+        guard let fireDate = ReminderPlanner.snoozeDate(.oneHour, now: Date(), dueAt: nil, timeZone: .current) else { return }
+        model.scheduleReminder(for: item.id, fireDate: fireDate)
+        app?.reminders.reconcileNow()
+        AccessibilityAnnouncer.announce(String(localized: L10n.ToDo.remindMeConfirmation()))
     }
 
     @ViewBuilder
