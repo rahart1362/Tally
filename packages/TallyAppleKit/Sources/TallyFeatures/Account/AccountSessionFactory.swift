@@ -20,7 +20,7 @@ public nonisolated enum AccountSessionFactory {
             launchRecords?.close() // the first resolution closes the handoff, whatever it finds
             return nil
         }
-        return await coordinator(for: account, root: root, environment: environment,
+        return await coordinator(for: account, root: root, sharedRoot: environment.sharedRoot(), environment: environment,
                                  launchRecord: launchRecords?.take(for: account.accountKey))
     }
 
@@ -33,9 +33,9 @@ public nonisolated enum AccountSessionFactory {
     /// the launch refresh obeys `FreshnessRules.shouldStart`. With no record on disk the last
     /// attempt is unknown and the launch refreshes (after the cached paint), as before.
     @concurrent
-    static func coordinator(for account: AccountRecord, root: URL, environment: AccountEnvironment,
+    static func coordinator(for account: AccountRecord, root: URL, sharedRoot: URL? = nil, environment: AccountEnvironment,
                             launchRecord: LaunchRecordHandoff.Handed? = nil) async -> RefreshCoordinator {
-        let store = environment.snapshotStore(for: account.accountKey, root: root)
+        let store = environment.snapshotStore(for: account.accountKey, root: root, sharedRoot: sharedRoot)
         let recordStore = RefreshStateStore(root: root, accountKey: account.accountKey,
                                             sealer: environment.sealer(for: account.accountKey))
         async let persisted = persistedRecord(launchRecord, from: recordStore)
@@ -81,11 +81,12 @@ public nonisolated enum AccountSessionFactory {
     static func provision(credential: CanvasCredential, target: SignInTarget,
                           environment: AccountEnvironment) async throws -> (AccountRecord, RefreshCoordinator) {
         let root = try environment.storeRoot()
+        let sharedRoot = environment.sharedRoot()
         try await environment.credentialStore.save(credential)
         let record = AccountRecord.derived(credential: credential, target: target)
         try AccountDirectoryStore(root: root).activate(record)
-        try await environment.snapshotStore(for: record.accountKey, root: root).prepare()
-        return (record, await coordinator(for: record, root: root, environment: environment))
+        try await environment.snapshotStore(for: record.accountKey, root: root, sharedRoot: sharedRoot).prepare()
+        return (record, await coordinator(for: record, root: root, sharedRoot: sharedRoot, environment: environment))
     }
 
     /// The live gateway: `CanvasClient` over the injected transport, with a `TokenCoordinator`

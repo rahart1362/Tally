@@ -92,6 +92,19 @@ struct SignInHandoffViewModelTests {
         #expect(SignInHandoffViewModel.defaultRedirectURI.scheme == "https")
         #expect(SignInHandoffViewModel.defaultRedirectURI.path == "/oauth/callback")
     }
+
+    @Test("SEC1-05: each institution's redirect is distinct, stable for the same host, and never shows the host itself")
+    func perInstitutionRedirectURI() {
+        let northfield = SignInHandoffViewModel.redirectURI(forHost: "canvas.northfield.example")
+        let riverside = SignInHandoffViewModel.redirectURI(forHost: "canvas.riverside.example")
+        #expect(northfield.scheme == "https")
+        #expect(northfield.path.hasPrefix("/oauth/callback/"))
+        #expect(northfield.path != "/oauth/callback", "the old single path must never be reused for a real sign-in")
+        #expect(northfield.path != riverside.path, "two institutions must never share a redirect path")
+        #expect(northfield.path == SignInHandoffViewModel.redirectURI(forHost: "canvas.northfield.example").path,
+                "the same host must always redirect to the same path")
+        #expect(!northfield.path.lowercased().contains("northfield"), "the host itself must never appear in the path")
+    }
 }
 
 /// Echoes the `state` query item back from whatever authorize `url` it's given —

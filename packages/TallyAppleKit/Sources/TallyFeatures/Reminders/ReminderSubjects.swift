@@ -108,6 +108,11 @@ nonisolated struct ReminderSubjects: Sendable {
         case .exam:
             guard let item = itemsByID[reminder.subjectID] else { return nil }
             return .examReminder(subject(item), dueAt: item.dueAt)
+        case .adHoc:
+            // The subject is gone once it is done, submitted or graded (`ReminderPlanner.plan`
+            // already drops the request then; this is the content-side half of the same guard).
+            guard let item = itemsByID[reminder.subjectID] else { return nil }
+            return .adHocReminder(subject(item), dueAt: item.dueAt)
         case .digest:
             let due = items(dueAfter: reminder.fireDate, within: RemindersConfig.digestWindow)
             guard let first = due.first else { return nil }

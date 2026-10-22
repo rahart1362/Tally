@@ -145,8 +145,9 @@ extension AccountUserStateAccess {
 }
 
 extension AccountEnvironment {
-    /// The store root, resolved off the main actor (`storeRoot` asks the file system for the App
-    /// Group container); `nil` when there is none.
+    /// The app's private store root, resolved off the main actor (`storeRoot` asks the file
+    /// system for the app's own Application Support, never the App Group container — SEC1-09);
+    /// `nil` when there is none.
     @concurrent
     func resolvedStoreRoot() async -> URL? {
         try? storeRoot()

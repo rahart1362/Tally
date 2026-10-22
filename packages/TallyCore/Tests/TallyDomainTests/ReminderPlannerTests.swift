@@ -327,4 +327,88 @@ struct ReminderPlannerTests {
     @Test func dayBeforeDueNeedsADueDate() {
         #expect(ReminderPlanner.snoozeDate(.dayBeforeDue, now: Self.now, dueAt: nil, timeZone: Self.utc) == nil)
     }
+
+    // MARK: - Idea 5 (FEAT-3): the planner honours a per-student quiet-hours override
+
+    /// A custom window (20:00-06:00), not the Balanced default (23:00-07:00): the T-1h reminder at
+    /// 20:30 falls inside the override and shifts to 19:45 — proving `plan` reads `settings.quietHours`
+    /// rather than always applying `QuietHours()`'s hardcoded default.
+    @Test func planHonoursACustomQuietHoursOverride() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.utc
+        let due = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 21, minute: 30)))
+        let candidate = ReminderCandidate(assignment: assignment(id: "a1", due: due))
+        let override = QuietHours(startHour: 20, startMinute: 0, endHour: 6, endMinute: 0)
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [candidate],
+            settings: ReminderSettings(quietHours: override, missingFollowupEnabled: false),
+            now: Self.now, timeZone: Self.utc, refresh: RefreshRecord())
+        let finalHour = try #require(plan.first { $0.kind == .due && $0.id.hasSuffix(".3600") })
+        let expected = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 19, minute: 45)))
+        #expect(finalHour.fireDate == expected, "the override's own window, not the 23:00-07:00 default")
+    }
+
+    // MARK: - Idea 4 (FEAT-3): the To-Do "Remind me" ad-hoc reminder
+
+    @Test func adHocReminderIsScheduledAtTheRequestedTime() {
+        let due = Self.now.addingTimeInterval(5 * 86_400)
+        let requested = Self.now.addingTimeInterval(3600) // well clear of quiet hours
+        let candidate = ReminderCandidate(assignment: assignment(id: "a1", due: due))
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [candidate], settings: ReminderSettings(digestEnabled: false,
+                                                                                           weekAheadEnabled: false,
+                                                                                           missingFollowupEnabled: false),
+            now: Self.now, timeZone: Self.utc, refresh: RefreshRecord(), adHocReminders: ["a1": requested])
+        let adHoc = plan.first { $0.kind == .adHoc }
+        #expect(adHoc?.fireDate == requested)
+        #expect(adHoc?.subjectID == "a1")
+        #expect(adHoc?.id == "tally.acct1.adHoc.a1.manual.0")
+    }
+
+    @Test func adHocReminderIsCancelledOnceTheItemIsMarkedDone() {
+        let due = Self.now.addingTimeInterval(5 * 86_400)
+        let requested = Self.now.addingTimeInterval(3600)
+        let done = ReminderCandidate(assignment: assignment(id: "a1", due: due), markedDone: true)
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [done], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc,
+            refresh: RefreshRecord(), adHocReminders: ["a1": requested])
+        #expect(!plan.contains { $0.kind == .adHoc }, "a done item's ad-hoc reminder must not be (re)scheduled")
+    }
+
+    /// The same cancellation the app layer actually relies on: once an assignment is no longer
+    /// among the open candidates at all (the shape `ReminderSubjects` hands the planner once an
+    /// item is done, submitted or graded), a stale `adHocReminders` entry for it produces nothing.
+    @Test func adHocReminderIsDroppedOnceItsAssignmentIsNoLongerACandidate() {
+        let requested = Self.now.addingTimeInterval(3600)
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc,
+            refresh: RefreshRecord(), adHocReminders: ["gone": requested])
+        #expect(!plan.contains { $0.kind == .adHoc })
+    }
+
+    @Test func adHocReminderRespectsQuietHours() {
+        let due = Self.now.addingTimeInterval(5 * 86_400)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.utc
+        let requested = calendar.date(from: DateComponents(year: 2026, month: 9, day: 28, hour: 23, minute: 30))!
+        let candidate = ReminderCandidate(assignment: assignment(id: "a1", due: due))
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [candidate], settings: ReminderSettings(digestEnabled: false,
+                                                                                           weekAheadEnabled: false,
+                                                                                           missingFollowupEnabled: false),
+            now: Self.now, timeZone: Self.utc, refresh: RefreshRecord(), adHocReminders: ["a1": requested])
+        let adHoc = plan.first { $0.kind == .adHoc }
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 9, day: 28, hour: 22, minute: 45))!
+        #expect(adHoc?.fireDate == expected, "23:30 is inside the default 23:00-07:00 window: shifted to 22:45")
+    }
+
+    @Test func adHocReminderNeverFiresInThePast() {
+        let due = Self.now.addingTimeInterval(5 * 86_400)
+        let requested = Self.now.addingTimeInterval(-3600) // already in the past
+        let candidate = ReminderCandidate(assignment: assignment(id: "a1", due: due))
+        let plan = ReminderPlanner.plan(
+            accountKey: Self.account, candidates: [candidate], settings: ReminderSettings(), now: Self.now, timeZone: Self.utc,
+            refresh: RefreshRecord(), adHocReminders: ["a1": requested])
+        #expect(!plan.contains { $0.kind == .adHoc })
+    }
 }

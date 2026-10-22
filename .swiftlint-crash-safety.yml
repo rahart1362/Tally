@@ -1,7 +1,11 @@
 # CS-06 (crash-safety.md): the crash-safety lint gate, run via `make lint`. Deliberately
-# separate from the repo-root .swiftlint.yml (which still covers the legacy, slated-for-deletion
-# packages/Tally{AppFeature,Cache,...} tree and the old root Package.swift): this file's job is
-# only the merged TallyCore/TallyAppleKit code the crash-safety charter owns.
+# separate from the repo-root .swiftlint.yml: this file's job is only the merged
+# TallyCore/TallyAppleKit code the crash-safety charter owns. The repo-root config used to also
+# cover the legacy packages/Tally{AppFeature,Cache,...} tree and the old root Package.swift;
+# CLEANUP-1 deleted all of it, so the repo-root config's implicit scope (everything SwiftLint
+# finds under the repo root, minus its own `excluded:`) is now just this file's targets plus
+# `tools/` and `Tally_Antigravity_Build_Kit_Scaffold/` -- neither CI-gated, so nothing here
+# changed what actually runs.
 #
 # `only_rules` replaces SwiftLint's entire default rule set with exactly these four — this
 # gate's whole job (CS-06) is those four crash-safety rules, not this project's general style
