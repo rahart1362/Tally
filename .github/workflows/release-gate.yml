@@ -473,6 +473,90 @@ jobs:
           path: ${{ runner.temp }}/compliance/*.json
           retention-days: 30
 
+  ios-release-config:
+    name: UITest configuration (ASC-10/RELCFG-1; the 8 release-config flows, Release optimizations + TALLY_TEST_HOOKS)
+    # A separate job, not an extra step inside ios-gate: ios-gate already runs 95-109 min against a
+    # 170 min cap (PMO 2026-10-21), and this reruns the same DEBUG_FLOWS suites a second time, in a
+    # second configuration, so it runs in parallel on its own runner instead of risking ios-gate's
+    # own budget (RELCFG-1 brief: "prefer a separate job if adding the flows would exceed ~140 min").
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/compliance"
+      - name: Install XcodeGen (checksum-verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate Xcode project
+        working-directory: apps/TallyiOS
+        run: xcodegen generate --spec project.yml
+      - name: Pick an iOS 26 simulator
+        id: sim
+        run: python3 scripts/ci/pick_ios_simulator.py >> "$GITHUB_OUTPUT"
+      - name: Build for testing in the UITest configuration (Release optimizations, TALLY_TEST_HOOKS)
+        id: build
+        run: |
+          set +e -o pipefail
+          xcodebuild build-for-testing -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration UITest \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-uitest" \
+            | tee "$RUNNER_TEMP/build-uitest.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
+          if grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-uitest.log"; then result=pass; else result=fail; fi
+          echo "ok=$([ $result = pass ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          python3 scripts/ci/check_release.py --result REL.build.uitest-configuration "$result" \
+            "xcodebuild build-for-testing -configuration UITest, iOS Simulator: $(grep -oE 'BUILD (SUCCEEDED|FAILED)' "$RUNNER_TEMP/build-uitest.log" | tail -1)" \
+            --title "The UITest configuration builds (Release optimizations, TALLY_TEST_HOOKS; ASC-10)" \
+            --json "$RUNNER_TEMP/compliance/build-uitest.json" || [ $? -eq 1 ]
+      - name: The 8 release-config flows against the UITest configuration
+        # DEBUG_FLOWS (workflow env, above): the same suites ios-gate's own "Critical flows that
+        # need a DEBUG-only hook" step runs against Debug -- here against UITest instead, so each
+        # REL.flow.*.release-config check (below) reflects a real run, not a hardcoded PENDING.
+        if: steps.build.outputs.ok == 'true'
+        run: |
+          set +e -o pipefail
+          # shellcheck disable=SC2086 # the flag lists split into separate arguments on purpose
+          xcodebuild test-without-building -project apps/TallyiOS/Tally.xcodeproj -scheme Tally \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath "$RUNNER_TEMP/dd-uitest" \
+            $DEBUG_FLOWS -resultBundlePath "$RUNNER_TEMP/UITest-flows.xcresult" $TEST_FLAGS \
+            | tee "$RUNNER_TEMP/flows-uitest.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
+          if [ -d "$RUNNER_TEMP/UITest-flows.xcresult" ]; then
+            xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/UITest-flows.xcresult" --compact \
+              > "$RUNNER_TEMP/flows-uitest-tests.json"
+            xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/UITest-flows.xcresult" --compact --format json \
+              > "$RUNNER_TEMP/flows-uitest-summary.json"
+            python3 scripts/ci/print_xcresult_failures.py "$RUNNER_TEMP/flows-uitest-summary.json"
+          else
+            echo '{}' > "$RUNNER_TEMP/flows-uitest-tests.json"
+          fi
+      - name: "Release-config checks (ASC-10): REL.flow.*.release-config from the UITest-configuration run"
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/flows-uitest-tests.json" ] || echo '{}' > "$RUNNER_TEMP/flows-uitest-tests.json"
+          python3 scripts/ci/check_release.py --release-config "$RUNNER_TEMP/flows-uitest-tests.json" \
+            --json "$RUNNER_TEMP/compliance/release-config.json" || [ $? -eq 1 ]
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: compliance-release-config
+          path: ${{ runner.temp }}/compliance/*.json
+          retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ios-release-config-results
+          path: |
+            ${{ runner.temp }}/*.xcresult
+            ${{ runner.temp }}/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   a11y-perf-shots:
     name: Launch metric (M5; Launch.GlancePaint vs baseline, report-only)
     runs-on: macos-26
@@ -537,7 +621,7 @@ jobs:
 
   compliance-report:
     name: Compliance report (one JSON artifact; fails only on a check due now)
-    needs: [static-linux, core-tests, ios-gate, ios-gate-27, a11y-perf-shots, store-screenshots]
+    needs: [static-linux, core-tests, ios-gate, ios-gate-27, ios-release-config, a11y-perf-shots, store-screenshots]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -560,6 +644,7 @@ jobs:
             core-tests=${{ needs.core-tests.result }}
             ios-gate=${{ needs.ios-gate.result }}
             ios-gate-27=${{ needs.ios-gate-27.result }}
+            ios-release-config=${{ needs.ios-release-config.result }}
             a11y-perf-shots=${{ needs.a11y-perf-shots.result }}
             store-screenshots=${{ needs.store-screenshots.result }}
         run: |
@@ -574,7 +659,7 @@ jobs:
               "job result: $result" --title "The $job job ran to completion" $extra --json "$dir/job-$job.json" > /dev/null || true
           done
           for report in source widget-sources toolchain build-release-simulator flows build-device-archive \
-                        a11y-audit m5-launch store-screenshots; do
+                        build-uitest release-config a11y-audit m5-launch store-screenshots; do
             [ -f "$dir/$report.json" ] && continue
             python3 scripts/ci/check_release.py --result "REL.report.$report" fail "no $report.json was produced" \
               --title "The $report report exists" --json "$dir/missing-$report.json" > /dev/null || true
