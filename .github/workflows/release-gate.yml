@@ -505,9 +505,25 @@ jobs:
         id: build
         run: |
           set +e -o pipefail
+          # RELCFG-1 fix (gate run 39785596325): project.yml's `UITest` config setting sets
+          # SWIFT_ACTIVE_COMPILATION_CONDITIONS for the Tally.xcodeproj's own targets only -- Xcode
+          # does not propagate a custom per-configuration xcconfig setting into the local Swift
+          # package targets (TallyCore, TallyAppleKit) that actually declare LaunchTestHooks,
+          # SubscriptionTestHooks, AgeAssuranceTestHooks, EmptyLaunchSceneView and AppModel.testHooks.
+          # `make ios-perf` already gets this right for its own Release test build by passing the
+          # flag as an xcodebuild command-line override (Makefile IOS_PERF_CONDITIONS), which *does*
+          # apply uniformly across the whole target graph including packages. Without it here, the
+          # packages compile with TALLY_TEST_HOOKS unset, so `#if DEBUG || TALLY_TEST_HOOKS` drops
+          # those symbols and the app target's own (correctly-flagged) call sites fail with "cannot
+          # find X in scope" -- a real build failure, not a compliance-reporting bug.
           xcodebuild build-for-testing -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration UITest \
+            'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) TALLY_TEST_HOOKS' \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-uitest" \
-            | tee "$RUNNER_TEMP/build-uitest.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
+            2>&1 | tee "$RUNNER_TEMP/build-uitest.log" | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)"
+          # 2>&1 above (gate run 39785596325): the final "** TEST BUILD FAILED **" banner came out on
+          # stderr, so stdout-only `tee` missed it and left REL.build.uitest-configuration's detail
+          # empty even though the failure was real; merging the streams makes the detail trustworthy
+          # either way.
           if grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/build-uitest.log"; then result=pass; else result=fail; fi
           echo "ok=$([ $result = pass ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           python3 scripts/ci/check_release.py --result REL.build.uitest-configuration "$result" \
