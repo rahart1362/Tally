@@ -40,4 +40,47 @@ struct HomeProjectorTests {
         #expect(validUntil > Self.anchor)
         #expect(validUntil <= Self.anchor.addingTimeInterval(TallyConfig.dashboardMaxStaleness.timeInterval))
     }
+
+    // MARK: Done marks (ideas2 report #3)
+
+    private func installedProjector(_ snapshot: CanvasSnapshot) async -> HomeProjector {
+        let projector = HomeProjector()
+        await projector.install(HomeUpdate(generation: 1, snapshot: snapshot, digest: nil, digestAsOf: nil,
+                                           freshness: .fresh(at: Self.anchor)))
+        return projector
+    }
+
+    @Test("HomeProjector classifies 'Next up' with the done marks it holds")
+    func projectsWithTheDoneMarksItHolds() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Self.anchor)
+        let projector = await installedProjector(snapshot)
+        let before = try #require(await projector.project(now: Self.anchor))
+        let marked = try #require(before.dashboard.nextUp.first?.id, "the flagship should have open work due soon")
+
+        #expect(await projector.setDoneAssignments([marked], revision: 1))
+        let after = try #require(await projector.project(now: Self.anchor))
+        #expect(!after.dashboard.nextUp.contains { $0.id == marked })
+    }
+
+    @Test("HomeProjector: an older hand-over of the done marks never replaces a newer one")
+    func doneMarksRevisionOrdersHandOvers() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Self.anchor)
+        let projector = await installedProjector(snapshot)
+        let marked = try #require(await projector.project(now: Self.anchor)?.dashboard.nextUp.first?.id)
+
+        #expect(await projector.setDoneAssignments([marked], revision: 2))
+        #expect(!(await projector.setDoneAssignments([], revision: 1)), "older: ignored")
+        let after = try #require(await projector.project(now: Self.anchor))
+        #expect(!after.dashboard.nextUp.contains { $0.id == marked }, "the newer (marked-done) hand-over still holds")
+    }
+
+    @Test("HomeProjector: the same done marks again report no change, so nothing is projected again")
+    func sameDoneMarksAgainReportNoChange() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: Self.anchor)
+        let projector = await installedProjector(snapshot)
+        let marked = try #require(await projector.project(now: Self.anchor)?.dashboard.nextUp.first?.id)
+
+        #expect(await projector.setDoneAssignments([marked], revision: 1))
+        #expect(!(await projector.setDoneAssignments([marked], revision: 2)))
+    }
 }

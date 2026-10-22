@@ -113,6 +113,11 @@ public actor RefreshCoordinator {
     /// Set at init from `UserStateStore`, then by `updateIncludeGrades(_:)`.
     public private(set) var includeGrades: Bool
 
+    /// ideas2 report #2: whether the glance projection built at commit time hides course names and
+    /// assignment titles (`UserState.hideCourseNamesInNotifications`, PMO R10 — never defaulted to
+    /// `true`). Set at init from `UserStateStore`, then by `updateHideCourseNames(_:)`.
+    public private(set) var hideCourseNames: Bool
+
     /// Called when the user changes the "What changed" threshold in Settings; the next commit uses it.
     public func updateDigestThresholds(_ thresholds: DigestThresholds) {
         digestThresholds = thresholds
@@ -133,7 +138,8 @@ public actor RefreshCoordinator {
         let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                                       hideCourseNames: hideCourseNames)
         return rewritten != nil
     }
 
@@ -151,7 +157,8 @@ public actor RefreshCoordinator {
         let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                                       hideCourseNames: hideCourseNames)
         return rewritten != nil
     }
 
@@ -176,7 +183,28 @@ public actor RefreshCoordinator {
         let entitledUntil = await entitlement.glanceEntitledUntil()
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: include,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                                       hideCourseNames: hideCourseNames)
+        return rewritten != nil
+    }
+
+    /// ideas2 report #2 (PMO R10): called when the user changes "Hide Course Names" in Settings.
+    /// As `updateIncludeGrades` does, the glance on disk is rebuilt now from the committed
+    /// snapshot, so the widgets, the Lock Screen and Siri stop (or start) naming courses and
+    /// assignments at once rather than waiting for the next refresh. Returns true when this call
+    /// rewrote the glance, so the caller can ask WidgetKit to reload; false when nothing changed,
+    /// when nothing is committed yet, or when a newer commit landed meanwhile (it already used the
+    /// new value).
+    @discardableResult
+    public func updateHideCourseNames(_ hide: Bool) async -> Bool {
+        guard hide != hideCourseNames else { return false }
+        hideCourseNames = hide
+        guard let committedSnapshot else { return false }
+        let entitledUntil = await entitlement.glanceEntitledUntil()
+        let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
+                                                       gradeAvailability: gradeAvailability(of: committedSnapshot),
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                                       hideCourseNames: hide)
         return rewritten != nil
     }
 
@@ -196,7 +224,8 @@ public actor RefreshCoordinator {
         }
         let rewritten = try? await store.rewriteGlance(from: committedSnapshot, includeGrades: includeGrades,
                                                        gradeAvailability: gradeAvailability(of: committedSnapshot),
-                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+                                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                                       hideCourseNames: hideCourseNames)
         return rewritten != nil
     }
 
@@ -209,6 +238,7 @@ public actor RefreshCoordinator {
         includeGrades: Bool = false,
         gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:],
         doneAssignments: Set<CanvasID<Assignment>> = [],
+        hideCourseNames: Bool = false,
         liveRefreshBudget: Duration = TallyConfig.liveRefreshBudget,
         foregroundHardCeiling: Duration = TallyConfig.foregroundHardCeiling,
         backgroundBudget: Duration = TallyConfig.backgroundBudget,
@@ -226,6 +256,7 @@ public actor RefreshCoordinator {
         self.backgroundBudget = backgroundBudget
         self.minAutoRefreshInterval = minAutoRefreshInterval
         self.includeGrades = includeGrades
+        self.hideCourseNames = hideCourseNames
         // The stored answers the glance on disk was last written with: no rewrite at launch.
         self.gradeAvailabilityOverrides = gradeAvailabilityOverrides
         self.doneAssignments = doneAssignments
@@ -523,7 +554,8 @@ public actor RefreshCoordinator {
                                            gradeAvailability: availability)
             do {
                 try await store.commit(stamped, includeGrades: includeGrades, gradeAvailability: availability,
-                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments)
+                                       entitledUntil: entitledUntil, doneAssignments: doneAssignments,
+                                       hideCourseNames: hideCourseNames)
                 committedGeneration = stamped.generation
                 committedSnapshot = stamped
                 record.succeeded(dataFetchedAt: stamped.fetchedAt)

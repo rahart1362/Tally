@@ -122,6 +122,49 @@ struct HomeModelTests {
         #expect(await projector.projectionCount == 2)
     }
 
+    /// ideas2 report #3: before this fix, `ToDoScreen` called `model.local.setDone` directly, so
+    /// marking an item done never reached `HomeProjector`/`DashboardBuilder` — "Next up" kept
+    /// showing an item the student had just finished until the next unrelated re-projection.
+    @Test("HomeModel.setDone: a mark hands the done set to the projector and re-projects once; Next up drops the item")
+    func setDoneReprojectsNextUp() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: HomeTestSupport.anchor)
+        let source = FakeHomeSource(HomeTestSupport.update(snapshot, generation: 1, freshness: .fresh(at: HomeTestSupport.anchor)))
+        let model = HomeModel(source: source)
+        await model.start()
+        #expect(try await HomeTestSupport.waitUntil { model.phase == .loaded })
+        let marked = try #require(model.dashboard.nextUp.first?.id, "the flagship should have open work due soon")
+
+        model.setDone([marked], done: true)
+        await model.awaitDoneAssignmentApplied()
+        #expect(!model.dashboard.nextUp.contains { $0.id == marked })
+        #expect(model.local.isDone(marked))
+
+        // Unmarking drops the mark and brings the item back.
+        model.setDone([marked], done: false)
+        await model.awaitDoneAssignmentApplied()
+        #expect(model.dashboard.nextUp.contains { $0.id == marked })
+    }
+
+    @Test("HomeModel: at launch the stored done marks reach the projector before the first update")
+    func doneMarksReachTheProjectorAtLaunch() async throws {
+        let snapshot = try await FlagshipSnapshotHarness.fetchSnapshot(now: HomeTestSupport.anchor)
+        let source = FakeHomeSource(HomeTestSupport.update(snapshot, generation: 1, freshness: .fresh(at: HomeTestSupport.anchor)))
+        // Finds the item to pre-mark from a throwaway model over the same snapshot, then builds the
+        // real model with that item already marked done in its local store before `start()` runs.
+        let probe = HomeModel(source: FakeHomeSource(HomeTestSupport.update(snapshot, generation: 1,
+                                                                            freshness: .fresh(at: HomeTestSupport.anchor))))
+        await probe.start()
+        #expect(try await HomeTestSupport.waitUntil { probe.phase == .loaded })
+        let marked = try #require(probe.dashboard.nextUp.first?.id)
+
+        let localStore = InMemoryLocalScreenStateStore()
+        await localStore.save(LocalScreenState(doneAssignments: [marked]))
+        let model = HomeModel(source: source, localStore: localStore)
+        await model.start()
+        #expect(try await HomeTestSupport.waitUntil { model.phase == .loaded })
+        #expect(!model.dashboard.nextUp.contains { $0.id == marked }, "the stored mark should already apply to the first projection")
+    }
+
     @Test("a projection from an older generation never replaces a newer one")
     func staleGenerationsAreDropped() async throws {
         let model = HomeModel(source: FakeHomeSource(HomeTestSupport.update(nil, generation: 0, freshness: .noCache)))

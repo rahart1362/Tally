@@ -263,9 +263,11 @@ public nonisolated enum DashboardBuilder {
     /// This form classifies the courses itself, with no per-course override (plan 08 G-3): for
     /// tests and tools. The app passes the index it built once for this snapshot, its overrides
     /// and `now` (`build(from:digest:digestAsOf:now:gradeAvailability:)`).
-    public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date) -> DashboardProjection {
+    public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date,
+                             doneAssignments: Set<CanvasID<Assignment>> = []) -> DashboardProjection {
         build(from: snapshot, digest: digest, digestAsOf: digestAsOf, now: now,
-              gradeAvailability: GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now))
+              gradeAvailability: GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: now),
+              doneAssignments: doneAssignments)
     }
 
     /// Plan 08 §4.3 (XG-02): `gradeAvailability` is built once per (snapshot, overrides, now) by
@@ -273,8 +275,15 @@ public nonisolated enum DashboardBuilder {
     /// the hero's average (§4.4 row 1), the near-boundary and below-goal modifiers (row 11), and
     /// the course-weight reason (row 12). A course the index does not know shows nothing
     /// grade-derived.
+    ///
+    /// ideas2 report #3: `doneAssignments` (`ScreenLocalState.doneAssignments`, UX-WP-18, PMO R16)
+    /// is the student's local "done" marks, the same set `ReminderPlanner`/`FamilyNotificationPlanner`
+    /// already thread into `PriorityScore.isExcluded`. "Next up" used to hardcode `markedDone:
+    /// false`, so an item the student had just marked done kept showing there even though To-Do
+    /// (which reads the mark directly) no longer listed it.
     public static func build(from snapshot: CanvasSnapshot, digest: ChangeDigest?, digestAsOf: Date?, now: Date,
-                             gradeAvailability: GradeAvailabilityIndex) -> DashboardProjection {
+                             gradeAvailability: GradeAvailabilityIndex,
+                             doneAssignments: Set<CanvasID<Assignment>> = []) -> DashboardProjection {
         // CS-07: `courses` can repeat an ID (a course listed once per enrollment, or pages that
         // overlap). `Dictionary(uniqueKeysWithValues:)` trapped on that. The first occurrence
         // wins, as in `PriorityScore.WeightContext`.
@@ -295,7 +304,8 @@ public nonisolated enum DashboardBuilder {
 
         return DashboardProjection(
             hero: hero(courses: snapshot.courses, gradeAvailability: gradeAvailability),
-            nextUp: nextUp(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
+            nextUp: nextUp(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now,
+                          doneAssignments: doneAssignments),
             needsAttention: needsAttention(items: items, snapshot: snapshot, gradeAvailability: gradeAvailability, now: now),
             dueSoon: dueSoon(planner: snapshot.planner, coursesByID: coursesByID, now: now),
             weekAhead: weekAhead(planner: snapshot.planner, coursesByID: coursesByID, now: now),
@@ -362,7 +372,8 @@ public nonisolated enum DashboardBuilder {
     /// unknown. Its ranking weight is unchanged: points still signal effort.
     private static func nextUp(
         items: [(course: Course, groups: [AssignmentGroup], assignment: Assignment, weight: Double)],
-        snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex, now: Date
+        snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex, now: Date,
+        doneAssignments: Set<CanvasID<Assignment>> = []
     ) -> [DashboardProjection.NextUpItem] {
         var ranked: [(item: PriorityScore.RankedItem, title: String, courseCode: String)] = []
         var reasons: [CanvasID<Assignment>: [PriorityScore.Factor]] = [:]
@@ -370,7 +381,10 @@ public nonisolated enum DashboardBuilder {
         let courseOrder = Dictionary(snapshot.courses.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for (course, _, assignment, weight) in items {
-            guard !PriorityScore.isExcluded(assignment: assignment, markedDone: false, now: now) else { continue }
+            // ideas2 report #3: the real mark, not a hardcoded `false` — a student's own "done"
+            // tap now reaches the one screen built to deliver "you're all caught up".
+            guard !PriorityScore.isExcluded(assignment: assignment, markedDone: doneAssignments.contains(assignment.id),
+                                            now: now) else { continue }
             let hours = assignment.dueAt.map { $0.timeIntervalSince(now) / 3600 }
             let availability = gradeAvailability[course.id]
             let modifiers = priorityModifiers(assignment: assignment, course: course, availability: availability, now: now)

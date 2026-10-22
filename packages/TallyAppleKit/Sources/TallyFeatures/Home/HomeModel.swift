@@ -86,6 +86,9 @@ public final class HomeModel {
     @ObservationIgnored private var hasEnded = false
     /// XG-04: hands a changed "grades kept outside Canvas" answer to the projector, then re-projects.
     private let overrideChanges = TaskBox()
+    /// ideas2 report #3: hands a changed "done" mark to the projector, then re-projects, so
+    /// "Next up" agrees with To-Do's own exclusion the moment the student taps a row.
+    private let doneAssignmentChanges = TaskBox()
     /// Idea 4 (FEAT-3): the latest "Remind me" save, for tests to await. `userState`'s own
     /// actor isolation (`AccountUserStateAccess`) already serializes overlapping read-modify-
     /// write calls, so `TaskBox.replace`'s cancellation of the box's own reference never drops a
@@ -97,6 +100,8 @@ public final class HomeModel {
     @ObservationIgnored private let canvasLinkPreferenceStore: any CanvasLinkPreferenceStoring
     /// FEAT-8: `setCanvasLinkPreference(_:)`'s write, owned here like every other session task.
     private let canvasLinkPreferencePersist = TaskBox()
+    /// The revision of the "done" marks last handed to the projector.
+    @ObservationIgnored private var doneAssignmentsRevision: UInt64 = 0
 
     /// - Parameters:
     ///   - localStore: where the course order and "done" marks live; in memory by default (sample
@@ -162,11 +167,14 @@ public final class HomeModel {
         // M3-A: the course order first, so the first projection (at launch, `prepare()` runs
         // before `start()`) already shows the student's order; and (XG-04) the "grades kept
         // outside Canvas" answers, so it classifies every course as the glance on disk does.
+        // ideas2 report #3: the "done" marks too, so the very first "Next up" already agrees
+        // with To-Do about what the student has already finished.
         await local.load()
         await projector.setGradeAvailabilityOverrides(local.gradeAvailabilityOverrides, revision: overridesRevision)
         // FEAT-8: concurrent with the rest of this prepare step -- Settings and "Open in Canvas"
         // are several taps away from the first paint, like FEAT-2's own local preference load.
         canvasLinkPreference = await canvasLinkPreferenceStore.load() ?? .app
+        await projector.setDoneAssignments(local.doneAssignments, revision: doneAssignmentsRevision)
         let updates = await source.updates()
         guard !hasEnded else { return }
         await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
@@ -296,6 +304,28 @@ public final class HomeModel {
         })
     }
 
+    /// ideas2 report #3: To-Do's "Mark Done" button and swipe action call this (not
+    /// `local.setDone` directly) so the Dashboard's "Next up" re-projects at once, the same way a
+    /// changed "grades kept outside Canvas" answer does. `local.setDone` itself still persists the
+    /// mark and triggers the account's reminders pass (`AccountLocalScreenStateStore`'s
+    /// `onDoneMarksChanged`), unchanged.
+    public func setDone(_ ids: some Sequence<CanvasID<Assignment>>, done: Bool) {
+        guard local.setDone(ids, done: done) else { return }
+        doneAssignmentsRevision &+= 1
+        let revision = doneAssignmentsRevision
+        let doneAssignments = local.doneAssignments
+        let projector = projector
+        doneAssignmentChanges.replace(with: Task { [weak self] in
+            guard await projector.setDoneAssignments(doneAssignments, revision: revision) else { return }
+            await self?.reproject()
+        })
+    }
+
+    /// Waits for the latest "done" mark to reach the screens (tests).
+    func awaitDoneAssignmentApplied() async {
+        await doneAssignmentChanges.value()
+    }
+
     /// Waits for the latest answer to reach the screens (tests).
     func awaitGradeAvailabilityOverrideApplied() async {
         await overrideChanges.value()
@@ -341,6 +371,7 @@ public final class HomeModel {
         timeChanges.cancel()
         overrideChanges.cancel()
         canvasLinkPreferencePersist.cancel()
+        doneAssignmentChanges.cancel()
         manualRunOwner.cancel()
         manualRun = nil
         await source.end()

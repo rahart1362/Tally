@@ -91,15 +91,19 @@ public final class ScreenLocalState {
         doneAssignments.contains(id)
     }
 
-    /// Marks (or unmarks) every item in `ids` as done in Tally.
-    public func setDone(_ ids: some Sequence<CanvasID<Assignment>>, done: Bool) {
+    /// Marks (or unmarks) every item in `ids` as done in Tally. Returns whether anything changed
+    /// (ideas2 report #3: `HomeModel.setDone` only re-projects the Dashboard then), the same
+    /// pattern `setGradeAvailabilityOverride` already uses.
+    @discardableResult
+    public func setDone(_ ids: some Sequence<CanvasID<Assignment>>, done: Bool) -> Bool {
         var marks = doneAssignments
         for id in ids {
             if done { marks.insert(id) } else { marks.remove(id) }
         }
-        guard marks != doneAssignments else { return }
+        guard marks != doneAssignments else { return false }
         doneAssignments = marks
         persist()
+        return true
     }
 
     /// Sets (or, with `nil`, clears to Automatic) one course's "grades kept outside Canvas"
