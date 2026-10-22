@@ -109,7 +109,7 @@ jobs:
   ios-gate:
     name: iOS gate (Xcode 26.6; Release build, launch, critical flows, device archive)
     runs-on: macos-26
-    timeout-minutes: 120
+    timeout-minutes: 170 # PMO 2026-10-21: green runs take 95-109 min; AGE-1's added tests pushed it past 120 (run 39642168193 cancelled twice)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select Xcode
