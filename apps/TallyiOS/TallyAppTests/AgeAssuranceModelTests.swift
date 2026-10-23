@@ -120,6 +120,17 @@ struct AgeAssuranceModelTests {
         try await waitForEvaluation(versionStore, ratingCode: 9)
         #expect(await versionStore.load()?.lastAcknowledgedSignificantChangeVersion == nil)
 
+        // `listenForAnswers` subscribes on its own task, started from `init`; wait for that
+        // subscription to actually exist before sending the answer, or `sendAnswer` could run
+        // before there is any continuation to yield to.
+        let listenerDeadline = ContinuousClock.now + .seconds(5)
+        while !consent.hasActiveListener {
+            guard ContinuousClock.now < listenerDeadline else {
+                Issue.record("listenForAnswers never subscribed to pendingAnswers()")
+                break
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
         consent.sendAnswer(.granted)
         let deadline = ContinuousClock.now + .seconds(5)
         while await versionStore.load()?.lastAcknowledgedSignificantChangeVersion != Self.appVersion {
@@ -155,6 +166,10 @@ private final class ScriptedSignificantChangeConsent: SignificantChangeConsentin
     }
 
     var requestCount: Int { state.withLock { $0.count } }
+    /// Whether `pendingAnswers()` has been called and its continuation is still live -- lets a
+    /// test wait for `listenForAnswers`'s own subscription task to actually start before sending
+    /// an answer, instead of racing it.
+    var hasActiveListener: Bool { state.withLock { !$0.continuations.isEmpty } }
 
     func requestConsent(changeDescription: String, for requirement: SignificantChangeRequirement) async -> SignificantChangeConsentOutcome {
         state.withLock { current in

@@ -31,7 +31,9 @@ enum TallyPasteboard {
     /// extracted as a pure, tiny helper so a unit test can prove both without touching the real
     /// pasteboard (`UIPasteboard.general` is live, shared system state a test must not depend
     /// on). Behaviour is unchanged: `copy` still makes exactly this one `setItems` call.
-    static func pasteboardPayload(_ text: String, expiresAt: Date) -> ([[String: Any]], [UIPasteboard.OptionsKey: Any]) {
+    /// `nonisolated`: it touches no UI state at all (this module defaults to `@MainActor`), so a
+    /// plain, non-actor test can call it directly.
+    nonisolated static func pasteboardPayload(_ text: String, expiresAt: Date) -> ([[String: Any]], [UIPasteboard.OptionsKey: Any]) {
         ([[UTType.utf8PlainText.identifier: text]], [.localOnly: true, .expirationDate: expiresAt])
     }
 }
