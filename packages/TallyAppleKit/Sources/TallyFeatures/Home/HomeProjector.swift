@@ -27,6 +27,11 @@ public actor HomeProjector {
     /// The revision of `gradeAvailabilityOverrides`, so an older hand-over that arrives late never
     /// replaces a newer one.
     private var overridesRevision: UInt64 = 0
+    /// Idea 2 (FEAT-4): the student's own per-course grade goals; a course that is absent has none.
+    private(set) var courseGoals: [CanvasID<Course>: Double] = [:]
+    /// The revision of `courseGoals`, so an older hand-over that arrives late never replaces a
+    /// newer one.
+    private var goalsRevision: UInt64 = 0
     /// ideas2 report #3 (UX-WP-18, PMO R16): the student's local "done" marks
     /// (`ScreenLocalState.doneAssignments`), so "Next up" agrees with To-Do about what is still
     /// outstanding instead of hardcoding `markedDone: false`.
@@ -59,6 +64,18 @@ public actor HomeProjector {
         overridesRevision = revision
         guard overrides != gradeAvailabilityOverrides else { return false }
         gradeAvailabilityOverrides = overrides
+        return true
+    }
+
+    /// Idea 2 (FEAT-4): takes the student's own per-course grade goals for every later
+    /// projection. `revision` orders hand-overs the same way `setGradeAvailabilityOverrides` does.
+    /// Returns whether the goals changed, so the caller re-projects only then.
+    @discardableResult
+    public func setCourseGoals(_ goals: [CanvasID<Course>: Double], revision: UInt64) -> Bool {
+        guard revision >= goalsRevision else { return false }
+        goalsRevision = revision
+        guard goals != courseGoals else { return false }
+        courseGoals = goals
         return true
     }
 
@@ -99,7 +116,7 @@ public actor HomeProjector {
             // M3-A: every screen's rows, in the student's locale, off the main actor.
             screens: ScreenProjections.build(
                 from: snapshot, formatter: ScreenFormatter(now: now, calendar: calendar, locale: locale),
-                gradeAvailability: gradeAvailability))
+                gradeAvailability: gradeAvailability, courseGoals: courseGoals))
     }
 
     /// Releases the snapshot (sessions are exclusive: sample exit, sign-out).

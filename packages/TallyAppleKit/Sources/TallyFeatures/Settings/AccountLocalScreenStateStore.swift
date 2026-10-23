@@ -3,8 +3,9 @@ import TallyDomain
 import TallyStore
 
 /// A signed-in account's `LocalScreenState` (M3-A O3): the course order and To-Do "done" marks, kept
-/// in the account's sealed `UserState` (v4 `courseOrder` and `doneAssignments`), and the "grades
-/// kept outside Canvas" answers (v5 `gradesOutsideCanvasOverride`, plan 08 XG-04), so they survive
+/// in the account's sealed `UserState` (v4 `courseOrder` and `doneAssignments`), the "grades
+/// kept outside Canvas" answers (v5 `gradesOutsideCanvasOverride`, plan 08 XG-04), and the
+/// student's own per-course grade goals (v7 `courseGoals`, FEAT-4 idea 2), so they survive
 /// a relaunch. Every save goes through `UserStateAccess.update`, which hands the answers to the
 /// account's `RefreshCoordinator` (the glance, the digest). Sample mode keeps
 /// `InMemoryLocalScreenStateStore` (ASC-14: sample data is never persisted). After a save that
@@ -26,7 +27,8 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
         let state = await access.load()
         knownDoneAssignments = state.doneAssignments
         return LocalScreenState(courseOrder: state.courseOrder, doneAssignments: state.doneAssignments,
-                                gradeAvailabilityOverrides: state.gradeAvailabilityOverrides, revision: latestRevision)
+                                gradeAvailabilityOverrides: state.gradeAvailabilityOverrides,
+                                courseGoals: state.courseGoals, revision: latestRevision)
     }
 
     /// Keeps `state` unless a newer revision was already saved. A save the store refuses (a state
@@ -38,11 +40,13 @@ public actor AccountLocalScreenStateStore: LocalScreenStateStoring {
         let order = state.courseOrder
         let done = state.doneAssignments
         let overrides = state.gradeAvailabilityOverrides
+        let goals = state.courseGoals
         do {
             try await access.update { stored in
                 stored.courseOrder = order
                 stored.doneAssignments = done
                 stored.gradeAvailabilityOverrides = overrides
+                stored.courseGoals = goals
             }
         } catch {
             return
