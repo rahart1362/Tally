@@ -72,6 +72,12 @@ public nonisolated struct LaunchTestHooks: Sendable {
         /// the day the audit runs against, so two runs on the same commit agree. Parsed with
         /// `ISO8601DateFormatter`; an unparsable value is ignored (the real clock keeps running).
         public static let fixedNow = "TallyTestHooks.fixedNow"
+        /// `YES`: before the launch reads anything, the active account's refresh record says its
+        /// last attempt (60 s ago, so the launch refresh is throttled, same reasoning as
+        /// `lastRefreshAttempt`'s "recent") failed with `.schoolDisabled` (EB-26, PAY-10) — the
+        /// school-revoked notice shows, with an active entitlement (`TestHooks.entitled`,
+        /// `launchApp`'s own default).
+        public static let schoolRevoked = "TallyTestHooks.schoolRevoked"
     }
 
     /// The demo school's registration (the flagship persona's host; a synthetic client ID).
@@ -91,6 +97,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     public let emptyScene: Bool
     public let lastRefreshAttempt: String?
     public let fixedNow: Date?
+    public let schoolRevoked: Bool
 
     /// Parses `-TallyTestHooks.<name> <value>` pairs; anything else is ignored.
     public init(arguments: [String]) {
@@ -121,13 +128,14 @@ public nonisolated struct LaunchTestHooks: Sendable {
         emptyScene = flag(Key.emptyScene)
         lastRefreshAttempt = values[Key.lastRefreshAttempt]
         fixedNow = values[Key.fixedNow].flatMap { ISO8601DateFormatter().date(from: $0) }
+        schoolRevoked = flag(Key.schoolRevoked)
     }
 
     /// Whether any hook is on. `AppEnvironment` keeps no hooks object when none is.
     public var isActive: Bool {
         seed != nil || reset || appLock != nil || deviceAuth != nil || replayAccounts || blockNetwork
             || trapAllNetwork || demoSignIn || signOutButton || emptyScene || lastRefreshAttempt != nil
-            || fixedNow != nil
+            || fixedNow != nil || schoolRevoked
     }
 
     private static func authResult(_ name: String) -> AppLockPolicy.AuthResult? {
@@ -192,7 +200,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
     /// first, so it can never shred the keys of a store seeded on the simulator's first launch.
     @concurrent
     public func prepareLaunch(_ environment: AccountEnvironment) async {
-        guard reset || seed != nil || appLock != nil || lastRefreshAttempt != nil,
+        guard reset || seed != nil || appLock != nil || lastRefreshAttempt != nil || schoolRevoked,
               let root = try? environment.storeRoot() else { return }
         await LaunchBootstrapper.reconcileInstallIfNeeded(root: root, environment: environment)
         if reset || seed != nil { await Self.eraseEverything(root: root, environment: environment) }
@@ -202,6 +210,9 @@ public nonisolated struct LaunchTestHooks: Sendable {
                                                                           gracePeriod: appLockGrace ?? .default))
         }
         if let lastRefreshAttempt { Self.writeLastRefreshAttempt(lastRefreshAttempt, root: root, environment: environment) }
+        // EB-26: after the seed above (this account must already exist), so a single launch can
+        // both seed the flagship account and land it in the school-revoked state.
+        if schoolRevoked { Self.writeSchoolRevoked(root: root, environment: environment) }
     }
 
     /// The `lastRefreshAttempt` hook: a refresh record whose last attempt (a success) was an hour or
@@ -213,6 +224,20 @@ public nonisolated struct LaunchTestHooks: Sendable {
         var record = RefreshRecord()
         record.began(.launch, at: attemptedAt)
         record.succeeded(dataFetchedAt: attemptedAt)
+        try? RefreshStateStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
+            .save(record)
+    }
+
+    /// The `schoolRevoked` hook (EB-26): the active account's refresh record says its last attempt,
+    /// 60 s ago (so the launch refresh is throttled, as `writeLastRefreshAttempt`'s "recent" already
+    /// relies on), failed with `.schoolDisabled`. A no-op with no active account (the seed hook must
+    /// run first in the same launch, or an earlier launch's seed must already be on disk).
+    static func writeSchoolRevoked(root: URL, environment: AccountEnvironment) {
+        guard let account = AccountDirectoryStore(root: root).activeAccount() else { return }
+        let attemptedAt = environment.clock.now().addingTimeInterval(-60)
+        var record = RefreshRecord()
+        record.began(.launch, at: attemptedAt)
+        record.failed(.schoolDisabled, at: attemptedAt)
         try? RefreshStateStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
             .save(record)
     }

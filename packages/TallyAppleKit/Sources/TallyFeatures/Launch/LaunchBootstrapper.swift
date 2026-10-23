@@ -70,6 +70,10 @@ public nonisolated struct NoAccountLaunch: LaunchBootstrapping {
 ///    account's coordinator starts from (`AccountSessionFactory`), so its launch refresh obeys
 ///    `FreshnessRules.shouldStart`. With no record, both start from the committed data's time and
 ///    the launch refreshes, as before.
+/// 6. EB-26: if that record says the school has kept Tally continuously disabled for
+///    `SubscriptionConfig.schoolRevokedRetentionDays` (`SchoolRevokedRetention.isExpired`), the
+///    account's saved data is erased now (`AccountSignOut.eraseSavedData`), and this resolution
+///    hands back no record and no glance — the first paint shows nothing to erase a second time.
 ///
 /// **Concurrency (PERF-L, `Launch.Resolve`).** The reads that do not depend on each other run
 /// together, in child tasks off the main actor: the app-lock setting (2) starts at once, alongside
@@ -153,17 +157,26 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         let projection: GlanceProjection?
         if case .loaded(let loaded) = await store.loadGlance() { projection = loaded } else { projection = nil }
         let read = await recordRead
-        let record: RefreshRecord?
+        var record: RefreshRecord?
         switch read {
-        case .loaded(let loaded):
-            record = loaded
-            launchRecords?.leave(loaded, for: account.accountKey)
-        case .absent:
+        case .loaded(let loaded): record = loaded
+        case .absent, .unavailable: record = nil
+        }
+
+        // EB-26: an owner-chosen expiry after the school has kept Tally's Canvas access
+        // continuously disabled (`SubscriptionConfig.schoolRevokedRetentionDays`), checked at
+        // every launch so the erase runs even if the student never reopens the school-revoked
+        // notice. A no-op whenever `record` is nil or the state is not continuously `.schoolDisabled`
+        // long enough (`SchoolRevokedRetention.isExpired`).
+        probe("schoolRevokedRetention")
+        if let current = record, SchoolRevokedRetention.isExpired(current, now: environment.clock.now()) {
+            await AccountSignOut.eraseSavedData(account: account, environment: environment)
             record = nil
-            launchRecords?.leave(nil, for: account.accountKey)
-        case .unavailable:
-            // Not readable now (the device locked, an I/O error): the coordinator tries again itself.
-            record = nil
+        }
+
+        switch read {
+        case .loaded, .absent: launchRecords?.leave(record, for: account.accountKey)
+        case .unavailable: break // not readable now; the coordinator tries again itself
         }
         let glance = projection.map { HomeGlance.make(from: $0, now: environment.clock.now(), record: record) }
         return (account, glance, record)

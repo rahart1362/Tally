@@ -108,7 +108,7 @@ nonisolated struct ReminderSubjects: Sendable {
             return itemsByID[reminder.subjectID]?.assignment.courseID.rawValue
         case .belowGoal, .gradePosted:
             return reminder.subjectID
-        case .digest, .weekAhead, .sentinel:
+        case .digest, .weekAhead, .sentinel, .renewalReminder:
             return nil
         }
     }
@@ -157,6 +157,10 @@ nonisolated struct ReminderSubjects: Sendable {
             // notification kind when that setting is on).
             guard courseCodes[reminder.subjectID] != nil else { return nil }
             return .belowGoal(.hidden)
+        case .renewalReminder:
+            // EB-20: never planned from a Canvas snapshot (`RenewalReminderPlan`, `SubscriptionEngine`
+            // schedule it directly, generic content only); nothing here to resolve.
+            return nil
         }
     }
 

@@ -125,15 +125,65 @@ struct LaunchBootstrapperTests {
         // SEC1-08: the pending-purge retry runs after the reconcile and before `accounts.json` is read.
         // SEC1-09: the store migration (App Group → the app's private root) runs first, before the
         // reconcile, so an upgrading install is never mistaken for a fresh one.
+        // EB-26: the school-revoked retention check runs after the record it decides from.
         #expect(names.sorted() == ["accounts", "glance", "lockPreference", "reconcileInstall", "refreshRecord",
-                                   "retryPendingPurges", "storeMigration"], "\(names)")
+                                   "retryPendingPurges", "schoolRevokedRetention", "storeMigration"], "\(names)")
         let order = { (step: String) in names.firstIndex(of: step) ?? .max }
         #expect(order("storeMigration") < order("reconcileInstall"), "\(names)")
         #expect(order("reconcileInstall") < order("accounts"), "\(names)")
         #expect(order("reconcileInstall") < order("retryPendingPurges") && order("retryPendingPurges") < order("accounts"),
                 "\(names)")
         #expect(order("accounts") < order("glance") && order("accounts") < order("refreshRecord"), "\(names)")
+        #expect(order("refreshRecord") < order("schoolRevokedRetention"), "EB-26: \(names)")
         #expect(recorded.allSatisfy { !$0.1 }, "a launch step ran on the main thread: \(recorded)")
+    }
+
+    @Test("EB-26: the school-revoked state past its retention window is erased at launch, without signing out")
+    func schoolRevokedPastRetentionIsErasedAtLaunch() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let longAgo = Date().addingTimeInterval(-Double(SubscriptionConfig.schoolRevokedRetentionDays + 1) * 86_400)
+        var record = RefreshRecord()
+        record.began(.launch, at: longAgo)
+        record.failed(.schoolDisabled, at: longAgo)
+        try harness.refreshStateStore.save(record)
+
+        let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
+        #expect(resolution.record == nil, "the erased account's record must not reach the first paint")
+        #expect(resolution.glance == nil, "the erased account's glance must not reach the first paint")
+        #expect(!FileManager.default.fileExists(atPath: harness.accountDirectory.path), "the account directory survived the erase")
+        #expect(AccountDirectoryStore(root: harness.root).activeAccount()?.accountKey == harness.account,
+                "EB-26 erases saved data without signing out: the account must still be active")
+    }
+
+    @Test("EB-26: a school-revoked state inside the retention window is left alone at launch")
+    func schoolRevokedWithinRetentionSurvivesLaunch() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let recently = Date().addingTimeInterval(-Double(SubscriptionConfig.schoolRevokedRetentionDays - 1) * 86_400)
+        var record = RefreshRecord()
+        record.began(.launch, at: recently)
+        record.failed(.schoolDisabled, at: recently)
+        try harness.refreshStateStore.save(record)
+
+        let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
+        #expect(resolution.record?.schoolDisabledSince == recently)
+        #expect(FileManager.default.fileExists(atPath: harness.accountDirectory.path), "the account directory was erased too early")
+    }
+
+    @Test("EB-26: an ordinary failure (not school-revoked) is never erased at launch")
+    func ordinaryFailureIsNeverErasedAtLaunch() async throws {
+        let harness = try AccountHarness()
+        try await harness.seedSignedInAccount()
+        let longAgo = Date().addingTimeInterval(-Double(SubscriptionConfig.schoolRevokedRetentionDays + 1) * 86_400)
+        var record = RefreshRecord()
+        record.began(.launch, at: longAgo)
+        record.failed(.offline, at: longAgo)
+        try harness.refreshStateStore.save(record)
+
+        let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
+        #expect(resolution.record?.lastFailure == .offline)
+        #expect(FileManager.default.fileExists(atPath: harness.accountDirectory.path))
     }
 
     @Test("PERF-L: the lock setting's read overlaps the account's file reads")

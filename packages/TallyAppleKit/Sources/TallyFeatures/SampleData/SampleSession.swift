@@ -112,7 +112,7 @@ public actor SampleSession: HomeDataSource {
             record.succeeded(dataFetchedAt: fetched.fetchedAt)
         } catch {
             guard !hasEnded else { return }
-            record.failed(.unknown)
+            record.failed(.unknown, at: now)
         }
         publish()
     }

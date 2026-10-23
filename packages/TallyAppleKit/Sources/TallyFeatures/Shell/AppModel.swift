@@ -611,6 +611,33 @@ public final class AppModel {
         isSchoolNoticeDismissed = true
     }
 
+    /// EB-26 ("Erase Saved Data"): the school-revoked notice's other button. Unlike `signOut()`,
+    /// the route, the credential and `accounts.json` are untouched — the student stays signed in,
+    /// so a school that re-enables Tally (or a renewed subscription) resumes exactly as before,
+    /// without a new sign-in. Steps:
+    /// 1. closes the notice (nothing left to continue with once this finishes);
+    /// 2. the coordinator drops its in-memory snapshot and record (`RefreshCoordinator.eraseLocalData`),
+    ///    so `refreshStatus.freshness` goes to `.noCache` at once — which also clears
+    ///    `showsSchoolRevokedNotice` by itself, since it needs `.failed(.schoolDisabled, _)`;
+    /// 3. `AccountSignOut.eraseSavedData` (`@concurrent`): cancels this account's pending
+    ///    notifications and crypto-shreds/deletes its store files — the purge half of
+    ///    `signOut()`'s own path, without the revoke call, the credential delete or `accounts.json`;
+    /// 4. the widgets reload (the glance file is gone with the rest of the purge).
+    public func eraseSavedData() {
+        guard case .signedIn = route, let account = activeAccount else { return }
+        isSchoolNoticeDismissed = true
+        let runtime = accountRuntime
+        let environment = accountEnvironment
+        Task {
+            if let coordinator = await runtime.coordinator() {
+                await coordinator.eraseLocalData()
+            }
+            guard let environment else { return }
+            await AccountSignOut.eraseSavedData(account: account, environment: environment)
+            environment.reloadWidgets()
+        }
+    }
+
     /// SEC1-02 optional variant: closes the post-sign-out "couldn't confirm the revoke" notice.
     public func dismissSignOutRevokeNotice() {
         showsSignOutRevokeNotice = false

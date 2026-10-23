@@ -404,6 +404,55 @@ extension L10n {
                 comment: "The school-revoked notice's button that closes it and shows the saved data.")
         }
 
+        // MARK: - EB-26: "Erase Saved Data" and the automatic expiry
+
+        /// EB-26 (compliance-us §3; C.R.S. 6-1-1308.5(2)(a)(III)): the school-revoked notice's new
+        /// button, beside "Continue with Saved Data". Reuses Sign Out & Erase's purge path
+        /// (`AccountSignOut.eraseSavedData`) without signing out: the account, the credential and
+        /// `accounts.json` are untouched, only this account's saved files are erased.
+        public static func eraseSavedData() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.schoolOff.eraseSavedData", defaultValue: "Erase Saved Data", bundle: #bundle,
+                comment: "EB-26. The school-revoked notice's button that erases this account's saved data without signing out.")
+        }
+
+        public static func eraseSavedDataConfirmTitle() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.schoolOff.eraseSavedData.confirmTitle", defaultValue: "Erase Saved Data?", bundle: #bundle,
+                comment: "EB-26. Title of the confirmation before Erase Saved Data runs.")
+        }
+
+        public static func eraseSavedDataConfirmMessage() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.schoolOff.eraseSavedData.confirmMessage",
+                defaultValue: "This removes everything Tally saved on this iPhone for this account. You'll stay signed in, and Tally rebuilds it automatically once your school reconnects.",
+                bundle: #bundle,
+                comment: "EB-26. Message of the confirmation before Erase Saved Data runs: it is not a sign-out, and the data comes back on its own once the school re-enables Tally.")
+        }
+
+        /// EB-26: the owner-chosen automatic expiry (`SubscriptionConfig.schoolRevokedRetentionDays`),
+        /// said in the school-revoked notice. The argument is a composed length, such as "30 days"
+        /// (`L10n.Subscription.days(_:)`), never a raw number, so the plural form stays correct.
+        public static func schoolOffAutoEraseNotice(_ days: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.schoolOff.autoEraseNotice",
+                defaultValue: "If your school keeps Tally turned off, your saved data is also erased automatically after \(days).",
+                bundle: #bundle,
+                comment: "EB-26. The school-revoked notice's footnote about the automatic expiry. The argument is a composed length such as '30 days' (L10n.Subscription.days), never a raw number.")
+        }
+
+        /// EB-20 (NY 527-a(f) [U6]): Settings > Subscription's banner when a renewal reminder is
+        /// due (`RenewalReminderPlan`) but notifications are off. The action below it reuses
+        /// `L10n.Reminders.turnOn()`/`openSettings()` — the same iOS permission already covers
+        /// both the assignment reminders and this one.
+        public static func renewalReminderBannerBody() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.renewalReminderBanner.body",
+                defaultValue: "Turn on notifications to get a reminder before your subscription renews.",
+                bundle: #bundle,
+                comment: "EB-20. Settings > Subscription banner shown while a renewal reminder is due but notifications are off (never asked, or denied).")
+        }
+
         public static func eraseKeepsSubscription() -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.erase.note", defaultValue: "This doesn't cancel your Tally subscription. To cancel it, choose Manage Subscription.", bundle: #bundle,

@@ -114,6 +114,9 @@ public struct ReminderContent: Sendable, Equatable {
         case .adHoc:
             ReminderContent(title: String(localized: L10n.Notifications.adHocTitle()),
                             body: String(localized: L10n.Notifications.adHocBody()))
+        case .renewalReminder:
+            ReminderContent(title: String(localized: L10n.Notifications.renewalReminderTitle()),
+                            body: String(localized: L10n.Notifications.renewalReminderBody()))
         }
     }
 }

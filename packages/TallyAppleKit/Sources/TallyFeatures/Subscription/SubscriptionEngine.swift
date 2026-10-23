@@ -17,13 +17,19 @@ public nonisolated struct SubscriptionStatus: Sendable, Equatable {
     public var isVerifiedThisLaunch: Bool
     /// Ask to Buy: a purchase is waiting for a parent's approval.
     public var isPurchasePending: Bool
+    /// EB-20: at least one of the two renewal reminders (`RenewalReminderPlan`) is due right now
+    /// — auto-renew is on and the renewal date has not passed. `false` before StoreKit has
+    /// answered this launch, same as `holding`. Settings > Subscription reads this, alongside
+    /// whether notifications are authorized, to show its banner.
+    public var hasUpcomingRenewalReminder: Bool
 
     public init(accountState: EntitlementState, holding: SubscriptionHolding?, isVerifiedThisLaunch: Bool,
-               isPurchasePending: Bool) {
+               isPurchasePending: Bool, hasUpcomingRenewalReminder: Bool = false) {
         self.accountState = accountState
         self.holding = holding
         self.isVerifiedThisLaunch = isVerifiedThisLaunch
         self.isPurchasePending = isPurchasePending
+        self.hasUpcomingRenewalReminder = hasUpcomingRenewalReminder
     }
 }
 
@@ -221,7 +227,7 @@ public actor SubscriptionEngine {
             // until StoreKit's facts arrive below.
             record = await records.load().record
             let offline = record?.state(for: role, now: clock.now()) ?? .preview
-            await apply(offline, holding: nil, verified: false)
+            await apply(offline, holding: nil, verified: false, facts: nil)
         }
         let facts = await source.currentFacts()
         let verifiedAt = clock.now()
@@ -235,12 +241,16 @@ public actor SubscriptionEngine {
             // The Keychain refused (before first unlock): the gate still has StoreKit's answer, and
             // the next verification writes the record.
         }
-        await apply(state, holding: holding, verified: true)
+        await apply(state, holding: holding, verified: true, facts: facts)
         // Granted (recorded and gated): only now may StoreKit's unfinished transactions be finished.
         await source.finishUnfinished()
     }
 
-    private func apply(_ state: EntitlementState, holding: SubscriptionHolding?, verified: Bool) async {
+    /// - Parameter facts: StoreKit's own facts, for EB-20's renewal reminders — `nil` on the
+    ///   `.launch` reason's first, unverified pass (the Keychain record carries no renewal info),
+    ///   non-`nil` on every verified pass.
+    private func apply(_ state: EntitlementState, holding: SubscriptionHolding?, verified: Bool,
+                       facts: [SubscriptionFacts]?) async {
         await gate.update(state)
         if state.isActiveEntitlement { isPurchasePending = false }
         let current = Applied(remindersAllowed: await gate.allows(.reminders), entitledUntil: state.entitledUntil)
@@ -270,10 +280,37 @@ public actor SubscriptionEngine {
                 await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
             }
         }
+        // EB-20: only on a verified pass (StoreKit's own facts, never the Keychain record's) and
+        // only once an account is attached (same gate the background-refresh and reminders effects
+        // above already use). Reconciled every verification, so turning auto-renew off cancels the
+        // two reminders at the very next one (foreground, a transaction update, or the next launch).
+        let upcomingRenewalReminder: Bool
+        if verified, let environment, let facts {
+            let desired = RenewalReminderPlan.plan(facts, role: role, products: products, holding: holding ?? .none, now: clock.now())
+            upcomingRenewalReminder = !desired.isEmpty
+            await reconcileRenewalReminders(desired: desired, environment: environment)
+        } else {
+            upcomingRenewalReminder = status?.hasUpcomingRenewalReminder ?? false
+        }
         status = SubscriptionStatus(accountState: state, holding: holding,
                                     isVerifiedThisLaunch: verified || (status?.isVerifiedThisLaunch ?? false),
-                                    isPurchasePending: isPurchasePending)
+                                    isPurchasePending: isPurchasePending, hasUpcomingRenewalReminder: upcomingRenewalReminder)
         await publish()
+    }
+
+    /// EB-20: schedules and cancels only the difference (`RenewalReminderPlan.diff`), off the main
+    /// actor, directly through the platform's base `NotificationScheduling` — never through
+    /// `ReminderPipeline`/`ReminderPlanner`, which plan from a Canvas snapshot this has nothing to
+    /// do with. The generic content (`ReminderContent.generic(for: .renewalReminder)`) is the only
+    /// content ever scheduled: no price, no grade, no Canvas data.
+    private func reconcileRenewalReminders(desired: [RenewalReminderPlan.Reminder], environment: AccountEnvironment) async {
+        let pending = await environment.notifications.pendingIdentifiers()
+        let diff = RenewalReminderPlan.diff(desired: desired, pending: pending, role: role)
+        if !diff.toCancel.isEmpty { await environment.notifications.cancel(ids: diff.toCancel) }
+        for reminder in diff.toSchedule {
+            await environment.notifications.schedule(PendingReminder(
+                id: reminder.id, kind: .renewalReminder, fireDate: reminder.fireDate, interruptionLevel: .active, subjectID: "-"))
+        }
     }
 
     private func publish() async {

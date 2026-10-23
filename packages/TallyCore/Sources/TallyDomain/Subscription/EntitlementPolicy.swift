@@ -54,10 +54,15 @@ public struct SubscriptionFacts: Sendable, Equatable {
     /// When the App Store signed this transaction or its renewal info: a time the App Store had
     /// reached, so the device's clock cannot be earlier (PAY-02 clock skew).
     public var signedDate: Date?
+    /// EB-20 (NY 527-a(f) [U6]; Cal. B&P 17602(h) [U4]): StoreKit's own `RenewalInfo.willAutoRenew`,
+    /// from verified renewal info only (same source and same trust rule as
+    /// `gracePeriodExpirationDate`). `false` whenever renewal info was never read: never schedules
+    /// a reminder for something this fact cannot actually say is coming.
+    public var willAutoRenew: Bool
 
     public init(productID: String, isVerified: Bool, expirationDate: Date?, revocationDate: Date? = nil,
                 isUpgraded: Bool = false, ownership: Ownership = .purchased, renewalState: RenewalState? = nil,
-                gracePeriodExpirationDate: Date? = nil, signedDate: Date? = nil) {
+                gracePeriodExpirationDate: Date? = nil, signedDate: Date? = nil, willAutoRenew: Bool = false) {
         self.productID = productID
         self.isVerified = isVerified
         self.expirationDate = expirationDate
@@ -67,6 +72,7 @@ public struct SubscriptionFacts: Sendable, Equatable {
         self.renewalState = renewalState
         self.gracePeriodExpirationDate = gracePeriodExpirationDate
         self.signedDate = signedDate
+        self.willAutoRenew = willAutoRenew
     }
 }
 

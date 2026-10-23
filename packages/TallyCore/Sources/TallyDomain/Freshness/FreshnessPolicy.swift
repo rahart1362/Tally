@@ -25,6 +25,14 @@ public struct RefreshRecord: Codable, Equatable, Sendable {
     public private(set) var lastSource: RefreshTrigger?
     public private(set) var lastFailure: RefreshFailure?
     public private(set) var inFlightSince: Date?
+    /// EB-26 (compliance-us §3; C.R.S. 6-1-1308.5(2)(a)(III)): when `.schoolDisabled` failures
+    /// began recurring without a success in between. Set once, the first time `failed(.schoolDisabled)`
+    /// is recorded; left alone by every later `.schoolDisabled` failure, so it survives relaunches
+    /// and a daily background refresh never pushes it forward. Cleared by `succeeded` (the school
+    /// re-enabled Tally, or the subscription's own refresh got through some other way) and by any
+    /// other failure category. `SchoolRevokedRetention.isExpired` reads it to decide the automatic
+    /// erase; nothing else writes it, and no student content is ever in it.
+    public private(set) var schoolDisabledSince: Date?
 
     public init() {}
 
@@ -39,11 +47,22 @@ public struct RefreshRecord: Codable, Equatable, Sendable {
         lastSuccessAt = max(lastSuccessAt ?? dataFetchedAt, dataFetchedAt)
         lastFailure = nil
         inFlightSince = nil
+        schoolDisabledSince = nil
     }
 
-    public mutating func failed(_ failure: RefreshFailure) {
+    /// EB-26: `now` starts (or continues) the school-revoked clock when `failure == .schoolDisabled`;
+    /// any other category clears it, since the retention window is about *continuous* school-off
+    /// time, not the most recent failure. Defaults `now` to `Date()` for the few call sites with no
+    /// clock of their own to inject (`SignOutUseCase`'s own default does the same); every call this
+    /// module makes passes its actor's own `clock.now()` explicitly.
+    public mutating func failed(_ failure: RefreshFailure, at now: Date = Date()) {
         lastFailure = failure
         inFlightSince = nil
+        if failure == .schoolDisabled {
+            if schoolDisabledSince == nil { schoolDisabledSince = now }
+        } else {
+            schoolDisabledSince = nil
+        }
     }
 
     /// No refresh survives a relaunch, so a persisted in-flight mark is dropped.
