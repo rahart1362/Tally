@@ -330,6 +330,24 @@ public actor RefreshCoordinator {
         shutdown()
     }
 
+    /// EB-26 ("Erase Saved Data", `AccountSignOut.eraseSavedData`): the same in-memory reset
+    /// `bumpEpochAndCancel()` does for sign-out — drops the committed snapshot and the record, so
+    /// `currentState` reads `.noCache` at once — but never `shutdown()`s: every subscriber stays
+    /// subscribed and a later `run(trigger:)` still fetches. The account is never signed out of, so
+    /// if the school re-enables Tally (or the subscription renews), the next refresh rebuilds
+    /// exactly what `AccountSignOut.eraseSavedData` deleted on disk — rederivable, same as every
+    /// other store file. `discardInFlightRun()` still bumps the epoch, so a fetch already in flight
+    /// can never land and overwrite this reset with stale data; a *new* run started right after is
+    /// unaffected (the single-flight slot is free, and `shutdown()` is the only thing that ever
+    /// refuses a new run). Does not itself touch the store, notifications or credentials. Idempotent.
+    public func eraseLocalData() {
+        discardInFlightRun()
+        committedSnapshot = nil
+        committedGeneration = 0
+        record = RefreshRecord()
+        emit(.stateChanged(currentState))
+    }
+
     /// Makes the run in flight, if any, unable to land: its captured epoch no longer matches, so
     /// `finish` discards whatever it returns. Best-effort cancels its fetch as well, and drops the
     /// in-flight mark the same way a relaunch does, since that run will now never record an outcome.
@@ -534,7 +552,7 @@ public actor RefreshCoordinator {
         switch outcome {
         case .failure(let error):
             // The cache is never touched on failure (architecture §3.4).
-            record.failed((error as? RefreshFailure) ?? .unknown)
+            record.failed((error as? RefreshFailure) ?? .unknown, at: clock.now())
             emit(.stateChanged(currentState))
 
         case .success(let fetched):
@@ -573,7 +591,7 @@ public actor RefreshCoordinator {
                     emit(.stateChanged(currentState))
                 }
             } catch {
-                record.failed(.unknown)
+                record.failed(.unknown, at: clock.now())
                 emit(.stateChanged(currentState))
             }
         }

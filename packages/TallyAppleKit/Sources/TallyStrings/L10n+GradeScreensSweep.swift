@@ -1231,5 +1231,20 @@ extension L10n {
                 "notifications.category.hiddenPreviewPlaceholder", defaultValue: "Tally reminder", bundle: #bundle,
                 comment: "What the system shows instead of the body when Show Previews is off, or the device is locked.")
         }
+
+        /// EB-20 (NY 527-a(f) [U6]; Cal. B&P 17602(h) [U4]): one of the two renewal reminders
+        /// (`RenewalReminderPlan`, 40 and 20 days before the renewal date). Generic by the same
+        /// rule every other kind here follows: never a price (the App Store formats those) and
+        /// never a grade.
+        public static func renewalReminderTitle() -> LocalizedStringResource {
+            LocalizedStringResource("notifications.generic.renewal.title", defaultValue: "Your subscription renews soon", bundle: #bundle,
+                                    comment: "EB-20. Generic notification title: the Tally subscription renews in the next few weeks.")
+        }
+
+        public static func renewalReminderBody() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "notifications.generic.renewal.body", defaultValue: "Open Tally to manage your subscription.", bundle: #bundle,
+                comment: "EB-20. Generic notification body: the Tally subscription renews in the next few weeks.")
+        }
     }
 }

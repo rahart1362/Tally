@@ -140,6 +140,49 @@ struct RefreshCoordinatorRecordTests {
         #expect(stores.records.loadRecord() == nil)
     }
 
+    /// EB-26 ("Erase Saved Data"): drops the in-memory snapshot and record, like
+    /// `bumpEpochAndCancel()`, but never `shutdown()`s — a later run still fetches, because the
+    /// account is never signed out of.
+    @Test("eraseLocalData drops the committed snapshot and record but keeps the coordinator alive")
+    func eraseLocalDataDropsStateButKeepsRunning() async throws {
+        let stores = try makeStores()
+        let clock = TestClock()
+        let gateway = ScriptedGateway()
+        let coordinator = makeCoordinator(gateway, stores, clock: clock)
+        #expect(await coordinator.run(trigger: .launch) == .fresh(at: clock.now()))
+        #expect(await coordinator.committedSnapshot != nil)
+
+        await coordinator.eraseLocalData()
+
+        #expect(await coordinator.committedSnapshot == nil)
+        #expect(await coordinator.currentState == .noCache)
+        // `eraseLocalData` only resets in-memory state (its own doc comment): the persisted
+        // `refresh-state.sealed` is `AccountSignOut.eraseSavedData`'s job (`AccountPurger.purge`,
+        // covered by `SignOutUseCaseTests.eraseSavedDataPurgesFilesAndNotificationsButKeepsTheCredential`).
+
+        // Unlike sign-out's bumpEpochAndCancel/shutdown, a LATER run on the SAME coordinator still
+        // fetches — the reset record's nil `lastAttemptAt` means an automatic trigger is not even
+        // throttled, let alone refused outright.
+        #expect(await coordinator.run(trigger: .launch) == .fresh(at: clock.now()))
+        #expect(await gateway.calls == 2, "eraseLocalData must never refuse a later run the way shutdown() does")
+    }
+
+    /// Unlike `bumpEpochAndCancelFinishesTheEventStream` (`RefreshCoordinatorTests.swift`):
+    /// `eraseLocalData` must publish `.noCache` without ever finishing the stream, since the
+    /// account is never signed out of.
+    @Test("eraseLocalData publishes .noCache but never finishes the event stream")
+    func eraseLocalDataNeverFinishesSubscribers() async throws {
+        let stores = try makeStores()
+        let coordinator = makeCoordinator(ScriptedGateway(), stores, clock: TestClock())
+        let stream = await coordinator.events()
+        let consumer = Task { await drain(stream) }
+
+        await coordinator.eraseLocalData()
+
+        let seen = await finished(consumer, within: TestTimeBudget.seconds(1))
+        #expect(seen == nil, "eraseLocalData must not finish the event stream the way shutdown() does")
+    }
+
     @Test("an abandoned run still writes its attempt, so the next launch is throttled by it")
     func anAbandonedRunWritesItsAttempt() async throws {
         let stores = try makeStores()

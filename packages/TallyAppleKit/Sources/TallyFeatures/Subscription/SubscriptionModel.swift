@@ -26,6 +26,12 @@ public final class SubscriptionModel {
     public private(set) var isVerifiedThisLaunch = false
     /// Ask to Buy: a purchase is waiting for a parent's approval (M3-B2 says so).
     public private(set) var isPurchasePending = false
+    /// EB-20: at least one of the two renewal reminders is due (auto-renew is on, the renewal date
+    /// has not passed, and this is the student's own purchase, not a school seat). Settings >
+    /// Subscription combines this with `RemindersModel.permission` to show its banner — the same
+    /// iOS permission already covers the assignment reminders, so there is nothing subscription-
+    /// specific to ask for separately.
+    public private(set) var hasUpcomingRenewalReminder = false
     /// EB-21: a direct purchase or trial start just completed (never a restore or a redeemed
     /// code) -- the one-shot signal either paywall presenter (`HomeShellView`,
     /// `SubscriptionSettingsView`) reads to show the retainable confirmation once, right after the
@@ -103,6 +109,9 @@ public final class SubscriptionModel {
         if holding != status.holding { holding = status.holding }
         if isVerifiedThisLaunch != status.isVerifiedThisLaunch { isVerifiedThisLaunch = status.isVerifiedThisLaunch }
         if isPurchasePending != status.isPurchasePending { isPurchasePending = status.isPurchasePending }
+        if hasUpcomingRenewalReminder != status.hasUpcomingRenewalReminder {
+            hasUpcomingRenewalReminder = status.hasUpcomingRenewalReminder
+        }
     }
 
     /// M3-B3: whether the account's entitlement is a school's assigned seat, not this Apple

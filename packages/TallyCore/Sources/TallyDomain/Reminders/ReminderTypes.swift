@@ -32,6 +32,10 @@ public enum NotificationKind: String, Sendable, Equatable, CaseIterable {
     /// Idea 4 (FEAT-3): the To-Do "Remind me" swipe/menu action's one ad-hoc reminder, student-
     /// requested rather than planned from the Balanced preset's own offsets.
     case adHoc
+    /// EB-20: one of the two renewal reminders (`RenewalReminderPlan`, 40 and 20 days before the
+    /// subscription renews). The generic content is the only content ever scheduled for this
+    /// kind — never a price or a grade (R10's own rule, extended here).
+    case renewalReminder
 }
 
 /// Builds the deterministic `tally.<accountKey>.<kind>.<canvasID>.<ruleID>.<offset>`

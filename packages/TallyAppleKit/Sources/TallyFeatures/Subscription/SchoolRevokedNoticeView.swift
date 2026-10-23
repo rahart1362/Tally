@@ -9,9 +9,13 @@ import TallyStrings
 /// saved data stays readable, and Apple's two ways out, Manage Subscription and Request a Refund
 /// (Tally cannot refund; Apple decides). "Continue with Saved Data" closes it. `RootView` presents
 /// it over the signed-in Home (never over the app lock) while `AppModel.showsSchoolRevokedNotice`.
+///
+/// EB-26 adds "Erase Saved Data" (confirmed, `AppModel.eraseSavedData()`) and a footnote about the
+/// automatic expiry (`SubscriptionConfig.schoolRevokedRetentionDays`); everything above is unchanged.
 struct SchoolRevokedNoticeView: View {
     let appModel: AppModel
     @State private var actions: SubscriptionActionsModel
+    @State private var confirmsErase = false
 
     init(appModel: AppModel) {
         self.appModel = appModel
@@ -58,7 +62,21 @@ struct SchoolRevokedNoticeView: View {
                         appModel.dismissSchoolRevokedNotice()
                     }
                     .accessibilityIdentifier("schoolOff.continue")
+                    // EB-26: reuses Sign Out & Erase's purge path without signing out (M3-B3: a
+                    // school seat has no cancel/refund sentence above, but it is still this
+                    // student's own saved copy to erase).
+                    Button(String(localized: L10n.Subscription.eraseSavedData()), role: .destructive) {
+                        confirmsErase = true
+                    }
+                    .accessibilityIdentifier("schoolOff.eraseSavedData")
                 }
+                // EB-26: the owner-chosen automatic expiry, so the notice says what happens if the
+                // student never comes back to tap Erase Saved Data themselves.
+                Text(L10n.Subscription.schoolOffAutoEraseNotice(
+                    String(localized: L10n.Subscription.days(SubscriptionConfig.schoolRevokedRetentionDays))))
+                    .font(TallyTypography.footnote)
+                    .foregroundStyle(TallyColor.textSecondary)
+                    .accessibilityIdentifier("schoolOff.autoEraseNotice")
             }
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -67,6 +85,18 @@ struct SchoolRevokedNoticeView: View {
         }
         .background(TallyColor.bgCanvas)
         .modifier(SubscriptionSheets(actions: actions))
+        .tallyDestructiveConfirmation(
+            String(localized: L10n.Subscription.eraseSavedDataConfirmTitle()), isPresented: $confirmsErase,
+            message: String(localized: L10n.Subscription.eraseSavedDataConfirmMessage()),
+            actions: [
+                TallyConfirmationAction(String(localized: L10n.Subscription.eraseSavedData()), role: .destructive,
+                                        accessibilityIdentifier: "schoolOff.eraseSavedDataConfirm.erase") {
+                    appModel.eraseSavedData()
+                },
+                TallyConfirmationAction(String(localized: L10n.Settings.cancel()), role: .cancel,
+                                        accessibilityIdentifier: "schoolOff.eraseSavedDataConfirm.cancel") {},
+            ],
+            accessibilityIdentifier: "schoolOff.eraseSavedDataConfirm")
     }
 
     /// M3-B3: `false` (today's purchase UI) before StoreKit has answered this launch.

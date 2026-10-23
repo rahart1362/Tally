@@ -3,6 +3,7 @@ import SwiftUI
 import TallyDesignSystem
 import TallyDomain
 import TallyStrings
+import UIKit
 
 /// PAY-08, PAY-09: Settings → Subscription, reachable at all times, sample mode included, so App Review
 /// can see and buy the subscription (PRD §11.3). It states the plan and the Apple Account's state, and
@@ -29,6 +30,8 @@ struct SubscriptionSettingsView: View {
     /// can never both claim the one sheet below.
     @State private var sheet: SubscriptionSettingsSheet?
     @State private var showsInterstitial = false
+    /// EB-20: the banner's "Open Settings" action.
+    @Environment(\.openURL) private var openURL
 
     init(appModel: AppModel, school: SchoolGradeSummary, onCheckMySchool: @escaping () -> Void) {
         self.appModel = appModel
@@ -56,6 +59,30 @@ struct SubscriptionSettingsView: View {
             } footer: {
                 Text(isSchoolSeat ? L10n.Subscription.settingsFooterSchool() : L10n.Subscription.settingsFooter())
                     .tallySectionText()
+            }
+            // EB-20: shown only while a renewal reminder is due and notifications are not
+            // authorized yet (never asked, or denied) — the same iOS permission Settings' own
+            // Reminders section manages, so its "Turn On Reminders"/"Open Settings" actions
+            // (`RemindersViewCopy`) cover this banner too; there is nothing subscription-specific
+            // to ask the system for.
+            if let permission = renewalReminderBannerPermission {
+                Section {
+                    Text(L10n.Subscription.renewalReminderBannerBody())
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textPrimary)
+                        .accessibilityIdentifier("subscription.renewalReminderBanner.text")
+                    if permission == .notDetermined {
+                        Button(String(localized: RemindersViewCopy.turnOn)) { appModel.reminders.requestPermission() }
+                            .disabled(appModel.reminders.isRequesting)
+                            .accessibilityIdentifier("subscription.renewalReminderBanner.turnOn")
+                    } else {
+                        Button(String(localized: RemindersViewCopy.openSettings)) {
+                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                        }
+                        .accessibilityIdentifier("subscription.renewalReminderBanner.openSettings")
+                    }
+                }
+                .accessibilityIdentifier("subscription.renewalReminderBanner")
             }
             Section {
                 Button(String(localized: L10n.Subscription.restorePurchases())) {
@@ -170,6 +197,17 @@ struct SubscriptionSettingsView: View {
     /// M3-B3: `false` (today's purchase UI) before StoreKit has answered this launch.
     private var isSchoolSeat: Bool {
         appModel.subscription.isSchoolSeat
+    }
+
+    /// EB-20: `nil` unless a renewal reminder is actually due (`SubscriptionModel.hasUpcomingRenewalReminder`)
+    /// and notifications are not authorized — never shown once allowed, and never shown for nothing
+    /// (no subscription, auto-renew off, or a school seat, all of which make `hasUpcomingRenewalReminder`
+    /// false).
+    private var renewalReminderBannerPermission: ReminderPermission? {
+        guard appModel.subscription.hasUpcomingRenewalReminder else { return nil }
+        let permission = appModel.reminders.permission
+        guard permission == .notDetermined || permission == .denied else { return nil }
+        return permission
     }
 
     /// A trial or subscription this Apple Account bought, current or ended: what a refund is about.

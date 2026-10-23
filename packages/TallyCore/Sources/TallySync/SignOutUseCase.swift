@@ -90,6 +90,32 @@ public enum SignOutUseCase {
         return revokeDidFail
     }
 
+    /// EB-26 ("Erase Saved Data"): this use case's local-purge steps 2 and 3 only — cancel this
+    /// account's pending notifications, then crypto-shred and delete its store files
+    /// (`AccountPurger.purge`) — without step 1 (no Canvas revoke call: nothing here says the
+    /// student is signing out) or step 4 (the Keychain credential is kept). `accounts.json` and the
+    /// app-lock setting are untouched; only `signOut` ever removes an account. Idempotent, like
+    /// `signOut`: a second call with nothing left to remove does nothing.
+    public static func eraseSavedData(
+        accountKey: AccountKey,
+        ledgerStore: SyncLedgerStore,
+        notifications: any NotificationScheduling,
+        storeRoot: URL,
+        sharedRoot: URL? = nil,
+        keyring: VaultKeyring
+    ) async {
+        let ledger: SyncLedger
+        switch await ledgerStore.load() {
+        case .loaded(let loaded): ledger = loaded
+        case .absent, .unavailable: ledger = SyncLedger()
+        }
+        let pendingOnPlatform = await notifications.pendingIdentifiers()
+        let idsToRemove = Set(ledger.notifications.keys).union(pendingOnPlatform)
+        if !idsToRemove.isEmpty { await notifications.cancel(ids: idsToRemove) }
+
+        try? AccountPurger.purge(accountKey: accountKey, root: storeRoot, sharedRoot: sharedRoot, keyring: keyring)
+    }
+
     /// SEC1-02's one refresh attempt before revoking an expired access token. Best effort and
     /// silent on any failure — the caller falls back to revoking with the token it already has
     /// (still better than skipping the revoke call entirely).

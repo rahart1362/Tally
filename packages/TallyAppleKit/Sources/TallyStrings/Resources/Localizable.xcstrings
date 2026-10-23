@@ -8047,6 +8047,42 @@
         }
       }
     },
+    "notifications.generic.renewal.body" : {
+      "comment" : "EB-20. Generic notification body: the Tally subscription renews in the next few weeks.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Tally to manage your subscription."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abre Tally para administrar tu suscripción."
+          }
+        }
+      }
+    },
+    "notifications.generic.renewal.title" : {
+      "comment" : "EB-20. Generic notification title: the Tally subscription renews in the next few weeks.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your subscription renews soon"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu suscripción se renueva pronto"
+          }
+        }
+      }
+    },
     "notifications.generic.sentinel.body" : {
       "comment" : "Generic notification body: Tally has not refreshed in a while.",
       "extractionState" : "manual",
@@ -11353,6 +11389,24 @@
         }
       }
     },
+    "subscription.renewalReminderBanner.body" : {
+      "comment" : "EB-20. Settings > Subscription banner shown while a renewal reminder is due but notifications are off (never asked, or denied).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on notifications to get a reminder before your subscription renews."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Activa las notificaciones para recibir un recordatorio antes de que se renueve tu suscripción."
+          }
+        }
+      }
+    },
     "subscription.requestRefund" : {
       "comment" : "Button that opens Apple's refund request sheet. Tally cannot refund; Apple decides.",
       "extractionState" : "manual",
@@ -11385,6 +11439,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Restaurar compras"
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.autoEraseNotice" : {
+      "comment" : "EB-26. The school-revoked notice's footnote about the automatic expiry. The argument is a composed length such as '30 days' (L10n.Subscription.days), never a raw number.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If your school keeps Tally turned off, your saved data is also erased automatically after %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Si tu escuela mantiene Tally desactivado, tus datos guardados también se borran automáticamente después de %@."
           }
         }
       }
@@ -11439,6 +11511,60 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Continuar con datos guardados"
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.eraseSavedData" : {
+      "comment" : "EB-26. The school-revoked notice's button that erases this account's saved data without signing out.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase Saved Data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Borrar datos guardados"
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.eraseSavedData.confirmMessage" : {
+      "comment" : "EB-26. Message of the confirmation before Erase Saved Data runs: it is not a sign-out, and the data comes back on its own once the school re-enables Tally.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This removes everything Tally saved on this iPhone for this account. You'll stay signed in, and Tally rebuilds it automatically once your school reconnects."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esto elimina todo lo que Tally guardó en este iPhone para esta cuenta. Seguirás con la sesión iniciada, y Tally lo reconstruirá automáticamente en cuanto tu escuela se vuelva a conectar."
+          }
+        }
+      }
+    },
+    "subscription.schoolOff.eraseSavedData.confirmTitle" : {
+      "comment" : "EB-26. Title of the confirmation before Erase Saved Data runs.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase Saved Data?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Borrar datos guardados?"
           }
         }
       }

@@ -105,6 +105,37 @@ struct SignOutUseCaseTests {
         }
     }
 
+    /// EB-26 ("Erase Saved Data"): the same local purge (notifications cancelled, store files
+    /// gone) as `signOut`, but the credential survives — this is never a sign-out.
+    @Test func eraseSavedDataPurgesFilesAndNotificationsButKeepsTheCredential() async throws {
+        let harness = try await makeHarness()
+
+        await SignOutUseCase.eraseSavedData(
+            accountKey: harness.accountKey, ledgerStore: harness.ledgerStore, notifications: harness.notifications,
+            storeRoot: harness.root, keyring: harness.keyring)
+
+        guard case .absent = await harness.snapshotStore.loadSnapshot() else { Issue.record("expected the snapshot to be gone"); return }
+        guard case .absent = await harness.userStateStore.load() else { Issue.record("expected user-state to be gone"); return }
+        guard case .absent = await harness.ledgerStore.load() else { Issue.record("expected the ledger to be gone"); return }
+        #expect(await harness.notifications.pendingIdentifiers().isEmpty, "expected every notification to be cancelled")
+        #expect(await harness.credentialStore.load() != nil, "EB-26: the credential must survive — this is not a sign-out")
+    }
+
+    /// Idempotent, like `signOut`: a second call with nothing left to remove does nothing new.
+    @Test func eraseSavedDataIsIdempotent() async throws {
+        let harness = try await makeHarness()
+        await SignOutUseCase.eraseSavedData(
+            accountKey: harness.accountKey, ledgerStore: harness.ledgerStore, notifications: harness.notifications,
+            storeRoot: harness.root, keyring: harness.keyring)
+
+        await SignOutUseCase.eraseSavedData(
+            accountKey: harness.accountKey, ledgerStore: harness.ledgerStore, notifications: harness.notifications,
+            storeRoot: harness.root, keyring: harness.keyring)
+
+        guard case .absent = await harness.snapshotStore.loadSnapshot() else { Issue.record("expected the snapshot to stay gone"); return }
+        #expect(await harness.credentialStore.load() != nil)
+    }
+
     /// SEC1-02: an access token that has already expired is refreshed once before the revoke
     /// call, rather than sending Canvas a bearer it will just reject; the result is logged.
     @Test func signOutRefreshesAnExpiredTokenBeforeRevoking() async throws {

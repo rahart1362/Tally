@@ -42,4 +42,12 @@ public enum SubscriptionConfig {
     /// Terms of Use page is the owner's to publish there (Apple's standard EULA or Tally's own).
     public static let termsOfUsePath = "/terms"
     public static let privacyPolicyPath = "/privacy"
+
+    /// EB-26 (compliance-us §3; C.R.S. 6-1-1308.5(2)(a)(III), SOPIPA 22584(d) [S25]): once the
+    /// school has kept Tally's Canvas access continuously disabled for this many days
+    /// (`RefreshRecord.schoolDisabledSince`), the next launch erases the account's saved data on
+    /// its own, the same way the "Erase Saved Data" button does, and says so in the school-revoked
+    /// notice. The owner's chosen number, not counsel's; `SchoolRevokedRetention.isExpired` is the
+    /// one place that reads it.
+    public static let schoolRevokedRetentionDays = 30
 }

@@ -18,6 +18,9 @@ enum TestHooks {
     static let ageRestricted = ["-TallyTestHooks.ageAssurance", "restricted"]
     static let signOutButton = ["-TallyTestHooks.signOutButton", "YES"]
     static let appLockOn = ["-TallyTestHooks.appLock", "on"]
+    /// EB-26: the seeded account's refresh record already failed with `.schoolDisabled`, so the
+    /// school-revoked notice shows at launch (with `entitled`, `launchApp`'s own default).
+    static let schoolRevoked = ["-TallyTestHooks.schoolRevoked", "YES"]
 
     static func appLockGrace(_ period: String) -> [String] { ["-TallyTestHooks.appLockGrace", period] }
     /// M3-B2 (`SubscriptionTestHooks`): a test-only entitlement and App Store, `entitled`, `none` or

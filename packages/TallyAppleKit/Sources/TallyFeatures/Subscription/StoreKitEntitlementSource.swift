@@ -120,17 +120,22 @@ public nonisolated final class StoreKitEntitlementSource: EntitlementSourcing {
         var renewalState: SubscriptionFacts.RenewalState?
         var graceEnds: Date?
         var signedDate = transaction.signedDate
+        // EB-20: read only from verified renewal info, same trust rule as `graceEnds` above —
+        // never defaulted to `true` from an unverified or absent status.
+        var willAutoRenew = false
         if isVerified, let status = await transaction.subscriptionStatus, case .verified = status.transaction {
             renewalState = Self.renewalState(status.state)
             if case .verified(let renewal) = status.renewalInfo {
                 graceEnds = renewal.gracePeriodExpirationDate
                 signedDate = max(signedDate, renewal.signedDate)
+                willAutoRenew = renewal.willAutoRenew
             }
         }
         return SubscriptionFacts(productID: transaction.productID, isVerified: isVerified,
                                  expirationDate: transaction.expirationDate, revocationDate: transaction.revocationDate,
                                  isUpgraded: transaction.isUpgraded, ownership: Self.ownership(transaction.ownershipType),
-                                 renewalState: renewalState, gracePeriodExpirationDate: graceEnds, signedDate: signedDate)
+                                 renewalState: renewalState, gracePeriodExpirationDate: graceEnds, signedDate: signedDate,
+                                 willAutoRenew: willAutoRenew)
     }
 
     static func renewalState(_ state: Product.SubscriptionInfo.RenewalState) -> SubscriptionFacts.RenewalState? {

@@ -53,6 +53,24 @@ public nonisolated enum AccountSignOut {
         await environment.lockPreferences.reset()
         return revokeDidFail
     }
+
+    /// EB-26 ("Erase Saved Data"): `SignOutUseCase.eraseSavedData`'s local-only half of the purge
+    /// path above (cancel notifications, crypto-shred and delete the store files) without the
+    /// Canvas revoke, the Keychain delete, `accounts.json` or the app-lock setting. A no-op when
+    /// there is no store root to resolve (same as `purge`'s own guard).
+    @concurrent
+    static func eraseSavedData(account: AccountRecord, environment: AccountEnvironment) async {
+        guard let root = try? environment.storeRoot() else { return }
+        let sharedRoot = environment.sharedRoot()
+        let sealer = environment.sealer(for: account.accountKey)
+        await SignOutUseCase.eraseSavedData(
+            accountKey: account.accountKey,
+            ledgerStore: SyncLedgerStore(root: root, accountKey: account.accountKey, sealer: sealer),
+            notifications: environment.notifications,
+            storeRoot: root,
+            sharedRoot: sharedRoot,
+            keyring: environment.keyring)
+    }
 }
 
 /// A gateway for a coordinator that must never fetch (see `AccountSignOut.purge`).
