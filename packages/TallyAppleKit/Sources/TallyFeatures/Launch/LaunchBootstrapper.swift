@@ -154,7 +154,7 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         async let recordRead = refreshRecord(for: account.accountKey, root: root)
         probe("glance")
         let store = environment.snapshotStore(for: account.accountKey, root: root, sharedRoot: sharedRoot)
-        let projection: GlanceProjection?
+        var projection: GlanceProjection?
         if case .loaded(let loaded) = await store.loadGlance() { projection = loaded } else { projection = nil }
         let read = await recordRead
         var record: RefreshRecord?
@@ -172,6 +172,9 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         if let current = record, SchoolRevokedRetention.isExpired(current, now: environment.clock.now()) {
             await AccountSignOut.eraseSavedData(account: account, environment: environment)
             record = nil
+            // The glance already decoded above is now stale (its file is gone): never hand it to
+            // the first paint, or the student would see data this launch just erased.
+            projection = nil
         }
 
         switch read {
