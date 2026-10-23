@@ -1255,8 +1255,14 @@ final class AuditTourUITests: TallyUITestCase {
             if done.waitForExistence(timeout: 5), done.isHittable { done.tap() }
         }
 
-        scrollToTop(app)
-        if scrollUntilHittable(stepper, in: app, maxSwipes: 15) {
+        // Round 1 (run 39974117302): missing on every AX5 leg -- the What-If sheet's own
+        // `scrollToTop`'s default 20 swipes (this file's own doc comment on it: sized for a
+        // dismissed-sheet's ordinary settle, not AX5's taller rows covering less list per swipe)
+        // was not always enough to undo how far `whatIf`'s own `goScrolling` had scrolled down
+        // first, so `scrollUntilHittable` below started too far from the stepper to still reach it
+        // inside its own cap. Both raised for this one step.
+        scrollToTop(app, maxSwipes: 30)
+        if scrollUntilHittable(stepper, in: app, maxSwipes: 25) {
             snap(app, screen: "courseGoal", state: "stepperAfterWhatIf", reachedVia: "What-If's Save as goal, Done, scrolled back up")
         } else {
             snap(app, screen: "courseGoal", state: "missing-stepperAfterWhatIf", reachedVia: "What-If's Save as goal, Done")
@@ -1293,13 +1299,19 @@ final class AuditTourUITests: TallyUITestCase {
         scrollToTop(app)
         if goScrolling(element("schoolOff.eraseSavedData", in: app), app, screen: "schoolRevoked", state: "eraseConfirm",
                        reachedVia: "Erase Saved Data") {
+            // Round 1 (run 39974117302): every AX5 leg recorded NEITHER "eraseConfirm" nor
+            // "missing-eraseConfirm" -- `tallyDestructiveConfirmation` is an `.alert` below the
+            // accessibility sizes and a full-screen SHEET at AX1 and up (never a popover, unlike
+            // the `.confirmationDialog` testG/testN fall back to a "PopoverDismissRegion" tap
+            // for), so that fallback, copied from those without checking it applied here, silently
+            // did nothing when the cancel button's own 10 s wait ran out. Always records something
+            // now, and waits longer for the heavier AX5 sheet to render.
             let cancel = element("schoolOff.eraseSavedDataConfirm.cancel", in: app)
-            if cancel.waitForExistence(timeout: 10) {
+            if cancel.waitForExistence(timeout: 15) {
                 snap(app, screen: "schoolRevoked", state: "eraseConfirm", reachedVia: "tapped Erase Saved Data")
                 cancel.tap()
             } else {
-                let popover = app.otherElements["PopoverDismissRegion"].firstMatch
-                if popover.waitForExistence(timeout: 3) { popover.tap() }
+                snap(app, screen: "schoolRevoked", state: "missing-eraseConfirm", reachedVia: "tapped Erase Saved Data")
             }
         }
 
@@ -1347,7 +1359,11 @@ final class AuditTourUITests: TallyUITestCase {
         let app = launchSignedIn()
         openSettings(app)
         let picker = element("settings.canvasLinks", in: app)
-        if scrollUntilHittable(picker, in: app) {
+        // Round 1 (run 39974117302): missing on every AX5 leg at `scrollUntilHittable`'s own
+        // 10-swipe default -- the picker sits mid-list (the Calendar section), well past what 10
+        // swipes of AX5's taller rows cover (`testN`'s own `family.sample.viewAsParent`, deeper
+        // still in the same list, already needed 30).
+        if scrollUntilHittable(picker, in: app, maxSwipes: 25) {
             snap(app, screen: "settings-canvasLinks", state: "row", reachedVia: "Settings")
             picker.tap()
             if app.buttons["Browser"].waitForExistence(timeout: 5) {
@@ -1371,6 +1387,16 @@ final class AuditTourUITests: TallyUITestCase {
     /// test-only hook guarded the same way as every other case in that file) scripts exactly that:
     /// a verified, auto-renewing Tally Annual 25 days from renewal -- inside the window, with the
     /// 40-day reminder's own fire date already past and the 20-day one still due.
+    ///
+    /// Round 1 (run 39974117302, all 8 legs): "missing-banner" everywhere. `SubscriptionEngine
+    /// .apply` only plans the renewal reminders `if verified, let environment, let facts`
+    /// (`SubscriptionEngine.swift`'s own doc comment on that `facts` parameter), and its `.launch`
+    /// verification is enqueued at `start()`, before `accountAttached` -- which never re-verifies
+    /// itself -- runs; a cold launch's first (and only, until the scene next goes `.active`) verified
+    /// pass therefore always has `environment == nil`, so this leg's banner never had a chance to
+    /// compute true. `TallyApp.swift`'s `case .active: subscription.foreground()` is the real app's
+    /// own trigger for a later, environment-attached verification, so round 2 reaches it the same
+    /// way `testM_appLockAndPrivacyCover` already does: backgrounding and reactivating the app.
     @MainActor
     func testY_subscriptionRenewalReminderBanner() throws {
         continueAfterFailure = true
@@ -1386,6 +1412,12 @@ final class AuditTourUITests: TallyUITestCase {
             finish("Y")
             app.terminate()
             return
+        }
+        // One more verified pass, now that the account's coordinator is attached (see the doc
+        // comment above): best-effort, like `testM`'s own use of this helper.
+        if makeInactive(app) != nil {
+            app.activate()
+            _ = waitForScenePhase("active", in: app, timeout: 10)
         }
         openSettings(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "renewalReminderBanner", state: "subscriptionPage",
