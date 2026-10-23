@@ -93,7 +93,7 @@ public actor SampleSession: HomeDataSource {
         scheduleDelayedSignal()
         defer { delayedSignal?.cancel() }
         do {
-            #if DEBUG
+            #if DEBUG || TALLY_TEST_HOOKS
             if generation > 0, let latency = Self.debugRefreshLatency {
                 try await Task.sleep(for: latency)
             }
@@ -138,13 +138,19 @@ public actor SampleSession: HomeDataSource {
             .map { $0.timeIntervalSince(now) }
     }
 
-    #if DEBUG
+    #if DEBUG || TALLY_TEST_HOOKS
     /// UI tests only: the launch argument `-TallyDebugSampleRefreshLatency <seconds>` delays every
     /// sample refresh after the first load, to exercise the slow-refresh path (perf-app-runtime.md
-    /// §7 step 7: a 12-s slow refresh shows the breadcrumb, which then self-heals). Debug builds only.
+    /// §7 step 7: a 12-s slow refresh shows the breadcrumb, which then self-heals). Debug and the
+    /// UITest configuration only. Read from the launch arguments (like `ReminderTestHooks`), not
+    /// `UserDefaults`: a required-reason API the privacy-manifest check would otherwise count as
+    /// shipping once this is compiled into `TALLY_TEST_HOOKS` builds (RELCFG-1, gate 39886724489).
     private static var debugRefreshLatency: Duration? {
-        let seconds = UserDefaults.standard.double(forKey: "TallyDebugSampleRefreshLatency")
-        return seconds > 0 ? .seconds(seconds) : nil
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "-TallyDebugSampleRefreshLatency"),
+              arguments.indices.contains(flag + 1),
+              let seconds = Double(arguments[flag + 1]), seconds > 0 else { return nil }
+        return .seconds(seconds)
     }
     #endif
 

@@ -8,6 +8,18 @@ options:
 configs:
   Debug: debug
   Release: release
+  # ASC-10/RELCFG-1 (app-store-compliance.md §3.3.1): a dedicated, Release-optimized configuration
+  # that also compiles the test-only launch hooks (`#if DEBUG || TALLY_TEST_HOOKS`, LaunchTestHooks
+  # et al.) so the 8 critical-flow UI tests that need a hook can run against Release optimizations
+  # instead of a Debug build. It reuses TALLY_TEST_HOOKS, the flag `make ios-perf` already sets by
+  # command-line override for its own Release test build (Makefile IOS_PERF_CONDITIONS) -- the same
+  # flag every hook gate in the tree already checks -- rather than the design doc's working name
+  # `TALLY_UI_TESTING` (app-store-compliance.md §3.3.1, release-gate.yml's own pre-RELCFG-1
+  # comments): that name predates the hook gates and never reached any `#if`, so introducing it now
+  # would need a second, redundant flag with no shipping code to turn on. The true Release
+  # configuration below never sets TALLY_TEST_HOOKS; ci.yml's "shipping Release build has no
+  # UI-test hooks" step proves that on every PR by scanning the built binary's strings.
+  UITest: release
 
 settings:
   base:
@@ -26,6 +38,15 @@ settings:
     # Building it from TALLY_BUNDLE_ID_PREFIX instead keeps one literal
     # group string for both, without editing Identity.xcconfig.
     TALLY_SHARED_APP_GROUP_ID: group.$(TALLY_BUNDLE_ID_PREFIX).tally
+  configs:
+    # ASC-10/RELCFG-1: Release optimizations (inherited from the "release" type above) plus the
+    # test-only launch hooks and testability, project-wide, so `xcodebuild test -configuration
+    # UITest` reproduces exactly what `make ios-perf` already does for its own Release test build
+    # via a command-line override, as a plain, reusable Xcode configuration. docs/release/
+    # uitest-configuration.md records what it is and why it never ships.
+    UITest:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) TALLY_TEST_HOOKS
+      ENABLE_TESTABILITY: YES
 
 packages:
   TallyCore:
@@ -49,6 +70,7 @@ targets:
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
+      UITest: Config/Identity.xcconfig
     entitlements:
       path: Tally/Tally.entitlements
     settings:
@@ -140,6 +162,7 @@ targets:
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
+      UITest: Config/Identity.xcconfig
     entitlements:
       path: TallyWidgets/TallyWidgets.entitlements
     settings:
@@ -194,6 +217,7 @@ targets:
     configFiles:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
+      UITest: Config/Identity.xcconfig
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
