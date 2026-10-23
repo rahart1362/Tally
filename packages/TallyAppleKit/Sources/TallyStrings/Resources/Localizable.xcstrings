@@ -4405,6 +4405,24 @@
         }
       }
     },
+    "family.notification.belowGoal.hiddenCourse" : {
+      "comment" : "Parent notification title: a course needs attention for the named student, without naming the course. The argument is the student's first name, or 'Your student' when the parent turned on Hide Student Names.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has a course that needs attention"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ tiene un curso que necesita atención"
+          }
+        }
+      }
+    },
     "family.notification.belowGoal.title" : {
       "comment" : "Parent notification title: a course needs attention for the named student. 1: the student's first name, or 'Your student'. 2: the course code from Canvas. Never the score or goal.",
       "extractionState" : "manual",

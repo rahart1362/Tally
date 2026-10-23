@@ -23,6 +23,18 @@ import Foundation
 /// harmless (dead weight, not a correctness or security problem: the old location is still the
 /// app's own sandbox or the same App Group it already had full access to) and the migration is
 /// retried, harmlessly, on the next launch.
+///
+/// SEC2-05: `accounts.json` moves LAST, not first. Every other step here is already safe to
+/// re-run (each one re-lists its own directory and only moves what is still there), so the one
+/// thing that must never become visible before the rest of the migration has actually finished is
+/// `newAccountsJSON` itself — it is the single signal, above, that "this account is fully
+/// migrated." Moving it first (the previous ordering) let a process death between it and the
+/// per-account file moves leave `UserState`, the ledger and the refresh record stranded at the
+/// old root forever: `fileExists(newAccountsJSON)` already read as "done," so no later launch ever
+/// resumed the rest, and `ReminderPipeline` silently fell back to defaults (Hide Course Names
+/// included) for files it could no longer find. With the move last, an interruption at any earlier
+/// point leaves `newAccountsJSON` absent, so the very next launch re-runs this whole function
+/// (harmlessly re-doing already-finished steps) and finishes the job.
 public enum StoreMigration {
     public static func migrateIfNeeded(privateRoot: URL, oldCombinedRoot: URL) {
         guard privateRoot != oldCombinedRoot else { return }
@@ -33,7 +45,6 @@ public enum StoreMigration {
         guard fileManager.fileExists(atPath: oldAccountsJSON.path) else { return }
 
         try? fileManager.createDirectory(at: privateRoot, withIntermediateDirectories: true)
-        try? fileManager.moveItem(at: oldAccountsJSON, to: newAccountsJSON)
 
         // Carry the install sentinel forward: an upgrading install must read as already-reconciled
         // at the new (private) root, never as fresh (`LaunchBootstrapper.reconcileInstallIfNeeded`
@@ -69,5 +80,8 @@ public enum StoreMigration {
                 try? fileManager.moveItem(at: oldEntry, to: newAccounts.appendingPathComponent(name))
             }
         }
+
+        // Last: once this lands, `fileExists(newAccountsJSON)` (above) reads as "fully migrated."
+        try? fileManager.moveItem(at: oldAccountsJSON, to: newAccountsJSON)
     }
 }

@@ -139,4 +139,59 @@ struct AccountPurgerTests {
         #expect(keys.count(KeyScope(account: account.rawValue, audience: .app)) == 0)
         #expect(!FileManager.default.fileExists(atPath: privateLayout.purgePendingMarker.path))
     }
+
+    /// SEC2-07 (EB-26's owner ruling): unlike `purge` above, `eraseCanvasData` keeps `userState` —
+    /// Hide Course Names and the other privacy toggles — fully readable, because it never shreds
+    /// the `.app` key `userState` shares with every other `.app`-scoped file. It still removes
+    /// the Canvas-derived files and shreds the `.widget` key (the glance).
+    @Test func eraseCanvasDataKeepsUserStateButRemovesEverythingElse() async throws {
+        let root = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-erase")
+        let sealer = VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true)
+        let snapshotStore = SnapshotStore(root: root, accountKey: account, sealer: sealer)
+        try await snapshotStore.commit(CanvasSnapshotFixture.make(generation: 1, accountKey: account), includeGrades: false)
+        let userStateStore = UserStateStore(root: root, accountKey: account, sealer: sealer)
+        try await userStateStore.save(UserState(showGradesInGlance: true))
+        let layout = StoreLayout(root: root, accountKey: account)
+        let userStateCopy = try #require(try ProtectedFile.read(layout.url(for: .userState)))
+
+        try AccountPurger.eraseCanvasData(accountKey: account, root: root, keyring: ring)
+
+        #expect(!FileManager.default.fileExists(atPath: layout.url(for: .snapshot).path),
+                "the Canvas-derived snapshot must still be removed")
+        #expect(FileManager.default.fileExists(atPath: layout.url(for: .userState).path),
+                "SEC2-07: userState must survive Erase Saved Data")
+        guard case .loaded(let state) = await userStateStore.load() else {
+            Issue.record("the surviving user-state file must still open"); return
+        }
+        #expect(state.showGradesInGlance)
+        // The .app key (shared with userState) must survive; only .widget is shredded.
+        #expect(keys.count(KeyScope(account: account.rawValue, audience: .app)) == 1,
+                "shredding .app here would make the file this call is supposed to keep unreadable")
+        // The .app key must still open the SAME ciphertext that was on disk before the erase;
+        // a thrown error here would fail this test on its own.
+        _ = try sealer.open(userStateCopy, file: .userState)
+    }
+
+    /// The widget's own key is shredded by `eraseCanvasData`, even though the glance file itself
+    /// is already deleted — defense in depth against any leftover backup copy of the ciphertext.
+    @Test func eraseCanvasDataShredsTheWidgetKey() async throws {
+        let privateRoot = try tempStoreDirectory()
+        let sharedRoot = try tempStoreDirectory()
+        let keys = InMemoryVaultKeyStore()
+        let ring = VaultKeyring(store: keys)
+        let account = AccountKey("account-erase-glance")
+        let sealer = VaultSealer(account: account.rawValue, keyring: ring, mayCreateKeys: true)
+        let store = SnapshotStore(root: privateRoot, accountKey: account, sealer: sealer, sharedRoot: sharedRoot)
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1, accountKey: account), includeGrades: false)
+        let glanceCopy = try #require(try ProtectedFile.read(StoreLayout(root: sharedRoot, accountKey: account).url(for: .glance)))
+
+        try AccountPurger.eraseCanvasData(accountKey: account, root: privateRoot, sharedRoot: sharedRoot, keyring: ring)
+
+        #expect(!FileManager.default.fileExists(atPath: StoreLayout(root: sharedRoot, accountKey: account).url(for: .glance).path))
+        #expect(keys.count(KeyScope(account: account.rawValue, audience: .widget)) == 0)
+        #expect(throws: VaultError.keyMissing) { try sealer.open(glanceCopy, file: .glance) }
+    }
 }

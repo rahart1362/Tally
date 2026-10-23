@@ -15,8 +15,10 @@ import TallyStore
 ///    (`AccountPurger.purge`, which itself calls `VaultPurger.purge` — one call covers both halves
 ///    of this step).
 /// 4. Delete the Keychain credential.
+/// 5. SEC2-13: remove the two AGE-1 files (`age-request.json`, `significant-change-state.json`) —
+///    account-independent, so no account-scoped step above ever reaches them.
 ///
-/// The local purge (steps 2–4) always happens, even when step 1's revoke fails or the device is
+/// The local purge (steps 2–5) always happens, even when step 1's revoke fails or the device is
 /// offline — this is the one non-negotiable half of an otherwise best-effort sequence. Idempotent:
 /// calling `signOut` again with nothing left to remove (no credential, an already-empty ledger and
 /// platform, an already-purged store) does nothing and never throws.
@@ -87,15 +89,26 @@ public enum SignOutUseCase {
         // 4. Delete the Keychain credential.
         await credentialStore.delete()
 
+        // 5. SEC2-13 (owner ruling): "delete all" removes the AGE-1 files too (`age-request.json`,
+        // `significant-change-state.json`) — account-independent, at `storeRoot` directly rather
+        // than under `accounts/<key>/`, so `AccountPurger.purge` above never touches them. EB-26's
+        // "Erase Saved Data" (`eraseSavedData` below) is not an account deletion and keeps both.
+        AgeRequestRecordStore(root: storeRoot).reset()
+        SignificantChangeVersionStore(root: storeRoot).reset()
+
         return revokeDidFail
     }
 
     /// EB-26 ("Erase Saved Data"): this use case's local-purge steps 2 and 3 only — cancel this
-    /// account's pending notifications, then crypto-shred and delete its store files
-    /// (`AccountPurger.purge`) — without step 1 (no Canvas revoke call: nothing here says the
-    /// student is signing out) or step 4 (the Keychain credential is kept). `accounts.json` and the
-    /// app-lock setting are untouched; only `signOut` ever removes an account. Idempotent, like
-    /// `signOut`: a second call with nothing left to remove does nothing.
+    /// account's pending notifications, then delete its Canvas-derived store files
+    /// (`AccountPurger.eraseCanvasData`) — without step 1 (no Canvas revoke call: nothing here
+    /// says the student is signing out) or step 4 (the Keychain credential is kept).
+    /// `accounts.json` and the app-lock setting are untouched; only `signOut` ever removes an
+    /// account. SEC2-07: unlike `signOut`'s `AccountPurger.purge`, this keeps `userState` (Hide
+    /// Course Names and the other privacy toggles) fully readable — it is not Canvas content, and
+    /// EB-26 is not an account deletion. SEC2-13: for the same reason, this never touches the
+    /// AGE-1 files either — only `signOut`'s step 5 does. Idempotent, like `signOut`: a second
+    /// call with nothing left to remove does nothing.
     public static func eraseSavedData(
         accountKey: AccountKey,
         ledgerStore: SyncLedgerStore,
@@ -113,7 +126,7 @@ public enum SignOutUseCase {
         let idsToRemove = Set(ledger.notifications.keys).union(pendingOnPlatform)
         if !idsToRemove.isEmpty { await notifications.cancel(ids: idsToRemove) }
 
-        try? AccountPurger.purge(accountKey: accountKey, root: storeRoot, sharedRoot: sharedRoot, keyring: keyring)
+        try? AccountPurger.eraseCanvasData(accountKey: accountKey, root: storeRoot, sharedRoot: sharedRoot, keyring: keyring)
     }
 
     /// SEC1-02's one refresh attempt before revoking an expired access token. Best effort and

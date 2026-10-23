@@ -113,7 +113,7 @@ struct DashboardView: View {
 
     /// Idea 10: queues every draft but the first (shown at once) behind it.
     private func startAddingWeek(_ days: [DashboardProjection.WeekDay]) {
-        var queue = WeekAheadCalendarDraft.drafts(for: days)
+        var queue = WeekAheadCalendarDraft.drafts(for: days, accountHost: model.account.host)
         guard !queue.isEmpty else { return }
         weekAddDraft = queue.removeFirst()
         weekAddQueue = queue

@@ -48,6 +48,10 @@ public final class AgeAssuranceModel {
     @ObservationIgnored private let changeDescription: String
     @ObservationIgnored private let evaluateTask = TaskBox()
     @ObservationIgnored private let listenTask = TaskBox()
+    /// SEC2-01: set while this launch's significant-change consent is still `.pending`, `.denied`
+    /// or `.unavailable` — i.e. not yet safe to acknowledge. A later `.granted` for THIS version,
+    /// arriving through `listenForAnswers`, finishes the acknowledgement `evaluate` deferred.
+    @ObservationIgnored private var unacknowledgedSignificantChangeVersion: String?
 
     public init(requester: any AgeAssuranceRequesting = UnavailableAgeAssurance(),
                 consent: any SignificantChangeConsenting = UnavailableSignificantChangeConsent(),
@@ -112,22 +116,53 @@ public final class AgeAssuranceModel {
         try? await recordStore.save(AgeRequestRecord(lastRequestedAt: now))
         let result = await requester.requestAgeAssurance()
         outcome = result
-        if trigger == .firstLaunchOfSignificantChangeVersion {
-            versionState.lastAcknowledgedSignificantChangeVersion = currentAppVersion
-        }
-        try? await versionStore.save(versionState)
 
-        guard case .shared(let signal) = result, signal.significantChangeRequirement.isAny else { return }
+        // SEC2-01: a significant-change version is acknowledged — and never asked about again —
+        // only once nothing is left pending: either this outcome never required consent at all,
+        // or consent came back `.granted`/`.notRequired`. A `.pending` question, a `.denied`
+        // answer or an `.unavailable` attempt must ask again on the next launch, so none of them
+        // may set `lastAcknowledgedSignificantChangeVersion` here. No age value is persisted
+        // either way — this only ever writes the version string and the rating-observation
+        // baseline already computed above.
+        guard case .shared(let signal) = result, signal.significantChangeRequirement.isAny else {
+            if trigger == .firstLaunchOfSignificantChangeVersion {
+                versionState.lastAcknowledgedSignificantChangeVersion = currentAppVersion
+            }
+            try? await versionStore.save(versionState)
+            return
+        }
+
         consentOutcome = await consent.requestConsent(changeDescription: changeDescription,
                                                        for: signal.significantChangeRequirement)
+        guard trigger == .firstLaunchOfSignificantChangeVersion else {
+            try? await versionStore.save(versionState)
+            return
+        }
+        switch consentOutcome {
+        case .granted, .notRequired:
+            versionState.lastAcknowledgedSignificantChangeVersion = currentAppVersion
+            try? await versionStore.save(versionState)
+        case .pending, .denied, .unavailable:
+            try? await versionStore.save(versionState) // still records the rating observation
+            unacknowledgedSignificantChangeVersion = currentAppVersion
+        }
     }
 
     /// EB-02(b): a parent/guardian's answer can arrive long after `requestConsent` returned
     /// `.pending` (they may not open Messages right away). This stream runs for the process's
     /// whole lifetime so that answer still reaches `gateDecision`.
+    ///
+    /// SEC2-01: a `.granted` answer that finally resolves THIS launch's unacknowledged
+    /// significant-change version finishes what `evaluate` deferred, so a later relaunch stops
+    /// asking. Any other answer (including a late `.denied`) leaves it unacknowledged on purpose.
     private func listenForAnswers() async {
         for await answer in consent.pendingAnswers() {
             consentOutcome = answer
+            guard answer == .granted, let version = unacknowledgedSignificantChangeVersion else { continue }
+            unacknowledgedSignificantChangeVersion = nil
+            var versionState = await versionStore.load() ?? SignificantChangeVersionState()
+            versionState.lastAcknowledgedSignificantChangeVersion = version
+            try? await versionStore.save(versionState)
         }
     }
 }

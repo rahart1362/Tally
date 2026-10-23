@@ -105,9 +105,27 @@ struct SignOutUseCaseTests {
         }
     }
 
-    /// EB-26 ("Erase Saved Data"): the same local purge (notifications cancelled, store files
-    /// gone) as `signOut`, but the credential survives — this is never a sign-out.
-    @Test func eraseSavedDataPurgesFilesAndNotificationsButKeepsTheCredential() async throws {
+    /// SEC2-13 (owner ruling): "delete all" removes the two account-independent AGE-1 files too,
+    /// not just the account's own directory.
+    @Test func signOutRemovesTheAgeAssuranceFiles() async throws {
+        let harness = try await makeHarness()
+        let ageStore = AgeRequestRecordStore(root: harness.root)
+        let versionStore = SignificantChangeVersionStore(root: harness.root)
+        try ageStore.save(AgeRequestRecord(lastRequestedAt: Date()))
+        try versionStore.save(SignificantChangeVersionState(lastAcknowledgedSignificantChangeVersion: "1.0"))
+
+        await signOut(harness)
+
+        #expect(ageStore.load() == nil, "SEC2-13: age-request.json must not survive Sign Out & Erase")
+        #expect(versionStore.load() == nil, "SEC2-13: significant-change-state.json must not survive Sign Out & Erase")
+    }
+
+    /// EB-26 ("Erase Saved Data"): the same notifications-cancelled, Canvas-derived-files-gone
+    /// purge as `signOut`, but the credential survives (this is never a sign-out) AND, per
+    /// SEC2-07's owner ruling, `userState` — Hide Course Names and the other privacy toggles —
+    /// stays fully readable, unlike `signOut`'s own wipe (`signOutRemovesEverythingForTheAccount`,
+    /// unchanged above).
+    @Test func eraseSavedDataPurgesCanvasFilesAndNotificationsButKeepsTheCredentialAndUserState() async throws {
         let harness = try await makeHarness()
 
         await SignOutUseCase.eraseSavedData(
@@ -115,10 +133,30 @@ struct SignOutUseCaseTests {
             storeRoot: harness.root, keyring: harness.keyring)
 
         guard case .absent = await harness.snapshotStore.loadSnapshot() else { Issue.record("expected the snapshot to be gone"); return }
-        guard case .absent = await harness.userStateStore.load() else { Issue.record("expected user-state to be gone"); return }
+        guard case .loaded(let state) = await harness.userStateStore.load() else {
+            Issue.record("SEC2-07: expected user-state to survive Erase Saved Data"); return
+        }
+        #expect(state.showGradesInGlance, "SEC2-07: the surviving UserState must be the SAME one that was seeded, not an empty default")
         guard case .absent = await harness.ledgerStore.load() else { Issue.record("expected the ledger to be gone"); return }
         #expect(await harness.notifications.pendingIdentifiers().isEmpty, "expected every notification to be cancelled")
         #expect(await harness.credentialStore.load() != nil, "EB-26: the credential must survive — this is not a sign-out")
+    }
+
+    /// SEC2-13 (owner ruling): Erase Saved Data is not an account deletion, so both AGE-1 files
+    /// survive it — only `signOut`'s "delete all" removes them.
+    @Test func eraseSavedDataKeepsTheAgeAssuranceFiles() async throws {
+        let harness = try await makeHarness()
+        let ageStore = AgeRequestRecordStore(root: harness.root)
+        let versionStore = SignificantChangeVersionStore(root: harness.root)
+        try ageStore.save(AgeRequestRecord(lastRequestedAt: Date()))
+        try versionStore.save(SignificantChangeVersionState(lastAcknowledgedSignificantChangeVersion: "1.0"))
+
+        await SignOutUseCase.eraseSavedData(
+            accountKey: harness.accountKey, ledgerStore: harness.ledgerStore, notifications: harness.notifications,
+            storeRoot: harness.root, keyring: harness.keyring)
+
+        #expect(ageStore.load() != nil, "SEC2-13: Erase Saved Data must keep age-request.json")
+        #expect(versionStore.load() != nil, "SEC2-13: Erase Saved Data must keep significant-change-state.json")
     }
 
     /// Idempotent, like `signOut`: a second call with nothing left to remove does nothing new.

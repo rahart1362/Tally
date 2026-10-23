@@ -89,21 +89,24 @@ public enum GlanceWidgetSource {
     /// (`GlanceReadCache.shared`, PERF-FIX-2 item 1: perf1/report.md §4 opportunity 3) -- every
     /// `GlanceIntentTimelineProvider` this process is asked for defaults to calling this same
     /// function, so the cache is shared automatically, with no change needed at each call site.
+    /// SEC2-10: the store root is resolved once, here, so the cheap signature check and the real
+    /// read agree on exactly the same App Group root.
     public static func readFromAppGroup(_ scope: GlanceScope) async -> GlanceReadResult {
-        await GlanceReadCache.shared.read(scope, using: realReadFromAppGroup)
+        let configuration = GlanceConfiguration.from(infoDictionary: Bundle.main.infoDictionary)
+        let storeRoot = configuration.flatMap { GlanceStoreLocation.appGroupStoreRoot(appGroupID: $0.appGroupID) }
+        return await GlanceReadCache.shared.read(scope, signature: { GlanceCacheSignature.capture(storeRoot: storeRoot) },
+                                                 using: { await realReadFromAppGroup($0, storeRoot: storeRoot, configuration: configuration) })
     }
 
     /// The actual Keychain-backed read `readFromAppGroup` shares through `GlanceReadCache`.
-    private static func realReadFromAppGroup(_ scope: GlanceScope) async -> GlanceReadResult {
+    private static func realReadFromAppGroup(_ scope: GlanceScope, storeRoot: URL?,
+                                              configuration: GlanceConfiguration?) async -> GlanceReadResult {
         switch scope {
         case .signedInStudent:
-            guard let configuration = GlanceConfiguration.from(infoDictionary: Bundle.main.infoDictionary) else {
-                return .unavailable
-            }
-            let reader = GlanceReader(
-                storeRoot: GlanceStoreLocation.appGroupStoreRoot(appGroupID: configuration.appGroupID),
-                keyStore: WidgetVaultKeyReader(appBundleID: configuration.appBundleID,
-                                               accessGroup: configuration.keychainAccessGroup))
+            guard let configuration else { return .unavailable }
+            let reader = GlanceReader(storeRoot: storeRoot,
+                                      keyStore: WidgetVaultKeyReader(appBundleID: configuration.appBundleID,
+                                                                     accessGroup: configuration.keychainAccessGroup))
             return await reader.read()
         }
     }

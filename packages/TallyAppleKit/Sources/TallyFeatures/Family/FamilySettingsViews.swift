@@ -16,14 +16,23 @@ import UniformTypeIdentifiers
 /// the general pasteboard indefinitely for any later-installed app to read.
 enum TallyPasteboard {
     static func copy(_ text: String, expiresAt: Date) {
-        UIPasteboard.general.setItems([[UTType.utf8PlainText.identifier: text]],
-                                      options: [.localOnly: true, .expirationDate: expiresAt])
+        let (items, options) = pasteboardPayload(text, expiresAt: expiresAt)
+        UIPasteboard.general.setItems(items, options: options)
     }
 
     /// The same, expiring `interval` from the moment of the tap. Reading the clock here, in an
     /// action, keeps `Date()` out of the calling view's body (`check_view_bodies.py`).
     static func copy(_ text: String, expiringAfter interval: TimeInterval) {
         copy(text, expiresAt: Date().addingTimeInterval(interval))
+    }
+
+    /// SEC1-18: the exact items/options `copy(_:expiresAt:)` hands `UIPasteboard` — local-only
+    /// (`.localOnly: true`, no Universal Clipboard/Handoff) and carrying `.expirationDate`,
+    /// extracted as a pure, tiny helper so a unit test can prove both without touching the real
+    /// pasteboard (`UIPasteboard.general` is live, shared system state a test must not depend
+    /// on). Behaviour is unchanged: `copy` still makes exactly this one `setItems` call.
+    static func pasteboardPayload(_ text: String, expiresAt: Date) -> ([[String: Any]], [UIPasteboard.OptionsKey: Any]) {
+        ([[UTType.utf8PlainText.identifier: text]], [.localOnly: true, .expirationDate: expiresAt])
     }
 }
 

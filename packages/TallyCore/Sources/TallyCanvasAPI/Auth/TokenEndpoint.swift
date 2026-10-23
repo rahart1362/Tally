@@ -61,15 +61,20 @@ public struct TokenEndpoint: Sendable {
             if error?.error == "invalid_client" { throw .invalidClient }
             throw .rejected(status: response.status)
         }
-        guard let body = try? JSONDecoder().decode(TokenBody.self, from: response.body),
-              let refresh = body.refreshToken ?? previous?.refreshToken else { throw .malformed }
+        guard let body = try? JSONDecoder().decode(TokenBody.self, from: response.body) else { throw .malformed }
+        // SEC2-11: `previous` only has a say here when it is THIS SAME Canvas host's own earlier
+        // credential. A stale credential left over from another school (for example a SEC1-01
+        // delete-failure residual) must never borrow its refresh token into a different host's
+        // sign-in, and must never block it with `.userMismatch` either.
+        let continuity = previous?.host == host ? previous : nil
+        guard let refresh = body.refreshToken ?? continuity?.refreshToken else { throw .malformed }
         // SEC1-07: Canvas's fixtures and some live responses omit `token_type` entirely, so only
         // a type Canvas actually names, and that isn't Bearer, is rejected.
         if let tokenType = body.tokenType, tokenType.caseInsensitiveCompare("bearer") != .orderedSame {
             throw .unsupportedTokenType
         }
         let userID = body.user.id.value
-        if let previous, previous.userID != userID { throw .userMismatch }
+        if let continuity, continuity.userID != userID { throw .userMismatch }
         return CanvasCredential(host: host, userID: userID, accessToken: body.accessToken, refreshToken: refresh,
                                 accessTokenExpiresAt: now.addingTimeInterval(TimeInterval(body.expiresIn ?? 3600)))
     }

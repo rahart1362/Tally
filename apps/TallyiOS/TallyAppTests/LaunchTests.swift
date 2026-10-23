@@ -154,6 +154,10 @@ struct LaunchBootstrapperTests {
         #expect(!FileManager.default.fileExists(atPath: harness.accountDirectory.path), "the account directory survived the erase")
         #expect(AccountDirectoryStore(root: harness.root).activeAccount()?.accountKey == harness.account,
                 "EB-26 erases saved data without signing out: the account must still be active")
+        // SEC2-06: the automatic erase must reload the widgets too, like the manual erase and
+        // sign-out both already do -- otherwise a widget painted just before the purge keeps
+        // showing the now-deleted glance until its own timeline boundary passes.
+        #expect(harness.widgetReloads.value >= 1, "the automatic EB-26 erase never reloaded the widgets")
     }
 
     @Test("EB-26: a school-revoked state inside the retention window is left alone at launch")
@@ -169,6 +173,7 @@ struct LaunchBootstrapperTests {
         let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
         #expect(resolution.record?.schoolDisabledSince == recently)
         #expect(FileManager.default.fileExists(atPath: harness.accountDirectory.path), "the account directory was erased too early")
+        #expect(harness.widgetReloads.value == 0, "nothing was erased, so the widgets must not reload either")
     }
 
     @Test("EB-26: an ordinary failure (not school-revoked) is never erased at launch")
@@ -184,6 +189,7 @@ struct LaunchBootstrapperTests {
         let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
         #expect(resolution.record?.lastFailure == .offline)
         #expect(FileManager.default.fileExists(atPath: harness.accountDirectory.path))
+        #expect(harness.widgetReloads.value == 0, "nothing was erased, so the widgets must not reload either")
     }
 
     @Test("PERF-L: the lock setting's read overlaps the account's file reads")

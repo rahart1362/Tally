@@ -35,8 +35,12 @@ public enum FamilyNotificationText {
             // renderer's `courseLabel` (`NotificationText.swift`). Never the grade itself.
             return .init(title: resolve(Key.gradePostedTitle(studentLabel(student, locale: locale)), locale), body: courseCode)
 
-        case .belowGoal(let student, let courseCode):
-            return .init(title: resolve(Key.belowGoalTitle(studentLabel(student, locale: locale), courseCode), locale),
+        case .belowGoal(let student, _):
+            // SEC2-08 (owner ruling 2026-10-23): the course is hidden by default, as SEC1-19
+            // already hides it for the student's own below-goal notification — the course code
+            // is never read here, independent of any setting. "Hide student names" still applies
+            // on top of it (`studentLabel` below).
+            return .init(title: resolve(Key.belowGoalHiddenCourseTitle(studentLabel(student, locale: locale)), locale),
                         body: resolve(Key.belowGoalBody(), locale))
         }
     }
@@ -64,8 +68,8 @@ public enum FamilyNotificationText {
         static func dueBody(_ when: String) -> LocalizedStringResource { L10n.Family.dueBody(when) }
         static func dueFinalBody(_ when: String) -> LocalizedStringResource { L10n.Family.dueFinalBody(when) }
         static func gradePostedTitle(_ student: String) -> LocalizedStringResource { L10n.Family.gradePostedTitle(student: student) }
-        static func belowGoalTitle(_ student: String, _ courseCode: String) -> LocalizedStringResource {
-            L10n.Family.belowGoalTitle(student: student, courseCode: courseCode)
+        static func belowGoalHiddenCourseTitle(_ student: String) -> LocalizedStringResource {
+            L10n.Family.belowGoalHiddenCourseTitle(student: student)
         }
         static func belowGoalBody() -> LocalizedStringResource { L10n.Family.belowGoalBody() }
         static func hiddenStudent() -> LocalizedStringResource { L10n.Family.hiddenStudent() }

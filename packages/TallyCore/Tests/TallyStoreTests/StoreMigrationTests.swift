@@ -84,6 +84,52 @@ struct StoreMigrationTests {
         #expect(!FileManager.default.fileExists(atPath: oldLayout.purgePendingMarker.path))
     }
 
+    @Test("SEC2-05: an interruption after the account's files move but before accounts.json does is resumed, not stuck, on the next launch")
+    func resumesAfterAPartialInterruption() async throws {
+        let oldRoot = try tempStoreDirectory()
+        let newRoot = try tempStoreDirectory()
+        let keyring = VaultKeyring(store: InMemoryVaultKeyStore())
+        try await seedOldLayout(oldRoot: oldRoot, keyring: keyring)
+        let oldLayout = StoreLayout(root: oldRoot, accountKey: account.accountKey)
+        let newLayout = StoreLayout(root: newRoot, accountKey: account.accountKey)
+
+        // Simulate a process death AFTER the per-account files and the install sentinel moved,
+        // but BEFORE `accounts.json` did -- exactly the ordering `migrateIfNeeded` now guarantees
+        // (accounts.json moves last), and exactly the gap the OLD, accounts.json-first ordering
+        // left stranded forever (fileExists(newAccountsJSON) already read as "fully migrated").
+        try FileManager.default.createDirectory(at: newLayout.accountDirectory, withIntermediateDirectories: true)
+        for file in [StoreFile.snapshot, .userState, .refreshState] {
+            try FileManager.default.moveItem(at: oldLayout.url(for: file), to: newLayout.url(for: file))
+        }
+        try FileManager.default.moveItem(at: oldLayout.installSentinel, to: newLayout.installSentinel)
+        #expect(!FileManager.default.fileExists(atPath: newRoot.appendingPathComponent("accounts.json").path),
+                "the fixture must start mid-migration, with accounts.json not yet moved")
+        let glanceBefore = try #require(try ProtectedFile.read(oldLayout.url(for: .glance)))
+
+        StoreMigration.migrateIfNeeded(privateRoot: newRoot, oldCombinedRoot: oldRoot) // the next launch
+
+        #expect(AccountDirectoryStore(root: newRoot).activeAccount() == account)
+        #expect(!FileManager.default.fileExists(atPath: oldRoot.appendingPathComponent("accounts.json").path))
+        #expect(FileManager.default.fileExists(atPath: newLayout.url(for: .snapshot).path))
+        #expect(FileManager.default.fileExists(atPath: newLayout.url(for: .userState).path))
+        #expect(FileManager.default.fileExists(atPath: newLayout.url(for: .refreshState).path))
+        // The glance never moves, either run: it was already in the one place the widget reads.
+        #expect(!FileManager.default.fileExists(atPath: newLayout.url(for: .glance).path))
+        #expect(try ProtectedFile.read(oldLayout.url(for: .glance)) == glanceBefore)
+
+        let sealer = VaultSealer(account: account.accountKey.rawValue, keyring: keyring, mayCreateKeys: false)
+        let migratedUserState = await UserStateStore(root: newRoot, accountKey: account.accountKey, sealer: sealer, isOwner: false).load()
+        guard case .loaded = migratedUserState else {
+            Issue.record("a resumed migration must not leave UserState (Hide Course Names) unreadable: \(migratedUserState)")
+            return
+        }
+        let migratedStore = SnapshotStore(root: newRoot, accountKey: account.accountKey, sealer: sealer, isOwner: false)
+        guard case .loaded = await migratedStore.loadSnapshot() else {
+            Issue.record("the resumed migration left the snapshot unreadable")
+            return
+        }
+    }
+
     @Test("idempotent: running it again after a successful migration changes nothing")
     func secondRunIsANoOp() async throws {
         let oldRoot = try tempStoreDirectory()

@@ -46,7 +46,17 @@ these is true:
    this is the first entry): the commit, the date, `yes`/`no`, and a one-sentence reason citing
    which of 1–4 applies. **Required even when the answer is "no"** — EB-02(d)'s CI check fails a
    release whose data-category surface changed (test 1) until this file has a dated entry for it.
-4. If `yes`: write the one English sentence a parent/guardian (or a verified adult) will read —
+4. **If a significant change touches widgets, Siri/Shortcuts or notifications, the consent
+   restriction must cover those surfaces too.** Today (owner ruling, SEC2-02) the restriction's
+   scope is **the in-app UI only**: `AgeAssuranceModel.gateDecision` gates `RootView`'s
+   `AgeRestrictedPresenter` over the signed-in Home, and nothing else — a restricted minor's Home
+   Screen/Lock Screen widgets, "What's due next" (Siri/Shortcuts) and due notifications keep
+   working regardless (SEC2-01/-02's own residual). If this release's significant change reaches
+   any of those surfaces, record that fact in the same `significant-change-log.md` entry (step 3)
+   and have **counsel confirm whether the in-app-only scope is still sufficient** before tagging —
+   this checklist step does not decide that on its own, it only makes sure the question gets
+   asked every time the scope might have changed.
+5. If `yes`: write the one English sentence a parent/guardian (or a verified adult) will read —
    concise, specific, never "we've made improvements" (DeclaredAgeRange's own guidance: "Use
    concise, understandable language... Vague: 'We've made improvements to the app.'"). Pass it as
    `AgeAssuranceModel`'s `changeDescription` (currently empty — the composition root wires this at

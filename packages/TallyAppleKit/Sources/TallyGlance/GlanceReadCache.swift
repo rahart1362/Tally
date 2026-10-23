@@ -1,4 +1,35 @@
 import Foundation
+import TallyStore
+
+/// SEC2-10: a cheap (no Keychain, no decryption) fingerprint of whatever `GlanceReadCache` must
+/// re-check before reusing a cached read within `maxAge` — the account directory listing, and
+/// which of those directories currently have a glance file. Two captures that are `==` are safe
+/// to treat as "nothing changed since the cached read began"; one that differs means a purge, a
+/// sign-out or a fresh sign-in landed in between, so the cache must not serve the old result even
+/// though it is still within its time window.
+///
+/// `.unchecked` is the default every existing caller (and both pre-SEC2-10 tests) gets: always
+/// equal to itself, so `read(_:using:)` keeps its original `maxAge`-only behaviour unless a caller
+/// opts into the real check (`GlanceWidgetSource.readFromAppGroup` does).
+struct GlanceCacheSignature: Equatable, Sendable {
+    private let accountDirectories: [String]
+    private let directoriesWithGlance: [String]
+
+    static let unchecked = GlanceCacheSignature(accountDirectories: [], directoriesWithGlance: [])
+
+    /// `storeRoot` is the same App Group root `GlanceReader` would read; `nil` (no App Group
+    /// entitlement) always signatures the same way, so it never falsely looks "changed."
+    static func capture(storeRoot: URL?) -> GlanceCacheSignature {
+        guard let storeRoot else { return GlanceCacheSignature(accountDirectories: [], directoriesWithGlance: []) }
+        let names = GlanceReader.accountKeys(in: storeRoot).map(\.rawValue).sorted()
+        let accountsDirectory = storeRoot.appendingPathComponent("accounts", isDirectory: true)
+        let withGlance = names.filter {
+            FileManager.default.fileExists(atPath: accountsDirectory.appendingPathComponent($0)
+                .appendingPathComponent(StoreLayout.fileName(.glance)).path)
+        }
+        return GlanceCacheSignature(accountDirectories: names, directoriesWithGlance: withGlance)
+    }
+}
 
 /// One Keychain-backed glance read shared by every widget kind the extension process is asked
 /// for, instead of one independent Keychain open per kind (PERF-FIX-2 item 1; perf1/report.md §4
@@ -30,7 +61,8 @@ actor GlanceReadCache {
     static let defaultMaxAge: Duration = .seconds(2)
     private let maxAge: Duration
     private let clock = ContinuousClock()
-    private var reads: [GlanceScope: (task: Task<GlanceReadResult, Never>, startedAt: ContinuousClock.Instant)] = [:]
+    private var reads: [GlanceScope: (task: Task<GlanceReadResult, Never>, startedAt: ContinuousClock.Instant,
+                                       signature: GlanceCacheSignature)] = [:]
 
     init(maxAge: Duration = GlanceReadCache.defaultMaxAge) {
         self.maxAge = maxAge
@@ -42,13 +74,22 @@ actor GlanceReadCache {
 
     /// `scope`'s glance, read at most once per `maxAge` window. Every caller within the window for
     /// that scope, whatever widget kind, gets the first call's own result (awaiting it if it is
-    /// still in flight) instead of triggering another read; after the window, a fresh read.
-    func read(_ scope: GlanceScope, using read: @escaping @Sendable (GlanceScope) async -> GlanceReadResult) async -> GlanceReadResult {
+    /// still in flight) instead of triggering another read -- UNLESS `signature`'s freshly
+    /// captured value no longer matches the one the cached read started with (SEC2-10: the glance
+    /// file is gone, or the account directory listing changed), in which case this starts a new
+    /// read even though the window has not passed. `signature` defaults to `.unchecked` (always
+    /// equal to itself), so a caller that never supplies one keeps the original, window-only
+    /// behaviour.
+    func read(_ scope: GlanceScope, signature: @Sendable () -> GlanceCacheSignature = { .unchecked },
+             using read: @escaping @Sendable (GlanceScope) async -> GlanceReadResult) async -> GlanceReadResult {
         let now = clock.now
-        if let existing = reads[scope], now - existing.startedAt < maxAge { return await existing.task.value }
+        let currentSignature = signature()
+        if let existing = reads[scope], now - existing.startedAt < maxAge, existing.signature == currentSignature {
+            return await existing.task.value
+        }
         realReadCount += 1
         let task = Task { await read(scope) }
-        reads[scope] = (task: task, startedAt: now)
+        reads[scope] = (task: task, startedAt: now, signature: currentSignature)
         return await task.value
     }
 }
