@@ -55,6 +55,15 @@ public struct HomeShellView: View {
     /// FAM-09 (M3-E2): parent mode's family, when there is one (sample mode's parent view today).
     private var family: FamilyModel? { appModel?.family }
 
+    /// UX1-34: the tabs `.modifier(SubscriptionLock())` below can replace with `LockedFeatureCard`
+    /// -- Dashboard never locks.
+    private static let lockableTabs: Set<HomeTab> = [.courses, .calendar, .toDo, .insights]
+
+    /// `true` while the selected tab is showing `LockedFeatureCard` in place of its own content.
+    private var isSelectedTabLocked: Bool {
+        Self.lockableTabs.contains(selectedTab) && (appModel?.locks(.fullApp) ?? false)
+    }
+
     /// The Home every tab shows: in parent mode the active student's (each student has their own
     /// model and cache), otherwise the shell's own.
     private var home: HomeModel { family?.activeHome ?? model }
@@ -62,7 +71,10 @@ public struct HomeShellView: View {
     public var body: some View {
         VStack(spacing: 0) {
             if let banner {
-                banner
+                // UX1-34: lets the pinned refresh banner hide its own "See Plans" while the
+                // selected tab already shows `LockedFeatureCard`'s (the banner otherwise repeated
+                // it about 200 pt below, on every lockable tab).
+                banner.environment(\.isCurrentTabLocked, isSelectedTabLocked)
             }
 
             // FAM-09: parent mode with no student left: §7.6's parent empty state replaces the tabs.
@@ -373,5 +385,18 @@ extension EnvironmentValues {
     var isParentModeHome: Bool {
         get { self[IsParentModeHomeKey.self] }
         set { self[IsParentModeHomeKey.self] = newValue }
+    }
+}
+
+/// UX1-34: `true` while the selected tab shows `LockedFeatureCard` in place of its own content.
+/// See `HomeShellView.isSelectedTabLocked` and `SubscriptionRefreshBannerContent`.
+private struct IsCurrentTabLockedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isCurrentTabLocked: Bool {
+        get { self[IsCurrentTabLockedKey.self] }
+        set { self[IsCurrentTabLockedKey.self] = newValue }
     }
 }

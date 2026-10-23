@@ -149,9 +149,14 @@ public nonisolated struct DashboardProjection: Equatable, Sendable {
         /// `dueCount` counts, in Canvas order -- never a class meeting or event (the Week-ahead
         /// strip never showed either). Defaulted so an existing caller stays source-compatible.
         public let items: [WeekDayItem]
+        /// UX1-16: `true` for the first day (today) in the 7-day strip -- decided here, off the
+        /// main actor, the same way `DueItem.isToday` above is (views have no clock of their
+        /// own). Defaulted so an existing caller stays source-compatible.
+        public let isToday: Bool
 
-        public init(id: Date, date: Date, dueCount: Int, isBusy: Bool, items: [WeekDayItem] = []) {
+        public init(id: Date, date: Date, dueCount: Int, isBusy: Bool, items: [WeekDayItem] = [], isToday: Bool = false) {
             self.id = id; self.date = date; self.dueCount = dueCount; self.isBusy = isBusy; self.items = items
+            self.isToday = isToday
         }
     }
 
@@ -558,7 +563,8 @@ public nonisolated enum DashboardBuilder {
                                                     dueAt: pair.due, url: pair.item.htmlURL)
                 }
             return DashboardProjection.WeekDay(id: day, date: day, dueCount: dueToday.count,
-                                               isBusy: dueToday.count >= InsightsConfig.overloadMinItems, items: items)
+                                               isBusy: dueToday.count >= InsightsConfig.overloadMinItems, items: items,
+                                               isToday: offset == 0)
         }
     }
 

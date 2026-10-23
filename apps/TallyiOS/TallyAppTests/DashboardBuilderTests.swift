@@ -90,6 +90,9 @@ struct DashboardBuilderTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         #expect(calendar.isDate(state.weekAhead[0].date, inSameDayAs: Self.fixedNow))
+        // UX1-16: the strip rings/bolds today's column; only the first day is marked.
+        #expect(state.weekAhead[0].isToday)
+        #expect(state.weekAhead[1...].allSatisfy { !$0.isToday })
     }
 
     @Test("digest chip: non-empty digest with an asOf date produces a summary mentioning the count")

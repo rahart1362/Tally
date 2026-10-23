@@ -159,7 +159,12 @@ final class FamilyUITests: TallyUITestCase {
             XCTAssertTrue(text("Linked Students", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         }
         XCTAssertTrue(element("family.parentEmpty", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(app.buttons["family.addStudent"].exists)
+        // UX1-37: "family.addStudent" now lives inside `TallyUnavailableView`'s own empty-state
+        // branch (a whole SwiftUI view-identity change from the populated branch, not content
+        // updated within an always-mounted Section as before), so it can attach to the
+        // accessibility tree a beat after the outer view; wait for it like every other element
+        // here instead of a bare `.exists`.
+        XCTAssertTrue(app.buttons["family.addStudent"].waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         tapWhenHittable(app.buttons["Done"], in: app)
         XCTAssertTrue(app.buttons["family.emptyAdd"].waitForExistence(timeout: 10), "the tabs did not give way. Hierarchy: \(app.debugDescription)")
         XCTAssertFalse(element("family.switcher", in: app).exists)

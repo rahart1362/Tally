@@ -129,6 +129,9 @@ struct SchoolSearchView: View {
                 .foregroundStyle(TallyColor.textPrimary)
                 .focused($searchFieldFocused)
                 .submitLabel(.search)
+                // UX1-08: at AX5 the placeholder truncated to "School nam…" although typed text
+                // already wraps (`axis: .vertical` above); the placeholder wraps the same way.
+                .lineLimit(1...3)
                 // Kept so a future test/tour update can find this field directly; the system
                 // search bar it replaces here has no identifier of its own either, so nothing
                 // that found the old field by identifier is being broken by this.
@@ -218,6 +221,12 @@ struct SchoolSearchView: View {
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
                     .accessibilityIdentifier("schoolSearch.idleHint")
+                    // UX1-06: a plain-list row (white in light, black in dark, full-bleed
+                    // hairlines) on the `bgCanvas` page read as a stray list row rather than a
+                    // hint -- the same card surface and hidden separator every other hint/empty
+                    // row on this screen (Settings' footers, the no-match state) already uses.
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
     }

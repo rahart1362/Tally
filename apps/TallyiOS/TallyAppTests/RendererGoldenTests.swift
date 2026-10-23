@@ -99,8 +99,11 @@ struct RendererGoldenTests {
     func dashboardGoldens() {
         let reasons: [([PriorityScore.Factor], String, String)] = [
             ([.dueIn(hours: 581.4), .nearBoundary, .courseWeight(0.11)], "BIO 101", "Due in 581h · near a grade boundary · ~11% of BIO 101"),
-            ([.overdue, .nearBoundary, .stillAccepted], "MATH 122", "Overdue · near a grade boundary · Still accepted"),
-            ([.overdue, .stillAccepted, .courseWeight(0.07)], "CHEM 231", "Overdue · Still accepted · ~7% of CHEM 231"),
+            // UX1-14: "still accepted" lower-cases once it is joined after another reason instead
+            // of leading the sentence (it was "Overdue · near a grade boundary · Still accepted",
+            // a capital mid-line, while the Needs Attention subtitle below reads "still accepted").
+            ([.overdue, .nearBoundary, .stillAccepted], "MATH 122", "Overdue · near a grade boundary · still accepted"),
+            ([.overdue, .stillAccepted, .courseWeight(0.07)], "CHEM 231", "Overdue · still accepted · ~7% of CHEM 231"),
             ([.dueIn(hours: 0.5)], "BIO 101", "Due in 30m"),
             ([.dueIn(hours: 0.001), .courseBelowGoal], "BIO 101", "Due in 1m · course below your goal"),
             ([.noDueDate, .courseBelowGoal, .courseWeight(0.05)], "HIST 210", "No due date · course below your goal · ~5% of HIST 210"),
@@ -117,11 +120,15 @@ struct RendererGoldenTests {
              "Worksheet 3: Integration by Parts is missing", "MATH 122 · still accepted"),
             (.missingClosed(courseCode: "BIO 101"), "BIO 101: missing work is closed", "Talk to your instructor"),
             (.dueSoon(title: "Exam 1", dueAt: Self.at(1_790_016_600), courseCode: "PSY 101"), "Exam 1 due 1:50 PM", "PSY 101"),
-            (.overload(start: Self.at(1_790_917_200)), "Busy stretch starting Oct 2, 2026", "Several items are due close together"),
+            // UX1-13: a near date never carries the year ("Oct 2, 2026" for a date 11 days out);
+            // `Self.seen` and the overload start are both 2026, so the year drops, and the day
+            // reads with its weekday like every other near date in the app.
+            (.overload(start: Self.at(1_790_917_200)), "Busy stretch starting Fri, Oct 2", "Several items are due close together"),
             (.other(title: "Lab 2", courseCode: "BIO 101"), "Lab 2", "BIO 101"),
         ]
         for (content, title, subtitle) in rows {
-            #expect(Self.plain(DashboardText.attentionTitle(content, calendar: chicago, locale: Self.enUS)) == title, "\(content)")
+            #expect(Self.plain(DashboardText.attentionTitle(content, calendar: chicago, now: Self.seen, locale: Self.enUS)) == title,
+                    "\(content)")
             #expect(DashboardText.attentionSubtitle(content, locale: Self.enUS) == subtitle, "\(content)")
         }
 
@@ -263,8 +270,11 @@ struct RendererGoldenTests {
         let chicago = Self.calendar(Self.chicago)
         #expect(Self.plain(DashboardText.attentionTitle(.dueSoon(title: "Exam 1", dueAt: Self.at(1_790_016_600), courseCode: "PSY 101"),
                                                         calendar: chicago, locale: gb)) == "Exam 1 due 13:50")
-        #expect(Self.plain(DashboardText.attentionTitle(.overload(start: Self.at(1_790_917_200)), calendar: chicago, locale: gb))
-                    == "Busy stretch starting 2 Oct 2026")
+        // UX1-13: no year (both `Self.seen` and the overload start are 2026); the weekday joins
+        // the day the same way it now does in `dashboardGoldens` above.
+        #expect(Self.plain(DashboardText.attentionTitle(.overload(start: Self.at(1_790_917_200)), calendar: chicago, now: Self.seen,
+                                                        locale: gb))
+                    == "Busy stretch starting Fri 2 Oct")
         #expect(Self.plain(DashboardText.changeSummary(.init(count: 6, asOf: Self.at(1_790_017_980)), calendar: chicago, locale: gb))
                     == "6 changes since 14:13")
     }
