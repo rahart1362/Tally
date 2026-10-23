@@ -540,7 +540,10 @@ jobs:
         run: |
           set +e -o pipefail
           # shellcheck disable=SC2086 # the flag lists split into separate arguments on purpose
-          xcodebuild test-without-building -project apps/TallyiOS/Tally.xcodeproj -scheme Tally \
+          # -configuration UITest: without it, test-without-building looks for the app under
+          # Debug-iphonesimulator/ and fails ("The bundle identifier for Tally.app couldn't be read",
+          # gate 39851021669), while build-for-testing put it under UITest-iphonesimulator/.
+          xcodebuild test-without-building -project apps/TallyiOS/Tally.xcodeproj -scheme Tally -configuration UITest \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" -derivedDataPath "$RUNNER_TEMP/dd-uitest" \
             $DEBUG_FLOWS -resultBundlePath "$RUNNER_TEMP/UITest-flows.xcresult" $TEST_FLAGS \
             | tee "$RUNNER_TEMP/flows-uitest.log" | grep -E "error:|Test Suite| passed| failed|TEST (EXECUTE )?(SUCCEEDED|FAILED)"
