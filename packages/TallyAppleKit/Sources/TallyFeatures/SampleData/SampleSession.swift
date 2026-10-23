@@ -93,7 +93,7 @@ public actor SampleSession: HomeDataSource {
         scheduleDelayedSignal()
         defer { delayedSignal?.cancel() }
         do {
-            #if DEBUG
+            #if DEBUG || TALLY_TEST_HOOKS
             if generation > 0, let latency = Self.debugRefreshLatency {
                 try await Task.sleep(for: latency)
             }
@@ -138,7 +138,7 @@ public actor SampleSession: HomeDataSource {
             .map { $0.timeIntervalSince(now) }
     }
 
-    #if DEBUG
+    #if DEBUG || TALLY_TEST_HOOKS
     /// UI tests only: the launch argument `-TallyDebugSampleRefreshLatency <seconds>` delays every
     /// sample refresh after the first load, to exercise the slow-refresh path (perf-app-runtime.md
     /// §7 step 7: a 12-s slow refresh shows the breadcrumb, which then self-heals). Debug builds only.
