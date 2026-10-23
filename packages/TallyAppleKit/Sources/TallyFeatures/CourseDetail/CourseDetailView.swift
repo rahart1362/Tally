@@ -90,7 +90,9 @@ struct CourseDetailView: View {
         .task(id: detail.gradeInput) { await grades.load(detail.gradeInput) }
         .sheet(isPresented: Binding(get: { whatIf != nil }, set: { if !$0 { whatIf = nil } })) {
             if let whatIf {
-                WhatIfSheet(model: whatIf)
+                // Idea 6 (FEAT-4): the sheet's "Save as goal" button, wired to the same per-course
+                // goal storage the Overview section below reads and writes.
+                WhatIfSheet(model: whatIf, onSaveGoal: { model.setCourseGoal($0, for: detail.id) })
             }
         }
         .toolbar {
@@ -205,6 +207,7 @@ struct CourseDetailView: View {
             }
             .tallyRow()
         }
+        CourseGoalSection(courseID: detail.id)
         Section {
             if let setup = detail.whatIf {
                 Button {
@@ -376,6 +379,57 @@ struct CourseDetailView: View {
     /// `ScreenFormatter` to call them on).
     private static func percent(_ value: Double, locale: Locale) -> String {
         value.formatted(.percent.scale(1).precision(.fractionLength(1)).locale(locale))
+    }
+}
+
+/// Idea 2 (FEAT-4): the student's own per-course grade goal — a small entry point that wires the
+/// existing dormant goal math (`CourseHealthRules.evaluate`'s `goal` parameter, via `HomeModel`)
+/// so the course's health chip and "why" reasons reflect it. A plain `Stepper`, the same pattern
+/// `WhatIfGoalSection`'s own goal-percent control already uses (ux-ui.md §3.7.3); "Set a goal"
+/// starts it at `WhatIfModel.defaultGoalPercent` (90%), persisted at once like every other
+/// per-course answer on this screen (`GradeOverrideMenu`, below).
+private struct CourseGoalSection: View {
+    let courseID: CanvasID<Course>
+    @Environment(HomeModel.self) private var model
+    @Environment(\.locale) private var locale
+
+    private var goal: Double? { model.courseGoal(for: courseID) }
+
+    var body: some View {
+        Section {
+            if let goal {
+                Stepper(value: Binding(get: { goal }, set: { model.setCourseGoal($0, for: courseID) }),
+                        in: 50...100, step: 1) {
+                    Text(L10n.CourseDetail.goalStepperLabel(Self.percentText(goal, locale: locale)))
+                }
+                .accessibilityIdentifier("courseDetail.goal.stepper")
+                Button(role: .destructive) {
+                    model.setCourseGoal(nil, for: courseID)
+                    AccessibilityAnnouncer.announce(String(localized: L10n.CourseDetail.goalRemovedConfirmation()))
+                } label: {
+                    Text(L10n.CourseDetail.goalRemove())
+                }
+                .accessibilityIdentifier("courseDetail.goal.remove")
+            } else {
+                Button {
+                    model.setCourseGoal(WhatIfModel.defaultGoalPercent, for: courseID)
+                } label: {
+                    Label { Text(L10n.CourseDetail.goalSetButton()) } icon: { Image(systemName: "target") }
+                }
+                .accessibilityIdentifier("courseDetail.goal.set")
+            }
+        } header: {
+            Text(L10n.CourseDetail.goalHeader()).tallySectionText()
+        } footer: {
+            Text(L10n.CourseDetail.goalFooter()).tallySectionText()
+        }
+        // D31 round 2: applied to the Section, which reaches every row inside it.
+        .tallyRow()
+    }
+
+    /// "90%" (§3.3 "Percent"): the stepper's step is 1, so this is already a whole number.
+    private static func percentText(_ value: Double, locale: Locale) -> String {
+        value.formatted(.percent.scale(1).precision(.fractionLength(0)).locale(locale))
     }
 }
 

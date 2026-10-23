@@ -100,6 +100,10 @@ public final class HomeModel {
     @ObservationIgnored private let canvasLinkPreferenceStore: any CanvasLinkPreferenceStoring
     /// FEAT-8: `setCanvasLinkPreference(_:)`'s write, owned here like every other session task.
     private let canvasLinkPreferencePersist = TaskBox()
+    /// Idea 2 (FEAT-4): hands a changed course goal to the projector, then re-projects.
+    private let goalChanges = TaskBox()
+    /// The revision of the goals last handed to the projector (`HomeProjector` keeps the newest).
+    @ObservationIgnored private var goalsRevision: UInt64 = 0
     /// The revision of the "done" marks last handed to the projector.
     @ObservationIgnored private var doneAssignmentsRevision: UInt64 = 0
 
@@ -174,6 +178,7 @@ public final class HomeModel {
         // FEAT-8: concurrent with the rest of this prepare step -- Settings and "Open in Canvas"
         // are several taps away from the first paint, like FEAT-2's own local preference load.
         canvasLinkPreference = await canvasLinkPreferenceStore.load() ?? .app
+        await projector.setCourseGoals(local.courseGoals, revision: goalsRevision)
         await projector.setDoneAssignments(local.doneAssignments, revision: doneAssignmentsRevision)
         let updates = await source.updates()
         guard !hasEnded else { return }
@@ -346,6 +351,34 @@ public final class HomeModel {
         await canvasLinkPreferencePersist.value()
     }
 
+    /// Idea 2 (FEAT-4): the student's own goal for `course`, or `nil` for none.
+    public func courseGoal(for course: CanvasID<Course>) -> Double? {
+        local.courseGoal(for: course)
+    }
+
+    /// Course Detail's "Set a goal" entry and What-If's one-tap "Save as goal" (idea 6) both call
+    /// this: sets (or, with `nil`, clears) one course's goal. Kept with the course order
+    /// (`ScreenLocalState`; a signed-in account's `UserState`), and every screen is projected
+    /// again at once with it — the same hand-over `setGradeAvailabilityOverride` uses, so
+    /// `CourseHealthRules`'s `atRisk`/`needsAttention` reasons and the Courses/Insights/Course
+    /// Detail chips that read them reflect the new goal immediately.
+    public func setCourseGoal(_ value: Double?, for course: CanvasID<Course>) {
+        guard local.setCourseGoal(value, for: course) else { return }
+        goalsRevision &+= 1
+        let revision = goalsRevision
+        let goals = local.courseGoals
+        let projector = projector
+        goalChanges.replace(with: Task { [weak self] in
+            guard await projector.setCourseGoals(goals, revision: revision) else { return }
+            await self?.reproject()
+        })
+    }
+
+    /// Waits for the latest goal to reach the screens (tests).
+    func awaitCourseGoalApplied() async {
+        await goalChanges.value()
+    }
+
     /// Idea 4 (FEAT-3): To-Do's "Remind me" swipe/menu action. Persists `id`'s requested
     /// `fireDate` into `UserState.adHocReminders` — the same storage, and so the same pipeline
     /// pass, that plans every other reminder — rather than scheduling anything itself. The next
@@ -371,6 +404,7 @@ public final class HomeModel {
         timeChanges.cancel()
         overrideChanges.cancel()
         canvasLinkPreferencePersist.cancel()
+        goalChanges.cancel()
         doneAssignmentChanges.cancel()
         manualRunOwner.cancel()
         manualRun = nil
