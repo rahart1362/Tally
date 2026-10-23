@@ -232,10 +232,23 @@ public nonisolated struct LaunchTestHooks: Sendable {
     /// 60 s ago (so the launch refresh is throttled, as `writeLastRefreshAttempt`'s "recent" already
     /// relies on), failed with `.schoolDisabled`. A no-op with no active account (the seed hook must
     /// run first in the same launch, or an earlier launch's seed must already be on disk).
+    ///
+    /// O5: `RefreshStateStore.startingRecord` treats a persisted record whose `lastSuccessAt`
+    /// predates the account's committed snapshot as one whose own write never completed (a crash
+    /// between the commit and the record write) and overwrites it with a fresh success at the
+    /// commit's own time — which would otherwise wipe this hook's failure before any test ever
+    /// sees it. Recording a success at the seeded glance's own `asOf` first keeps `lastSuccessAt`
+    /// exactly equal to the committed data's `fetchedAt`, so that rule leaves the failure alone,
+    /// exactly as it does in production (a real sync's success and commit always agree).
     static func writeSchoolRevoked(root: URL, environment: AccountEnvironment) {
         guard let account = AccountDirectoryStore(root: root).activeAccount() else { return }
-        let attemptedAt = environment.clock.now().addingTimeInterval(-60)
         var record = RefreshRecord()
+        let store = environment.snapshotStore(for: account.accountKey, root: root, sharedRoot: environment.sharedRoot())
+        if case .loaded(let glance) = store.loadGlance() {
+            record.began(.launch, at: glance.asOf)
+            record.succeeded(dataFetchedAt: glance.asOf)
+        }
+        let attemptedAt = environment.clock.now().addingTimeInterval(-60)
         record.began(.launch, at: attemptedAt)
         record.failed(.schoolDisabled, at: attemptedAt)
         try? RefreshStateStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
