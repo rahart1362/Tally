@@ -8,10 +8,10 @@ import Foundation
 public enum SchoolRevokedRetention {
     /// `true` once the school-revoked state has been continuous for at least `retentionDays`
     /// (`RefreshRecord.schoolDisabledSince`, started the first time a refresh fails with
-    /// `.schoolDisabled` and left alone by every later one of the same kind). `false` while the
-    /// state has never been recorded, or no longer is: `RefreshRecord.succeeded` and any other
-    /// failure category clear `schoolDisabledSince`, so a school that re-enables Tally — even
-    /// briefly — resets the clock, and the next continuous run starts over.
+    /// `.schoolDisabled` and left alone by every later failure, of any kind). `false` while the
+    /// state has never been recorded, or no longer is: only `RefreshRecord.succeeded` clears
+    /// `schoolDisabledSince`, so a school that re-enables Tally — even briefly — resets the clock,
+    /// and the next run starts over. Being offline in between never does.
     public static func isExpired(_ record: RefreshRecord, now: Date,
                                  retentionDays: Int = SubscriptionConfig.schoolRevokedRetentionDays) -> Bool {
         guard let since = record.schoolDisabledSince, retentionDays > 0 else { return false }

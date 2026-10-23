@@ -38,11 +38,23 @@ struct SchoolRevokedRetentionTests {
     }
 
     @Test(arguments: RefreshFailure.allCases.filter { $0 != .schoolDisabled })
-    func anyOtherFailureClearsTheClock(_ otherFailure: RefreshFailure) {
+    func anyOtherFailureLeavesTheClockRunning(_ otherFailure: RefreshFailure) {
+        // An offline night, a rate limit or a server error says nothing about the school: one of
+        // them inside the window must not restart it, or the automatic erase would rarely be due.
+        let started = clock.now()
         var record = RefreshRecord()
-        record.failed(.schoolDisabled, at: clock.now())
+        record.failed(.schoolDisabled, at: started)
+        record.failed(otherFailure, at: started.addingTimeInterval(3_600))
+        #expect(record.schoolDisabledSince == started, "\(otherFailure) must leave the school-revoked window running")
+        record.failed(.schoolDisabled, at: started.addingTimeInterval(7_200))
+        #expect(record.schoolDisabledSince == started, "a later school-off failure never moves the start")
+    }
+
+    @Test(arguments: RefreshFailure.allCases.filter { $0 != .schoolDisabled })
+    func anyOtherFailureNeverStartsTheClock(_ otherFailure: RefreshFailure) {
+        var record = RefreshRecord()
         record.failed(otherFailure, at: clock.now())
-        #expect(record.schoolDisabledSince == nil, "\(otherFailure) must clear the school-revoked window")
+        #expect(record.schoolDisabledSince == nil, "only a school-off failure starts the window")
     }
 
     // MARK: - SchoolRevokedRetention.isExpired

@@ -49,8 +49,9 @@ LOCAL (never committed) `Tally-compliance/us-wide/engineering-backlog-us.md` §3
     auto-renew off cancels every pending identifier `allIdentifiers` manages; a reconcile for one
     role never touches another role's identifiers.
   - **The expiry rule** (the brief's ask): `SchoolRevokedRetentionTests` — `schoolDisabledSince`
-    starts on the first `.schoolDisabled` failure, never moves on a repeat, clears on success or
-    any other failure (parametrized over every other `RefreshFailure` case); `isExpired` at
+    starts on the first `.schoolDisabled` failure, never moves on a repeat or on any other
+    failure, never starts on any other failure, and clears only on success (both parametrized over
+    every other `RefreshFailure` case); `isExpired` at
     exactly the window, one second before it, with a custom window, and with a zero/negative
     window (never expires).
   - `SignOutUseCaseTests`: `eraseSavedData` purges files and notifications but keeps the
@@ -104,6 +105,21 @@ L10N-04 owner decision). No existing English value was edited.
 | `notifications.generic.renewal.body` | "Open Tally to manage your subscription." | EB-20. Generic notification body: the Tally subscription renews in the next few weeks. |
 
 The owner approves these before merge (copy rule).
+
+## PMO review fixes (before the PR run)
+
+- **Renewal reminders survive a refresh.** `NotificationReconciler` cancels every pending
+  identifier it did not desire, so each refresh (background ones included) would have cancelled
+  the EB-20 reminders before they fired. They now live in one namespace
+  (`RenewalReminderPlan.identifierPrefix`, `owns`) that the reconciler leaves alone. Sign-out and
+  Erase Saved Data still clear everything, and the next verified StoreKit pass re-plans them. The
+  new `NotificationReconcilerTests` case fails without the fix.
+- **Only a success ends the school-revoked window.** Previously, any other failure (offline, rate
+  limit, server) cleared `schoolDisabledSince`, so a single failed background refresh restarted
+  the 30 days and the automatic erase would rarely have been reached. Every other failure now
+  leaves the window running; only `succeeded` clears it.
+- TallyCore on Swift 6.4 (the Linux lane's toolchain, run locally in a container): 881 tests,
+  0 failures; `make lint` clean.
 
 ## Verification
 
