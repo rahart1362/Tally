@@ -48,4 +48,35 @@ public enum AccountPurger {
             try? purge(accountKey: accountKey, root: root, sharedRoot: sharedRoot, keyring: keyring)
         }
     }
+
+    /// EB-26 ("Erase Saved Data", SEC2-07's owner ruling): unlike `purge` above (sign-out, and
+    /// account deletion), this keeps `user-state.sealed` — Hide Course Names and the other
+    /// privacy toggles — fully readable. It still removes every Canvas-derived file: the
+    /// snapshot, the sync ledger, the refresh record and the glance.
+    ///
+    /// `userState` shares the account's `.app`-audience vault key with `snapshot`, `ledger` and
+    /// `refreshState` (`StoreFile.audience`) — there is no per-file key, only one per (account,
+    /// audience) pair — so shredding `.app` here, even to help delete the other three, would
+    /// leave the one file this call must keep permanently undecryptable. Only `.widget` (the
+    /// glance) is shredded.
+    ///
+    /// Deliberately simpler than `purge`: no pending-purge marker, because this call is never
+    /// meant to finish with the account directory empty (`userState` stays on purpose), so a
+    /// later `retryPending` must never mistake it for an interrupted full purge and wipe that
+    /// file too. Best effort, like every other step in this flow: a failed delete here is picked
+    /// up the next time Erase Saved Data or a full sign-out runs, never automatically.
+    public static func eraseCanvasData(accountKey: AccountKey, root: URL, sharedRoot: URL? = nil, keyring: VaultKeyring) throws {
+        let layout = StoreLayout(root: root, accountKey: accountKey)
+        let glanceLayout = StoreLayout(root: sharedRoot ?? root, accountKey: accountKey)
+
+        var shredError: Error?
+        do { try keyring.shred(account: accountKey.rawValue, audiences: [.widget]) } catch { shredError = error }
+
+        for file in StoreFile.allCases where file != .userState && file != .glance {
+            ProtectedFile.remove(layout.url(for: file))
+        }
+        ProtectedFile.remove(glanceLayout.url(for: .glance))
+
+        if let shredError { throw shredError }
+    }
 }

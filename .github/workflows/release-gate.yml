@@ -366,6 +366,22 @@ jobs:
             "xcodebuild archive -configuration Release, generic iOS, CODE_SIGNING_ALLOWED=NO: $(grep -oE 'ARCHIVE (SUCCEEDED|FAILED)' "$RUNNER_TEMP/archive.log" | tail -1)" \
             --title "The Release device archive builds" \
             --json "$RUNNER_TEMP/compliance/build-device-archive.json" || [ $? -eq 1 ]
+      - name: Shipping Release build settings have no test hooks (SEC2-09)
+        # A test build masquerading as the shipping one would set ENABLE_TESTABILITY=YES (so it
+        # can @testable import) or carry TALLY_TEST_HOOKS/DEBUG in
+        # SWIFT_ACTIVE_COMPILATION_CONDITIONS (make ios-perf's own Release *test* build, or a
+        # stray Debug default) -- `-showBuildSettings -json` reports both for every target the
+        # scheme's Release build touches, the app target and every local package target included,
+        # with no actual build needed.
+        run: |
+          set +e -o pipefail
+          xcodebuild -showBuildSettings -json -project apps/TallyiOS/Tally.xcodeproj -scheme Tally \
+            -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO \
+            > "$RUNNER_TEMP/release-build-settings.json" 2> "$RUNNER_TEMP/release-build-settings.err"
+          cat "$RUNNER_TEMP/release-build-settings.err" >&2 || true
+          python3 scripts/ci/check_release.py \
+            --release-build-settings "$RUNNER_TEMP/release-build-settings.json" --targets Tally \
+            --json "$RUNNER_TEMP/compliance/release-build-settings.json" || [ $? -eq 1 ]
       - name: Built-app checks on the device archive (what App Store Connect would receive)
         if: steps.archive.outputs.ok == 'true'
         run: |

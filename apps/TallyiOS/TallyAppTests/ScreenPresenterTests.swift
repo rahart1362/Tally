@@ -46,16 +46,30 @@ struct ScreenPresenterTests {
         let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: ScreenFixtures.anchor)
         let items = state.weekAhead.flatMap(\.items)
         #expect(!items.isEmpty, "flagship has no due item this week -- the test would pass vacuously")
-        let drafts = WeekAheadCalendarDraft.drafts(for: state.weekAhead)
+        let drafts = WeekAheadCalendarDraft.drafts(for: state.weekAhead, accountHost: snapshot.host)
         #expect(drafts.count == items.count)
         for (item, draft) in zip(items, drafts) {
             #expect(draft.end == item.dueAt)
             #expect(draft.start == item.dueAt.addingTimeInterval(-TimeInterval(WeekAheadCalendarDraft.leadMinutes * 60)))
             #expect(draft.title == (item.courseCode.map { "\($0): \(item.title)" } ?? item.title))
-            #expect(draft.url == item.url)
+            #expect(draft.url == item.url, "every flagship item's html_url is already on the account's own host")
             #expect(!draft.isAllDay)
             #expect(draft.location == nil)
         }
+    }
+
+    @Test("SEC2-04: a due item's draft keeps Canvas's own link, but never one on another host")
+    func weekAheadCalendarDraftDropsAnUnsafeURL() throws {
+        let sameHostItem = DashboardProjection.WeekDayItem(
+            id: "1", title: "Problem Set 7", courseCode: "MATH 122", dueAt: ScreenFixtures.anchor,
+            url: try #require(URL(string: "https://canvas.northfield.example/courses/1/assignments/2")))
+        let otherHostItem = DashboardProjection.WeekDayItem(
+            id: "2", title: "Phish", courseCode: nil, dueAt: ScreenFixtures.anchor,
+            url: try #require(URL(string: "https://evil.example/phish")))
+        let safe = WeekAheadCalendarDraft.draft(for: sameHostItem, accountHost: "canvas.northfield.example")
+        let unsafe = WeekAheadCalendarDraft.draft(for: otherHostItem, accountHost: "canvas.northfield.example")
+        #expect(safe.url == sameHostItem.url)
+        #expect(unsafe.url == nil, "a Canvas-supplied link on another host must never reach the calendar event")
     }
 
     @Test("Idea 11 (\"Send my week\"): never a grade value, and \"Hide Course Names\" hides both the title and the course code")
@@ -103,5 +117,22 @@ struct ScreenPresenterTests {
         #expect(chart.summary == view.summary)
         #expect(chart.series.count == 1)
         #expect(chart.series.first?.dataPoints.count == 2)
+    }
+
+    @Test("SEC2-04: the Calendar tab's own agenda draft also drops a link on another host")
+    func calendarAgendaDraftDropsAnUnsafeURL() throws {
+        let formatter = ScreenFixtures.formatter()
+        let sameHostEntry = CalendarBuilder.Entry(
+            id: "due:1", kind: .due, title: "Problem Set 7", courseID: nil, course: nil, start: ScreenFixtures.anchor,
+            end: nil, isAllDay: false, location: nil,
+            url: try #require(URL(string: "https://canvas.northfield.example/courses/1/assignments/2")), isExam: false)
+        let otherHostEntry = CalendarBuilder.Entry(
+            id: "due:2", kind: .due, title: "Phish", courseID: nil, course: nil, start: ScreenFixtures.anchor,
+            end: nil, isAllDay: false, location: nil, url: try #require(URL(string: "https://evil.example/phish")),
+            isExam: false)
+        let safe = CalendarBuilder.item(sameHostEntry, conflicts: [], formatter: formatter, accountHost: "canvas.northfield.example")
+        let unsafe = CalendarBuilder.item(otherHostEntry, conflicts: [], formatter: formatter, accountHost: "canvas.northfield.example")
+        #expect(safe.draft.url == sameHostEntry.url)
+        #expect(unsafe.draft.url == nil, "a Canvas-supplied link on another host must never reach the calendar event")
     }
 }

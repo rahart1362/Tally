@@ -87,4 +87,12 @@ public struct SignificantChangeVersionStore: Sendable {
         try ProtectedFile.prepareDirectory(root, excludeFromBackup: true)
         try ProtectedFile.atomicWrite(try JSONEncoder().encode(state), to: fileURL, excludeFromBackup: true)
     }
+
+    /// SEC2-13 (owner ruling): Sign Out & Erase ("delete all") removes this alongside
+    /// `AgeRequestRecordStore`'s own file — an account deletion must leave nothing AGE-1 wrote,
+    /// even though neither file is account-scoped. EB-26's "Erase Saved Data" never calls this:
+    /// it is not an account deletion, so both AGE-1 files stay.
+    public func reset() {
+        ProtectedFile.remove(fileURL)
+    }
 }

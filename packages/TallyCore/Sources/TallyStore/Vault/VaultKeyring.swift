@@ -46,7 +46,15 @@ public final class VaultKeyring: Sendable {
 
     /// Crypto-shred one account: afterwards its blobs (and any backup copies) are undecryptable.
     public func shred(account: String) throws {
-        try lock.withLock { _ in for a in KeyAudience.allCases { try store.deleteAll(for: KeyScope(account: account, audience: a)) } }
+        try shred(account: account, audiences: Set(KeyAudience.allCases))
+    }
+
+    /// SEC2-07: shreds only the given audiences. `userState` shares the account's `.app`-audience
+    /// key with `snapshot`, `ledger` and `refreshState` (`StoreFile.audience`) — there is no
+    /// per-file key, only one per (account, audience) pair — so EB-26's "Erase Saved Data" (which
+    /// must keep `userState` readable) shreds `.widget` only, never `.app`.
+    public func shred(account: String, audiences: Set<KeyAudience>) throws {
+        try lock.withLock { _ in for a in audiences { try store.deleteAll(for: KeyScope(account: account, audience: a)) } }
     }
 
     public func shredEverything() throws { try lock.withLock { _ in try store.deleteEverything() } }

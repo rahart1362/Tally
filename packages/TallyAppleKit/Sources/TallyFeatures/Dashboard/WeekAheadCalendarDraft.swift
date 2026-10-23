@@ -17,17 +17,21 @@ enum WeekAheadCalendarDraft {
 
     /// Every day's items, in day-then-time order (the order `DashboardProjection.WeekDay` already
     /// keeps), ready to walk one system sheet at a time.
-    static func drafts(for days: [DashboardProjection.WeekDay]) -> [CalendarEventDraft] {
-        days.flatMap(\.items).map(draft)
+    static func drafts(for days: [DashboardProjection.WeekDay], accountHost: String) -> [CalendarEventDraft] {
+        days.flatMap(\.items).map { draft(for: $0, accountHost: accountHost) }
     }
 
     /// One due item's draft: the title with its course code (like the Calendar tab's own drafts),
-    /// a short block ending at the deadline, and Canvas's own link. No location: a due item has
-    /// none (`DashboardProjection.WeekDayItem` carries no field for one).
-    static func draft(for item: DashboardProjection.WeekDayItem) -> CalendarEventDraft {
+    /// a short block ending at the deadline, and Canvas's own link — only when
+    /// `CanvasLinkOpener.isSafe` clears it for `accountHost` (SEC2-04: `item.url` is Canvas-supplied,
+    /// unvalidated `html_url`, the same class of risk SEC1-15 already gates before opening
+    /// anything). No location: a due item has none (`DashboardProjection.WeekDayItem` carries no
+    /// field for one).
+    static func draft(for item: DashboardProjection.WeekDayItem, accountHost: String) -> CalendarEventDraft {
         let marker = TimeInterval(leadMinutes * 60)
         let title = item.courseCode.map { "\($0): \(item.title)" } ?? item.title
+        let safeURL = item.url.flatMap { CanvasLinkOpener.isSafe($0, accountHost: accountHost) ? $0 : nil }
         return CalendarEventDraft(title: title, start: item.dueAt.addingTimeInterval(-marker), end: item.dueAt,
-                                  isAllDay: false, location: nil, url: item.url)
+                                  isAllDay: false, location: nil, url: safeURL)
     }
 }

@@ -91,6 +91,62 @@ final class WidgetGlanceTests: XCTestCase {
         XCTAssertEqual(realReadCount, 2)
     }
 
+    /// SEC2-10: a cached entry is reused only within `maxAge` AND when a freshly captured
+    /// signature still matches the one the cached read started with -- here, driven by the real
+    /// `GlanceCacheSignature.capture(storeRoot:)` over a real temp directory, so this proves the
+    /// cache actually calls it on every `read`, not just that the plumbing compiles.
+    func testSharedReadCacheRereadsWhenTheSignatureChangesEvenInsideTheWindow() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("glance-signature-cache-\(UUID().uuidString)",
+                                                                                  isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let accountDirectory = root.appendingPathComponent("accounts/account-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: accountDirectory, withIntermediateDirectories: true)
+        try Data([1, 2, 3]).write(to: accountDirectory.appendingPathComponent("glance.v1.sealed"))
+
+        let cache = GlanceReadCache() // the real, generous default window
+        let first = await cache.read(.signedInStudent, signature: { GlanceCacheSignature.capture(storeRoot: root) }) { _ in .noGlance }
+        XCTAssertEqual(first, .noGlance)
+
+        // Still well inside maxAge, but the glance file is gone now (e.g. a purge finished
+        // between the two widget-kind reads this simulates).
+        try FileManager.default.removeItem(at: accountDirectory.appendingPathComponent("glance.v1.sealed"))
+        let second = await cache.read(.signedInStudent, signature: { GlanceCacheSignature.capture(storeRoot: root) }) { _ in .noAccount }
+        XCTAssertEqual(second, .noAccount, "a changed signature must bypass the cache even inside maxAge")
+        let realReadCount = await cache.realReadCount
+        XCTAssertEqual(realReadCount, 2, "the signature change must have triggered a real second read")
+    }
+
+    /// SEC2-10, with the real signature function: once the glance file disappears (a purge) or
+    /// the account directory listing changes (sign-out, a fresh sign-in), the next read must not
+    /// be answered from the cache, even though it is still within `maxAge`. No Keychain item is
+    /// touched by the signature check itself -- only `FileManager`.
+    func testGlanceCacheSignatureCapturesTheGlanceFileAndTheAccountDirectoryListing() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("glance-signature-\(UUID().uuidString)",
+                                                                                  isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let accountsDirectory = root.appendingPathComponent("accounts", isDirectory: true)
+        let accountDirectory = accountsDirectory.appendingPathComponent("account-a", isDirectory: true)
+        try FileManager.default.createDirectory(at: accountDirectory, withIntermediateDirectories: true)
+        let glanceFile = accountDirectory.appendingPathComponent("glance.v1.sealed")
+        try Data([1, 2, 3]).write(to: glanceFile)
+
+        let withGlance = GlanceCacheSignature.capture(storeRoot: root)
+        XCTAssertEqual(withGlance, GlanceCacheSignature.capture(storeRoot: root), "an unchanged listing must signature identically")
+
+        try FileManager.default.removeItem(at: glanceFile)
+        let glanceGone = GlanceCacheSignature.capture(storeRoot: root)
+        XCTAssertNotEqual(withGlance, glanceGone, "the glance file disappearing must change the signature")
+
+        let secondAccount = accountsDirectory.appendingPathComponent("account-b", isDirectory: true)
+        try FileManager.default.createDirectory(at: secondAccount, withIntermediateDirectories: true)
+        let newAccountAppeared = GlanceCacheSignature.capture(storeRoot: root)
+        XCTAssertNotEqual(glanceGone, newAccountAppeared, "a changed account directory listing must change the signature")
+
+        try FileManager.default.removeItem(at: accountsDirectory)
+        XCTAssertEqual(GlanceCacheSignature.capture(storeRoot: root), GlanceCacheSignature.capture(storeRoot: nil),
+                       "no accounts directory at all must signature the same as no store root")
+    }
+
     func testGlanceTimelineMemory() throws {
         try XCTSkipIf(Self.sanitizerRuntimeIsLoaded, "memory metrics are meaningless under a sanitizer's allocator")
         let bundleID = "dev.tally-app.tally.tests.widget-memory.\(UUID().uuidString)"

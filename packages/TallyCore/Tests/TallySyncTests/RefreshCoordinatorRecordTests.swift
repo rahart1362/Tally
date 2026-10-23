@@ -157,8 +157,9 @@ struct RefreshCoordinatorRecordTests {
         #expect(await coordinator.committedSnapshot == nil)
         #expect(await coordinator.currentState == .noCache)
         // `eraseLocalData` only resets in-memory state (its own doc comment): the persisted
-        // `refresh-state.sealed` is `AccountSignOut.eraseSavedData`'s job (`AccountPurger.purge`,
-        // covered by `SignOutUseCaseTests.eraseSavedDataPurgesFilesAndNotificationsButKeepsTheCredential`).
+        // `refresh-state.sealed` is `AccountSignOut.eraseSavedData`'s job
+        // (`AccountPurger.eraseCanvasData`, covered by `SignOutUseCaseTests
+        // .eraseSavedDataPurgesCanvasFilesAndNotificationsButKeepsTheCredentialAndUserState`).
 
         // Unlike sign-out's bumpEpochAndCancel/shutdown, a LATER run on the SAME coordinator still
         // fetches — the reset record's nil `lastAttemptAt` means an automatic trigger is not even

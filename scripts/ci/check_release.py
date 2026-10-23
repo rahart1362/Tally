@@ -21,8 +21,10 @@ same gate and stay PENDING here until they land.
         scripts/ci/check_privacy_manifest.py).
     python3 scripts/ci/check_release.py --app APP --label NAME --json OUT [--root ROOT]
         macOS. A built Tally.app: identity and required Info.plist keys, the widget extension,
-        both privacy manifests inside the bundles, and the required-reason API symbols the
-        binaries actually import (nm -u, otool) against each bundle's manifest.
+        both privacy manifests inside the bundles, the required-reason API symbols the binaries
+        actually import or define (nm -u/-gU, otool) against each bundle's manifest, no
+        swift-crypto/BoringSSL symbol (SEC1-22/SEC2-03), and no TallyTestHooks./
+        -TallyDebugSampleRefreshLatency marker in either binary (SEC2-09).
     python3 scripts/ci/check_release.py --flows RESULTS [RESULTS ...] [--label L] [--only-given] --json OUT
         The critical XCUITest flows (§3.3.1), from `xcresulttool get test-results tests` JSON,
         each RESULTS given as CONFIGURATION=PATH (e.g. Release=release-tests.json). --only-given
@@ -45,6 +47,15 @@ same gate and stay PENDING here until they land.
         tests` JSON path (like one --flows entry). A separate call from --flows (not a third
         CONFIGURATION=PATH there) because it runs in its own CI job (`ios-release-config`), in
         parallel with `ios-gate`'s own Debug/Release flow run, and `--merge` refuses duplicate IDs.
+    python3 scripts/ci/check_release.py --release-build-settings SETTINGS.json --targets "T1 T2 ..." --json OUT
+        SEC2-09: one REL.release-settings.<target> check for every target
+        `xcodebuild -showBuildSettings -json -configuration Release` reports (the app target and
+        every package target its Release build touches, discovered automatically) -- asserts
+        ENABLE_TESTABILITY=NO and no TALLY_TEST_HOOKS/DEBUG in SWIFT_ACTIVE_COMPILATION_CONDITIONS
+        -- plus REL.release-settings.required-targets, which fails if any name in --targets (at
+        minimum, the app target) is missing from the capture. Fails closed: a missing file,
+        unparsable JSON, or a capture naming zero targets is REL.release-settings.capture's own
+        FAIL, never a silent pass with nothing checked.
     python3 scripts/ci/check_release.py --merge OUT IN [IN ...]
         Combines the jobs' reports into one compliance JSON, prints the table and decides.
     python3 scripts/ci/check_release.py --self-test
@@ -344,6 +355,21 @@ def ats_exceptions(app_info: dict, widget_info: dict) -> list[str]:
     return [name for name, info in (("Tally", app_info), ("TallyWidgets", widget_info)) if info.get("NSAppTransportSecurity")]
 
 
+# SEC1-17 (partial): the AASA file (`site/.well-known/apple-app-site-association`) must declare
+# `webcredentials` only, never `applinks` — nothing stops a future edit from adding `applinks`
+# back (secfix3-report.md:213-214: no CI read the file at all before this).
+def aasa_findings(aasa: object) -> list[str]:
+    """Problems with a parsed AASA document; empty when clean."""
+    if not isinstance(aasa, dict):
+        return ["not a JSON object"]
+    findings = []
+    if "applinks" in aasa:
+        findings.append("has an \"applinks\" section (Universal Links must stay off)")
+    if "webcredentials" not in aasa:
+        findings.append("missing \"webcredentials\" (shared-credential autofill would stop working)")
+    return findings
+
+
 def source_checks(root: pathlib.Path) -> list[Check]:
     yaml = _yaml()
     privacy = _sibling("check_privacy_manifest")
@@ -492,6 +518,16 @@ def source_checks(root: pathlib.Path) -> list[Check]:
               "intentional code (a test exercising the exact legacy value, say) that belongs in "
               "PLACEHOLDER_ALLOWLIST (this file) instead")
 
+    # SEC1-17 (partial): the AASA file never gains an "applinks" section back.
+    aasa_path = root / "site/.well-known/apple-app-site-association"
+    try:
+        aasa = json.loads(aasa_path.read_text(encoding="utf-8"))
+        aasa_problems = aasa_findings(aasa)
+    except (OSError, json.JSONDecodeError) as error:
+        aasa_problems = [f"cannot read/parse {aasa_path.name}: {error}"]
+    add("REL.site.aasa-no-applinks", "The AASA file declares webcredentials only, never applinks (SEC1-17)",
+        not aasa_problems, "; ".join(aasa_problems) if aasa_problems else "clean")
+
     # Store listing metadata (§3.5), one check per locale folder.
     checks.extend(metadata_checks(root))
 
@@ -589,15 +625,24 @@ def categories_in(imports: set[str], selectors: set[str]) -> dict[str, list[str]
     return used
 
 
-def _binary_uses(machos: list[pathlib.Path]) -> tuple[dict[str, list[str]], set[str]]:
-    """The required-reason categories the binaries use, and the raw `nm -u` import set (SEC1-22
-    reuses the latter without a second round of subprocess calls)."""
+def _binary_uses(machos: list[pathlib.Path]) -> tuple[dict[str, list[str]], set[str], set[str]]:
+    """The required-reason categories the binaries use, the raw `nm -u` import set (SEC1-22 reuses
+    the latter without a second round of subprocess calls), and the `nm -gU` defined-external-symbol
+    set. SEC2-03: a symbol linked STATICALLY into the binary is DEFINED there, not imported, so
+    `nm -u` alone never sees it -- the gate needs both sets to catch either kind of link."""
     imports: set[str] = set()
+    defined: set[str] = set()
     selectors: set[str] = set()
     for macho in machos:
         nm = subprocess.run(["xcrun", "nm", "-u", str(macho)], capture_output=True, text=True)
         if nm.returncode == 0:
             imports.update(line.strip() for line in nm.stdout.splitlines() if line.strip())
+        nm_defined = subprocess.run(["xcrun", "nm", "-gU", str(macho)], capture_output=True, text=True)
+        if nm_defined.returncode == 0:
+            for line in nm_defined.stdout.splitlines():
+                parts = line.split()
+                if parts:
+                    defined.add(parts[-1])
         otool = subprocess.run(["xcrun", "otool", "-v", "-s", "__TEXT", "__objc_methname", str(macho)],
                                capture_output=True, text=True)
         if otool.returncode == 0:
@@ -605,18 +650,47 @@ def _binary_uses(machos: list[pathlib.Path]) -> tuple[dict[str, list[str]], set[
                 parts = line.split(None, 1)
                 if len(parts) == 2:
                     selectors.add(parts[1].strip())
-    return categories_in(imports, selectors), imports
+    return categories_in(imports, selectors), imports, defined
 
 
 # SEC1-22 (encryption.md WP-ENC-07 (1)): swift-crypto's own C target, linked only when its
 # CryptoKit-backed Swift layer falls back to BoringSSL (Linux today -- `Package.swift`'s
 # `condition: .when(platforms: [.linux])`). None of this should ever reach an iOS binary; this
 # gate catches a future edit that drops that condition before it ships.
+#
+# SEC2-03: checked against BOTH `nm -u` (imported) and `nm -gU` (defined) symbols -- a future edit
+# that drops `Package.swift`'s `.when(platforms: [.linux])` would link swift-crypto's C target
+# STATICALLY into `Tally`, so its symbols are DEFINED in the binary, never imported; `nm -u` alone
+# would stay silent while `REL.app.*.no-boringssl` kept reporting green.
 FORBIDDEN_CRYPTO_SYMBOL_PREFIXES = ("_CCryptoBoringSSL_", "_CRYPTO_", "_boringssl_")
 
 
-def forbidden_crypto_symbols(imports: set[str]) -> list[str]:
-    return sorted(s for s in imports if s.startswith(FORBIDDEN_CRYPTO_SYMBOL_PREFIXES))
+def forbidden_crypto_symbols(symbols: set[str]) -> list[str]:
+    return sorted(s for s in symbols if s.startswith(FORBIDDEN_CRYPTO_SYMBOL_PREFIXES))
+
+
+# SEC2-09: `ci.yml`'s own "shipping Release build has no UI-test hooks" step (`strings -a` + grep)
+# scans CI's OWN `xcodebuild build -configuration Release` output, never the release gate's
+# archive -- so a marker that only leaked into the archived build (a different scheme/destination,
+# a stale derived-data cache) would never be caught. This runs the same check, in Python, directly
+# against the archived `.app`'s own binaries (`app_checks` already builds their path list).
+TEST_HOOK_MARKERS = (b"TallyTestHooks.", b"-TallyDebugSampleRefreshLatency")
+
+
+def test_hook_marker_hits(machos: list[pathlib.Path]) -> dict[str, list[str]]:
+    """{binary path: [markers found]} for every Mach-O under a bundle; empty when none hit. A
+    marker is checked as a raw byte substring (`strings -a`'s own matching), so it is found
+    whatever section holds the literal."""
+    hits: dict[str, list[str]] = {}
+    for macho in machos:
+        try:
+            data = macho.read_bytes()
+        except OSError:
+            continue
+        found = [marker.decode() for marker in TEST_HOOK_MARKERS if marker in data]
+        if found:
+            hits[str(macho)] = found
+    return hits
 
 
 def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]:
@@ -664,16 +738,82 @@ def app_checks(app: pathlib.Path, label: str, root: pathlib.Path) -> list[Check]
     for name, bundle, skip in (("app", app, appex), ("widget", appex, None)):
         manifest_path = bundle / "PrivacyInfo.xcprivacy"
         manifest = _read_plist(manifest_path) if manifest_path.exists() else {}
-        uses_by_category, imports = _binary_uses(_machos(bundle, skip)) if bundle.is_dir() else ({}, set())
-        crypto_hits = forbidden_crypto_symbols(imports)
+        machos = _machos(bundle, skip) if bundle.is_dir() else []
+        uses_by_category, imports, defined = _binary_uses(machos) if machos else ({}, set(), set())
+        crypto_hits = forbidden_crypto_symbols(imports | defined)
         add(f"{name}.no-boringssl", f"No swift-crypto/BoringSSL symbols in the {name} binary (SEC1-22)",
             not crypto_hits, f"found: {crypto_hits}" if crypto_hits else "none")
+        marker_hits = test_hook_marker_hits(machos)
+        add(f"{name}.no-test-hooks", f"No TallyTestHooks./-TallyDebugSampleRefreshLatency marker in the {name} binary (SEC2-09)",
+            not marker_hits, f"found in: {marker_hits}" if marker_hits else "none")
         uses = [privacy.Use(category, ", ".join(symbols), f"{bundle.name} (binary)", 0, False)
                 for category, symbols in uses_by_category.items()]
         for check in privacy.check_manifest(f"{label}.{name}", f"{bundle.name}/PrivacyInfo.xcprivacy",
                                             manifest, uses, policy_ok=True):
             checks.append(Check(f"REL.app.{check.id}", f"[{label}] built {name} manifest: {check.id}",
                                 check.level, "M2", check.ok, check.detail))
+    return checks
+
+
+# ------------------------------------------------------------------------------------------------
+# SEC2-09: the shipping Release build settings, for the app target and every package target
+# ------------------------------------------------------------------------------------------------
+
+# Never a test build masquerading as the one that ships: `ENABLE_TESTABILITY` must read exactly
+# "NO" (its off value), and neither of the two conditions `make ios-perf`'s own Release *test*
+# build adds (`TALLY_TEST_HOOKS`) or Xcode's own default Debug setting (`DEBUG`) may appear in
+# `SWIFT_ACTIVE_COMPILATION_CONDITIONS`.
+RELEASE_FORBIDDEN_CONDITIONS = ("TALLY_TEST_HOOKS", "DEBUG")
+
+
+def release_build_settings_findings(entries: list[dict], target: str) -> list[str] | None:
+    """Findings for one `target`'s block(s) in `xcodebuild -showBuildSettings -json`'s own parsed
+    array (each entry: `{"target": ..., "action": ..., "buildSettings": {...}}`). `None` when
+    `target` never appears at all -- the caller must fail closed on that, never treat a target
+    xcodebuild didn't even report as clean."""
+    matches = [e for e in entries if isinstance(e, dict) and e.get("target") == target]
+    if not matches:
+        return None
+    findings: list[str] = []
+    for entry in matches:
+        settings = entry.get("buildSettings") or {}
+        testability = settings.get("ENABLE_TESTABILITY")
+        if str(testability).upper() != "NO":
+            findings.append(f"{target}: ENABLE_TESTABILITY={testability!r}, not NO")
+        conditions = str(settings.get("SWIFT_ACTIVE_COMPILATION_CONDITIONS") or "").split()
+        bad = sorted(set(conditions) & set(RELEASE_FORBIDDEN_CONDITIONS))
+        if bad:
+            findings.append(f"{target}: SWIFT_ACTIVE_COMPILATION_CONDITIONS has {', '.join(bad)}")
+    return findings
+
+
+def release_build_settings_checks(entries: list[dict] | None, required_targets: tuple[str, ...]) -> list[Check]:
+    """One `REL.release-settings.<target>` check per target xcodebuild's own
+    `-showBuildSettings -json -configuration Release` capture reports — every target the scheme's
+    Release build actually touches, the app target and every package target it pulls in, checked
+    automatically (so a future module needs no new name added here) — plus one check that every
+    name in `required_targets` (at minimum, the app target) is among them.
+    Fails closed: a missing, unparsable or empty capture is its own FAIL
+    (`REL.release-settings.capture`), never a silent pass with nothing to check."""
+    if not entries:
+        return [Check("REL.release-settings.capture", "Release build settings capture present (SEC2-09)",
+                      "ERROR", "M2", False, "no -showBuildSettings -json entries given")]
+    present = sorted({e.get("target") for e in entries if isinstance(e, dict) and e.get("target")})
+    if not present:
+        return [Check("REL.release-settings.capture", "Release build settings capture present (SEC2-09)",
+                      "ERROR", "M2", False, "the capture named no target")]
+    checks = [Check("REL.release-settings.capture", "Release build settings capture present (SEC2-09)",
+                    "ERROR", "M2", True, f"{len(present)} target(s): {', '.join(present)}")]
+    missing_required = [t for t in required_targets if t not in present]
+    checks.append(Check("REL.release-settings.required-targets",
+                        "Every required target (at minimum, the app target) appears in the capture (SEC2-09)",
+                        "ERROR", "M2", not missing_required,
+                        f"missing: {missing_required}" if missing_required else f"present: {list(required_targets)}"))
+    for target in present:
+        findings = release_build_settings_findings(entries, target) or []
+        title = f"[{target}] shipping Release build settings: ENABLE_TESTABILITY=NO, no test-hook condition (SEC2-09)"
+        checks.append(Check(f"REL.release-settings.{target}", title, "ERROR", "M2", not findings,
+                            "; ".join(findings) if findings else "clean"))
     return checks
 
 
@@ -1098,7 +1238,67 @@ def self_test() -> int:
     # SEC1-22: swift-crypto/BoringSSL's own symbols must never appear in an iOS binary's imports.
     assert forbidden_crypto_symbols({"_CCryptoBoringSSL_SHA256_Init", "_malloc"}) == ["_CCryptoBoringSSL_SHA256_Init"]
     assert forbidden_crypto_symbols({"_malloc", "_OBJC_CLASS_$_NSUserDefaults"}) == []
-    print("check_release self-test: 42 checks passed")
+    # SEC2-03: a statically linked symbol is DEFINED, not imported -- `nm -u` alone (the bare
+    # `imports` set) must miss it, which is exactly the gap the real gate closes by checking
+    # `imports | defined` at the call site.
+    statically_linked_imports: set[str] = {"_malloc"}
+    statically_linked_defined = {"_CCryptoBoringSSL_SHA256_Init"}
+    assert forbidden_crypto_symbols(statically_linked_imports) == [], \
+        "a static link has no import entry -- this documents why nm -u alone cannot see it"
+    assert forbidden_crypto_symbols(statically_linked_imports | statically_linked_defined) == \
+        ["_CCryptoBoringSSL_SHA256_Init"], "the combined imports|defined set must still catch it"
+
+    # SEC2-09: the archive's own binaries, scanned directly (never CI's separate Release build).
+    with tempfile.TemporaryDirectory() as tmp:
+        clean = pathlib.Path(tmp) / "clean.bin"
+        clean.write_bytes(b"nothing interesting here")
+        leaky = pathlib.Path(tmp) / "leaky.bin"
+        leaky.write_bytes(b"...-TallyDebugSampleRefreshLatency...")
+        assert test_hook_marker_hits([clean]) == {}
+        hits = test_hook_marker_hits([clean, leaky])
+        assert list(hits) == [str(leaky)] and hits[str(leaky)] == ["-TallyDebugSampleRefreshLatency"], hits
+
+    # SEC2-09: the Release build settings for the app and package targets.
+    clean_entries = [
+        {"target": "Tally", "action": "build", "buildSettings": {"ENABLE_TESTABILITY": "NO", "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "SWIFT_PACKAGE"}},
+        {"target": "TallyFeatures", "action": "build", "buildSettings": {"ENABLE_TESTABILITY": "NO", "SWIFT_ACTIVE_COMPILATION_CONDITIONS": ""}},
+    ]
+    clean_by_id = {c.id: c.settle() for c in release_build_settings_checks(clean_entries, ("Tally",))}
+    assert all(c.status == "PASS" for c in clean_by_id.values()), clean_by_id
+    assert set(clean_by_id) == {"REL.release-settings.capture", "REL.release-settings.required-targets",
+                                "REL.release-settings.Tally", "REL.release-settings.TallyFeatures"}, clean_by_id
+
+    testable_entries = [{"target": "Tally", "action": "build", "buildSettings": {"ENABLE_TESTABILITY": "YES", "SWIFT_ACTIVE_COMPILATION_CONDITIONS": ""}}]
+    testable = {c.id: c.settle() for c in release_build_settings_checks(testable_entries, ("Tally",))}
+    assert testable["REL.release-settings.Tally"].status == "FAIL" \
+        and "ENABLE_TESTABILITY" in testable["REL.release-settings.Tally"].detail, testable
+
+    hook_entries = [{"target": "Tally", "action": "build", "buildSettings": {"ENABLE_TESTABILITY": "NO", "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "SWIFT_PACKAGE TALLY_TEST_HOOKS"}}]
+    hook = {c.id: c.settle() for c in release_build_settings_checks(hook_entries, ("Tally",))}
+    assert hook["REL.release-settings.Tally"].status == "FAIL" \
+        and "TALLY_TEST_HOOKS" in hook["REL.release-settings.Tally"].detail, hook
+
+    missing_required = {c.id: c.settle() for c in release_build_settings_checks(clean_entries, ("TallyAppleKit",))}
+    assert missing_required["REL.release-settings.required-targets"].status == "FAIL" \
+        and "missing" in missing_required["REL.release-settings.required-targets"].detail, \
+        "a required target xcodebuild never reported must fail closed, not pass silently"
+    # The per-target checks for whatever WAS captured still ran and still passed on their own.
+    assert missing_required["REL.release-settings.Tally"].status == "PASS", missing_required
+
+    # SEC1-17 (partial): the AASA file must never regain an "applinks" section.
+    assert aasa_findings({"webcredentials": {"apps": ["T.x"]}}) == []
+    assert any("applinks" in f for f in aasa_findings({"webcredentials": {}, "applinks": {"apps": []}}))
+    assert any("webcredentials" in f for f in aasa_findings({}))
+    assert aasa_findings([1, 2]) == ["not a JSON object"]
+
+    no_capture = release_build_settings_checks(None, ("Tally",))[0].settle()
+    assert no_capture.status == "FAIL" and "no -showBuildSettings" in no_capture.detail, \
+        "a missing/unparsable capture must fail closed too"
+    empty_capture = release_build_settings_checks([{"action": "build"}], ("Tally",))[0].settle()
+    assert empty_capture.status == "FAIL" and "no target" in empty_capture.detail, \
+        "a capture that names no target at all must fail closed too"
+
+    print("check_release self-test: 51 checks passed")
     return 0
 
 
@@ -1171,6 +1371,18 @@ def main(argv: list[str]) -> int:
                 print(raw[:3000])
             due = options.get("--due") or "MVP"
             return write(release_config_checks(rc_results, due), out, "release-config", report_only)
+        if "--release-build-settings" in options:
+            targets = tuple((options.get("--targets") or "").split())
+            if not targets:
+                raise InputError("--release-build-settings requires --targets")
+            try:
+                raw = pathlib.Path(options["--release-build-settings"]).read_text(encoding="utf-8")
+                entries = json.loads(raw)
+                if not isinstance(entries, list):
+                    entries = None
+            except (OSError, json.JSONDecodeError):
+                entries = None
+            return write(release_build_settings_checks(entries, targets), out, "release-build-settings", report_only)
     except (InputError, OSError, KeyError, ValueError, json.JSONDecodeError) as error:
         print(f"RELEASE | ERROR | input | {error}")
         return 2

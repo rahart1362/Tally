@@ -171,6 +171,11 @@ public nonisolated struct LaunchBootstrapper: LaunchBootstrapping {
         probe("schoolRevokedRetention")
         if let current = record, SchoolRevokedRetention.isExpired(current, now: environment.clock.now()) {
             await AccountSignOut.eraseSavedData(account: account, environment: environment)
+            // SEC2-06: the manual erase (`AppModel.eraseSavedData`) and sign-out both reload the
+            // widgets right after the purge; this automatic launch-time erase must too, or a
+            // Home Screen/Lock Screen widget painted from the now-deleted glance keeps showing
+            // erased data until its own `reloadAfter` timeline boundary passes.
+            environment.reloadWidgets()
             record = nil
             // The glance already decoded above is now stale (its file is gone): never hand it to
             // the first paint, or the student would see data this launch just erased.

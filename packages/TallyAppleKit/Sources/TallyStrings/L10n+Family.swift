@@ -56,9 +56,23 @@ extension L10n {
                                     comment: "Parent notification title: a new grade was posted for the named student. The grade itself is never shown. The argument is the student's first name, or 'Your student'.")
         }
 
+        /// Superseded by `belowGoalHiddenCourseTitle(student:)` below (SEC2-08, owner ruling
+        /// 2026-10-23: the parent's below-goal notification hides the course by default, as
+        /// SEC1-19 already does for the student). Kept, unused and untouched, so the existing
+        /// approved English/Spanish copy is never edited or orphaned from the catalog.
         public static func belowGoalTitle(student: String, courseCode: String) -> LocalizedStringResource {
             LocalizedStringResource("family.notification.belowGoal.title", defaultValue: "\(student) \u{00b7} \(courseCode) needs attention", bundle: #bundle,
                                     comment: "Parent notification title: a course needs attention for the named student. 1: the student's first name, or 'Your student'. 2: the course code from Canvas. Never the score or goal.")
+        }
+
+        /// SEC2-08 (owner ruling 2026-10-23): the course is hidden by default, the same way
+        /// SEC1-19 hides it for the student's own below-goal notification — never the course
+        /// code, independent of any setting. The one argument is the student's first name, or
+        /// "Your student" when the parent turned on Hide Student Names (`studentLabel`, applied
+        /// on top of this, same as every other title here).
+        public static func belowGoalHiddenCourseTitle(student: String) -> LocalizedStringResource {
+            LocalizedStringResource("family.notification.belowGoal.hiddenCourse", defaultValue: "\(student) has a course that needs attention", bundle: #bundle,
+                                    comment: "Parent notification title: a course needs attention for the named student, without naming the course. The argument is the student's first name, or 'Your student' when the parent turned on Hide Student Names.")
         }
 
         public static func belowGoalBody() -> LocalizedStringResource {

@@ -66,6 +66,34 @@ struct TokenEndpointTests {
         }
     }
 
+    @Test("SEC2-11: the continuity check (user ID, borrowed refresh token) applies only when the previous credential's host matches this sign-in's")
+    func continuityOnlyAppliesOnTheSameHost() throws {
+        let sameHostPrevious = CanvasCredential(host: endpoint.host, userID: "42", accessToken: "a-old", refreshToken: "r-old",
+                                                accessTokenExpiresAt: clock.now())
+        // Same host, a different user ID in the response: still rejected (unchanged behaviour).
+        #expect(throws: TokenEndpointError.userMismatch) {
+            try endpoint.credential(from: ok(#"{"access_token":"a","user":{"id":99},"refresh_token":"r"}"#),
+                                    previous: sameHostPrevious, now: clock.now())
+        }
+        // Same host, no refresh token in the response: the previous one is still borrowed.
+        let sameHostBorrowed = try endpoint.credential(from: ok(#"{"access_token":"a","user":{"id":"42"}}"#),
+                                                        previous: sameHostPrevious, now: clock.now())
+        #expect(sameHostBorrowed.refreshToken == "r-old")
+
+        let otherHostPrevious = CanvasCredential(host: "canvas.lakeshore.example", userID: "42", accessToken: "a-old",
+                                                 refreshToken: "r-old", accessTokenExpiresAt: clock.now())
+        // Other host, a different user ID: a stale credential from another school must never
+        // block this new sign-in.
+        let otherHostDifferentUser = try endpoint.credential(from: ok(#"{"access_token":"a","user":{"id":99},"refresh_token":"r"}"#),
+                                                              previous: otherHostPrevious, now: clock.now())
+        #expect(otherHostDifferentUser.userID == "99" && otherHostDifferentUser.host == endpoint.host)
+        // Other host, no refresh token in the response: that other host's refresh token must
+        // never be borrowed into this one -- `.malformed`, not a silently cross-host credential.
+        #expect(throws: TokenEndpointError.malformed) {
+            try endpoint.credential(from: ok(#"{"access_token":"a","user":{"id":"42"}}"#), previous: otherHostPrevious, now: clock.now())
+        }
+    }
+
     @Test("SEC1-07: a token_type other than Bearer is rejected; a missing one is accepted (Canvas often omits it)")
     func tokenTypeIsChecked() throws {
         #expect(throws: TokenEndpointError.unsupportedTokenType) {

@@ -108,7 +108,8 @@ public nonisolated enum CalendarBuilder {
         var byDay: [Date: [AgendaItem]] = [:]
         for entry in entries {
             let day = calendar.startOfDay(for: entry.start)
-            byDay[day, default: []].append(item(entry, conflicts: conflicts[entry.id] ?? [], formatter: formatter))
+            byDay[day, default: []].append(item(entry, conflicts: conflicts[entry.id] ?? [], formatter: formatter,
+                                               accountHost: snapshot.host))
         }
         let days = dayStarts.map { dayStart in
             agendaDay(dayStart, items: byDay[dayStart] ?? [], isToday: dayStart == today, formatter: formatter)
@@ -203,7 +204,10 @@ public nonisolated enum CalendarBuilder {
 
     // MARK: - Rows and days
 
-    static func item(_ entry: Entry, conflicts: [String], formatter: ScreenFormatter) -> AgendaItem {
+    /// SEC2-04: `entry.url` is Canvas-supplied (an assignment or event's `html_url`), so the draft
+    /// only ever carries it when `CanvasLinkOpener.isSafe` clears it for `accountHost` — the same
+    /// check "Open in Canvas" and Handoff already apply before opening anything.
+    static func item(_ entry: Entry, conflicts: [String], formatter: ScreenFormatter, accountHost: String) -> AgendaItem {
         let calendar = formatter.calendar
         let dayStart = calendar.startOfDay(for: entry.start)
         // A due time is an instant: its block (timeline and "Add to Calendar") ends at the deadline.
@@ -241,13 +245,14 @@ public nonisolated enum CalendarBuilder {
         if let location = entry.location { spoken.append(location) }
         if let conflictText { spoken.append(L10n.string(L10n.Calendar.conflictSpoken, conflictText)) }
 
+        let safeURL = entry.url.flatMap { CanvasLinkOpener.isSafe($0, accountHost: accountHost) ? $0 : nil }
         return AgendaItem(
             id: entry.id, kind: entry.kind, title: entry.title, courseCode: entry.course?.code,
             paletteIndex: entry.course?.palette, timeText: timeText, location: entry.location,
             conflictText: conflictText, isExam: entry.isExam, isAllDay: entry.isAllDay,
             draft: CalendarEventDraft(title: entry.course.map { "\($0.code): \(entry.title)" } ?? entry.title,
                                       start: blockStart, end: max(blockEnd, blockStart.addingTimeInterval(marker)),
-                                      isAllDay: entry.isAllDay, location: entry.location, url: entry.url),
+                                      isAllDay: entry.isAllDay, location: entry.location, url: safeURL),
             startMinute: startMinute, durationMinutes: duration,
             accessibilityLabel: spoken.joined(separator: ", "))
     }
