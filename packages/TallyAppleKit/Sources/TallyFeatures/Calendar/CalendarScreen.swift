@@ -425,6 +425,11 @@ private struct AgendaRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
+            // UX1-26: six or seven identical accent-blue glyphs, one per row, were the loudest
+            // element on the agenda and competed with the titles. The action and its 44 pt tap
+            // target are unchanged; `textSecondary` lets it recede the way a secondary control
+            // does everywhere else in the app.
+            .tint(TallyColor.textSecondary)
             .accessibilityLabel(String(localized: L10n.Calendar.addToCalendar(item.title)))
             .accessibilityIdentifier("calendar.add")
         }

@@ -166,7 +166,15 @@ nonisolated enum SubscriptionOfferText {
     /// "2 weeks free, then $9.99/year" (EB-19), only with an eligible free trial.
     static func trial(_ offer: SubscriptionOffer) -> String? {
         guard let trial = offer.freeTrial else { return nil }
-        return String(localized: L10n.Subscription.trial(period(trial), then: price(offer)))
+        return String(localized: L10n.Subscription.trial(period(trial), then: unbreakableSlash(price(offer))))
+    }
+
+    /// UX1-33: at AX5 this sentence (unlike the short, standalone headline price) wrapped right at
+    /// the price's own slash ("then $9.99/ / year"), breaking D02's "a value never breaks" rule.
+    /// Word joiners (U+2060) around the slash keep the price whole wherever it wraps; this is a
+    /// runtime transform of the already-formatted value, so the catalog text is unchanged.
+    private static func unbreakableSlash(_ formattedPrice: String) -> String {
+        formattedPrice.replacingOccurrences(of: "/", with: "\u{2060}/\u{2060}")
     }
 
     // MARK: - EB-18: the renewal disclosure, clear and conspicuous next to the purchase button

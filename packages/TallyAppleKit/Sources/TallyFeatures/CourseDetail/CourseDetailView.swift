@@ -252,7 +252,10 @@ struct CourseDetailView: View {
 
     private var whatIfLabel: some View {
         Label {
-            Text(L10n.CourseDetail.whatIfButton())
+            // UX1-21: `whatIfButtonNoBreak()` is the same text with a non-breaking hyphen in
+            // "What-If", which broke as "Try What- / If Scores" at AX5 on both phones.
+            // `whatIfButton()` itself is unchanged.
+            Text(L10n.CourseDetail.whatIfButtonNoBreak())
         } icon: {
             Image(systemName: "flask")
         }
@@ -461,22 +464,32 @@ struct GradeOverrideMenu: View {
                 }
                 .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
             } else {
-                Picker(selection: choice) {
+                // UX1-22: a `Picker` nested inside this Menu rendered as its own one-item submenu
+                // ("Grades kept outside Canvas" › Automatic/Yes/No) -- two taps for the only
+                // action this toolbar button holds. Flattened: the three choices are the menu's
+                // own content, under a section titled with the same question, so the first tap
+                // shows them directly.
+                Section(String(localized: L10n.GradeOverride.menuRowTitle())) {
                     ForEach(GradeOverrideChoice.allCases) { option in
+                        Button {
+                            choice.wrappedValue = option
+                        } label: {
+                            if option == choice.wrappedValue {
+                                // L10N-03a's finding (its report §1.2): a bare
+                                // `LocalizedStringResource` is never passed to another SwiftUI
+                                // initializer directly (here, `Label(_:systemImage:)`, which has
+                                // no such overload) to avoid an unverified-overload compile risk
+                                // with no local Xcode to check it.
+                                Label { Text(option.title) } icon: { Image(systemName: "checkmark") }
+                            } else {
+                                Text(option.title)
+                            }
+                        }
                         // L10N-04: a stable id per choice (the Audit tour looked these up by
                         // their English label — "Automatic" — which Spanish changes).
-                        Text(option.title).tag(option)
-                            .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
+                        .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
                     }
-                } label: {
-                    // D17 (pending owner approval): the full question truncates to "…kept outside
-                    // Ca…" in this submenu row on the smallest iPhone — iOS menu rows never wrap. A
-                    // shorter row title; `title()` is unchanged for wherever there is room to show
-                    // the full question.
-                    Text(L10n.GradeOverride.menuRowTitle())
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
             }
         } label: {
             Label {
@@ -523,8 +536,10 @@ nonisolated enum GradeOverrideChoice: String, CaseIterable, Identifiable, Sendab
     var title: LocalizedStringResource {
         switch self {
         case .automatic: L10n.GradeOverride.automatic()
-        case .yes: L10n.GradeOverride.yes()
-        case .no: L10n.GradeOverride.no()
+        // UX1-22 (pending owner approval): reworded from the frozen "Yes"/"No" -- answers to a
+        // question nobody now reads aloud in the flattened menu -- as statements instead.
+        case .yes: L10n.GradeOverride.keptOutsideCanvas()
+        case .no: L10n.GradeOverride.trackedInCanvas()
         }
     }
 }

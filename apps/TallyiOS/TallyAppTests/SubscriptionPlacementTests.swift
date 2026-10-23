@@ -211,7 +211,9 @@ struct SubscriptionModelsTests {
         #expect(SubscriptionOfferText.price(Self.offer) == "$9.99/year")
         #expect(SubscriptionOfferText.spokenPrice(Self.offer) == "$9.99 per year")
         #expect(SubscriptionOfferText.duration(Self.offer) == "Subscription length: 1 year")
-        #expect(SubscriptionOfferText.trial(Self.offer) == "2 weeks free, then $9.99/year")
+        // UX1-33: word joiners (U+2060) around the price's slash keep "$9.99/year" whole inside
+        // this longer sentence at AX5, unlike the short, standalone headline price above.
+        #expect(SubscriptionOfferText.trial(Self.offer) == "2 weeks free, then $9.99\u{2060}/\u{2060}year")
         let euro = SubscriptionOffer(displayPrice: "9,99 €", period: SubscriptionOffer.Period(value: 1, unit: .year), freeTrial: nil)
         #expect(SubscriptionOfferText.price(euro) == "9,99 €/year", "the App Store's text, as it is")
         #expect(SubscriptionOfferText.trial(euro) == nil)

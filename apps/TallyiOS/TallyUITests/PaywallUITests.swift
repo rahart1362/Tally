@@ -316,6 +316,10 @@ final class PaywallUITests: TallyUITestCase {
         }
         XCTAssertEqual(element("paywall.trial", in: app).exists, trial, "the trial line", file: file, line: line)
         if trial {
+            // UX1-33: the underlying string carries word joiners (U+2060) around the price's
+            // slash (unit-tested in SubscriptionPlacementTests), but the system strips invisible
+            // formatting characters from the exposed accessibility label -- confirmed by CI run
+            // 39932146360, where this assertion failed with the joiners in the expected value.
             XCTAssertEqual(element("paywall.trial", in: app).label, "2 weeks free, then $9.99/year", file: file, line: line)
         }
         // EB-18: the trial's end date and the charge that follows, only while the trial is offered.

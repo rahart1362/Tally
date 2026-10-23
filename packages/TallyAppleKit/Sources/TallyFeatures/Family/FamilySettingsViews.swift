@@ -49,40 +49,64 @@ struct LinkedStudentsSection: View {
     /// Sample mode only: back to the fictional student's own view (FAM-14).
     let onExploreStudentMode: (() -> Void)?
 
+    @ViewBuilder
     var body: some View {
-        Section {
-            if family.students.isEmpty {
-                Text(L10n.FamilyUI.parentNoStudents())
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textSecondary)
-                    .accessibilityIdentifier("family.parentEmpty")
-            }
-            ForEach(family.students) { student in
-                NavigationLink {
-                    StudentDetailView(family: family, student: student)
-                } label: {
-                    LinkedStudentRow(student: student, colorIndex: family.colorIndex(of: student),
-                                     isViewed: student.id == family.activeSubject)
-                }
-                .accessibilityIdentifier("family.student")
-            }
+        if family.students.isEmpty {
+            // UX1-37: a 3-line caption-size paragraph in a plain list row, then "Add a Student",
+            // read as a footnote rather than parent mode's first-run state. `TallyUnavailableView`
+            // (icon, title, the same body text as description) stands above the remaining
+            // sections instead, the same treatment `HomeShellView`'s own full-screen empty state
+            // already gives this exact case. The action button is its own plain List row, as it
+            // was before this fix (not nested in TallyUnavailableView's own actions closure,
+            // which wraps a system `ContentUnavailableView` below the accessibility sizes):
+            // CI run 39943772680 showed that nesting made the button unreachable by its
+            // identifier, even though it still rendered correctly (confirmed visually, Audit tour
+            // run 39903157582's 203-family-parentEmpty.png).
+            TallyUnavailableView(Text(L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2",
+                                 description: Text(L10n.FamilyUI.parentNoStudents()))
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("family.parentEmpty")
             Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
+                .buttonStyle(.tallyPrimary)
+                .frame(maxWidth: .infinity)
+                .listRowInsets(EdgeInsets(top: 0, leading: TallySpacing.screenMargin,
+                                          bottom: TallySpacing.xl, trailing: TallySpacing.screenMargin))
+                .listRowBackground(Color.clear)
                 .accessibilityIdentifier("family.addStudent")
-            if !family.students.isEmpty {
+            if let onExploreStudentMode {
+                Section {
+                    Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
+                        .accessibilityIdentifier("family.sample.viewAsStudent")
+                }
+            }
+        } else {
+            Section {
+                ForEach(family.students) { student in
+                    NavigationLink {
+                        StudentDetailView(family: family, student: student)
+                    } label: {
+                        LinkedStudentRow(student: student, colorIndex: family.colorIndex(of: student),
+                                         isViewed: student.id == family.activeSubject)
+                    }
+                    .accessibilityIdentifier("family.student")
+                }
+                Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
+                    .accessibilityIdentifier("family.addStudent")
                 Toggle(String(localized: L10n.FamilyUI.hideStudentNames()),
                        isOn: Binding(get: { family.hidesStudentNames }, set: { family.setHidesStudentNames($0) }))
                     .accessibilityIdentifier("family.hideNames")
+                if let onExploreStudentMode {
+                    Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
+                        .accessibilityIdentifier("family.sample.viewAsStudent")
+                }
+            } header: {
+                Text(L10n.FamilyUI.linkedStudentsHeader())
+                    .tallySectionText()
+            } footer: {
+                Text(L10n.FamilyUI.linkedStudentsFooter())
+                    .tallySectionText()
             }
-            if let onExploreStudentMode {
-                Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
-                    .accessibilityIdentifier("family.sample.viewAsStudent")
-            }
-        } header: {
-            Text(L10n.FamilyUI.linkedStudentsHeader())
-                .tallySectionText()
-        } footer: {
-            Text(L10n.FamilyUI.linkedStudentsFooter())
-                .tallySectionText()
         }
     }
 }

@@ -978,7 +978,12 @@ extension TallyUITestCase {
         let menu = element("courseDetail.menu", in: app)
         XCTAssertTrue(scrollUntilHittable(menu, in: app), "Hierarchy: \(app.debugDescription)")
         menu.tap()
-        XCTAssertTrue(element("courseDetail.gradesOutsideCanvas", in: app).waitForExistence(timeout: 5),
+        // UX1-22: at std sizes the choices are now the menu's own flattened content
+        // ("courseDetail.gradesOutsideCanvas.automatic" shows directly); at AX5 the row that
+        // opens the confirmation dialog (UX1-19) still carries "courseDetail.gradesOutsideCanvas".
+        let flattened = element("courseDetail.gradesOutsideCanvas.automatic", in: app)
+        let submenuRow = element("courseDetail.gradesOutsideCanvas", in: app)
+        XCTAssertTrue(flattened.waitForExistence(timeout: 5) || submenuRow.waitForExistence(timeout: 5),
                       "Hierarchy: \(app.debugDescription)")
         return app
     }

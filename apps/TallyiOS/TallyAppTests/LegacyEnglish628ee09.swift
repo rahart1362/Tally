@@ -309,18 +309,24 @@ enum RendererSweep {
     }
 
     /// The dashboard `DashboardBuilder` builds for `snapshot` at `now`: every "Next up" reason,
-    /// "Needs attention" row and the change chip, against 628ee09's.
+    /// "Needs attention" row and the change chip, against 628ee09's. UX1-13 and UX1-14 are two
+    /// approved, intentional divergences from 628ee09's text (never edit the frozen `LegacyEnglish`
+    /// oracle itself for them -- `ux113Adjusted`/`ux114Adjusted` below adjust the comparison instead,
+    /// the same way this sweep already sidesteps D15's far-due format by never passing `dueAt:`).
     static func dashboard(snapshot: CanvasSnapshot, digest: ChangeDigest?, now: Date, calendar: Calendar,
                           locale: Locale) -> Outcome {
         var outcome = Outcome()
         let projection = DashboardBuilder.build(from: snapshot, digest: digest, digestAsOf: digest == nil ? nil : now, now: now)
         for item in projection.nextUp {
+            let old = ux114Adjusted(LegacyEnglish.reasonText(item.reasonFactors, courseCode: item.courseCode),
+                                    factors: item.reasonFactors)
             outcome.compare(DashboardText.reason(item.reasonFactors, courseCode: item.courseCode, locale: locale),
-                            LegacyEnglish.reasonText(item.reasonFactors, courseCode: item.courseCode), "reason \(item.id.rawValue)")
+                            old, "reason \(item.id.rawValue)")
         }
         for item in projection.needsAttention {
             let old = LegacyEnglish.attention(item.content, calendar: calendar, locale: locale)
-            outcome.compare(DashboardText.attentionTitle(item.content, calendar: calendar, locale: locale), old.title,
+            let oldTitle = ux113Adjusted(old.title, content: item.content, now: now, calendar: calendar, locale: locale)
+            outcome.compare(DashboardText.attentionTitle(item.content, calendar: calendar, now: now, locale: locale), oldTitle,
                             "\(item.id) title")
             outcome.compare(DashboardText.attentionSubtitle(item.content, locale: locale), old.subtitle, "\(item.id) subtitle")
         }
@@ -330,6 +336,32 @@ enum RendererSweep {
                             "change summary")
         }
         return outcome
+    }
+
+    /// UX1-14: `DashboardText.reason` lower-cases "Still accepted" to "still accepted" once it
+    /// joins after another factor instead of leading the sentence (`PriorityScore.reasonFactors`
+    /// never puts `.stillAccepted` first, so whenever it is present here it is always the
+    /// non-leading case). `LegacyEnglish.reasonText` (frozen) always capitalizes it; this adjusts
+    /// the frozen text to the new, approved rule before the comparison, rather than editing the
+    /// oracle.
+    private static func ux114Adjusted(_ legacyText: String, factors: [PriorityScore.Factor]) -> String {
+        guard factors.first != .stillAccepted, factors.contains(.stillAccepted) else { return legacyText }
+        return legacyText.replacingOccurrences(of: "Still accepted", with: "still accepted")
+    }
+
+    /// UX1-13: a near date never carries the year ("Busy stretch starting Oct 2, 2026" ->
+    /// "...Fri, Oct 2"), and gains its weekday. `LegacyEnglish.attention`'s `.overload` case
+    /// (frozen) always uses the old `.abbreviated` style; this rebuilds just that one title with
+    /// the new, approved format before the comparison, rather than editing the oracle.
+    private static func ux113Adjusted(
+        _ legacyTitle: String, content: DashboardProjection.AttentionItem.Content, now: Date, calendar: Calendar, locale: Locale
+    ) -> String {
+        guard case .overload(let start) = content else { return legacyTitle }
+        let base = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+            .weekday(.abbreviated).month(.abbreviated).day()
+        let dateText = calendar.isDate(start, equalTo: now, toGranularity: .year)
+            ? start.formatted(base) : start.formatted(base.year())
+        return "Busy stretch starting \(dateText)"
     }
 
     /// The reason over a grid of due times, weights and modifiers (the grid the 628ee09 capture in
@@ -348,8 +380,9 @@ enum RendererSweep {
             for w in weights {
                 for m in modifiers {
                     let factors = PriorityScore.reasonFactors(hoursUntilDue: h, weight: w, modifiers: m)
-                    outcome.compare(DashboardText.reason(factors, courseCode: "BIO 101", locale: locale),
-                                    LegacyEnglish.reasonText(hoursUntilDue: h, weight: w, modifiers: m, courseCode: "BIO 101"),
+                    let old = ux114Adjusted(LegacyEnglish.reasonText(hoursUntilDue: h, weight: w, modifiers: m, courseCode: "BIO 101"),
+                                            factors: factors)
+                    outcome.compare(DashboardText.reason(factors, courseCode: "BIO 101", locale: locale), old,
                                     "h=\(String(describing: h)) w=\(w) \(m)")
                 }
             }
