@@ -78,6 +78,9 @@ public actor SubscriptionEngine {
     private var isPurchasePending = false
     private weak var coordinator: RefreshCoordinator?
     private var environment: AccountEnvironment?
+    /// EB-20: the last verified pass's facts and holding, so an account that attaches after StoreKit
+    /// has already answered still gets its renewal reminders planned (`accountAttached`).
+    private var lastVerified: (facts: [SubscriptionFacts], holding: SubscriptionHolding?)?
     private var observer: (@Sendable (SubscriptionStatus) async -> Void)?
 
     /// What the effects last acted on.
@@ -162,6 +165,18 @@ public actor SubscriptionEngine {
         // have run with the Keychain record's (earlier) answer, so one more pass withdraws.
         if let applied, !applied.remindersAllowed, let environment {
             await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
+        }
+        // EB-20: the launch's verified pass may have run before this attach, with no environment to
+        // schedule into, so plan the renewal reminders from that pass's facts now instead of
+        // waiting for the next verification (the next foreground, at the earliest).
+        if let lastVerified, let environment {
+            let upcoming = await planRenewalReminders(lastVerified.facts, holding: lastVerified.holding,
+                                                      environment: environment)
+            if var current = status, current.hasUpcomingRenewalReminder != upcoming {
+                current.hasUpcomingRenewalReminder = upcoming
+                status = current
+                await publish()
+            }
         }
     }
 
@@ -282,13 +297,13 @@ public actor SubscriptionEngine {
         }
         // EB-20: only on a verified pass (StoreKit's own facts, never the Keychain record's) and
         // only once an account is attached (same gate the background-refresh and reminders effects
-        // above already use). Reconciled every verification, so turning auto-renew off cancels the
+        // above already use); an account that attaches later is planned from these same facts then
+        // (`accountAttached`). Reconciled every verification, so turning auto-renew off cancels the
         // two reminders at the very next one (foreground, a transaction update, or the next launch).
+        if verified, let facts { lastVerified = (facts, holding) }
         let upcomingRenewalReminder: Bool
         if verified, let environment, let facts {
-            let desired = RenewalReminderPlan.plan(facts, role: role, products: products, holding: holding ?? .none, now: clock.now())
-            upcomingRenewalReminder = !desired.isEmpty
-            await reconcileRenewalReminders(desired: desired, environment: environment)
+            upcomingRenewalReminder = await planRenewalReminders(facts, holding: holding, environment: environment)
         } else {
             upcomingRenewalReminder = status?.hasUpcomingRenewalReminder ?? false
         }
@@ -303,6 +318,15 @@ public actor SubscriptionEngine {
     /// `ReminderPipeline`/`ReminderPlanner`, which plan from a Canvas snapshot this has nothing to
     /// do with. The generic content (`ReminderContent.generic(for: .renewalReminder)`) is the only
     /// content ever scheduled: no price, no grade, no Canvas data.
+    /// EB-20: plans the renewal reminders from verified facts and reconciles them with what is
+    /// pending; whether any reminder is still ahead (Settings > Subscription's banner reads it).
+    private func planRenewalReminders(_ facts: [SubscriptionFacts], holding: SubscriptionHolding?,
+                                      environment: AccountEnvironment) async -> Bool {
+        let desired = RenewalReminderPlan.plan(facts, role: role, products: products, holding: holding ?? .none, now: clock.now())
+        await reconcileRenewalReminders(desired: desired, environment: environment)
+        return !desired.isEmpty
+    }
+
     private func reconcileRenewalReminders(desired: [RenewalReminderPlan.Reminder], environment: AccountEnvironment) async {
         let pending = await environment.notifications.pendingIdentifiers()
         let diff = RenewalReminderPlan.diff(desired: desired, pending: pending, role: role)

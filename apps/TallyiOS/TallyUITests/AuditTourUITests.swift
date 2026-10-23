@@ -1410,21 +1410,13 @@ final class AuditTourUITests: TallyUITestCase {
     /// a verified, auto-renewing Tally Annual 25 days from renewal -- inside the window, with the
     /// 40-day reminder's own fire date already past and the 20-day one still due.
     ///
-    /// Round 1 (run 39974117302, all 8 legs): "missing-banner" everywhere. `SubscriptionEngine
-    /// .apply` only plans the renewal reminders `if verified, let environment, let facts`
-    /// (`SubscriptionEngine.swift`'s own doc comment on that `facts` parameter), and its `.launch`
-    /// verification is enqueued at `start()`, before `accountAttached` -- which never re-verifies
-    /// itself -- runs; a cold launch's first (and only, until the scene next goes `.active`) verified
-    /// pass therefore always has `environment == nil`, so this leg's banner never had a chance to
-    /// compute true. `TallyApp.swift`'s `case .active: subscription.foreground()` is the real app's
-    /// own trigger for a later, environment-attached verification, so round 2 reaches it the same
-    /// way `testM_appLockAndPrivacyCover` already does: backgrounding and reactivating the app.
-    ///
-    /// Round 2 (run 39994166321): still "missing-banner" everywhere, but the picture `snap` took
-    /// anyway showed the banner rendered correctly, immediately visible with no scroll needed at
-    /// all -- `scrollUntilHittable` was the wrong tool for a plain "has this async verification
-    /// published yet" wait (its only waiting is the time its own swipe gestures take, and a
-    /// fully-visible element needs no swipe to begin with). A plain existence wait replaces it.
+    /// Round 1 (run 39974117302) showed "missing-banner" on every leg: a real race, since fixed in
+    /// `SubscriptionEngine.accountAttached` (PR #86). StoreKit's launch verification can finish
+    /// before the account attaches, and the engine then planned nothing until the next
+    /// verification. This leg deliberately launches cold and never cycles the scene, so it
+    /// captures what a student sees on first open, and shows "missing-banner" again if that race
+    /// ever comes back. It waits for the banner with a plain existence wait: it renders without
+    /// scrolling.
     @MainActor
     func testY_subscriptionRenewalReminderBanner() throws {
         continueAfterFailure = true
@@ -1440,12 +1432,6 @@ final class AuditTourUITests: TallyUITestCase {
             finish("Y")
             app.terminate()
             return
-        }
-        // One more verified pass, now that the account's coordinator is attached (see the doc
-        // comment above): best-effort, like `testM`'s own use of this helper.
-        if makeInactive(app) != nil {
-            app.activate()
-            _ = waitForScenePhase("active", in: app, timeout: 10)
         }
         openSettings(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "renewalReminderBanner", state: "subscriptionPage",
