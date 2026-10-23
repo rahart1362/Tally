@@ -151,7 +151,14 @@ struct LaunchBootstrapperTests {
         let resolution = await LaunchBootstrapper(environment: harness.environment).resolve()
         #expect(resolution.record == nil, "the erased account's record must not reach the first paint")
         #expect(resolution.glance == nil, "the erased account's glance must not reach the first paint")
-        #expect(!FileManager.default.fileExists(atPath: harness.accountDirectory.path), "the account directory survived the erase")
+        // SEC2-07 (owner ruling): EB-26's erase now keeps `UserState` (Hide Course Names and the
+        // other privacy toggles), so the account directory itself can survive — only the
+        // Canvas-derived files must actually be gone.
+        let layout = StoreLayout(root: harness.root, accountKey: harness.account)
+        #expect(!FileManager.default.fileExists(atPath: layout.url(for: .snapshot).path),
+                "the Canvas-derived snapshot survived the erase")
+        #expect(!FileManager.default.fileExists(atPath: layout.url(for: .refreshState).path),
+                "the refresh record survived the erase")
         #expect(AccountDirectoryStore(root: harness.root).activeAccount()?.accountKey == harness.account,
                 "EB-26 erases saved data without signing out: the account must still be active")
         // SEC2-06: the automatic erase must reload the widgets too, like the manual erase and
