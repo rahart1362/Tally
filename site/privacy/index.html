@@ -25,11 +25,13 @@ summary-sharing: active
 </ul></div>
 
 <h2>Information Tally uses and where it goes</h2>
-<p><b>Your Canvas information.</b> This covers your courses, grades, assignments, due dates, calendar events, announcements and profile name. When you sign in, your iPhone requests it directly from your school's Canvas service (operated by your school and Instructure). Tally stores it only on your iPhone, encrypted with a key that never leaves the device, and replaces it on every successful refresh. It is not sent to us or to anyone else, and it is excluded from iCloud and computer backups.</p>
+<p><b>Your Canvas information.</b> This covers your courses, grades, assignments, due dates, calendar events, announcements and profile name. When you sign in, your iPhone requests it directly from your school's Canvas service (operated by your school and Instructure). Tally stores it only on your iPhone, encrypted with a key that never leaves the device, and replaces it on every successful refresh. It is not sent to us or to anyone else, and it is excluded from iCloud and computer backups. The only exceptions are the ones you start yourself: adding items to your calendar and sharing a summary, both described below.</p>
 <p><b>Sign-in.</b> You sign in to Canvas in Apple's secure sign-in sheet, on your school's own page. Canvas gives Tally an access token that lets it read your information. The token is stored in your iPhone's Keychain, available only on this device. Signing out asks Canvas to revoke it.</p>
 <p><b>Finding your school.</b> When you search for your school, the app sends the search text to Instructure's public school directory. Tally also downloads a signed list of the schools where it is available from tally-app.dev. That is a static file; our web host may see your IP address as normal web traffic, and we don't receive or keep it.</p>
-<p><b>Reminders and widgets.</b> Reminders are scheduled on your iPhone; nothing is sent to a push server. By default, grade values are never shown on your Lock Screen or in notifications, and you can hide course names too.</p>
+<p><b>Reminders and widgets.</b> Reminders are scheduled on your iPhone; nothing is sent to a push server. By default, grade values are never shown on your Lock Screen or in notifications, and you can hide course names too. If your subscription renews automatically, Tally also schedules two reminders on your iPhone, 40 and 20 days before it renews.</p>
 <p><b>Calendar.</b> If you choose to subscribe to your Canvas calendar, your calendar app (for example Apple Calendar, Google or Outlook) fetches your personal Canvas calendar feed directly from Canvas. That provider's own privacy policy applies.</p>
+<p><b>Adding to your calendar.</b> If you tap Add to Calendar or Add This Week to Calendar, Tally opens Apple's calendar editor with the item's title, course, time, location (if Canvas lists one) and a link to its Canvas page. You pick the calendar and confirm; Tally can't read your calendars, and grades are never added. The event then belongs to that calendar, and if the calendar syncs (for example through iCloud or Google), that provider's privacy policy applies.</p>
+<p><b>Handoff.</b> While you view a course, Tally may offer its Canvas page to your other Apple devices signed in to the same Apple Account, so you can continue in a browser there. It is never added to search or Siri suggestions, and you can turn Handoff off in your iPhone's Settings.</p>
 <p><b>Purchases.</b> Subscriptions are sold and billed by Apple through the App Store. Apple handles your payment details. Tally only checks, on your iPhone, whether you have an active subscription. Apple's privacy policy applies to purchases.</p>
 
 <h2>Parents and linked accounts</h2>
@@ -38,10 +40,12 @@ summary-sharing: active
 
 <h2>Children</h2>
 <p>Tally is used by students who may be under 18. Tally has no accounts of its own and does not collect personal information on any server. <!-- Counsel: confirm COPPA/state age-assurance positioning (GL-03). --></p>
+<p>Where Apple indicates that age rules apply, Tally asks Apple for an age range using Apple's Declared Age Range feature, and may ask a parent or guardian to approve significant changes. Tally keeps the answer only while the app is open. It stores just the date it last asked, the app version a parent last approved and the app's own App Store age rating, never your age or age range.</p>
 
 <h2>Your choices and deleting your data</h2>
 <ul>
 <li><b>Sign Out &amp; Erase</b> (Settings) revokes the Canvas token and deletes all Tally data, keys and scheduled reminders from your iPhone.</li>
+<li><b>Erase Saved Data</b> appears if your school turns Tally off. It deletes your Canvas data and its reminders from your iPhone but keeps you signed in, so Tally can rebuild it if your school turns Tally back on. If your school keeps Tally off for 30 days, Tally erases this data automatically. Your settings, such as hiding course names, are kept.</li>
 <li>Deleting the app also deletes its data.</li>
 <li>Subscriptions are managed and cancelled in your Apple Account settings.</li>
 </ul>
