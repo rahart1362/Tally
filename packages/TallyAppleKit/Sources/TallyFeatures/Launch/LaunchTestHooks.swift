@@ -212,7 +212,7 @@ public nonisolated struct LaunchTestHooks: Sendable {
         if let lastRefreshAttempt { Self.writeLastRefreshAttempt(lastRefreshAttempt, root: root, environment: environment) }
         // EB-26: after the seed above (this account must already exist), so a single launch can
         // both seed the flagship account and land it in the school-revoked state.
-        if schoolRevoked { Self.writeSchoolRevoked(root: root, environment: environment) }
+        if schoolRevoked { await Self.writeSchoolRevoked(root: root, environment: environment) }
     }
 
     /// The `lastRefreshAttempt` hook: a refresh record whose last attempt (a success) was an hour or
@@ -240,11 +240,11 @@ public nonisolated struct LaunchTestHooks: Sendable {
     /// sees it. Recording a success at the seeded glance's own `asOf` first keeps `lastSuccessAt`
     /// exactly equal to the committed data's `fetchedAt`, so that rule leaves the failure alone,
     /// exactly as it does in production (a real sync's success and commit always agree).
-    static func writeSchoolRevoked(root: URL, environment: AccountEnvironment) {
+    static func writeSchoolRevoked(root: URL, environment: AccountEnvironment) async {
         guard let account = AccountDirectoryStore(root: root).activeAccount() else { return }
         var record = RefreshRecord()
         let store = environment.snapshotStore(for: account.accountKey, root: root, sharedRoot: environment.sharedRoot())
-        if case .loaded(let glance) = store.loadGlance() {
+        if case .loaded(let glance) = await store.loadGlance() {
             record.began(.launch, at: glance.asOf)
             record.succeeded(dataFetchedAt: glance.asOf)
         }
