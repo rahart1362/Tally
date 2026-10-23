@@ -69,11 +69,13 @@ public enum DashboardText {
     }
 
     /// A "Needs attention" row's title: "Lab Report 4 is missing", "BIO 101: missing work is
-    /// closed", "Lab Report 4 due 2:30 PM", "Busy stretch starting Oct 2, 2026", or the title alone.
-    /// Times and dates are in `calendar`'s time zone.
+    /// closed", "Lab Report 4 due 2:30 PM", "Busy stretch starting Fri, Oct 2", or the title alone.
+    /// Times and dates are in `calendar`'s time zone. `now` decides UX1-13's "year only when not
+    /// the current year" for `.overload`; it defaults to the wall clock (like `calendar`'s own
+    /// `.autoupdatingCurrent` default) so every existing caller is unchanged, and tests pin it.
     public static func attentionTitle(
         _ content: DashboardProjection.AttentionItem.Content, calendar: Calendar = .autoupdatingCurrent,
-        locale: Locale = TallyLocale.effective
+        now: Date = Date(), locale: Locale = TallyLocale.effective
     ) -> String {
         switch content {
         case .missingOpen(let title, _):
@@ -83,7 +85,7 @@ public enum DashboardText {
         case .dueSoon(let title, let dueAt, _):
             resolve(Key.dueSoonTitle(title, TallyFormat.time(dueAt, calendar: calendar, locale: locale)), locale)
         case .overload(let start):
-            resolve(Key.overloadTitle(date(start, calendar: calendar, locale: locale)), locale)
+            resolve(Key.overloadTitle(date(start, now: now, calendar: calendar, locale: locale)), locale)
         case .other(let title, _):
             title
         }
@@ -137,11 +139,11 @@ public enum DashboardText {
     /// (Courses/To-Do's `dueDay`), never with the year -- UX1-13: `Date.FormatStyle`'s
     /// `.abbreviated` date style always includes the year, even one day out ("Busy stretch
     /// starting Oct 15, 2026"), and at AX5 that year took a whole line of its own. The year
-    /// returns only once `date` is no longer in the current calendar year.
-    private static func date(_ date: Date, calendar: Calendar, locale: Locale) -> String {
+    /// returns only once `date` is no longer in the same calendar year as `now`.
+    private static func date(_ date: Date, now: Date, calendar: Calendar, locale: Locale) -> String {
         let base = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
             .weekday(.abbreviated).month(.abbreviated).day()
-        return calendar.isDate(date, equalTo: Date(), toGranularity: .year)
+        return calendar.isDate(date, equalTo: now, toGranularity: .year)
             ? date.formatted(base)
             : date.formatted(base.year())
     }

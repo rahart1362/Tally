@@ -316,7 +316,9 @@ final class PaywallUITests: TallyUITestCase {
         }
         XCTAssertEqual(element("paywall.trial", in: app).exists, trial, "the trial line", file: file, line: line)
         if trial {
-            XCTAssertEqual(element("paywall.trial", in: app).label, "2 weeks free, then $9.99/year", file: file, line: line)
+            // UX1-33: word joiners (U+2060) around the price's slash keep it whole at AX5.
+            XCTAssertEqual(element("paywall.trial", in: app).label, "2 weeks free, then $9.99\u{2060}/\u{2060}year",
+                           file: file, line: line)
         }
         // EB-18: the trial's end date and the charge that follows, only while the trial is offered.
         XCTAssertEqual(element("paywall.trialEnds", in: app).exists, trial, "the trial-ends line", file: file, line: line)

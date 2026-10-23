@@ -47,7 +47,10 @@ struct GradeOverrideTests {
         #expect(GradeOverrideChoice.automatic.override == nil)
         #expect(GradeOverrideChoice.yes.override == .keptOutsideCanvas)
         #expect(GradeOverrideChoice.no.override == .inCanvas)
-        #expect(GradeOverrideChoice.allCases.map { String(localized: $0.title) } == ["Automatic", "Yes", "No"])
+        // UX1-22 (pending owner approval): "Yes"/"No" reworded as statements for the flattened
+        // Course Options menu, which no longer reads the question aloud before each choice.
+        #expect(GradeOverrideChoice.allCases.map { String(localized: $0.title) }
+                == ["Automatic", "Kept outside Canvas", "Tracked in Canvas"])
         #expect(String(localized: L10n.GradeOverride.title()) == "This course's grades are kept outside Canvas")
         #expect(String(localized: L10n.GradeOverride.menu()) == "Course Options")
     }
