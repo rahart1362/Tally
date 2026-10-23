@@ -201,6 +201,61 @@ Canvas natively supports parent access through **observer** accounts and student
 - **Queued, in order:** this PMO docs PR; FEAT-2…FEAT-6 (one at a time; FEAT-3 and FEAT-4 both bump the `UserState` schema); SEC-FIX-2, UX-FIX-2 and PERF-FIX-1 (owner-approved 10-20, above); device checks for the owner (UX1-19, a real-device Siri unlock prompt for SEC1-10).
 - **Post-MVP review queue, all read-only, DONE 2026-10-19:** SEC-1 security review (Opus; 0 Critical, 0 High, 2 Medium, 6 Low, 13 Info; report kept local, public repo); IDEAS-1 low-cost features (Sonnet; 11 ideas; top: the Momentum streak, To-Do "Remind me", a per-course grade goal, Quiet Hours, the school-check seed; copied to `reviews/ideas1-report.md`); UX-1 UX/UI review (Opus; 39 items, 2 S1 / 14 S2 / 23 S3; copied to `reviews/ux1-report.md`); PERF-1 performance review (Sonnet; every gated budget has 35-72% headroom except the known non-gating `snapshotDecodeDevice/stress`; copied to `reviews/perf1-report.md`).
 
+### Owner decisions since the plan-v2 reset (2026-10-21 → 10-23)
+
+- **10-21, plan v2** (owner: "update the plan… security, performance, UX/UI, key enhancements; low-medium cost OK; ask first for high-cost"): EB-01–04 age assurance (**AGE-1**) **starts now**, after the features already running; the release-config UI-test configuration (**RELCFG-1**) runs **yes, after the features**; the App Store listing text is **drafted now** for approval; SEC1-19 (the below-goal alert) **hides the course name by default**. Low-to-medium security, performance, UX and enhancement work is approved in bulk (SEC-FIX-3/4, PERF-FIX-2, FEAT-7 Handoff, FEAT-8 Canvas link preference, IDEAS-2, UX-2, SEC-2, the final re-gate).
+- **10-21, lean CI:** the owner chose **lever B only**; levers A, C and D were declined. Per-package tour/a11y/gate dispatches are replaced by one consolidated full tour, a11y run and release gate at the end of the queue.
+- **10-21, no self-hosted runner:** the owner will do device and manual testing later, on their own Mac. Device checks (AGE-1 EB-04, the SEC1-10 Siri unlock, UX1-19 AX5 menus, the launch-metric baseline calibration, and the SEC1-05 per-institution redirect at O1) are collected into one owner checklist for that session.
+- **10-21, COMPLIANCE-2** (US-wide, 96 laws reviewed, Yes 20 / Maybe 22; the dossier stays local at `~/Documents/Tally-compliance/us-wide/`; reviewed and fixed only through engineering items COMP-1, AGE-1 and COMP-2, counsel questions kept local):
+  - AGE-1 starts now, in parallel with the running feature queue;
+  - **EB-19: a 2-week free trial** (amended from the original 1-month trial, P1);
+  - EB-23: draft the `/admin` page, folded into STORE-COPY-1.
+- **10-21, store listing + `/admin` (PR #67):** approved as drafted — the name "Tally: Grades & Due Dates", the subtitle "Grades, deadlines & reminders", keyword set A, the promo text, and the description with 2 edits (the grades-visibility line; the Family bullet becomes a submission step). The `/admin` page is approved as drafted, published on merge. es-MX is a machine pass.
+- **10-23, EB-26 (COMP-2):** automatic erase after a **30-day** school-revoked window (`SubscriptionConfig.schoolRevokedRetentionDays = 30`); only a successful sync resets the clock. Counsel Q45 may still revise the window.
+- **10-23, EB-20 (COMP-2):** ship with generic renewal-reminder copy now. The **EB-20b** follow-up must land well before the first renewal (about 11 months after the first sale, plus the trial): the renewal date and how to cancel in the notification, the amount (per counsel Q37), a Home banner during the window, and offering the notification channel at purchase.
+- **10-23, UX1-23:** keep the What-If stepper (the VoiceOver 1-point adjustment). Closed, won't fix.
+- **10-23, SEC-2 rulings** (the full report stays local at `pmo-audit/.build-audit/sec2/report.md`, reviewed commit `c04c137`; findings fixed in PR #85, one residual recorded for the on-device check and counsel — see [`reviews/sec2-summary.md`](reviews/sec2-summary.md)). Stated neutrally, per the owner:
+  - the consent restriction's scope covers the app UI; a new release rule requires it to also cover widgets, Siri/Shortcuts or notifications when a significant change touches them, pending counsel confirmation (SEC2-02);
+  - Erase Saved Data (manual and automatic) keeps the privacy settings, such as Hide Course Names (SEC2-07);
+  - the parent's below-goal alert hides the course by default, matching the student's own ruling (SEC2-08);
+  - the privacy-page additions ship as a draft PR for line-by-line owner approval, with counsel review later (SEC2-13; approved 2026-10-23, delivered in this PR).
+
+### Post-MVP PRs #63–#86 and the remaining queue (2026-10-21 → 10-23)
+
+| PR | What | Merge commit |
+|---|---|---|
+| #63 | DOCS-3: MVP-gate decisions, rulings and post-MVP reviews | `b387c6e` |
+| #64 | SEC-FIX-2: the two optional SEC-1 copy variants | `bd2de33` |
+| #65 | PERF-FIX-1: launch metric, GoalSeek worst-case gate, widget memory canary | `16befa5` |
+| #66 | SEC-FIX-3: 10 small SEC-1 Info items | `eca323e` |
+| #67 | Store listing + `/admin` page (owner-approved) | `7b4b183` |
+| #68 | FEAT-2: school-check paywall hardening | `b962587` |
+| #69 | FEAT-7: Handoff to Mac/iPad browser (idea 9) | `61b7ade` |
+| #70 | Dependabot swift-crypto 4.5.2 → 5.0.1 (Linux-only lane; PMO review clean) | **open**, not yet merged |
+| #71 | SEC-FIX-4: App Group minimisation, per-institution redirect, CLEANUP-1 | `6ca8669` |
+| #72 | ci: raise the iOS job timeouts | `184908f` |
+| #73 | AGE-1: Declared Age Range / Significant Change (EB-01–EB-04) | `a3863b1` |
+| #74 | PERF-FIX-2: shared widget glance read, decode-noise evidence, lane-ratio tool | `ba9156b` |
+| #75 | FEAT-3: To-Do "Remind me" + per-student Quiet Hours (ideas 4, 5) | `e9f758f` |
+| #76 | COMP-1: subscription disclosures and the 2-week trial (EB-18/19/21/22/24a) | `962e131` |
+| #77 | FEAT-B: week to Calendar, Send my week, Canvas link preference (ideas 10, 11, 7) | `3f57015` |
+| #78 | ci: launch-metric opt-in + UI-test allowance raise | `8f5baa5` |
+| #79 | FEAT-4: per-course grade goals + "save What-If as goal" (ideas 2, 6) | `0f8f5eb` |
+| #80 | FIX-GAPS-1: five unwired-feature gaps (incl. Hide Course Names in widgets/Siri) | `0e65d6f` |
+| #81 | RELCFG-1: release-optimised UITest configuration, 8 release-config flows now real | `28d5dd5` |
+| #82 | COMP-2: EB-26 data retention + EB-20 renewal reminders | `c04c137` |
+| #83 | UX-FIX-2: the 23 UX-1 S3 items | `5572670` |
+| #84 | TOUR-2: Audit tour legs for post-MVP surfaces + the CanvasLinkPreference flake fix | `89c0fc6` |
+| #85 | SEC-FIX-5: SEC-2 hardening | `ef180d0` |
+| #86 | EB20-ATTACH: plan renewal reminders when the account attaches after StoreKit answers | **open**, not yet merged |
+
+**Remaining queue, in order:**
+1. #86 and this docs PR (DOCS-4) merge.
+2. **The final consolidated full Audit tour** (every leg, including TOUR-2's Q–Y, English, `widgets=true`) plus an a11y run and a release gate, run once on that `main`.
+3. **UX-2:** an Opus re-review of every new surface against that tour (the sample interstitial, `AgeRestrictedView`, Quiet Hours, Remind me, course goals, the paywall disclosures and confirmation, FEAT-B, the school-revoked notice and Erase).
+4. A fresh store-screenshot gallery.
+5. The owner sign-off package, including one consolidated device-check list (EB-04, the SEC1-10 Siri unlock, UX1-19, the launch-baseline calibration, the SEC1-05 redirect at O1, and the SEC-2 device steps: Siri unlock, the AGE relaunch, the upgrade migration, the calendar export).
+
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
 - Each work package ran **two** full runs: a full dispatch at hand-off, then the PR's own run.
@@ -297,6 +352,19 @@ Work-package IDs refer to the specialist reports. Every gate uses the validation
 | App Review cannot sign in | High without O6 | 2.1 rejection loop | Hosted demo instance + sample-data mode + review notes |
 | Age-assurance laws apply to a student audience | Medium | Submission or legal exposure | Counsel (O7); iOS 26 floor enables Declared Age Range |
 | Prior-agent pattern repeats (claims without evidence) | — | Rework | Every WP has an explicit verification method; PMO re-runs evidence (as done for the encryption spec) |
+
+### Watch items (2026-10-23)
+
+Non-blocking findings carried forward, each with the run it was seen in:
+
+| Watch item | Seen in | Note |
+|---|---|---|
+| `HomeRenderTests` render count under ASan | run [39657400478](https://github.com/rahart1362/Tally/actions/runs/39657400478) | `HomeRenderTests.swift:44` saw 3 `DashboardView` bodies where 2 were expected: a render-count timing flake under ASan, not a real regression. |
+| The non-blocking GoalSeek/`core-perf` Linux gate | run [39643001656](https://github.com/rahart1362/Tally/actions/runs/39643001656) | `GoalSeekBoundedWorstCaseGate` `extremeRatiosInAPeriod`: median 674.45 ms exceeds its 600 ms ceiling under load (headroom −74.45 ms). Non-blocking by design; reassess the ceiling with PERF-FIX-2's lane-ratio data. |
+| The `ubuntu-latest` → 26 migration | run [39943975542](https://github.com/rahart1362/Tally/actions/runs/39943975542) | The `TallyCore tests (Linux, Swift 6.4)` job already runs on `Image: ubuntu-26.04`, while the container pins `SWIFT_PLATFORM=ubuntu24.04`. Pin the runner to `ubuntu-24.04` if `core-linux` breaks. |
+| `REL.flow.14-demo-mode.ios27` (Xcode 27 preview) | gate [39975879943](https://github.com/rahart1362/Tally/actions/runs/39975879943) | `testWelcomeToSampleDataDashboard` failed (WARN, non-blocking); it passed at PR #81's gate. |
+| The CI-simulator launch baseline (owner device calibration) | gate [39975879943](https://github.com/rahart1362/Tally/actions/runs/39975879943) | The launch metric reads 2.21 s against the stale stored baseline (report-only, PERF-FIX-1's 20% rule); needs recalibration on a real device. |
+| Dependabot PR #70 (swift-crypto 4.5.2 → 5.0.1) | run [39657400478](https://github.com/rahart1362/Tally/actions/runs/39657400478) | Still open. iOS links the system CryptoKit, so the iOS jobs don't exercise this bump; the one required red on that run is the unrelated `HomeRenderTests` flake above. Prefer `exact: "5.0.3"` (bounds-hardening patches) once the CI queue is quiet. |
 
 ## 5. What starts immediately (no owner input needed)
 

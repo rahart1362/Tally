@@ -474,8 +474,18 @@ L10N-04 translates from that merge commit. Any English change after it needs the
 - `NSFaceIDUsageDescription` = "Face ID unlocks Tally to protect your courses and grades." (MVP-1, PR #52), approved on **2026-10-12**. Open item (code, not this docs PR): the catalog's own translator comment still reads PENDING and needs a code PR to update it;
 - `settings.language.label` / `settings.language.footerV2` (L10N-04), approved on **2026-10-12**;
 - `settings.signOut.footer` = "Before you delete Tally, use Sign Out & Erase to end its access at your school." (MVP-4, PR #57; EB-17), approved on **2026-10-15**.
+- `welcome.revokeNotice.title`, `.message`, `.ok` (SEC-FIX-2, PR #64; SEC1-02), approved on **2026-10-21** with corrected wording: no time claim; "erased everything on this iPhone… remove Tally under Approved Integrations". SEC1-10's variant reuses the existing `widget.message.openTally` string, no new key.
+- `subscription.interstitial.messageNamedSchool` (FEAT-2, PR #68), the two-sentence wording, approved on **2026-10-21**.
+- `ageAssurance.restricted.title`, `.body` (AGE-1, PR #73; EB-01–04), approved on **2026-10-21**: title as drafted, body without "safe".
+- `todo.swipe.remindMe`, `todo.remindMe.confirmation`, `notification.adHoc.body`, `notifications.generic.adHoc.title`, `notifications.generic.adHoc.body`, `reminders.quietHours.start`, `.end`, `.footer` (FEAT-3, PR #75; ideas 4 and 5), all 8 keys approved as drafted on **2026-10-21**.
+- `subscription.paywall.renewalAutoCancel`, `.trialEndsThenCharged`, `subscription.feature.privacyQualified`, `subscription.confirmation.title`, `.amountLabel`, `.renewsLabel`, `.done`, `subscription.settings.viewConfirmation` (COMP-1, PR #76; EB-18/19/21/22/24(a)), approved on **2026-10-22** with 2 PMO edits before merge: the privacy line names Handoff, and the cancel path reads "Settings > your name > Subscriptions".
+- `dashboard.weekAhead.addButton`, `.shareButton`, `.shareHeader`, `.shareDayCountOnly`, `.shareDayTitles`, `settings.canvasLinks.label`, `.optionApp`, `.optionBrowser` (FEAT-B, PR #77; ideas 10, 11 and 7), all 8 keys approved as drafted on **2026-10-22**.
+- `courseDetail.goal.header`, `.footer`, `.setButton`, `.stepperLabel`, `.remove`, `.removedConfirmation`, `courseDetail.whatIf.saveAsGoalButton`, `.goalSavedConfirmation` (FEAT-4, PR #79; ideas 2 and 6), all 8 keys approved as drafted on **2026-10-22**.
+- `subscription.schoolOff.eraseSavedData`, `.eraseSavedData.confirmTitle`, `.eraseSavedData.confirmMessage`, `subscription.schoolOff.autoEraseNotice`, `notifications.generic.renewal.title`, `.body`, `subscription.renewalReminderBanner.body` (COMP-2, PR #82; EB-26, EB-20), all 7 keys approved on **2026-10-23**, with the 30-day school-revoked retention window (`SubscriptionConfig.schoolRevokedRetentionDays = 30`).
+- `welcome.tagline.noBreak`, `courseDetail.whatIf.button.noBreak`, `courseDetail.override.keptOutsideCanvas`, `.trackedInCanvas`, `dashboard.reason.stillAccepted.inline` (UX-FIX-2, PR #83), all 5 keys approved as drafted on **2026-10-23**.
+- `family.notification.belowGoal.hiddenCourse` = "%@ has a course that needs attention" (SEC-FIX-5, PR #85; SEC2-08), approved in principle on **2026-10-23**: the parent's below-goal alert hides the course by default, matching the student's own SEC1-19 ruling.
 
-No frozen English value has changed.
+No frozen English value has changed. Every key above was confirmed present in `packages/TallyAppleKit/Sources/TallyStrings/Resources/Localizable.xcstrings` on `main`.
 | **M4** | as planned | **XG-05** alongside real sign-in | This is the first real-data check of G-2. |
 | **M5** | as planned | **L10N-05** with ASC-10/12/17 | Localized metadata and screenshots become release gates. If L-3 = "not a gate" and es isn't ready, the gate runs for en only. |
 

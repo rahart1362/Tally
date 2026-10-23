@@ -1218,7 +1218,7 @@ public enum L10n {
                                     comment: "Settings sheet's navigation title.")
         }
 
-        /// Plan 08 L-2 / L10N-04 (PENDING owner approval): the row that opens iOS's own per-app
+        /// Plan 08 L-2 / L10N-04 (approved 2026-10-12): the row that opens iOS's own per-app
         /// Language setting for Tally. No custom picker; the row's value is the system's own
         /// language name, built in `SettingsView`, never a catalog string.
         public static func languageLabel() -> LocalizedStringResource {
@@ -1230,7 +1230,7 @@ public enum L10n {
         /// (`settings.language.footer`) was ambiguous about where the choice appears and implied
         /// the link lands on Tally's own Settings page, when `openSettingsURLString` opens
         /// Settings at its root (the L10N-01 spike). This is the reviewer's proposed replacement.
-        /// Still PENDING owner approval; both English drafts are in
+        /// Approved 2026-10-12; both English drafts are in
         /// `docs/pmo/reviews/l10n-04-report.md` for the owner to choose between.
         public static func languageFooterV2() -> LocalizedStringResource {
             LocalizedStringResource(
@@ -1263,7 +1263,7 @@ public enum L10n {
         }
 
         /// EB-17 (dossier.md §12 P3; R-11): the Account section footer under Sign Out & Erase,
-        /// shown only while signed in. NEW key, PENDING owner approval.
+        /// shown only while signed in. NEW key, approved 2026-10-15.
         public static func signOutFooter() -> LocalizedStringResource {
             LocalizedStringResource(
                 "settings.signOut.footer",
