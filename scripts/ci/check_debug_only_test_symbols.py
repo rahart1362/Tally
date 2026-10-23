@@ -8,11 +8,22 @@ and then fails the PR run's Release build. That happened in PR #23, run 36922905
 (`GradeControlsViewTests.swift:364: cannot find 'AccountHarness' in scope`). This check finds the
 same mistake in seconds on Linux.
 
+ASC-10/RELCFG-1 (apps/TallyiOS/project.yml's `UITest` configuration, app-store-compliance.md
+§3.3.1): `TALLY_TEST_HOOKS` identifies that configuration the same way `DEBUG` identifies a Debug
+build (`ios-perf`'s own Release test build already sets it by command-line override, the same
+flag every `#if DEBUG || TALLY_TEST_HOOKS` hook gate in the tree checks). A region guarded by
+`TALLY_TEST_HOOKS` alone (no `DEBUG`) is exactly as "debug-only" for this script's purposes as one
+guarded by `DEBUG` alone: neither is defined in a true shipping Release build, so a name declared
+only there must never be used unguarded, or that build fails to compile -- PR #23's mistake class,
+just with a different flag. No such bare `#if TALLY_TEST_HOOKS` region exists in the tree today
+(every gate so far reads `#if DEBUG || TALLY_TEST_HOOKS`, already caught by the `DEBUG` branch
+below since a prefix match sees past the `||`); this extension only matters if one is ever added
+without `DEBUG` alongside it.
+
 How it works:
-- Collect the top-level names declared only inside `#if DEBUG` regions of the test targets'
-  sources (types, functions, constants).
-- Report every use of one of those names outside a `#if DEBUG` region, ignoring comments and
-  strings.
+- Collect the top-level names declared only inside `#if DEBUG` or `#if TALLY_TEST_HOOKS` regions
+  of the test targets' sources (types, functions, constants).
+- Report every use of one of those names outside such a region, ignoring comments and strings.
 
 Usage: `check_debug_only_test_symbols.py [--self-test] [ROOT]`
 """
@@ -61,14 +72,21 @@ def code_only(lines: list[str]) -> list[str]:
     return out
 
 
+#: ASC-10/RELCFG-1: the flag naming the `UITest` build configuration (apps/TallyiOS/project.yml),
+#: treated the same as `DEBUG` below -- see the module docstring.
+NON_SHIPPING_FLAGS = ("DEBUG", "TALLY_TEST_HOOKS")
+
+
 def debug_flags(lines: list[str]) -> list[bool]:
-    """For each line, whether it sits inside the `#if` branch of a condition naming DEBUG."""
-    stack: list[bool] = []  # per open #if: is this branch DEBUG-only?
+    """For each line, whether it sits inside the `#if` branch of a condition naming DEBUG or
+    TALLY_TEST_HOOKS (`NON_SHIPPING_FLAGS`) -- a region neither flag reaches a true shipping
+    Release build."""
+    stack: list[bool] = []  # per open #if: is this branch debug-only (NON_SHIPPING_FLAGS)?
     flags = []
     for raw in lines:
         s = raw.strip()
         if s.startswith("#if"):
-            stack.append(bool(re.match(r"#if\s+DEBUG\b", s)))
+            stack.append(bool(re.match(r"#if\s+(?:" + "|".join(NON_SHIPPING_FLAGS) + r")\b", s)))
             flags.append(any(stack))
             continue
         if s.startswith("#elseif") or s.startswith("#else"):
@@ -127,13 +145,17 @@ def self_test() -> int:
         ({"S.swift": support, "B.swift": bad}, 2),
         ({"S.swift": "#if DEBUG\nstruct Shared {}\n#else\nstruct Other {}\n#endif\n", "E.swift": elsewhere,
           "U.swift": "let x = Shared(); let y = Other()\n"}, 0),
+        # ASC-10/RELCFG-1: a bare `#if TALLY_TEST_HOOKS` region (no DEBUG) is debug-only too.
+        ({"S.swift": "#if TALLY_TEST_HOOKS\nstruct OnlyHooks {}\n#endif\n",
+          "G.swift": "#if TALLY_TEST_HOOKS\nlet h = OnlyHooks()\n#endif\n",
+          "B.swift": "let h = OnlyHooks()\n"}, 1),
     ]
     for files, expected in cases:
         got = len(scan(files))
         if got != expected:
             print(f"SELF-TEST FAIL: expected {expected} problems, got {got}: {scan(files)}")
             return 1
-    print("SELF-TEST PASS (3 cases)")
+    print(f"SELF-TEST PASS ({len(cases)} cases)")
     return 0
 
 

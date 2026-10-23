@@ -38,6 +38,13 @@ same gate and stay PENDING here until they land.
     python3 scripts/ci/check_release.py --screenshots MANIFEST [--due M] --json OUT
         MVP-3: REL.store.screenshots, from `scripts/release/screenshots.py --raw`'s own manifest.json
         (8 scenes x Light/Dark x en/es, each exactly 1320x2868). MANIFEST is that file's path.
+    python3 scripts/ci/check_release.py --release-config RESULTS [--due M] --json OUT
+        ASC-10/RELCFG-1: one REL.flow.<id>.release-config check per Debug-configuration flow, from
+        the same tests run against the UITest build configuration (Release optimizations plus
+        TALLY_TEST_HOOKS, app-store-compliance.md §3.3.1), RESULTS a `xcresulttool get test-results
+        tests` JSON path (like one --flows entry). A separate call from --flows (not a third
+        CONFIGURATION=PATH there) because it runs in its own CI job (`ios-release-config`), in
+        parallel with `ios-gate`'s own Debug/Release flow run, and `--merge` refuses duplicate IDs.
     python3 scripts/ci/check_release.py --merge OUT IN [IN ...]
         Combines the jobs' reports into one compliance JSON, prints the table and decides.
     python3 scripts/ci/check_release.py --self-test
@@ -800,12 +807,34 @@ def flow_checks(results_by_configuration: dict[str, dict[str, str]], only_given:
         ok = all(result.lower() == "passed" for result in outcome.values())
         checks.append(Check(flow.id, f"{flow.title} ({flow.configuration})", "ERROR", flow.due, ok,
                             "; ".join(f"{test}: {result}" for test, result in outcome.items())))
-        if flow.configuration == "Debug":
-            checks.append(Check(f"{flow.id}.release-config", f"{flow.title} in a Release-optimized UI test build",
-                                "ERROR", "M5", False,
-                                "these tests use a DEBUG-only launch hook today; the UITest configuration "
-                                "(Release optimizations plus TALLY_UI_TESTING, §3.3.1) is M5 work",
-                                "M5 (ASC-10: the UITest build configuration)"))
+    return checks
+
+
+def release_config_checks(results: dict[str, str] | None, due: str = "MVP") -> list[Check]:
+    """ASC-10/RELCFG-1: one check per Debug-configuration flow, `REL.flow.<id>.release-config`,
+    from the same flow's tests run against the UITest build configuration (Release optimizations
+    plus TALLY_TEST_HOOKS, app-store-compliance.md §3.3.1; `apps/TallyiOS/project.yml`'s `UITest`
+    config). `results` is `test_results()`'s own Suite/test -> result dict for that run (the
+    `ios-release-config` job's own xcresult), or `None` when that job did not produce one -- the
+    same "nothing passes by being missing" rule `a11y_audit_checks`/`screenshot_checks` use: a flow
+    whose UITest-configuration run never happened does not pass by omission. Kept separate from
+    `flow_checks` (which still only ever sees the Debug/Release results `ios-gate` produces) so the
+    two can run as separate CI jobs without `--merge` seeing the same check ID written twice."""
+    checks: list[Check] = []
+    for flow in FLOWS:
+        if flow.configuration != "Debug" or not flow.tests:
+            continue
+        check_id = f"{flow.id}.release-config"
+        title = f"{flow.title} in a Release-optimized UI test build (UITest configuration)"
+        if results is None:
+            checks.append(Check(check_id, title, "ERROR", due, False,
+                                "no UITest-configuration test results were given",
+                                "ASC-10 (RELCFG-1: the ios-release-config job)"))
+            continue
+        outcome = {test: _lookup(results, test) for test in flow.tests}
+        ok = all(result.lower() == "passed" for result in outcome.values())
+        checks.append(Check(check_id, title, "ERROR", due, ok,
+                            "; ".join(f"{test}: {result}" for test, result in outcome.items())))
     return checks
 
 
@@ -939,12 +968,33 @@ def self_test() -> int:
     assert by_id["REL.flow.14-demo-mode"].status == "FAIL", "a failed or missing mapped test fails its flow"
     assert "missing (did not run)" in by_id["REL.flow.14-demo-mode"].detail
     assert by_id["REL.flow.05-refresh-over-10s"].status == "FAIL", "a test that did not run never passes"
-    assert by_id["REL.flow.05-refresh-over-10s.release-config"].status == "PENDING"
+    assert "REL.flow.05-refresh-over-10s.release-config" not in by_id, \
+        "release-config checks come from release_config_checks(), not flow_checks() (separate CI jobs)"
     assert by_id["REL.flow.04-refresh-under-10s"].status == "PENDING", "a flow due after MVP with no test is pending"
     assert by_id["REL.flow.01-first-login"].status == "PENDING"
     only = {c.id for c in flow_checks({"Release": results}, only_given=True)}
     assert "REL.flow.03-launch-no-cache" in only and "REL.flow.05-refresh-over-10s" not in only \
         and "REL.flow.01-first-login" not in only, only
+    # ASC-10/RELCFG-1: REL.flow.<id>.release-config, from the UITest-configuration run.
+    debug_flow_ids = {f"{f.id}.release-config" for f in FLOWS if f.configuration == "Debug" and f.tests}
+    assert len(debug_flow_ids) == 8, sorted(debug_flow_ids)  # the 8 checks RELCFG-1's brief names
+    rc_all_pass = {test: "Passed" for flow in FLOWS if flow.configuration == "Debug" for test in flow.tests}
+    rc_pass = {c.id: c.settle() for c in release_config_checks(rc_all_pass)}
+    assert set(rc_pass) == debug_flow_ids, sorted(rc_pass)
+    assert rc_pass["REL.flow.02-launch-with-cache.release-config"].status == "PASS"
+    rc_missing = {c.id: c.settle() for c in release_config_checks(None)}
+    assert rc_missing["REL.flow.02-launch-with-cache.release-config"].status == "FAIL", \
+        "MVP is due now: no UITest-configuration results yet is a real failure, not a silent PENDING"
+    assert "no UITest-configuration" in rc_missing["REL.flow.02-launch-with-cache.release-config"].detail
+    rc_one_broken = dict(rc_all_pass)
+    rc_one_broken["LaunchFromCacheUITests/testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity"] = "Failed"
+    rc_broken = {c.id: c.settle() for c in release_config_checks(rc_one_broken)}
+    assert rc_broken["REL.flow.02-launch-with-cache.release-config"].status == "FAIL", \
+        "a flow that fails only under Release optimizations is a real finding, not papered over"
+    assert rc_broken["REL.flow.05-refresh-over-10s.release-config"].status == "PASS", \
+        "one flow's release-config failure must not sink an unrelated flow's own check"
+    # A caller-given due milestone is honoured (release-gate.yml's own default stays MVP).
+    assert release_config_checks(rc_all_pass, due="M4")[0].due == "M4"
     assert categories_in({"_OBJC_CLASS_$_NSUserDefaults", "_malloc"}, {"activeInputModes", "init"}) == {
         "NSPrivacyAccessedAPICategoryUserDefaults": ["_OBJC_CLASS_$_NSUserDefaults"],
         "NSPrivacyAccessedAPICategoryActiveKeyboards": ["activeInputModes"]}
@@ -1111,6 +1161,16 @@ def main(argv: list[str]) -> int:
             manifest = json.loads(pathlib.Path(options["--screenshots"]).read_text(encoding="utf-8"))
             due = options.get("--due") or "MVP"
             return write(screenshot_checks(manifest, due), out, "screenshots", report_only)
+        if "--release-config" in options:
+            raw = pathlib.Path(options["--release-config"]).read_text(encoding="utf-8")
+            rc_results = test_results(json.loads(raw))
+            print(f"RELEASE | release-config | {len(rc_results)} test case(s) in {options['--release-config']}")
+            if not rc_results:
+                print(f"RELEASE | release-config | no test case parsed from {options['--release-config']}; "
+                      "its first 3,000 characters:")
+                print(raw[:3000])
+            due = options.get("--due") or "MVP"
+            return write(release_config_checks(rc_results, due), out, "release-config", report_only)
     except (InputError, OSError, KeyError, ValueError, json.JSONDecodeError) as error:
         print(f"RELEASE | ERROR | input | {error}")
         return 2
