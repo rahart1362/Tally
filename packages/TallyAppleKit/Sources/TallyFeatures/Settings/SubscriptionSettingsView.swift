@@ -205,10 +205,9 @@ struct SubscriptionSettingsView: View {
     /// false).
     private var renewalReminderBannerPermission: ReminderPermission? {
         guard appModel.subscription.hasUpcomingRenewalReminder else { return nil }
-        switch appModel.reminders.permission {
-        case .notDetermined, .denied: appModel.reminders.permission
-        case .authorized, nil: nil
-        }
+        let permission = appModel.reminders.permission
+        guard permission == .notDetermined || permission == .denied else { return nil }
+        return permission
     }
 
     /// A trial or subscription this Apple Account bought, current or ended: what a refund is about.
