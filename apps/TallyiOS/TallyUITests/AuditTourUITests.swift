@@ -1255,14 +1255,25 @@ final class AuditTourUITests: TallyUITestCase {
             if done.waitForExistence(timeout: 5), done.isHittable { done.tap() }
         }
 
-        // Round 1 (run 39974117302): missing on every AX5 leg -- the What-If sheet's own
-        // `scrollToTop`'s default 20 swipes (this file's own doc comment on it: sized for a
-        // dismissed-sheet's ordinary settle, not AX5's taller rows covering less list per swipe)
-        // was not always enough to undo how far `whatIf`'s own `goScrolling` had scrolled down
-        // first, so `scrollUntilHittable` below started too far from the stepper to still reach it
-        // inside its own cap. Both raised for this one step.
+        // Round 1 (raising scrollToTop/scrollUntilHittable's own caps, run 39974117302) still
+        // missed on every AX5 leg in round 2 (run 39994166321) -- but now by *overshooting past*
+        // the goal section to "Instructor", further down still. `scrollUntilHittable`
+        // (ScreenUITestSupport.swift) swipes back-to-back with no settle between them, unlike this
+        // file's own `captureScreenfuls`/`scrollToTop`, which always wait at rest first; at AX5,
+        // several unsettled swipes in a row can carry more momentum than intended, skipping past a
+        // short section between two checks. Scrolling it back up by hand, settled between swipes
+        // (this class's own `waitUntilAtRest`, the same primitive `captureScreenfuls` already
+        // trusts at AX5 everywhere else in this file), replaces both calls.
         scrollToTop(app, maxSwipes: 30)
-        if scrollUntilHittable(stepper, in: app, maxSwipes: 25) {
+        var stepperFound = stepper.exists && stepper.isHittable
+        var swipes = 0
+        while !stepperFound, swipes < 20 {
+            app.swipeUp(velocity: .slow)
+            _ = waitUntilAtRest(app)
+            stepperFound = stepper.exists && stepper.isHittable
+            swipes += 1
+        }
+        if stepperFound {
             snap(app, screen: "courseGoal", state: "stepperAfterWhatIf", reachedVia: "What-If's Save as goal, Done, scrolled back up")
         } else {
             snap(app, screen: "courseGoal", state: "missing-stepperAfterWhatIf", reachedVia: "What-If's Save as goal, Done")
@@ -1305,9 +1316,12 @@ final class AuditTourUITests: TallyUITestCase {
             // the `.confirmationDialog` testG/testN fall back to a "PopoverDismissRegion" tap
             // for), so that fallback, copied from those without checking it applied here, silently
             // did nothing when the cancel button's own 10 s wait ran out. Always records something
-            // now, and waits longer for the heavier AX5 sheet to render.
+            // now. Round 2 (run 39994166321): still "missing" on every AX5 leg at a 15 s wait, but
+            // the picture `snap` took anyway (its own `waitUntilAtRest` settle runs regardless of
+            // which branch is taken) showed the confirmation fully, correctly rendered every time
+            // -- a slow AX5 sheet, not a wrong assumption about its presentation; raised again.
             let cancel = element("schoolOff.eraseSavedDataConfirm.cancel", in: app)
-            if cancel.waitForExistence(timeout: 15) {
+            if cancel.waitForExistence(timeout: 30) {
                 snap(app, screen: "schoolRevoked", state: "eraseConfirm", reachedVia: "tapped Erase Saved Data")
                 cancel.tap()
             } else {
@@ -1366,7 +1380,15 @@ final class AuditTourUITests: TallyUITestCase {
         if scrollUntilHittable(picker, in: app, maxSwipes: 25) {
             snap(app, screen: "settings-canvasLinks", state: "row", reachedVia: "Settings")
             picker.tap()
-            if app.buttons["Browser"].waitForExistence(timeout: 5) {
+            let browserOption = app.buttons["Browser"]
+            // Round 2 (run 39994166321): missing on 2 of the 4 AX5 legs -- the exact menu-open
+            // timing flake `CanvasLinkPreferenceUITests` fixes with `tap(_:expecting:)`'s own
+            // "wait, then re-tap once"; this leg can't reuse that helper (it asserts, which this
+            // file's soft-fail legs never do), so the same wait-and-retry, without the assertion.
+            if !browserOption.waitForExistence(timeout: 5), picker.exists, picker.isHittable {
+                picker.tap()
+            }
+            if browserOption.waitForExistence(timeout: 5) {
                 snap(app, screen: "settings-canvasLinks", state: "menu", reachedVia: "tapped settings.canvasLinks")
             } else {
                 snap(app, screen: "settings-canvasLinks", state: "missing-menu", reachedVia: "tapped settings.canvasLinks")
@@ -1397,6 +1419,12 @@ final class AuditTourUITests: TallyUITestCase {
     /// compute true. `TallyApp.swift`'s `case .active: subscription.foreground()` is the real app's
     /// own trigger for a later, environment-attached verification, so round 2 reaches it the same
     /// way `testM_appLockAndPrivacyCover` already does: backgrounding and reactivating the app.
+    ///
+    /// Round 2 (run 39994166321): still "missing-banner" everywhere, but the picture `snap` took
+    /// anyway showed the banner rendered correctly, immediately visible with no scroll needed at
+    /// all -- `scrollUntilHittable` was the wrong tool for a plain "has this async verification
+    /// published yet" wait (its only waiting is the time its own swipe gestures take, and a
+    /// fully-visible element needs no swipe to begin with). A plain existence wait replaces it.
     @MainActor
     func testY_subscriptionRenewalReminderBanner() throws {
         continueAfterFailure = true
@@ -1422,7 +1450,7 @@ final class AuditTourUITests: TallyUITestCase {
         openSettings(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "renewalReminderBanner", state: "subscriptionPage",
                        reachedVia: "Settings -> Subscription") {
-            if scrollUntilHittable(element("subscription.renewalReminderBanner.text", in: app), in: app, maxSwipes: 15) {
+            if element("subscription.renewalReminderBanner.text", in: app).waitForExistence(timeout: 20) {
                 snap(app, screen: "renewalReminderBanner", state: "banner",
                      reachedVia: "Settings -> Subscription, renewal due, notifications off")
             } else {
