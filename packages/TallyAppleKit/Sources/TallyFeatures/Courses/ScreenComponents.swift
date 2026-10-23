@@ -158,11 +158,18 @@ struct StatusChip: View {
         .lineLimit(isValue ? 1 : 3)
         .minimumScaleFactor(isValue ? TallyReflow.minimumScale(at: typeSize) : 1)
         .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
         .font(TallyTypography.caption.weight(.semibold))
         .padding(.horizontal, TallySpacing.sm)
         .padding(.vertical, TallySpacing.xs)
         .background(tint.opacity(0.12), in: Capsule())
+        // UX1-29: this frame used to sit *before* `.background`, which widened the LABEL itself
+        // to the row's full width and let the capsule stretch with it into a full-width bar at
+        // xxxLarge/AX (the same "frame outside the style widens an invisible container, not the
+        // shape" pattern UX1-01 found on the buttons). Moved after `.background`, the capsule
+        // keeps hugging its (possibly multi-line) text; this frame only offers the row's width
+        // for leading alignment, which is what let the text wrap in the first place -- SwiftUI
+        // proposes that width down through `.background`/`.padding` to the `Label` either way.
+        .frame(maxWidth: fullWidth ? .infinity : nil, alignment: .leading)
     }
 
     /// D02: this chip shows a value (a score): one line, shrunk at the accessibility sizes.

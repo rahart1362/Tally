@@ -38,40 +38,56 @@ struct LinkedStudentsSection: View {
     /// Sample mode only: back to the fictional student's own view (FAM-14).
     let onExploreStudentMode: (() -> Void)?
 
+    @ViewBuilder
     var body: some View {
-        Section {
-            if family.students.isEmpty {
-                Text(L10n.FamilyUI.parentNoStudents())
-                    .font(TallyTypography.footnote)
-                    .foregroundStyle(TallyColor.textSecondary)
-                    .accessibilityIdentifier("family.parentEmpty")
+        if family.students.isEmpty {
+            // UX1-37: a 3-line caption-size paragraph in a plain list row, then "Add a Student",
+            // read as a footnote rather than parent mode's first-run state. `TallyUnavailableView`
+            // (icon, title, the same body text as description, the primary action) stands above
+            // the remaining sections instead, the same treatment `HomeShellView`'s own full-screen
+            // empty state already gives this exact case.
+            TallyUnavailableView(Text(L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2",
+                                 description: Text(L10n.FamilyUI.parentNoStudents())) {
+                Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
+                    .buttonStyle(.tallyPrimary)
+                    .accessibilityIdentifier("family.addStudent")
             }
-            ForEach(family.students) { student in
-                NavigationLink {
-                    StudentDetailView(family: family, student: student)
-                } label: {
-                    LinkedStudentRow(student: student, colorIndex: family.colorIndex(of: student),
-                                     isViewed: student.id == family.activeSubject)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .accessibilityIdentifier("family.parentEmpty")
+            if let onExploreStudentMode {
+                Section {
+                    Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
+                        .accessibilityIdentifier("family.sample.viewAsStudent")
                 }
-                .accessibilityIdentifier("family.student")
             }
-            Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
-                .accessibilityIdentifier("family.addStudent")
-            if !family.students.isEmpty {
+        } else {
+            Section {
+                ForEach(family.students) { student in
+                    NavigationLink {
+                        StudentDetailView(family: family, student: student)
+                    } label: {
+                        LinkedStudentRow(student: student, colorIndex: family.colorIndex(of: student),
+                                         isViewed: student.id == family.activeSubject)
+                    }
+                    .accessibilityIdentifier("family.student")
+                }
+                Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
+                    .accessibilityIdentifier("family.addStudent")
                 Toggle(String(localized: L10n.FamilyUI.hideStudentNames()),
                        isOn: Binding(get: { family.hidesStudentNames }, set: { family.setHidesStudentNames($0) }))
                     .accessibilityIdentifier("family.hideNames")
+                if let onExploreStudentMode {
+                    Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
+                        .accessibilityIdentifier("family.sample.viewAsStudent")
+                }
+            } header: {
+                Text(L10n.FamilyUI.linkedStudentsHeader())
+                    .tallySectionText()
+            } footer: {
+                Text(L10n.FamilyUI.linkedStudentsFooter())
+                    .tallySectionText()
             }
-            if let onExploreStudentMode {
-                Button(String(localized: L10n.FamilyUI.sampleViewAsStudent()), action: onExploreStudentMode)
-                    .accessibilityIdentifier("family.sample.viewAsStudent")
-            }
-        } header: {
-            Text(L10n.FamilyUI.linkedStudentsHeader())
-                .tallySectionText()
-        } footer: {
-            Text(L10n.FamilyUI.linkedStudentsFooter())
-                .tallySectionText()
         }
     }
 }

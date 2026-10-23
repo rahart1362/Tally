@@ -25,6 +25,9 @@ struct WelcomeView: View {
     let onExploreSampleData: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// UX1-03: trims the brand panel's padding at AX5 so it ends above the bottom fade instead of
+    /// the fade landing on the tagline's last word (SE) or the first benefit row (PM).
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var revealed: Bool
     /// ux-fp2 D05: the fade above the pinned actions, scaled with the `body` text it fades (about
     /// one line of it).
@@ -96,7 +99,10 @@ struct WelcomeView: View {
         let motion = BrandMomentMotion.forReduceMotion(reduceMotion)
         return VStack(spacing: TallySpacing.md) {
             TMark(size: 96)
-                .padding(.top, TallySpacing.xxxl)
+                // UX1-03: at AX5 the panel's own top/bottom padding (xxxl) pushed its content so
+                // tall that the bottom fade landed on text at rest; the TMark's own size is
+                // unchanged, only the panel's padding shrinks.
+                .padding(.top, typeSize.isAccessibilitySize ? TallySpacing.lg : TallySpacing.xxxl)
                 .scaleEffect(revealed ? 1 : motion.markStartScale)
                 .offset(y: revealed ? 0 : motion.markStartOffsetY)
 
@@ -106,12 +112,15 @@ struct WelcomeView: View {
                 .opacity(revealed ? 1 : 0)
                 .animation(motion.wordmarkAnimation, value: revealed)
 
-            Text(L10n.Welcome.tagline())
+            // UX1-02 (option B, pending owner approval): non-breaking spaces inside "at a glance"
+            // keep that phrase on one line -- PM broke it as "...Canvas — at / a glance" and SE's
+            // second line started with the bare em dash. `tagline()` (the frozen key) is unchanged.
+            Text(L10n.Welcome.taglineNoBreak())
                 .font(TallyTypography.body)
                 .foregroundStyle(TallyColor.textOnHero2)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, TallySpacing.xxl)
-                .padding(.bottom, TallySpacing.xxxl)
+                .padding(.bottom, typeSize.isAccessibilitySize ? TallySpacing.lg : TallySpacing.xxxl)
                 .opacity(revealed ? 1 : 0)
                 .animation(motion.wordmarkAnimation, value: revealed)
         }

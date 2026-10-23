@@ -80,4 +80,13 @@ public enum TallyColor {
     /// Any #8A5300 (~6.3:1 on white); Dark #FFB454 (~11.4:1 on `bg.canvas`'s dark value). Apply
     /// `.opacity(_:)` at the call site for a wash background (D21); for text/icons use it solid.
     public static let warning = Color("warning", bundle: .module)
+
+    /// `positive.fill` — UX1-30: a swipe action's fill for a positive, completing action (To-Do's
+    /// "Done"), distinct from `accentFill`'s blue (which To-Do's "Open in Canvas" keeps), so the
+    /// full-swipe action reads differently at a glance. Any #0A6B3A (white label/glyph ≈6.6:1),
+    /// Dark #15804A (≈5.0:1); High Contrast Any #054D29 (≈10.0:1), Dark #0C6B3C (≈6.6:1) --
+    /// computed from the asset's own sRGB components with the WCAG relative-luminance formula,
+    /// the same `accentFill`'s own High Contrast values were (UNVERIFIED on a device: no Increase
+    /// Contrast capture of a swipe action exists in the audit tour to measure from).
+    public static let positiveFill = Color("positive.fill", bundle: .module)
 }

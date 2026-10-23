@@ -158,7 +158,15 @@ private struct WhatIfSummary: View {
             .accessibilityShowsLargeContentViewer()
             .accessibilityIdentifier("whatif.projected")
         }
-        .padding(.horizontal, TallySpacing.screenMargin)
+        // UX1-24: the summary's own padding (`screenMargin` alone) started its text 16 pt from
+        // the sheet's edge, but the list below starts ITS text 16 pt (`tallyList()`'s content
+        // margin) plus the system's own `.insetGrouped` row inset (`TallySpacing.xl`, the
+        // platform default) further in -- so "Simulation…/Projected" sat out of line with the
+        // group header and rows directly under it. Matching that total keeps the full-bleed
+        // background (unchanged) while the text lines up. UNVERIFIED on a device: no local
+        // Xcode/simulator to measure the row inset from; `TallySpacing.xl` is the platform
+        // default this codebase already names for an inset-grouped row.
+        .padding(.horizontal, TallySpacing.screenMargin + TallySpacing.xl)
         .padding(.vertical, TallySpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         // D31 (dark): with the list rows now `bgCard` (`tallyList()`), the sticky band's old

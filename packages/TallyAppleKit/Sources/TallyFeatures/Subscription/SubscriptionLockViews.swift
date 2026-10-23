@@ -102,7 +102,18 @@ struct SubscriptionRefreshBanner: View {
 
     private var savedDataText: String {
         guard let saved = home.freshness.showing else { return String(localized: L10n.Subscription.bannerNoDate()) }
-        return String(localized: L10n.Subscription.bannerSavedFrom(saved.formatted(date: .abbreviated, time: .shortened)))
+        return String(localized: L10n.Subscription.bannerSavedFrom(Self.savedAtText(saved)))
+    }
+
+    /// UX1-34: without the year on a near date. `.formatted(date: .abbreviated, time: .shortened)`
+    /// always includes the year ("from Oct 14, 2026 at 12:00 PM"), even hours out; every other
+    /// near date in the app omits it (`DashboardText`'s "Busy stretch", UX1-13).
+    private static func savedAtText(_ saved: Date, calendar: Calendar = .autoupdatingCurrent) -> String {
+        let base = Date.FormatStyle(locale: TallyLocale.effective, calendar: calendar, timeZone: calendar.timeZone)
+            .month(.abbreviated).day().hour().minute()
+        return calendar.isDate(saved, equalTo: Date(), toGranularity: .year)
+            ? saved.formatted(base)
+            : saved.formatted(base.year())
     }
 }
 
@@ -111,6 +122,10 @@ private struct SubscriptionRefreshBannerContent: View {
     let savedDataText: String
     let onSeePlans: () -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// UX1-34: hides this action while the selected tab is already showing `LockedFeatureCard`'s
+    /// own "See Plans", about 200 pt below -- two identical actions on one screen. Set by
+    /// `HomeShellView`, which is the only place that knows the selected tab.
+    @Environment(\.isCurrentTabLocked) private var isCurrentTabLocked
 
     var body: some View {
         TallyReflowStack(spacing: TallySpacing.md) {
@@ -122,17 +137,19 @@ private struct SubscriptionRefreshBannerContent: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("subscription.refreshBanner")
             }
-            TallyReflowSpacer(minLength: 0)
-            Button(action: onSeePlans) {
-                // The HIG's 44 pt minimum on the label, so the hit area grows with it: on the Button
-                // itself the frame grew the layout box only, and once the banner was capped at AX2
-                // the target measured 33 pt at AX5 (Audit tour run 37827539573, `lockedTab-card`).
-                Text(L10n.Subscription.seePlans())
-                    .font(TallyTypography.footnote.weight(.semibold))
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+            if !isCurrentTabLocked {
+                TallyReflowSpacer(minLength: 0)
+                Button(action: onSeePlans) {
+                    // The HIG's 44 pt minimum on the label, so the hit area grows with it: on the Button
+                    // itself the frame grew the layout box only, and once the banner was capped at AX2
+                    // the target measured 33 pt at AX5 (Audit tour run 37827539573, `lockedTab-card`).
+                    Text(L10n.Subscription.seePlans())
+                        .font(TallyTypography.footnote.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("subscription.refreshBanner.seePlans")
             }
-            .accessibilityIdentifier("subscription.refreshBanner.seePlans")
         }
         .foregroundStyle(TallyColor.textPrimary)
         .padding(.horizontal, TallySpacing.screenMargin)

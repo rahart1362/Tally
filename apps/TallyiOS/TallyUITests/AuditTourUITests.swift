@@ -226,11 +226,18 @@ final class AuditTourUITests: TallyUITestCase {
         }
 
         // Any Menu you can open, fully: the toolbar's grades-outside-Canvas menu (XG-04).
+        // UX1-22: at std sizes the three choices are now the menu's own flattened content (one
+        // tap, not a "courseDetail.gradesOutsideCanvas" row opening a second-level submenu); at
+        // AX5 that row still opens the confirmation dialog UX1-19 added.
         if goScrolling(element("courseDetail.menu", in: app), app, screen: "course1", state: "menu", reachedVia: "toolbar menu") {
             snap(app, screen: "course1", state: "menu", reachedVia: "tapped courseDetail.menu")
-            if go(element("courseDetail.gradesOutsideCanvas", in: app), app, screen: "course1", state: "gradesOutsideCanvas",
-                  reachedVia: "menu -> This course's grades are kept outside Canvas") {
-                snap(app, screen: "course1", state: "gradesOutsideCanvas", reachedVia: "opened the grades-outside-Canvas picker")
+            if element("courseDetail.gradesOutsideCanvas.automatic", in: app).waitForExistence(timeout: 3) {
+                snap(app, screen: "course1", state: "gradesOutsideCanvas",
+                     reachedVia: "menu -> This course's grades are kept outside Canvas (flattened)")
+                element("courseDetail.gradesOutsideCanvas.automatic", in: app).tap()
+            } else if go(element("courseDetail.gradesOutsideCanvas", in: app), app, screen: "course1", state: "gradesOutsideCanvas",
+                         reachedVia: "menu -> This course's grades are kept outside Canvas") {
+                snap(app, screen: "course1", state: "gradesOutsideCanvas", reachedVia: "opened the grades-outside-Canvas dialog")
                 if element("courseDetail.gradesOutsideCanvas.automatic", in: app).waitForExistence(timeout: 3) {
                     element("courseDetail.gradesOutsideCanvas.automatic", in: app).tap()
                 } else {

@@ -100,6 +100,9 @@ struct DashboardProjectionTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         #expect(calendar.isDate(state.weekAhead[0].date, inSameDayAs: Self.fixedNow))
+        // UX1-16: the strip rings/bolds today's column; only the first day is marked.
+        #expect(state.weekAhead[0].isToday)
+        #expect(state.weekAhead[1...].allSatisfy { !$0.isToday })
     }
 
     /// Idea 10 ("Add this week to Calendar") and Idea 11 ("Send my week"),

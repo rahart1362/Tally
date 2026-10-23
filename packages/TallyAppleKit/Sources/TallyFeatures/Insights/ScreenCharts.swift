@@ -29,9 +29,12 @@ struct CategoryWeightsChart: View {
         // D07: the category names are the chart's y-axis value labels, drawn by Swift Charts in
         // the system secondary grey by default (3.44:1 on white); style them like every other
         // secondary label.
+        // UX1-20: Swift Charts' default y-axis label placement left about 4 pt between the label
+        // and its bar's left edge (N7); `.aligned`/`.leading` with no horizontal spacing starts
+        // the label flush with the bars, as Course Detail's and Insights' category names should.
         .chartYAxis {
-            AxisMarks { _ in
-                AxisValueLabel()
+            AxisMarks(preset: .aligned, position: .leading) { _ in
+                AxisValueLabel(horizontalSpacing: 0)
                     .foregroundStyle(TallyColor.textSecondary)
             }
         }
@@ -104,11 +107,17 @@ struct TrendChart: View {
                     .foregroundStyle(TallyColor.textSecondary)
             }
         }
+        // UX1-32: the axis showed bare numbers ("95", "90"), while every other grade in the app
+        // carries "%". A format on the already-numeric axis value, not a second string.
         .chartYAxis {
-            AxisMarks { _ in
+            AxisMarks { value in
                 AxisGridLine()
-                AxisValueLabel()
-                    .foregroundStyle(TallyColor.textSecondary)
+                AxisValueLabel {
+                    if let percent = value.as(Double.self) {
+                        Text((percent / 100).formatted(.percent.precision(.fractionLength(0))))
+                            .foregroundStyle(TallyColor.textSecondary)
+                    }
+                }
             }
         }
     }

@@ -27,7 +27,9 @@ public enum DashboardText {
         guard let lead = factors.first else { return "" }
         var joined = leadPhrase(lead, courseCode: courseCode, dueAt: dueAt, calendar: calendar, locale: locale)
         for factor in factors.dropFirst() {
-            let part = phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale)
+            // UX1-14: a factor joined mid-sentence (never the lead) reads lower-case, as
+            // `missingOpenSubtitle` below already does ("MATH 122 · still accepted").
+            let part = phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale, isLead: false)
             joined = resolve(Key.reasonJoin(joined, part), locale)
         }
         return joined
@@ -40,7 +42,7 @@ public enum DashboardText {
         if case .dueIn(let hours) = factor, hours >= farDueThresholdHours, let dueAt {
             return farDueText(dueAt, hoursUntilDue: hours, calendar: calendar, locale: locale)
         }
-        return phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale)
+        return phrase(PriorityScore.reasonPart(factor), courseCode: courseCode, locale: locale, isLead: true)
     }
 
     /// D15: from this many hours out, the due-date clause switches from "Due in Nh" to a day (or,
@@ -111,12 +113,17 @@ public enum DashboardText {
         return resolve(Key.changesSince(count, TallyFormat.time(summary.asOf, calendar: calendar, locale: locale)), locale)
     }
 
-    private static func phrase(_ part: PriorityScore.ReasonPart, courseCode: String, locale: Locale) -> String {
+    private static func phrase(
+        _ part: PriorityScore.ReasonPart, courseCode: String, locale: Locale, isLead: Bool
+    ) -> String {
         switch part {
         case .dueInMinutes(let minutes): resolve(Key.dueInMinutes(minutes), locale)
         case .dueInHours(let hours): resolve(Key.dueInHours(hours), locale)
         case .overdue: resolve(Key.overdue(), locale)
-        case .stillAccepted: resolve(Key.stillAccepted(), locale)
+        // UX1-14: "Still accepted" (capitalized) only when it leads the sentence; joined after
+        // another reason it read "Overdue · near a grade boundary · Still accepted" with a
+        // capital mid-line, unlike "MATH 122 · still accepted" on the very same screen.
+        case .stillAccepted: resolve(isLead ? Key.stillAccepted() : Key.stillAcceptedInline(), locale)
         case .courseWeightPercent(let percent):
             // A whole number already (`reasonPart` rounds it); the locale places the sign.
             resolve(Key.courseWeight(TallyFormat.percent(Double(percent), fractionDigits: 0, locale: locale), courseCode), locale)
@@ -126,10 +133,17 @@ public enum DashboardText {
         }
     }
 
-    /// "Oct 2, 2026" (en_US): the abbreviated date in `calendar`'s time zone.
+    /// "Thu, Oct 15" (en_US): a near date reads the way every other near date in the app does
+    /// (Courses/To-Do's `dueDay`), never with the year -- UX1-13: `Date.FormatStyle`'s
+    /// `.abbreviated` date style always includes the year, even one day out ("Busy stretch
+    /// starting Oct 15, 2026"), and at AX5 that year took a whole line of its own. The year
+    /// returns only once `date` is no longer in the current calendar year.
     private static func date(_ date: Date, calendar: Calendar, locale: Locale) -> String {
-        date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, calendar: calendar,
-                                        timeZone: calendar.timeZone))
+        let base = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+            .weekday(.abbreviated).month(.abbreviated).day()
+        return calendar.isDate(date, equalTo: Date(), toGranularity: .year)
+            ? date.formatted(base)
+            : date.formatted(base.year())
     }
 
     /// The catalog keys (`Resources/Localizable.xcstrings`). The `defaultValue` is only the
@@ -154,6 +168,12 @@ public enum DashboardText {
         static func stillAccepted() -> LocalizedStringResource {
             LocalizedStringResource("dashboard.reason.stillAccepted", defaultValue: "Still accepted", bundle: #bundle,
                                     comment: "Next Up reason, after the due-date part: the item is overdue but Canvas still accepts it.")
+        }
+        /// UX1-14: the lower-case form `phrase(_:courseCode:locale:isLead:)` uses when this factor
+        /// is joined after another one instead of leading the sentence.
+        static func stillAcceptedInline() -> LocalizedStringResource {
+            LocalizedStringResource("dashboard.reason.stillAccepted.inline", defaultValue: "still accepted", bundle: #bundle,
+                                    comment: "Next Up reason, after the due-date part, joined mid-sentence with another reason (lower-case, unlike dashboard.reason.stillAccepted, which leads the sentence).")
         }
         static func courseWeight(_ percent: String, _ courseCode: String) -> LocalizedStringResource {
             LocalizedStringResource("dashboard.reason.courseWeight", defaultValue: "~\(percent) of \(courseCode)", bundle: #bundle,

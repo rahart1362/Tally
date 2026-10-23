@@ -1033,6 +1033,24 @@
         }
       }
     },
+    "courseDetail.override.keptOutsideCanvas" : {
+      "comment" : "Answer to 'This course's grades are kept outside Canvas', reworded from the frozen courseDetail.override.yes (\"Yes\") as a statement rather than a yes/no word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kept outside Canvas"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se mantienen fuera de Canvas"
+          }
+        }
+      }
+    },
     "courseDetail.override.menu" : {
       "comment" : "Label of the Course Detail toolbar menu (an ellipsis button) that holds the course's settings.",
       "extractionState" : "manual",
@@ -1101,6 +1119,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Las calificaciones de este curso se mantienen fuera de Canvas"
+          }
+        }
+      }
+    },
+    "courseDetail.override.trackedInCanvas" : {
+      "comment" : "Answer to 'This course's grades are kept outside Canvas', reworded from the frozen courseDetail.override.no (\"No\") as a statement rather than a yes/no word.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tracked in Canvas"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se registran en Canvas"
           }
         }
       }
@@ -1491,6 +1527,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try What-If Scores"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Probar calificaciones hipotéticas"
+          }
+        }
+      }
+    },
+    "courseDetail.whatIf.button.noBreak" : {
+      "comment" : "Button that opens the what-if calculator, where the student tries scores on work that isn't graded yet. Same text as courseDetail.whatIf.button; the non-breaking hyphen keeps \"What-If\" from splitting across two lines at large text sizes.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try What‑If Scores"
           }
         },
         "es" : {
@@ -3699,6 +3753,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Aún se acepta"
+          }
+        }
+      }
+    },
+    "dashboard.reason.stillAccepted.inline" : {
+      "comment" : "Next Up reason, after the due-date part, joined mid-sentence with another reason (lower-case, unlike dashboard.reason.stillAccepted, which leads the sentence).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "still accepted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "aún se acepta"
           }
         }
       }
@@ -12465,6 +12537,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Cada clase, calificación y fecha límite de Canvas — de un vistazo"
+          }
+        }
+      }
+    },
+    "welcome.tagline.noBreak" : {
+      "comment" : "Welcome screen tagline, under the Tally wordmark. Same sentence as welcome.tagline; the non-breaking spaces inside \"at a glance\" keep that phrase from splitting across two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every class, grade and deadline from Canvas — at a glance"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cada clase, calificación y fecha límite de Canvas — de un vistazo"
           }
         }
       }
