@@ -344,6 +344,32 @@ extension AccountLifecycleSuites {
             #expect(!model.subscription.allows(.fullApp, isSampleMode: false, firstSyncSucceeded: true))
         }
 
+        // MARK: EB-20: renewal reminders
+
+        @Test("EB-20: an account attached after StoreKit answered still gets its renewal reminder and the banner flag")
+        func attachAfterVerificationPlansRenewalReminders() async throws {
+            let renewing = SubscriptionFacts(productID: F.products.studentAnnual, isVerified: true,
+                                             expirationDate: F.now.addingTimeInterval(25 * F.day), renewalState: .subscribed,
+                                             signedDate: F.now.addingTimeInterval(-60), willAutoRenew: true)
+            let rig = SubscriptionRig(facts: [renewing])
+            let model = await MainActor.run { SubscriptionModel(engine: rig.engine) }
+            await MainActor.run { model.start() } // as `TallyApp.init` does: observe, then start
+            #expect(await F.eventually { await MainActor.run { model.isVerifiedThisLaunch } })
+            await rig.engine.settle()
+            // StoreKit has answered and no account is attached yet: nothing can be scheduled.
+            let account = try await rig.unattachedAccount()
+            #expect(await MainActor.run { !model.hasUpcomingRenewalReminder })
+
+            await rig.engine.accountAttached(account.coordinator, environment: account.environment)
+
+            // 25 days out: the 40-day reminder is already past, the 20-day one is still ahead.
+            let renewalIDs = account.platform.pending.keys.filter(RenewalReminderPlan.owns)
+            #expect(renewalIDs == [RenewalReminderPlan.identifierPrefix + "student.renewalReminder.20"],
+                    "the attach planned no renewal reminder: \(renewalIDs)")
+            #expect(await F.eventually { await MainActor.run { model.hasUpcomingRenewalReminder } },
+                    "the banner flag never reached the model")
+        }
+
         // MARK: M3-B3: how the account holds its entitlement
 
         @Test("Before StoreKit answers this launch the holding is unknown (today's purchase UI); a purchase reads .purchase")
