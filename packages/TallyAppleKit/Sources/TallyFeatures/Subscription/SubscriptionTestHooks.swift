@@ -29,6 +29,12 @@ public nonisolated struct SubscriptionTestHooks: Sendable {
         /// each verification (`SubscriptionFacts.Ownership.assigned`): Settings and the school-revoked
         /// notice hide Manage Subscription and Request a Refund for one.
         case schoolSeat
+        /// TOUR-2 (COMP-2's EB-20 banner): a verified, auto-renewing Tally Annual whose renewal
+        /// date falls inside the 40-day reminder window (`RenewalReminderPlan.daysBefore`), so
+        /// Settings' renewal-reminder banner has something to show once notifications are off.
+        /// Every other case above leaves `willAutoRenew` at its default (`false`), so none of them
+        /// ever triggers this banner.
+        case renewalDue
     }
 
     public let entitlement: Entitlement?
@@ -62,6 +68,9 @@ nonisolated final class HookEntitlementSource: EntitlementSourcing {
     /// How long the scripted subscription lasts, and how long ago the lapsed one ended.
     static let entitledFor: TimeInterval = 365 * 24 * 60 * 60
     static let lapsedFor: TimeInterval = 30 * 24 * 60 * 60
+    /// TOUR-2: `.renewalDue`'s renewal date — inside `RenewalReminderPlan`'s 40-day window (the
+    /// 40-day reminder's own fire date has already passed; the 20-day one is still due).
+    static let renewalDueIn: TimeInterval = 25 * 24 * 60 * 60
 
     private let products: SubscriptionProducts
     private let clock: any DateProviding
@@ -90,6 +99,10 @@ nonisolated final class HookEntitlementSource: EntitlementSourcing {
             return [SubscriptionFacts(productID: products.studentAnnual, isVerified: true,
                                       expirationDate: now.addingTimeInterval(Self.entitledFor), ownership: .assigned,
                                       renewalState: .subscribed, signedDate: now)]
+        case .renewalDue:
+            return [SubscriptionFacts(productID: products.studentAnnual, isVerified: true,
+                                      expirationDate: now.addingTimeInterval(Self.renewalDueIn), renewalState: .subscribed,
+                                      signedDate: now, willAutoRenew: true)]
         }
     }
 
