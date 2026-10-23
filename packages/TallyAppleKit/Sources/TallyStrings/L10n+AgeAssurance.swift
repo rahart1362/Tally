@@ -2,8 +2,8 @@ import Foundation
 
 /// AGE-1 (engineering-backlog-us.md §2 EB-01(e)/EB-02(b)): the neutral restricted screen
 /// (`AgeRestrictedView`, TallyFeatures). A file of its own, as `L10n+Subscription.swift` is, so
-/// other streams' files stay untouched. New keys, both PENDING owner approval (see the PR body);
-/// Spanish is a machine pass (`needs_review`).
+/// other streams' files stay untouched. New keys, both approved 2026-10-21 (title as drafted;
+/// body without "safe"); Spanish is a machine pass (`needs_review`).
 extension L10n {
     public enum AgeAssurance {
         public static func restrictedTitle() -> LocalizedStringResource {

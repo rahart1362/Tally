@@ -3,8 +3,8 @@ import Foundation
 /// New strings for work package UX-FIX-2 (the 23 S3 items from the UX-1 review, ranks 17-39).
 /// Kept in its own file, beside `L10n.swift` and `L10n+GradeControls.swift`, so these additions
 /// never touch another stream's lines in those files (pmo-common-rules-v2.md rule 9). Every key
-/// here is NEW -- never an edit to an existing English value -- and its wording is PENDING the
-/// owner's approval (see the work package report's "Copy for owner approval").
+/// here is NEW -- never an edit to an existing English value -- and its wording was approved
+/// 2026-10-23 (see the work package report's "Copy for owner approval").
 extension L10n.Welcome {
     /// UX1-02 (option B): the same sentence as `tagline()`, with non-breaking spaces inside "at a
     /// glance" so that phrase never splits across two lines (Pro Max broke it as "...Canvas — at /
