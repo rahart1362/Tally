@@ -640,7 +640,7 @@ struct RemindersModelTests {
         #expect(saved.value == 1 && !settings.hideCourseNamesSaveFailed)
     }
 
-    @Test("A11Y-11: only a tap asks: requestPermission() is called from the tip's and Settings' buttons alone")
+    @Test("A11Y-11: only a tap asks: requestPermission() is called from the tip's, Settings' and the renewal banner's buttons alone")
     func onlyATapAsks() throws {
         let files = try ScreenSourceHygieneTests.appRoots.flatMap { try ScreenSourceHygieneTests.swiftFiles(under: $0) }
         func callSites(_ needle: String) throws -> [String: Int] {
@@ -650,8 +650,10 @@ struct RemindersModelTests {
             return Dictionary(grouping: hits) { String($0.prefix { $0 != ":" }) }.mapValues(\.count)
         }
         let reminders = "packages/TallyAppleKit/Sources/TallyFeatures/Reminders/"
+        // EB-20: Settings > Subscription's renewal-reminder banner has its own Turn On button.
         #expect(try callSites(".requestPermission()") == [reminders + "RemindersViews.swift": 2,
-                                                          reminders + "RemindersModel.swift": 1],
+                                                          reminders + "RemindersModel.swift": 1,
+                                                          "packages/TallyAppleKit/Sources/TallyFeatures/Settings/SubscriptionSettingsView.swift": 1],
                 "the reminders permission is requested from somewhere other than a button")
         #expect(try callSites("requestAuthorization(").keys.sorted() == ["packages/TallyAppleKit/Sources/TallyPlatform/UNNotificationScheduler.swift"])
     }
