@@ -462,6 +462,21 @@ struct CanvasLinkTests {
         let web = try #require(URL(string: "https://canvas.northfield.example/courses/1"))
         #expect(!CanvasLinkOpener.isSafe(web, accountHost: ""))
     }
+
+    @Test("FEAT-8 (Idea 7): .app tries the Canvas Student app first, then the browser; .browser never tries the app")
+    func destinationsFollowThePreference() throws {
+        let web = try #require(URL(string: "https://canvas.northfield.example/courses/51842/assignments/1204405"))
+        let app = try #require(CanvasLink.appURL(for: web))
+        #expect(CanvasLinkOpener.destinations(for: web, preference: .app) == [app, web])
+        #expect(CanvasLinkOpener.destinations(for: web, preference: .browser) == [web])
+    }
+
+    @Test("FEAT-8: with no app mapping, .app falls back to the browser alone, same as today's default")
+    func destinationsWithNoAppMapping() throws {
+        let web = try #require(URL(string: "mailto:someone@northfield.example"))
+        #expect(CanvasLinkOpener.destinations(for: web, preference: .app) == [web])
+        #expect(CanvasLinkOpener.destinations(for: web, preference: .browser) == [web])
+    }
 }
 
 @Suite("M3-A: dates and numbers in the student's locale")

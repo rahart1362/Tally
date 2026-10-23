@@ -94,7 +94,7 @@ struct ToDoScreen: View {
             if editMode.isEditing {
                 ToolbarItem(placement: .bottomBar) {
                     Button(String(localized: L10n.ToDo.markDoneButton())) {
-                        model.local.setDone(selection, done: true)
+                        model.setDone(selection, done: true)
                         selection.removeAll()
                         withAnimation { editMode = .inactive }
                     }
@@ -108,11 +108,11 @@ struct ToDoScreen: View {
     private func row(_ item: ToDoItem) -> some View {
         let isDone = model.local.isDone(item.id)
         return ToDoRowView(item: item, isDone: isDone) {
-            model.local.setDone([item.id], done: !isDone)
+            model.setDone([item.id], done: !isDone)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
-                model.local.setDone([item.id], done: !isDone)
+                model.setDone([item.id], done: !isDone)
             } label: {
                 Label(isDone ? String(localized: L10n.ToDo.swipeNotDone()) : String(localized: L10n.ToDo.swipeDone()),
                       systemImage: isDone ? "arrow.uturn.backward" : "checkmark")
@@ -128,7 +128,7 @@ struct ToDoScreen: View {
             if !model.isSampleData, let url = item.canvasURL {
                 Button {
                     // A one-shot open: the Canvas Student app, else the browser (R20).
-                    Task { await CanvasLinkOpener.open(url, accountHost: model.account.host) }
+                    Task { await CanvasLinkOpener.open(url, accountHost: model.account.host, preference: model.canvasLinkPreference) }
                 } label: {
                     // L10N-03a's finding (its report §1.2): a bare LocalizedStringResource is never
                     // passed to another SwiftUI initializer directly, to avoid an unverified-overload
@@ -214,6 +214,16 @@ struct ToDoRowView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
+                // ideas2 report #5: a success haptic the moment the student completes a to-do —
+                // the row's single most rewarding micro-moment had no tactile acknowledgment at
+                // all, though `.sensoryFeedback` already shipped for far less consequential
+                // interactions (`WhatIfSheet.swift`, `StudentSwitcher.swift`). Attached once here
+                // (not also on the swipe action below, which toggles this same `isDone`) so the
+                // row toggle and the swipe action never double-fire it. The `condition` closure
+                // fires only on the done transition (`new == true`), never on undoing it: undoing
+                // a completion is not a success moment. `.sensoryFeedback` already respects the
+                // system's Reduce Motion/haptics settings on its own; no separate branch needed.
+                .sensoryFeedback(.success, trigger: isDone) { _, isNowDone in isNowDone }
                 .accessibilityLabel(isDone ? String(localized: L10n.ToDo.markedDoneAccessibility(item.title))
                                     : String(localized: L10n.ToDo.markDoneAccessibility(item.title)))
                 .accessibilityIdentifier("todo.complete")

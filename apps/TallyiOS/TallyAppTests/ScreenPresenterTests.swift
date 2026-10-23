@@ -40,6 +40,44 @@ struct ScreenPresenterTests {
         }
     }
 
+    @Test("Idea 10 (\"Add this week to Calendar\"): the Week-ahead strip's due items become calendar drafts, title prefixed with the course code, ending at the deadline")
+    func weekAheadCalendarDrafts() async throws {
+        let (snapshot, _) = try await ScreenFixtures.projections("flagship")
+        let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: ScreenFixtures.anchor)
+        let items = state.weekAhead.flatMap(\.items)
+        #expect(!items.isEmpty, "flagship has no due item this week -- the test would pass vacuously")
+        let drafts = WeekAheadCalendarDraft.drafts(for: state.weekAhead)
+        #expect(drafts.count == items.count)
+        for (item, draft) in zip(items, drafts) {
+            #expect(draft.end == item.dueAt)
+            #expect(draft.start == item.dueAt.addingTimeInterval(-TimeInterval(WeekAheadCalendarDraft.leadMinutes * 60)))
+            #expect(draft.title == (item.courseCode.map { "\($0): \(item.title)" } ?? item.title))
+            #expect(draft.url == item.url)
+            #expect(!draft.isAllDay)
+            #expect(draft.location == nil)
+        }
+    }
+
+    @Test("Idea 11 (\"Send my week\"): never a grade value, and \"Hide Course Names\" hides both the title and the course code")
+    func weekShareTextContentRules() async throws {
+        let (snapshot, _) = try await ScreenFixtures.projections("flagship")
+        let state = DashboardBuilder.build(from: snapshot, digest: nil, digestAsOf: nil, now: ScreenFixtures.anchor)
+        let items = state.weekAhead.flatMap(\.items)
+        #expect(!items.isEmpty, "flagship has no due item this week -- the test would pass vacuously")
+        let shown = WeekShareText.text(days: state.weekAhead, hideCourseNames: false)
+        let hidden = WeekShareText.text(days: state.weekAhead, hideCourseNames: true)
+        for item in items {
+            #expect(shown.contains(item.title))
+            #expect(!hidden.contains(item.title))
+            if let code = item.courseCode {
+                #expect(shown.contains(code))
+                #expect(!hidden.contains(code))
+            }
+        }
+        // R10, structurally: `DashboardProjection.WeekDayItem` carries no score, percentage or
+        // letter grade field for either string above to leak.
+    }
+
     @Test("A11Y-08: the category chart's Audio Graph has the chart's title, its sentence and a point per category")
     func categoryChartDescriptor() async throws {
         let (snapshot, screens) = try await ScreenFixtures.projections("flagship")

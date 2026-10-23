@@ -137,6 +137,15 @@ public final class AppModel {
     /// other session task (`teardown`, `familyTeardown`) so it is never orphaned; `awaitPersistence()`
     /// is the test-only seam (`AppLockModel.persistTask` is the same shape).
     private let notEnabledSchoolPersist = TaskBox()
+    /// FEAT-8 (Idea 7): the local preference store for "Open Canvas links in: App / Browser"
+    /// (`accountEnvironment?.canvasLinkPreferences`, an in-memory no-op without one -- tests and
+    /// previews). Handed to every `HomeModel` this session makes (`makeSignedInHome`,
+    /// `enterSample()`), so Settings' picker and the signed-in Home's "Open in Canvas" read and
+    /// write the same store.
+    @ObservationIgnored private let canvasLinkPreferences: any CanvasLinkPreferenceStoring
+    /// FEAT-8: `clearCanvasLinkPreference()`'s write, owned the same way `notEnabledSchoolPersist`
+    /// is.
+    private let canvasLinkPreferencePersist = TaskBox()
     /// FEAT-2: the one destination `checkMySchool()` leaves for the Welcome stack's very next
     /// appearance, consumed (and cleared) by `WelcomeFlowView.init` — so a later plain `.welcome`
     /// entry (sign-out, "Exit Sample Data," an abandoned sign-in) never replays it.
@@ -171,6 +180,7 @@ public final class AppModel {
         self.lock = lock ?? AppLockModel()
         self.ageAssurance = ageAssurance ?? AgeAssuranceModel()
         notEnabledSchoolPreferences = accountEnvironment?.notEnabledSchoolPreferences ?? InMemoryNotEnabledSchoolPreferenceStore()
+        canvasLinkPreferences = accountEnvironment?.canvasLinkPreferences ?? InMemoryCanvasLinkPreferenceStore()
         reminders = Self.makeReminders(runtime: accountRuntime, environment: accountEnvironment)
     }
 
@@ -287,6 +297,19 @@ public final class AppModel {
         await notEnabledSchoolPersist.value()
     }
 
+    /// FEAT-8 (Idea 7): Sign Out & Erase, mirroring `clearNotEnabledSchool()` above. Device-wide
+    /// rather than per-account like the UserState fields are, but a sign-out is still the moment
+    /// this clears, same as the rest of the sign-out checklist.
+    private func clearCanvasLinkPreference() {
+        let preferences = canvasLinkPreferences
+        canvasLinkPreferencePersist.replace(with: Task { await preferences.clear() })
+    }
+
+    /// Waits for the last `clearCanvasLinkPreference()` write (tests).
+    func awaitCanvasLinkPreferencePersistence() async {
+        await canvasLinkPreferencePersist.value()
+    }
+
     /// Welcome's (and "school not enabled"'s) "Explore with Sample Data": a root switch, never a
     /// push. Only constructs the models (no I/O), so the shell paints in the same frame.
     ///
@@ -299,7 +322,8 @@ public final class AppModel {
     public func enterSample() {
         guard route == .welcome else { return }
         reminders.tipDismissalStore = nil
-        home = HomeModel(source: SampleSession(clock: clock, logger: logger), clock: clock)
+        home = HomeModel(source: SampleSession(clock: clock, logger: logger), clock: clock,
+                         canvasLinkPreferences: canvasLinkPreferences)
         route = .sample
     }
 
@@ -441,7 +465,7 @@ public final class AppModel {
         // `HomeModel` kept a fresh `SystemDateProvider()`, so the fixed-date test hook never reached a
         // signed-in Home (7 of 8 store scenes showed the live date). The system clock in production.
         return HomeModel(source: AccountHomeSource(runtime: accountRuntime), clock: clock,
-                         localStore: localStore, userState: userState)
+                         localStore: localStore, userState: userState, canvasLinkPreferences: canvasLinkPreferences)
     }
 
     private func accountUserState(_ account: AccountKey, root: URL?) -> any UserStateAccess {
@@ -621,6 +645,7 @@ public final class AppModel {
         route = .welcome
         playsBrandMoment = true
         clearNotEnabledSchool() // FEAT-2: Sign Out & Erase
+        clearCanvasLinkPreference() // FEAT-8 (Idea 7): Sign Out & Erase
         lock.resetForSignOut()
         recordSignOutStep(.route)
         refreshStatus.detach()

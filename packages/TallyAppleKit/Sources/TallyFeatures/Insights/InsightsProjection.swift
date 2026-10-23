@@ -87,15 +87,18 @@ public nonisolated enum InsightsBuilder {
     /// - Parameter gradeAvailability: the projection's `GradeAvailabilityIndex` (plan 08 §4.3);
     ///   `nil` classifies the snapshot at `formatter.now` with no override. Completion, momentum
     ///   and heavy stretches are submission-based and do not read it (§4.4 row 9).
+    /// - Parameter courseGoals: idea 2 (FEAT-4), the student's own per-course grade goals; a
+    ///   course absent from it has no goal, same as before this parameter existed.
     public static func projection(from snapshot: CanvasSnapshot, formatter: ScreenFormatter,
-                                  gradeAvailability: GradeAvailabilityIndex? = nil) -> InsightsProjection {
+                                  gradeAvailability: GradeAvailabilityIndex? = nil,
+                                  courseGoals: [CanvasID<Course>: Double] = [:]) -> InsightsProjection {
         let index = gradeAvailability ?? GradeAvailabilityIndex(snapshot: snapshot, overrides: [:], now: formatter.now)
         let (shares, summary) = categoryShares(snapshot, gradeAvailability: index, formatter: formatter)
         let trend = trendInput(snapshot, gradeAvailability: index, now: formatter.now)
         var projection = InsightsProjection(
             completion: completion(snapshot, now: formatter.now, locale: formatter.locale),
             streak: streak(snapshot, formatter: formatter),
-            risks: risks(snapshot, gradeAvailability: index, formatter: formatter),
+            risks: risks(snapshot, gradeAvailability: index, courseGoals: courseGoals, formatter: formatter),
             heavyStretches: heavyStretches(snapshot, formatter: formatter),
             categoryShares: shares, categorySummary: summary,
             trendInput: trend)
@@ -155,13 +158,14 @@ public nonisolated enum InsightsBuilder {
     /// Plan 08 §4.4 row 10: the grade reasons (below the goal, near a cutoff) only for a course
     /// whose grades are in Canvas as percentages; the missing-work reasons for every course.
     static func risks(_ snapshot: CanvasSnapshot, gradeAvailability: GradeAvailabilityIndex,
-                      formatter: ScreenFormatter) -> [CourseRisk] {
+                      courseGoals: [CanvasID<Course>: Double] = [:], formatter: ScreenFormatter) -> [CourseRisk] {
         var seen = Set<CanvasID<Course>>()
         let rows = snapshot.courses.compactMap { course -> CourseRisk? in
             guard seen.insert(course.id).inserted else { return nil }
             let evaluation = CourseHealthRules.evaluate(
                 course: course, groups: snapshot.groups[course.id] ?? [],
                 gradingPeriods: snapshot.gradingPeriods[course.id] ?? [],
+                goal: courseGoals[course.id],
                 availability: gradeAvailability[course.id], formatter: formatter)
             guard evaluation.health == .atRisk || evaluation.health == .needsAttention else { return nil }
             let spoken = ([course.name, course.courseCode, evaluation.health.label] + evaluation.reasons)

@@ -15,6 +15,42 @@ struct GlanceProjectionTests {
         #expect(glance.courses.allSatisfy { $0.currentGrade == nil })
     }
 
+    /// ideas2 report #2: `hideCourseNames` defaults to `false` (today's behaviour) and is carried
+    /// onto the built `GlanceProjection` exactly like `includeGrades`, independent of it.
+    @Test func hideCourseNamesDefaultsOffAndIsCarriedWhenRequested() {
+        let snapshot = CanvasSnapshotFixture.make(courseCount: 3)
+        let defaulted = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true)
+        #expect(!defaulted.hideCourseNames)
+
+        let hidden = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true, hideCourseNames: true)
+        #expect(hidden.hideCourseNames)
+        // Independent of the grades opt-in: turning one on never flips the other.
+        #expect(hidden.overallGradeBand == defaulted.overallGradeBand)
+    }
+
+    /// ideas2 report #2: a self-heal rebuild (a crash between the snapshot and glance writes, or
+    /// an older schema on disk) must not silently turn a privacy setting back off, the same
+    /// discipline `GlanceEntitlementTests.selfHealCarriesTheExpiryForward` holds `entitledUntil`
+    /// to.
+    @Test func selfHealCarriesHideCourseNamesForward() async throws {
+        let accountKey = AccountKey("acct-glance-hide-course-names")
+        let sealer = VaultSealer(account: accountKey.rawValue, keyring: VaultKeyring(store: InMemoryVaultKeyStore()),
+                                 mayCreateKeys: true)
+        let root = try tempStoreDirectory()
+        let store = SnapshotStore(root: root, accountKey: accountKey, sealer: sealer)
+        try await store.commit(CanvasSnapshotFixture.make(generation: 1), includeGrades: false, hideCourseNames: true)
+
+        // A crash between the snapshot write and the glance write (as SnapshotStoreTests does it).
+        let crashed = CanvasSnapshotFixture.make(generation: 2)
+        try ProtectedFile.atomicWrite(try sealer.seal(JSONEncoder().encode(crashed), file: .snapshot),
+                                      to: StoreLayout(root: root, accountKey: accountKey).url(for: .snapshot),
+                                      excludeFromBackup: true)
+        guard case .loaded = await store.loadSnapshot() else { Issue.record("expected the snapshot"); return }
+        guard case .loaded(let healed) = await store.loadGlance() else { Issue.record("expected the glance to self-heal"); return }
+        #expect(healed.generation == 2, "rebuilt")
+        #expect(healed.hideCourseNames, "the privacy setting survives the rebuild, not just the mirrored expiry")
+    }
+
     @Test func gradesAppearOnlyWhenOptedIn() {
         let snapshot = CanvasSnapshotFixture.make(courseCount: 3)
         let glance = GlanceProjectionBuilder.build(from: snapshot, includeGrades: true)
@@ -108,8 +144,10 @@ struct GlanceProjectionTests {
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(glance)) as! [String: Any]
 
         // Plan 08 XG-02 (schema 2): `gradeSummary` replaced `overallGradeBand`; each course gained
-        // `gradeStatus` (a state, never a grade value).
-        #expect(Set(json.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon"])
+        // `gradeStatus` (a state, never a grade value). ideas2 report #2: `hideCourseNames`, a
+        // plain flag (never a name itself), is always present like `gradeSummary`/`courses`.
+        #expect(Set(json.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon",
+                                   "hideCourseNames"])
 
         // PAY-04 (M3-B1): `entitledUntil`, an expiry date only, present when the gate mirrors one
         // (encryption.md §3.3). Absent above: no entitlement mirrored.
@@ -117,7 +155,7 @@ struct GlanceProjectionTests {
                                                      entitledUntil: Date(timeIntervalSince1970: 1_800_000_000))
         let entitledJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(entitled)) as! [String: Any]
         #expect(Set(entitledJSON.keys) == ["schemaVersion", "generation", "asOf", "gradeSummary", "courses", "dueSoon",
-                                           "entitledUntil"])
+                                           "entitledUntil", "hideCourseNames"])
         #expect(entitledJSON["entitledUntil"] is Double, "a date, never a receipt or a transaction ID")
         #expect(Set((json["gradeSummary"] as! [String: Any]).keys) == ["state", "band"])
 

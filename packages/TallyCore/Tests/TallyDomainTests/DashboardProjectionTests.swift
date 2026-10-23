@@ -49,6 +49,27 @@ struct DashboardProjectionTests {
         }
     }
 
+    /// ideas2 report #3: `nextUp` used to hardcode `markedDone: false`, so an assignment the
+    /// student had just marked done in To-Do (`PriorityScore.isExcluded`'s own `markedDone` flag,
+    /// already honoured by `ReminderPlanner`/`FamilyNotificationPlanner`) kept showing in "Next
+    /// up" — the one screen built to deliver "you're all caught up" could never reach that state
+    /// as a result of the student's own action.
+    @Test("Next up: a locally marked-done item is excluded, the same as To-Do's own exclusion")
+    func nextUpExcludesLocallyMarkedDoneItems() async throws {
+        let snap = try await snapshot()
+        let before = DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        let marked = try #require(before.nextUp.first?.id, "the flagship should have open work due soon")
+
+        let after = DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow,
+                                           doneAssignments: [marked])
+        #expect(!after.nextUp.contains { $0.id == marked })
+        #expect(after.nextUp.count <= before.nextUp.count)
+
+        // Unmarking (an empty set, the default) restores exactly the original ranking.
+        let restored = DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        #expect(restored.nextUp == before.nextUp)
+    }
+
     @Test("Needs attention: at most 3, ranked by severity+priority descending")
     func needsAttentionIsRankedAndCapped() async throws {
         let state = DashboardBuilder.build(from: try await snapshot(), digest: nil, digestAsOf: nil, now: Self.fixedNow)
@@ -79,6 +100,33 @@ struct DashboardProjectionTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         #expect(calendar.isDate(state.weekAhead[0].date, inSameDayAs: Self.fixedNow))
+    }
+
+    /// Idea 10 ("Add this week to Calendar") and Idea 11 ("Send my week"),
+    /// `pmo-audit/.build-audit/ideas1/report.md`: each day's `items` are exactly the items
+    /// `dueCount` already counts (never a class meeting or event, which the Week-ahead strip never
+    /// showed either), on that day, earliest first, with Canvas's own course code when the item
+    /// has one.
+    @Test("Week ahead items: one per due item, same day, in order, course code resolved from Canvas")
+    func weekAheadItemsMatchDueCounts() async throws {
+        let snap = try await snapshot()
+        let state = DashboardBuilder.build(from: snap, digest: nil, digestAsOf: nil, now: Self.fixedNow)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let coursesByCode = Dictionary(uniqueKeysWithValues: snap.courses.map { ($0.courseCode, $0) })
+        for day in state.weekAhead {
+            #expect(day.items.count == day.dueCount)
+            for item in day.items {
+                #expect(calendar.isDate(item.dueAt, inSameDayAs: day.date))
+                if let code = item.courseCode {
+                    #expect(coursesByCode[code] != nil, "unknown course code \(code)")
+                }
+            }
+            let dueDates = day.items.map(\.dueAt)
+            #expect(dueDates == dueDates.sorted())
+        }
+        #expect(state.weekAhead.flatMap(\.items).contains { $0.courseCode != nil },
+               "flagship has no course-coded due item this week -- the test would pass vacuously")
     }
 
     @Test("digest chip: non-empty digest with an asOf date produces a summary mentioning the count")

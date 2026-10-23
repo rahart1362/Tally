@@ -83,7 +83,10 @@ public actor AccountUserStateAccess: UserStateAccess {
             // M3-D2 (UX-WP-18, PMO R16): a done mark takes its item off the glance at once, the
             // same as the grades opt-in does.
             let doneAssignmentsRewrote = await coordinator.updateDoneAssignments(state.doneAssignments)
-            if gradesRewrote || overridesRewrote || doneAssignmentsRewrote { reloadWidgets() }
+            // ideas2 report #2: "Hide Course Names" takes effect on the widgets, the Lock Screen
+            // and Siri at once, the same as the grades opt-in does.
+            let hideCourseNamesRewrote = await coordinator.updateHideCourseNames(state.hideCourseNamesInNotifications)
+            if gradesRewrote || overridesRewrote || doneAssignmentsRewrote || hideCourseNamesRewrote { reloadWidgets() }
         }
         return state
     }

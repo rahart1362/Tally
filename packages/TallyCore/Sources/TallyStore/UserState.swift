@@ -34,10 +34,12 @@ public struct UserState: Codable, Sendable, Equatable {
     /// `gradesOutsideCanvasOverride` (plan 08 G-3, XG-04), empty (every course Automatic) on migration;
     /// v6 (FEAT-3) adds `quietHoursOverride` (idea 5: a per-student Quiet Hours window, nil on
     /// migration — "defaults stay as today when unset") and `adHocReminders` (idea 4: the To-Do
-    /// "Remind me" action's pending ad-hoc requests, empty on migration).
+    /// "Remind me" action's pending ad-hoc requests, empty on migration); v7 (FEAT-4) adds
+    /// `courseGoals` (idea 2: the student's own per-course grade goal, empty on migration — no
+    /// course has a goal until the student sets one).
     /// Owner decision D-E4 (2026-09-27): user state is NOT backed up; a new install or data wipe
     /// starts from these defaults while Canvas data is fetched fresh.
-    public static let currentSchemaVersion = 6
+    public static let currentSchemaVersion = 7
 
     public let schemaVersion: Int
     public var showGradesInGlance: Bool
@@ -69,13 +71,20 @@ public struct UserState: Codable, Sendable, Equatable {
     /// marked done, submitted or graded (no explicit removal needed here); the UI still clears
     /// an entry itself once "Done" is tapped, so the map does not grow without bound.
     public var adHocReminders: [CanvasID<Assignment>: Date]
+    /// Idea 2 (FEAT-4): the student's own per-course grade goal, a percentage. A course absent
+    /// here has no goal: `CourseHealthRules.evaluate`'s `atRisk`/`needsAttention` reasons and
+    /// `AlertEngine.belowGoalAlert` both already treat `goal == nil` as "nothing to compare
+    /// against" (unchanged). Cleared with the rest of `UserState` on Sign Out & Erase
+    /// (`AccountPurger.purge` deletes the whole sealed file; nothing course-goal-specific to do).
+    public var courseGoals: [CanvasID<Course>: Double]
 
     public init(showGradesInGlance: Bool = false, hideCourseNamesInNotifications: Bool = false,
                 manualClassTimes: [ManualClassTime] = [], digestThresholds: DigestThresholds = .default,
                 courseOrder: [CanvasID<Course>] = [], doneAssignments: Set<CanvasID<Assignment>> = [],
                 reminderTipDismissedUntil: Date? = nil,
                 gradeAvailabilityOverrides: [CanvasID<Course>: GradeAvailabilityOverride] = [:],
-                quietHoursOverride: QuietHours? = nil, adHocReminders: [CanvasID<Assignment>: Date] = [:]) {
+                quietHoursOverride: QuietHours? = nil, adHocReminders: [CanvasID<Assignment>: Date] = [:],
+                courseGoals: [CanvasID<Course>: Double] = [:]) {
         schemaVersion = Self.currentSchemaVersion
         self.showGradesInGlance = showGradesInGlance
         self.hideCourseNamesInNotifications = hideCourseNamesInNotifications
@@ -87,6 +96,7 @@ public struct UserState: Codable, Sendable, Equatable {
         gradesOutsideCanvasOverride = gradeAvailabilityOverrides.mapValues(\.rawValue)
         self.quietHoursOverride = quietHoursOverride
         self.adHocReminders = adHocReminders
+        self.courseGoals = courseGoals
     }
 
     /// `gradesOutsideCanvasOverride` as the classifier takes it (`GradeAvailabilityIndex`'s
@@ -104,6 +114,21 @@ enum UserStateMigration {
         let schemaVersion: Int
         let showGradesInGlance: Bool
         let manualClassTimes: [ManualClassTime]
+    }
+
+    /// The v6 shape: everything before the course goals (FEAT-4 idea 2).
+    private struct V6: Decodable {
+        let schemaVersion: Int
+        let showGradesInGlance: Bool
+        let hideCourseNamesInNotifications: Bool
+        let manualClassTimes: [ManualClassTime]
+        let digestThresholds: DigestThresholds
+        let courseOrder: [CanvasID<Course>]
+        let doneAssignments: Set<CanvasID<Assignment>>
+        let reminderTipDismissedUntil: Date?
+        let gradesOutsideCanvasOverride: [CanvasID<Course>: String]
+        let quietHoursOverride: QuietHours?
+        let adHocReminders: [CanvasID<Assignment>: Date]
     }
 
     /// The v5 shape: everything before the Quiet Hours override and the ad-hoc reminders (FEAT-3).
@@ -152,6 +177,18 @@ enum UserStateMigration {
         switch try peekSchemaVersion(data) {
         case UserState.currentSchemaVersion:
             return try JSONDecoder().decode(UserState.self, from: data)
+        case 6:
+            // Every v6 field kept; no course goal yet (FEAT-4 idea 2: a course absent from
+            // `courseGoals` has no goal, same as before this field existed).
+            let v6 = try JSONDecoder().decode(V6.self, from: data)
+            var state = UserState(showGradesInGlance: v6.showGradesInGlance,
+                                  hideCourseNamesInNotifications: v6.hideCourseNamesInNotifications,
+                                  manualClassTimes: v6.manualClassTimes, digestThresholds: v6.digestThresholds,
+                                  courseOrder: v6.courseOrder, doneAssignments: v6.doneAssignments,
+                                  reminderTipDismissedUntil: v6.reminderTipDismissedUntil,
+                                  quietHoursOverride: v6.quietHoursOverride, adHocReminders: v6.adHocReminders)
+            state.gradesOutsideCanvasOverride = v6.gradesOutsideCanvasOverride
+            return state
         case 5:
             // Every v5 field kept; no Quiet Hours override yet ("defaults stay as today when
             // unset") and no ad-hoc reminders pending yet.

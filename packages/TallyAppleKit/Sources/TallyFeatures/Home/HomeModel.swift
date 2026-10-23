@@ -59,6 +59,11 @@ public final class HomeModel {
     public let userState: any UserStateAccess
     /// Sample mode (ASC-14): links into a real Canvas and the calendar feed have nowhere to go.
     public var isSampleData: Bool { source is SampleSession }
+    /// FEAT-8 (Idea 7, "Open Canvas links in: App / Browser"): the student's choice, read by
+    /// Settings' picker and by every "Open in Canvas" button (`ToDoScreen`, `CourseDetailView`).
+    /// Device-wide, never `UserState` (FEAT-3 and FEAT-4 own the next schema bumps) -- loaded in
+    /// `prepare()`, like `local`, below.
+    public private(set) var canvasLinkPreference: CanvasLinkPreference = .app
 
     /// Internal so lifecycle tests can hold weak references.
     let source: any HomeDataSource
@@ -81,6 +86,9 @@ public final class HomeModel {
     @ObservationIgnored private var hasEnded = false
     /// XG-04: hands a changed "grades kept outside Canvas" answer to the projector, then re-projects.
     private let overrideChanges = TaskBox()
+    /// ideas2 report #3: hands a changed "done" mark to the projector, then re-projects, so
+    /// "Next up" agrees with To-Do's own exclusion the moment the student taps a row.
+    private let doneAssignmentChanges = TaskBox()
     /// Idea 4 (FEAT-3): the latest "Remind me" save, for tests to await. `userState`'s own
     /// actor isolation (`AccountUserStateAccess`) already serializes overlapping read-modify-
     /// write calls, so `TaskBox.replace`'s cancellation of the box's own reference never drops a
@@ -88,21 +96,36 @@ public final class HomeModel {
     private let remindMeSaving = TaskBox()
     /// The revision of the answers last handed to the projector (`HomeProjector` keeps the newest).
     @ObservationIgnored private var overridesRevision: UInt64 = 0
+    /// FEAT-8: the store `canvasLinkPreference` is loaded from and saved to.
+    @ObservationIgnored private let canvasLinkPreferenceStore: any CanvasLinkPreferenceStoring
+    /// FEAT-8: `setCanvasLinkPreference(_:)`'s write, owned here like every other session task.
+    private let canvasLinkPreferencePersist = TaskBox()
+    /// Idea 2 (FEAT-4): hands a changed course goal to the projector, then re-projects.
+    private let goalChanges = TaskBox()
+    /// The revision of the goals last handed to the projector (`HomeProjector` keeps the newest).
+    @ObservationIgnored private var goalsRevision: UInt64 = 0
+    /// The revision of the "done" marks last handed to the projector.
+    @ObservationIgnored private var doneAssignmentsRevision: UInt64 = 0
 
     /// - Parameters:
     ///   - localStore: where the course order and "done" marks live; in memory by default (sample
     ///     mode keeps nothing, ASC-14).
     ///   - userState: Settings' `UserState`; in memory by default. A signed-in account passes an
     ///     `AccountUserStateAccess` over its `UserStateStore` and `AccountRuntime`.
+    ///   - canvasLinkPreferences: FEAT-8's device-wide preference store; in memory by default.
+    ///     `AppModel` passes the one store it holds from `AccountEnvironment`, so Settings and
+    ///     every "Open in Canvas" button read and write the same place.
     public init(source: any HomeDataSource, projector: HomeProjector = HomeProjector(),
                 clock: any DateProviding = SystemDateProvider(),
                 localStore: any LocalScreenStateStoring = InMemoryLocalScreenStateStore(),
-                userState: any UserStateAccess = InMemoryUserStateAccess()) {
+                userState: any UserStateAccess = InMemoryUserStateAccess(),
+                canvasLinkPreferences: any CanvasLinkPreferenceStoring = InMemoryCanvasLinkPreferenceStore()) {
         self.source = source
         self.projector = projector
         self.clock = clock
         self.local = ScreenLocalState(store: localStore)
         self.userState = userState
+        self.canvasLinkPreferenceStore = canvasLinkPreferences
     }
 
     /// Subscribes to the source, then loads. Runs once, from the shell's `.task`.
@@ -148,8 +171,15 @@ public final class HomeModel {
         // M3-A: the course order first, so the first projection (at launch, `prepare()` runs
         // before `start()`) already shows the student's order; and (XG-04) the "grades kept
         // outside Canvas" answers, so it classifies every course as the glance on disk does.
+        // ideas2 report #3: the "done" marks too, so the very first "Next up" already agrees
+        // with To-Do about what the student has already finished.
         await local.load()
         await projector.setGradeAvailabilityOverrides(local.gradeAvailabilityOverrides, revision: overridesRevision)
+        // FEAT-8: concurrent with the rest of this prepare step -- Settings and "Open in Canvas"
+        // are several taps away from the first paint, like FEAT-2's own local preference load.
+        canvasLinkPreference = await canvasLinkPreferenceStore.load() ?? .app
+        await projector.setCourseGoals(local.courseGoals, revision: goalsRevision)
+        await projector.setDoneAssignments(local.doneAssignments, revision: doneAssignmentsRevision)
         let updates = await source.updates()
         guard !hasEnded else { return }
         await withCheckedContinuation { (firstHandled: CheckedContinuation<Void, Never>) in
@@ -279,9 +309,74 @@ public final class HomeModel {
         })
     }
 
+    /// ideas2 report #3: To-Do's "Mark Done" button and swipe action call this (not
+    /// `local.setDone` directly) so the Dashboard's "Next up" re-projects at once, the same way a
+    /// changed "grades kept outside Canvas" answer does. `local.setDone` itself still persists the
+    /// mark and triggers the account's reminders pass (`AccountLocalScreenStateStore`'s
+    /// `onDoneMarksChanged`), unchanged.
+    public func setDone(_ ids: some Sequence<CanvasID<Assignment>>, done: Bool) {
+        guard local.setDone(ids, done: done) else { return }
+        doneAssignmentsRevision &+= 1
+        let revision = doneAssignmentsRevision
+        let doneAssignments = local.doneAssignments
+        let projector = projector
+        doneAssignmentChanges.replace(with: Task { [weak self] in
+            guard await projector.setDoneAssignments(doneAssignments, revision: revision) else { return }
+            await self?.reproject()
+        })
+    }
+
+    /// Waits for the latest "done" mark to reach the screens (tests).
+    func awaitDoneAssignmentApplied() async {
+        await doneAssignmentChanges.value()
+    }
+
     /// Waits for the latest answer to reach the screens (tests).
     func awaitGradeAvailabilityOverrideApplied() async {
         await overrideChanges.value()
+    }
+
+    /// FEAT-8 (Idea 7): Settings' picker. Updates the cached value at once so this session's own
+    /// "Open in Canvas" buttons see it without waiting on the write (the same pattern
+    /// `AppModel.recordNotEnabledSchool` uses).
+    public func setCanvasLinkPreference(_ preference: CanvasLinkPreference) {
+        guard preference != canvasLinkPreference else { return }
+        canvasLinkPreference = preference
+        let store = canvasLinkPreferenceStore
+        canvasLinkPreferencePersist.replace(with: Task { await store.save(preference) })
+    }
+
+    /// Waits for the last `setCanvasLinkPreference(_:)` write (tests).
+    func awaitCanvasLinkPreferencePersistence() async {
+        await canvasLinkPreferencePersist.value()
+    }
+
+    /// Idea 2 (FEAT-4): the student's own goal for `course`, or `nil` for none.
+    public func courseGoal(for course: CanvasID<Course>) -> Double? {
+        local.courseGoal(for: course)
+    }
+
+    /// Course Detail's "Set a goal" entry and What-If's one-tap "Save as goal" (idea 6) both call
+    /// this: sets (or, with `nil`, clears) one course's goal. Kept with the course order
+    /// (`ScreenLocalState`; a signed-in account's `UserState`), and every screen is projected
+    /// again at once with it — the same hand-over `setGradeAvailabilityOverride` uses, so
+    /// `CourseHealthRules`'s `atRisk`/`needsAttention` reasons and the Courses/Insights/Course
+    /// Detail chips that read them reflect the new goal immediately.
+    public func setCourseGoal(_ value: Double?, for course: CanvasID<Course>) {
+        guard local.setCourseGoal(value, for: course) else { return }
+        goalsRevision &+= 1
+        let revision = goalsRevision
+        let goals = local.courseGoals
+        let projector = projector
+        goalChanges.replace(with: Task { [weak self] in
+            guard await projector.setCourseGoals(goals, revision: revision) else { return }
+            await self?.reproject()
+        })
+    }
+
+    /// Waits for the latest goal to reach the screens (tests).
+    func awaitCourseGoalApplied() async {
+        await goalChanges.value()
     }
 
     /// Idea 4 (FEAT-3): To-Do's "Remind me" swipe/menu action. Persists `id`'s requested
@@ -308,6 +403,9 @@ public final class HomeModel {
         subscription.cancel()
         timeChanges.cancel()
         overrideChanges.cancel()
+        canvasLinkPreferencePersist.cancel()
+        goalChanges.cancel()
+        doneAssignmentChanges.cancel()
         manualRunOwner.cancel()
         manualRun = nil
         await source.end()
