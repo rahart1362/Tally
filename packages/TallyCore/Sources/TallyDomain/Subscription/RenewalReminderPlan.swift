@@ -69,8 +69,19 @@ public enum RenewalReminderPlan {
         return Diff(toSchedule: toSchedule, toCancel: toCancel)
     }
 
+    /// The namespace every renewal reminder's identifier lives in. These are planned from
+    /// StoreKit's facts and reconciled only here (`SubscriptionEngine`), so
+    /// `NotificationReconciler`, which plans from a Canvas snapshot and treats every other pending
+    /// identifier as stale, leaves this namespace alone (`owns`).
+    public static let identifierPrefix = "tally.subscription."
+
+    /// Whether `id` is one of the renewal reminders' identifiers (`identifierPrefix`).
+    public static func owns(_ id: String) -> Bool {
+        id.hasPrefix(identifierPrefix)
+    }
+
     private static func identifier(role: SubscriptionRole, daysBefore: Int) -> String {
-        "tally.subscription.\(role.rawValue).renewalReminder.\(daysBefore)"
+        "\(identifierPrefix)\(role.rawValue).renewalReminder.\(daysBefore)"
     }
 
     /// The latest expiry among the counted, currently-`.subscribed`, auto-renewing facts for

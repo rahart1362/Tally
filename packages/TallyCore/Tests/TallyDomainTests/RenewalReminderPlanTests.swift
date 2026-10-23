@@ -129,4 +129,11 @@ struct RenewalReminderPlanTests {
         let diff = RenewalReminderPlan.diff(desired: [], pending: [oneID], role: .student)
         #expect(diff.toCancel == [oneID])
     }
+
+    @Test func everyRenewalIdentifierIsInTheNamespaceTheSnapshotReconcilerSkips() {
+        for role in SubscriptionRole.allCases {
+            #expect(RenewalReminderPlan.allIdentifiers(role: role).allSatisfy(RenewalReminderPlan.owns))
+        }
+        #expect(!RenewalReminderPlan.owns("tally.acct-1.due.1204400.r1.0"), "a snapshot reminder's identifier is never claimed")
+    }
 }

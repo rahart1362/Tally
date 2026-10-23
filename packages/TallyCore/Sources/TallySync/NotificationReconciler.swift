@@ -13,7 +13,9 @@ public enum NotificationReconciler {
     /// worktree's scope — writes it back through `SyncLedgerStore`).
     ///
     /// - **Stale** identifiers — pending on the platform, remembered by the ledger, or both, but no
-    ///   longer desired — are cancelled and dropped from the ledger.
+    ///   longer desired — are cancelled and dropped from the ledger. The renewal reminders
+    ///   (`RenewalReminderPlan.owns`, EB-20) are never this pass's: `SubscriptionEngine` plans and
+    ///   cancels those from StoreKit's facts, so a refresh must not cancel them.
     /// - **Missing** identifiers — desired, but not already pending with matching content — are
     ///   scheduled (this also covers a reminder whose *content* changed under the same deterministic
     ///   id, e.g. a due date moving shifts its fire date without changing its id).
@@ -33,7 +35,7 @@ public enum NotificationReconciler {
         // soonest-first order above wins, and each ID is scheduled once.
         let desiredByID = Dictionary(capped.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
-        let pendingOnPlatform = await platform.pendingIdentifiers()
+        let pendingOnPlatform = await platform.pendingIdentifiers().filter { !RenewalReminderPlan.owns($0) }
         let managed = Set(ledger.notifications.keys).union(pendingOnPlatform)
         let staleIDs = managed.subtracting(desiredByID.keys)
         if !staleIDs.isEmpty { await platform.cancel(ids: staleIDs) }

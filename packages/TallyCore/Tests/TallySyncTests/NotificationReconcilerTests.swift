@@ -80,6 +80,22 @@ struct NotificationReconcilerTests {
         #expect(Set(ledger.notifications.keys) == ["a"])
     }
 
+    @Test func aPendingRenewalReminderIsNeverTreatedAsStale() async {
+        // EB-20: `SubscriptionEngine` schedules the renewal reminders straight onto the platform,
+        // outside any snapshot plan or ledger. A refresh's reconcile, even one that desires
+        // nothing, must leave them pending, or a background refresh would cancel them before they
+        // fire.
+        let renewalID = RenewalReminderPlan.identifierPrefix + "student.renewalReminder.40"
+        let platform = FakeNotificationCenter(seeding: [reminder(renewalID, kind: .renewalReminder, subjectID: "-"), reminder("orphan")])
+
+        let ledger = await NotificationReconciler.reconcile(desired: [reminder("a")], ledger: SyncLedger(), platform: platform)
+        #expect(await platform.pendingIdentifiers() == [renewalID, "a"])
+        #expect(Set(ledger.notifications.keys) == ["a"], "the ledger never takes over a renewal reminder")
+
+        _ = await NotificationReconciler.reconcile(desired: [], ledger: ledger, platform: platform)
+        #expect(await platform.pendingIdentifiers() == [renewalID])
+    }
+
     @Test func desiredBeyondTheCapIsTruncatedSoonestFirst() async {
         let platform = FakeNotificationCenter()
         let early = reminder("early", fireDate: anchor)
