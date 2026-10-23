@@ -3739,6 +3739,96 @@
         }
       }
     },
+    "dashboard.weekAhead.addButton" : {
+      "comment" : "Dashboard, Week-ahead strip: button that walks the week's due items through the existing per-item \"Add to Calendar\" sheet, one at a time.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add This Week to Calendar"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Agregar esta semana al calendario"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareButton" : {
+      "comment" : "Dashboard, Week-ahead strip: ShareLink label that shares the student's own plain-text weekly summary.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send My Week"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enviar mi semana"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareDayCountOnly" : {
+      "comment" : "Shared weekly summary text, one day's line with \"Hide Course Names\" on: the weekday abbreviation and how many items are due that day, never a title or course code. Placeholders: the weekday, the count.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %lld due"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@: %lld pendientes"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareDayTitles" : {
+      "comment" : "Shared weekly summary text, one day's line with \"Hide Course Names\" off: the weekday abbreviation and that day's item titles, comma-joined. Placeholders: the weekday, the already-joined titles.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@: %@"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.shareHeader" : {
+      "comment" : "Shared weekly summary text, first line: how many items are due this week. The placeholder is the count.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This week: %lld due"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esta semana: %lld pendientes"
+          }
+        }
+      }
+    },
     "dashboard.weekAheadHeader" : {
       "comment" : "Dashboard section header above the week strip.",
       "extractionState" : "manual",
@@ -9483,6 +9573,60 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Cancelar"
+          }
+        }
+      }
+    },
+    "settings.canvasLinks.label" : {
+      "comment" : "Settings: section header and picker label for the \"App\"/\"Browser\" choice that feeds CanvasLinkOpener.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Canvas Links In"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir enlaces de Canvas en"
+          }
+        }
+      }
+    },
+    "settings.canvasLinks.optionApp" : {
+      "comment" : "Settings, \"Open Canvas Links In\" picker option: the Canvas Student app (falling back to the browser if it isn't installed) -- today's default.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App"
+          }
+        }
+      }
+    },
+    "settings.canvasLinks.optionBrowser" : {
+      "comment" : "Settings, \"Open Canvas Links In\" picker option: always the device's browser, never the Canvas Student app.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browser"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Navegador"
           }
         }
       }

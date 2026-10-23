@@ -23,6 +23,8 @@ struct AccountHarness: Sendable {
     let lockPreferences: InMemoryAppLockPreferenceStore
     /// FEAT-2: the local, non-account preference for the searched-but-not-enabled school name.
     let notEnabledSchoolPreferences: InMemoryNotEnabledSchoolPreferenceStore
+    /// FEAT-8 (Idea 7): the local, non-account preference for "Open Canvas links in: App / Browser".
+    let canvasLinkPreferences: InMemoryCanvasLinkPreferenceStore
     let transport: RecordingTransport
     let notifications: FakeNotificationCenter
     let widgetReloads: CallCounter
@@ -31,8 +33,11 @@ struct AccountHarness: Sendable {
     /// - Parameter gateway: the account's Canvas; `nil` makes one that serves the flagship snapshot.
     /// - Parameter notEnabledSchool: FEAT-2's preference seeded for this harness; `nil` (the
     ///   default) matches a fresh install that never searched a school.
+    /// - Parameter canvasLinkPreference: FEAT-8's preference seeded for this harness; `nil` (the
+    ///   default) matches a fresh install that never changed it.
     init(gateway: (@Sendable (AccountRecord) async -> any CanvasGateway)? = nil,
-         lock: AppLockPreference? = nil, notEnabledSchool: String? = nil) throws {
+         lock: AppLockPreference? = nil, notEnabledSchool: String? = nil,
+         canvasLinkPreference: CanvasLinkPreference? = nil) throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("tally-lifecycle-\(UUID().uuidString)")
         try ProtectedFile.prepareDirectory(root, excludeFromBackup: true)
         credentials = InMemoryCredentialStore()
@@ -40,6 +45,7 @@ struct AccountHarness: Sendable {
         keyring = VaultKeyring(store: vaultKeys)
         lockPreferences = InMemoryAppLockPreferenceStore(lock)
         notEnabledSchoolPreferences = InMemoryNotEnabledSchoolPreferenceStore(notEnabledSchool)
+        canvasLinkPreferences = InMemoryCanvasLinkPreferenceStore(canvasLinkPreference)
         transport = RecordingTransport()
         notifications = FakeNotificationCenter()
         let widgetReloads = CallCounter()
@@ -47,7 +53,7 @@ struct AccountHarness: Sendable {
         let root = self.root
         environment = AccountEnvironment(
             storeRoot: { root }, credentialStore: credentials, keyring: keyring, lockPreferences: lockPreferences,
-            notEnabledSchoolPreferences: notEnabledSchoolPreferences,
+            notEnabledSchoolPreferences: notEnabledSchoolPreferences, canvasLinkPreferences: canvasLinkPreferences,
             transport: transport, notifications: notifications, reloadWidgets: { widgetReloads.increment() },
             gatewayOverride: gateway ?? { account in
                 FlagshipAccountGateway(account: account.accountKey)

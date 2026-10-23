@@ -1,21 +1,37 @@
 import TallyCanvasAPI
 import UIKit
 
-/// Opens a Canvas page for "Open in Canvas" (PMO R20): the Canvas Student app when it is installed
-/// (`CanvasLink.appURL`), otherwise the browser. The student's own tap is the only way Tally leaves
-/// for Canvas (R16: Tally never writes to Canvas itself).
+/// Opens a Canvas page for "Open in Canvas" (PMO R20): the Canvas Student app when it is
+/// installed (`CanvasLink.appURL`) and the student's preference (FEAT-8, Idea 7) allows it,
+/// otherwise the browser. The student's own tap is the only way Tally leaves for Canvas (R16:
+/// Tally never writes to Canvas itself).
 ///
 /// SEC1-15: `web` comes from Canvas-supplied data (an assignment, calendar-event or planner
 /// `html_url`), never rebuilt by Tally, so a compromised or malicious Canvas instance could in
 /// principle point it anywhere. `open` only ever opens an `https` URL on the signed-in account's
 /// own Canvas host (or that host's Canvas Student app mapping, `CanvasLink.appURL`, which is
 /// derived from the same validated URL and so is always on the same host too); anything else is
-/// not opened, silently — no new string.
+/// not opened, silently — no new string. `isSafe` runs first in every mode: the preference below
+/// only ever picks among destinations that already passed it.
 enum CanvasLinkOpener {
-    static func open(_ web: URL, accountHost: String) async {
+    static func open(_ web: URL, accountHost: String, preference: CanvasLinkPreference = .app) async {
         guard isSafe(web, accountHost: accountHost) else { return }
-        if let app = CanvasLink.appURL(for: web), await UIApplication.shared.open(app) { return }
-        await UIApplication.shared.open(web)
+        for destination in destinations(for: web, preference: preference) {
+            if await UIApplication.shared.open(destination) { return }
+        }
+    }
+
+    /// Pure, for testing: which URL(s) to try, in order, for a link `isSafe` has already cleared.
+    /// `.app` tries the Canvas Student app mapping first, then falls back to the browser (today's
+    /// default, R20, unchanged); `.browser` never tries the app.
+    nonisolated static func destinations(for web: URL, preference: CanvasLinkPreference) -> [URL] {
+        switch preference {
+        case .app:
+            if let app = CanvasLink.appURL(for: web) { return [app, web] }
+            return [web]
+        case .browser:
+            return [web]
+        }
     }
 
     /// Pure, for testing: reuses the same host policy the network layer applies before it attaches
