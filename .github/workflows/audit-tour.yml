@@ -26,9 +26,14 @@ on:
         description: >-
           JSON list: std, ax5 (AccessibilityXXXL), xxxLarge (the largest standard size, one step
           below AX1 — MVP-2b gate-2 round 2 item 16; this size's own leg always runs only
-          testB_coursesAndFirstCourseDetail, testD_calendar, testI_demoSignInProgress and (MVP-2g,
-          item 3: StatusChipRow's new xxxLarge branch had no evidence) testE_toDo, regardless of
-          the tests input, so adding it to std/ax5's default coverage is cheap)
+          testB_coursesAndFirstCourseDetail, testD_calendar, testI_demoSignInProgress, (MVP-2g,
+          item 3: StatusChipRow's new xxxLarge branch had no evidence) testE_toDo, and (UX-FIX-3
+          G2: this tour had no xxxLarge legs before, so UX2-01/UX2-02 were never re-checked at
+          this size) testF_insights, testQ_ageRestrictedScreen,
+          testS_paywallDisclosuresAndPostPurchaseConfirmation,
+          testV_schoolRevokedNoticeAndEraseSavedData,
+          testW_dashboardAddToCalendarAndSendMyWeekButtons, regardless of the tests input, so
+          adding it to std/ax5's default coverage is cheap)
         default: '["std","ax5"]'
       tests:
         description: 'Comma-separated AuditTourUITests methods (e.g. testA_dashboard,testE_toDo); empty = all'
@@ -140,6 +145,15 @@ jobs:
             # MVP-2g (item 3): StatusChipRow's new xxxLarge branch (ScreenComponents.swift,
             # usesFullRowWidth) had no tour evidence anywhere (gate-2 final review, verdict §C).
             TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testE_toDo"
+            # UX-FIX-3 (G2): this tour had no xxxLarge legs at all, so UX2-01 (the category chart)
+            # and UX2-02 (the purchase confirmation rows) were only ever re-checked at std and AX5
+            # -- xxxLarge sits between the two, and is the standard size where StatusChipRow and
+            # CourseCardView already treat it specially (the MVP-2g precedent above).
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testF_insights"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testQ_ageRestrictedScreen"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testS_paywallDisclosuresAndPostPurchaseConfirmation"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testV_schoolRevokedNoticeAndEraseSavedData"
+            TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/testW_dashboardAddToCalendarAndSendMyWeekButtons"
           else
             for t in $(echo "${{ inputs.tests }}" | tr ',' ' '); do TESTS="$TESTS -only-testing:TallyUITests/AuditTourUITests/$t"; done
             [ -n "$TESTS" ] || TESTS="-only-testing:TallyUITests/AuditTourUITests"

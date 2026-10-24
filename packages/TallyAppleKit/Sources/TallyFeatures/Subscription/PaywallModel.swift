@@ -173,7 +173,12 @@ nonisolated enum SubscriptionOfferText {
     /// the price's own slash ("then $9.99/ / year"), breaking D02's "a value never breaks" rule.
     /// Word joiners (U+2060) around the slash keep the price whole wherever it wraps; this is a
     /// runtime transform of the already-formatted value, so the catalog text is unchanged.
-    private static func unbreakableSlash(_ formattedPrice: String) -> String {
+    ///
+    /// UX2-05: not `private` -- `trialEndsThenCharged`/`renewalAutoCancel` (below) and
+    /// `PurchaseConfirmationModel.amountText` (`PurchaseConfirmationView.swift`) all wrap the same
+    /// raw `price(_:)` with it, so every place EB-18's price appears in running text protects it
+    /// the same way UX1-33 already did for the trial sentence.
+    static func unbreakableSlash(_ formattedPrice: String) -> String {
         formattedPrice.replacingOccurrences(of: "/", with: "\u{2060}/\u{2060}")
     }
 
@@ -206,14 +211,20 @@ nonisolated enum SubscriptionOfferText {
 
     /// "Your free trial ends Nov 21, 2026. Unless you cancel at least 24 hours before, you're then
     /// charged $9.99/year." `nil` without an eligible trial.
+    ///
+    /// UX2-05: at the default size on Pro Max this sentence wrapped right at the price's own slash
+    /// ("…then $9.99/ / year."), the same break UX1-33 already fixed for the shorter trial
+    /// sentence -- these two EB-18 sentences called the raw `price(offer)` instead.
     static func trialEndsThenCharged(_ offer: SubscriptionOffer, now: Date) -> String? {
         guard let date = trialEndDateText(offer, now: now) else { return nil }
-        return String(localized: L10n.Subscription.trialEndsThenCharged(date, then: price(offer)))
+        return String(localized: L10n.Subscription.trialEndsThenCharged(date, then: unbreakableSlash(price(offer))))
     }
 
     /// "Renews automatically at $9.99/year until you cancel. Cancel anytime: …" -- replaces the old
     /// footnote-size, secondary-colour `subscription.paywall.renewal` (EB-18).
+    ///
+    /// UX2-05: wraps the price the same way `trialEndsThenCharged` (above) now does.
     static func renewalAutoCancel(_ offer: SubscriptionOffer) -> String {
-        String(localized: L10n.Subscription.renewalAutoCancel(price(offer)))
+        String(localized: L10n.Subscription.renewalAutoCancel(unbreakableSlash(price(offer))))
     }
 }

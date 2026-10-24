@@ -12,28 +12,19 @@ import TallyStrings
 /// EB-04 is that block, verified on a device, not this screen).
 struct AgeRestrictedView: View {
     var body: some View {
-        ScrollView {
-            VStack(spacing: TallySpacing.xl) {
-                Image(systemName: "hourglass")
-                    .font(TallyTypography.screenTitle)
-                    .foregroundStyle(TallyColor.accent)
-                    .accessibilityHidden(true)
-                Text(L10n.AgeAssurance.restrictedTitle())
-                    .font(TallyTypography.sectionHeader)
-                    .foregroundStyle(TallyColor.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("ageRestricted.title")
-                Text(L10n.AgeAssurance.restrictedBody())
-                    .font(TallyTypography.body)
-                    .foregroundStyle(TallyColor.textSecondary)
-                    .accessibilityIdentifier("ageRestricted.body")
-            }
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(TallySpacing.xl)
-            .frame(maxWidth: .infinity)
+        // UX2-04/UX2-09: the icon/title/centring this screen built by hand (a bare `ScrollView`
+        // with no toolbar, so scrolled text ran under the status bar at AX5 -- the D01 class of
+        // defect) are now the shared `TallyNoticeLayout`, which also carries UX2-04's opaque
+        // status-bar band and the `screenMargin` sides this screen's own `TallySpacing.xl` padding
+        // used instead.
+        TallyNoticeLayout(systemImage: "hourglass",
+                          title: Text(L10n.AgeAssurance.restrictedTitle()),
+                          titleIdentifier: "ageRestricted.title") {
+            Text(L10n.AgeAssurance.restrictedBody())
+                .font(TallyTypography.body)
+                .foregroundStyle(TallyColor.textSecondary)
+                .accessibilityIdentifier("ageRestricted.body")
         }
-        .background(TallyColor.bgCanvas)
         .accessibilityIdentifier("ageRestricted.screen")
     }
 }

@@ -59,15 +59,21 @@ public struct TallyUnavailableView<Actions: View>: View {
             // dark in Audit tour 38023201467, gate 2). The call sites that pass a `.tallyPrimary`/
             // `.tallySecondary` button paint their own colour; `SchoolSearchView`'s plain "Retry"
             // also sets `.foregroundStyle(TallyColor.accent)` so it never depends on an ancestor.
+            // UX2-07: the system `ContentUnavailableView` draws its description in the system
+            // secondary grey by default -- 3.29:1 on `bgCanvas`, 3.30:1 on white, under the 4.5:1
+            // floor for this text size (the same under-contrast colour `TallySectionText`/
+            // `TallyLabeledContentStyle` already replace for a Form's own secondary text). One fix
+            // here reaches every std empty/error state built on this view (Family's parent empty
+            // state, school-search failure, first-sync failure, …).
             ContentUnavailableView {
                 Label {
-                    title
+                    title.foregroundStyle(TallyColor.textPrimary)
                 } icon: {
                     Image(systemName: systemImage)
                 }
             } description: {
                 if let description {
-                    description
+                    description.foregroundStyle(TallyColor.textSecondary)
                 }
             } actions: {
                 actions

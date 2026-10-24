@@ -10,12 +10,18 @@ extension L10n.Welcome {
     /// glance" so that phrase never splits across two lines (Pro Max broke it as "...Canvas — at /
     /// a glance"; the smallest iPhone started its second line with the bare em dash, "— at a
     /// glance"). `tagline()` itself is unchanged and stays in use by nothing else.
+    ///
+    /// UX2-20 (owner-approved 2026-10-24, amends this still-pending key): on the smallest iPhone at
+    /// std the second line still started with the bare em dash ("— at a glance") -- this fixed the
+    /// phrase after the dash but left an ordinary space before it. A non-breaking space there too
+    /// keeps "Canvas —" on the first line instead of leaving the dash to start the next one. The
+    /// visible words are unchanged, in en and es alike.
     public static func taglineNoBreak() -> LocalizedStringResource {
         LocalizedStringResource(
             "welcome.tagline.noBreak",
-            defaultValue: "Every class, grade and deadline from Canvas — at\u{00A0}a\u{00A0}glance",
+            defaultValue: "Every class, grade and deadline from Canvas\u{00A0}— at\u{00A0}a\u{00A0}glance",
             bundle: #bundle,
-            comment: "Welcome screen tagline, under the Tally wordmark. Same sentence as welcome.tagline; the non-breaking spaces inside \"at a glance\" keep that phrase from splitting across two lines.")
+            comment: "Welcome screen tagline, under the Tally wordmark. Same sentence as welcome.tagline; the non-breaking spaces around \"— at a glance\" keep that phrase (and the dash before it) from splitting across two lines.")
     }
 }
 

@@ -257,10 +257,13 @@ struct SubscriptionModelsTests {
     func renewalDisclosureText() throws {
         let now = Date(timeIntervalSince1970: 1_793_000_000)
         let dateText = try #require(SubscriptionOfferText.trialEndDateText(Self.offer, now: now))
+        // UX2-05: word joiners (U+2060) around the price's slash, the same fix UX1-33 already
+        // applied to the shorter trial() sentence -- at the default size on Pro Max this sentence
+        // wrapped right at the slash ("…then $9.99/ / year.").
         #expect(SubscriptionOfferText.trialEndsThenCharged(Self.offer, now: now)
-            == "Your free trial ends \(dateText). Unless you cancel at least 24 hours before, you're then charged $9.99/year.")
+            == "Your free trial ends \(dateText). Unless you cancel at least 24 hours before, you're then charged $9.99\u{2060}/\u{2060}year.")
         #expect(SubscriptionOfferText.renewalAutoCancel(Self.offer)
-            == "Renews automatically at $9.99/year until you cancel. Cancel anytime in Settings > your name > Subscriptions, "
+            == "Renews automatically at $9.99\u{2060}/\u{2060}year until you cancel. Cancel anytime in Settings > your name > Subscriptions, "
             + "or Manage Subscription in Tally's Settings.")
     }
 
@@ -371,7 +374,9 @@ struct SubscriptionModelsTests {
         #expect(model.planName == "Tally Annual")
         #expect(model.amountText == nil, "the offer has not loaded yet")
         await model.load()
-        #expect(model.amountText == "$9.99/year")
+        // UX2-05: the same word joiner `trialEndsThenCharged`/`renewalAutoCancel` wrap their own
+        // price in, so this row's value never breaks at its slash if it ever has to wrap.
+        #expect(model.amountText == "$9.99\u{2060}/\u{2060}year")
         #expect(model.renewsDateText == F.now.addingTimeInterval(300 * F.day).formatted(date: .abbreviated, time: .omitted))
         #expect(model.renewalDetailText == SubscriptionOfferText.renewalAutoCancel(Self.offer))
     }

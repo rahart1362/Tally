@@ -138,6 +138,11 @@ struct SubscriptionSettingsView: View {
                 sheet = .paywall(PaywallRequest(trigger: .settings))
             }
             .accessibilityIdentifier(interstitialState.isNamed ? "subscription.interstitial.continue" : "")
+            // UX2-17 (owner-approved 2026-10-24): after a mis-tap on See Plans, the only ways out
+            // were Check My School or Continue -> paywall -> Not Now. The key already exists
+            // (`SchoolRevokedNoticeView.swift` uses it for its own Cancel).
+            Button(String(localized: L10n.Settings.cancel()), role: .cancel) {}
+                .accessibilityIdentifier("subscription.interstitial.cancel")
         } message: {
             switch interstitialState {
             case .generic:

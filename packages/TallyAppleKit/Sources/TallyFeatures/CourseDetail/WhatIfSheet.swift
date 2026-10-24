@@ -20,6 +20,11 @@ struct WhatIfSheet: View {
     /// and the accessibility-tree tests in `GradeControlsViewTests.swift`, which never set it.
     var onSaveGoal: ((Double) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    // UX2-13: a `TallyTopBarFade` overlay was tried here (a one-line fade under the pinned
+    // summary) and reverted -- with no extra padding reserved on the list's first row, the fade's
+    // own near-opaque top edge washed directly over `whatif.groupHeader`'s text, which is why CI
+    // run 40086170557 failed `testWhatIf`'s own (pre-existing, previously-passing) contrast audit
+    // on that exact element. Not fixed; see the hand-off reply.
 
     var body: some View {
         NavigationStack {

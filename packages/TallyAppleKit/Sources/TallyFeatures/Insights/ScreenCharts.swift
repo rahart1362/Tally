@@ -11,13 +11,27 @@ struct CategoryWeightsChart: View {
     let weights: [CategoryWeight]
     let title: String
     let summary: String
-    /// Each bar's row, scaled with Dynamic Type so the category names never clip.
+    /// Each bar's own row, scaled with Dynamic Type so the bar never clips.
     @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 36
+    /// UX2-01: the extra line the category name now takes above its bar (below), scaled on its own
+    /// relative to `.caption` -- the name's own font -- so neither line ever clips the other.
+    @ScaledMetric(relativeTo: .caption) private var nameLineHeight: CGFloat = 16
 
     var body: some View {
         Chart(weights) { weight in
             BarMark(x: .value("Share", min(weight.share, 1) * 100), y: .value("Category", weight.name))
                 .foregroundStyle(TallyColor.accent)
+                // UX2-01 (regression from UX1-20): a y-axis label beside the bar (below) left AX5
+                // category names eating most of the chart's width, squeezing every bar's share of
+                // it down to a 2-3 pt sliver and pushing the value annotation past the card's edge
+                // ("29%", "30%" clipped). A name drawn ABOVE its own bar, flush with its left edge
+                // (UX1-20's own ask), never competes with the bar for horizontal room at any size --
+                // this is also what the AX5 chart already did before UX1-20 touched it.
+                .annotation(position: .top, alignment: .leading) {
+                    Text(verbatim: weight.name)
+                        .font(TallyTypography.caption)
+                        .foregroundStyle(TallyColor.textSecondary)
+                }
                 .annotation(position: .trailing, alignment: .leading) {
                     Text(weight.shareText)
                         .font(TallyTypography.caption)
@@ -26,19 +40,11 @@ struct CategoryWeightsChart: View {
         }
         .chartXScale(domain: 0.0...100.0)
         .chartXAxis(.hidden)
-        // D07: the category names are the chart's y-axis value labels, drawn by Swift Charts in
-        // the system secondary grey by default (3.44:1 on white); style them like every other
-        // secondary label.
-        // UX1-20: Swift Charts' default y-axis label placement left about 4 pt between the label
-        // and its bar's left edge (N7); `.aligned`/`.leading` with no horizontal spacing starts
-        // the label flush with the bars, as Course Detail's and Insights' category names should.
-        .chartYAxis {
-            AxisMarks(preset: .aligned, position: .leading) { _ in
-                AxisValueLabel(horizontalSpacing: 0)
-                    .foregroundStyle(TallyColor.textSecondary)
-            }
-        }
-        .frame(height: CGFloat(max(weights.count, 1)) * rowHeight)
+        // UX2-01: the names now draw as a `.top` annotation on each bar (above), not as y-axis
+        // labels, so the axis itself carries nothing and is hidden -- freeing the whole plot width
+        // for the bars (full width at every size) and the trailing value annotation.
+        .chartYAxis(.hidden)
+        .frame(height: CGFloat(max(weights.count, 1)) * (rowHeight + nameLineHeight))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(summary)

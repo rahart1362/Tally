@@ -151,6 +151,9 @@ final class CourseDetailUITests: TallyUITestCase {
         XCTAssertTrue(remove.exists, "Hierarchy: \(app.debugDescription)")
 
         // Remove it: back to the entry button, and the stepper and Remove are both gone.
+        // UX2-01's taller category chart (names drawn above the bars) pushed the Goal section
+        // down, so "Remove goal" is no longer on screen without scrolling (PR run 40108237805).
+        XCTAssertTrue(scrollUntilHittable(remove, in: app), "no 'Remove goal' button. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(remove, in: app)
         XCTAssertTrue(eventually { setGoal.exists }, "Removing the goal did not bring back 'Set a goal'. Hierarchy: \(app.debugDescription)")
         XCTAssertFalse(stepper.exists)

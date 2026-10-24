@@ -81,7 +81,6 @@ struct SettingsView: View {
                 thresholdSection
                 dataSection
                 calendarSection
-                canvasLinksSection
                 privacySection
                 // FAM-10 (M3-E2): a student's Family & Sharing (§7.2), additive; FAM-14's way in.
                 if app?.family == nil, let familySharing {
@@ -236,6 +235,10 @@ struct SettingsView: View {
                 Text(L10n.Settings.sampleModeCaption())
                     .font(TallyTypography.footnote)
                     .foregroundStyle(TallyColor.textSecondary)
+                // UX2-15: the Canvas-links picker is a device preference, not account-specific, so
+                // sample mode (which has no School row to sit beside) still carries it here rather
+                // than losing it along with the standalone section this used to be.
+                canvasLinksPicker
                 subscriptionRow
                 if let app, app.route == .sample {
                     Button(String(localized: L10n.Settings.exitSampleData())) {
@@ -257,6 +260,10 @@ struct SettingsView: View {
                         Text(L10n.Settings.schoolLabel())
                     }
                 }
+                // UX2-15: was its own headerless, footerless one-row section straight under
+                // Calendar's footer, which read as a Calendar setting (Audit tour run 39738635603).
+                // It is about Canvas, so it sits next to School instead.
+                canvasLinksPicker
                 if let name = home.account.displayName {
                     LabeledContent(String(localized: L10n.Settings.signedInAsLabel()), value: name)
                 }
@@ -454,17 +461,18 @@ struct SettingsView: View {
     /// the Picker's own label is already the row's visible name, the same way `AppLockRows`'
     /// "Require Unlock" grace-period picker (`privacySection`, same `.pickerStyle(.menu)`) carries
     /// no section header of its own.
-    private var canvasLinksSection: some View {
-        Section {
-            Picker(String(localized: L10n.Settings.canvasLinksLabel()), selection: Binding(
-                get: { home.canvasLinkPreference },
-                set: { home.setCanvasLinkPreference($0) })) {
-                Text(L10n.Settings.canvasLinksOptionApp()).tag(CanvasLinkPreference.app)
-                Text(L10n.Settings.canvasLinksOptionBrowser()).tag(CanvasLinkPreference.browser)
-            }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("settings.canvasLinks")
+    ///
+    /// UX2-15: a plain row, not its own `Section` — `accountSection` (above) now places it next to
+    /// School, inside that section.
+    private var canvasLinksPicker: some View {
+        Picker(String(localized: L10n.Settings.canvasLinksLabel()), selection: Binding(
+            get: { home.canvasLinkPreference },
+            set: { home.setCanvasLinkPreference($0) })) {
+            Text(L10n.Settings.canvasLinksOptionApp()).tag(CanvasLinkPreference.app)
+            Text(L10n.Settings.canvasLinksOptionBrowser()).tag(CanvasLinkPreference.browser)
         }
+        .pickerStyle(.menu)
+        .accessibilityIdentifier("settings.canvasLinks")
     }
 
     // MARK: - Privacy & Security, About

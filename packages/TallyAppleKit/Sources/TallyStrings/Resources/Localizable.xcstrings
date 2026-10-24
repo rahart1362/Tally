@@ -9181,20 +9181,20 @@
         }
       }
     },
-    "reminders.footer" : {
-      "comment" : "Settings, Reminders section footer: when reminders arrive.",
+    "reminders.footerV2" : {
+      "comment" : "Settings, Reminders section footer: when reminders arrive. Replaces reminders.footer (removed), which hard-coded the Quiet Hours default (11 PM-7 AM) instead of referring to the adjustable Quiet Hours section below.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A day and an hour before each due date, and an evening and a Sunday summary when work is due. Nothing arrives between 11 PM and 7 AM: a reminder comes earlier instead. Reminders use the Canvas data Tally last refreshed, and Tally tells you if it hasn't refreshed for a day."
+            "value" : "A day and an hour before each due date, and an evening and a Sunday summary when work is due. Nothing arrives during quiet hours: a reminder comes earlier instead. Reminders use the Canvas data Tally last refreshed, and Tally tells you if it hasn't refreshed for a day."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Un día y una hora antes de cada fecha de entrega, y un resumen por la noche y otro el domingo cuando hay trabajo pendiente. No llega nada entre las 11 p.m. y las 7 a.m.: el recordatorio llega antes. Los recordatorios usan los datos de Canvas de la última actualización de Tally, y Tally te avisa si no se ha actualizado en un día."
+            "value" : "Un día y una hora antes de cada fecha de entrega, y un resumen por la noche y otro el domingo cuando hay trabajo pendiente. No llega nada durante el horario sin interrupciones: el recordatorio llega antes. Los recordatorios usan los datos de Canvas de la última actualización de Tally, y Tally te avisa si no se ha actualizado en un día."
           }
         }
       }
@@ -12686,19 +12686,19 @@
       }
     },
     "welcome.tagline.noBreak" : {
-      "comment" : "Welcome screen tagline, under the Tally wordmark. Same sentence as welcome.tagline; the non-breaking spaces inside \"at a glance\" keep that phrase from splitting across two lines.",
+      "comment" : "Welcome screen tagline, under the Tally wordmark. Same sentence as welcome.tagline; the non-breaking spaces around \"— at a glance\" keep that phrase (and the dash before it) from splitting across two lines.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every class, grade and deadline from Canvas — at a glance"
+            "value" : "Every class, grade and deadline from Canvas — at a glance"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Cada clase, calificación y fecha límite de Canvas — de un vistazo"
+            "value" : "Cada clase, calificación y fecha límite de Canvas — de un vistazo"
           }
         }
       }

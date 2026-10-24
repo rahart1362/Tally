@@ -561,8 +561,6 @@ private struct WeekAheadSection: View {
     /// the glyph's own WIDTH, which is what forced every Week-ahead column to be at least as wide
     /// as the AX5 icon (7 × 49 pt columns = 415 pt on a 390 pt screen; Gate 2's `R1-overflow.jpg`).
     @ScaledMetric(relativeTo: .caption2) private var glyphRowHeight: CGFloat = 14
-    /// UX1-16: the day-number ring, the same role as Calendar's week strip's own day mark.
-    @ScaledMetric(relativeTo: .caption2) private var dayMarkDiameter: CGFloat = 18
 
     /// Both new rows need at least one due item this week to act on; an empty week has nothing to
     /// add or share.
@@ -591,15 +589,16 @@ private struct WeekAheadSection: View {
                                 .font(TallyTypography.caption)
                                 .fontWeight(day.isToday ? .semibold : .regular)
                                 .foregroundStyle(day.isToday ? TallyColor.accent : TallyColor.textSecondary)
-                            Text(day.date.formatted(.dateTime.day()))
-                                .font(.caption2)
-                                .foregroundStyle(TallyColor.textSecondary)
-                                .frame(width: dayMarkDiameter, height: dayMarkDiameter)
-                                .overlay {
-                                    if day.isToday {
-                                        Circle().strokeBorder(TallyColor.accent, lineWidth: 1.5)
-                                    }
-                                }
+                            // UX2-03 (regression from UX1-16): capped at AX1 the same way the
+                            // glyph row below already caps the busy icon -- uncapped, the ring and
+                            // the day number collided with their neighbours at AX5 (the layout
+                            // check's own overlap finding: column "W, 14, 8" at x 15.3-81.7
+                            // overlapping "T, 15, 2" at x 76.3). Pulled into its own `WeekDayMark`
+                            // because `@ScaledMetric` reads the environment of the view that owns
+                            // it, so the cap has to sit on an ANCESTOR of the view that computes the
+                            // diameter, not merely on a sibling inside the same body.
+                            WeekDayMark(day: day)
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                             Text("\(day.dueCount)")
                                 .font(TallyTypography.cardTitle)
                                 .foregroundStyle(day.isBusy ? TallyColor.warning : TallyColor.textPrimary)
@@ -645,6 +644,28 @@ private struct WeekAheadSection: View {
                 }
             }
         }
+    }
+}
+
+/// UX2-03: the Week ahead strip's day-number ring, on its own so an ancestor
+/// `.dynamicTypeSize(...DynamicTypeSize.accessibility1)` modifier can cap `diameter` at AX1 --
+/// `@ScaledMetric` reads the environment of the view that declares it, so the cap has to be
+/// applied where this view is instantiated, not inside its own body. See `WeekAheadSection`.
+private struct WeekDayMark: View {
+    let day: DashboardProjection.WeekDay
+    /// UX1-16: the day-number ring, the same role as Calendar's week strip's own day mark.
+    @ScaledMetric(relativeTo: .caption2) private var diameter: CGFloat = 18
+
+    var body: some View {
+        Text(day.date.formatted(.dateTime.day()))
+            .font(.caption2)
+            .foregroundStyle(TallyColor.textSecondary)
+            .frame(width: diameter, height: diameter)
+            .overlay {
+                if day.isToday {
+                    Circle().strokeBorder(TallyColor.accent, lineWidth: 1.5)
+                }
+            }
     }
 }
 

@@ -124,18 +124,38 @@ struct SchoolSearchView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(TallyColor.textSecondary)
                 .accessibilityHidden(true)
-            TextField(String(localized: L10n.Onboarding.SchoolSearch.searchPrompt()), text: queryBinding, axis: .vertical)
-                .font(TallyTypography.body)
-                .foregroundStyle(TallyColor.textPrimary)
-                .focused($searchFieldFocused)
-                .submitLabel(.search)
-                // UX1-08: at AX5 the placeholder truncated to "School nam…" although typed text
-                // already wraps (`axis: .vertical` above); the placeholder wraps the same way.
-                .lineLimit(1...3)
-                // Kept so a future test/tour update can find this field directly; the system
-                // search bar it replaces here has no identifier of its own either, so nothing
-                // that found the old field by identifier is being broken by this.
-                .accessibilityIdentifier("schoolSearch.field")
+            // UX2-19 (UX1-08 did not hold): `TextField`'s own placeholder never wraps --
+            // `.lineLimit(1...3)` only ever applied to the TYPED text, so the placeholder itself
+            // still truncated to "School nam…"/"School na…" on every AX5 leg. A multi-line `Text`
+            // overlay, shown only while empty, wraps like every other label; the field keeps its
+            // accessibility label (previously carried by the `TextField`'s own title) explicitly,
+            // so VoiceOver and Voice Control are unaffected by swapping the visible placeholder.
+            ZStack(alignment: .leading) {
+                if viewModel.query.isEmpty {
+                    // Audit tour run 40098611582 (112-schoolSearch-idle.png, AX5): with no
+                    // `.fixedSize`, this `Text` was compressed to the empty `TextField`'s own
+                    // single-line ideal height inside the `ZStack` and truncated ("School / name
+                    // or C…") instead of wrapping -- the standard SwiftUI fix for a `Text` whose
+                    // natural multi-line height a sibling is squeezing (the same pattern
+                    // `TallyUnavailableView`'s AX-size branch, `AgeRestrictedView` and
+                    // `SchoolRevokedNoticeView`'s body text all already use).
+                    Text(L10n.Onboarding.SchoolSearch.searchPrompt())
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityHidden(true)
+                }
+                TextField("", text: queryBinding, axis: .vertical)
+                    .font(TallyTypography.body)
+                    .foregroundStyle(TallyColor.textPrimary)
+                    .focused($searchFieldFocused)
+                    .submitLabel(.search)
+                    .accessibilityLabel(String(localized: L10n.Onboarding.SchoolSearch.searchPrompt()))
+                    // Kept so a future test/tour update can find this field directly; the system
+                    // search bar it replaces here has no identifier of its own either, so nothing
+                    // that found the old field by identifier is being broken by this.
+                    .accessibilityIdentifier("schoolSearch.field")
+            }
         }
         .padding(.horizontal, TallySpacing.md)
         .padding(.vertical, TallySpacing.sm)

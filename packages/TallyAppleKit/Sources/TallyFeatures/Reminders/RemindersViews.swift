@@ -17,7 +17,9 @@ nonisolated enum RemindersViewCopy {
     static var openSettings: LocalizedStringResource { L10n.Reminders.openSettings() }
     static var sampleData: LocalizedStringResource { L10n.Reminders.sampleData() }
     static var hideCourseNames: LocalizedStringResource { L10n.Reminders.hideCourseNames() }
-    static var footer: LocalizedStringResource { L10n.Reminders.footer() }
+    /// UX2-08: replaces `footer`/`reminders.footer` (removed), which hard-coded the Quiet Hours
+    /// default (11 PM-7 AM) directly above pickers that change it.
+    static var footerV2: LocalizedStringResource { L10n.Reminders.footerV2() }
     static var hideCourseNamesFooter: LocalizedStringResource { L10n.Reminders.hideCourseNamesFooter() }
     // Idea 5 (FEAT-3): the Quiet Hours override.
     static var quietHoursStart: LocalizedStringResource { L10n.Reminders.quietHoursStart() }
@@ -107,71 +109,87 @@ struct RemindersSettingsSection: View {
 
     var body: some View {
         if let reminders {
-            Section {
-                switch reminders.status(isSampleData: isSampleData) {
-                case .sampleData:
-                    Text(RemindersViewCopy.sampleData)
-                        .font(TallyTypography.footnote)
-                        .foregroundStyle(TallyColor.textSecondary)
-                        .accessibilityIdentifier("settings.reminders.sample")
-                case .checking:
-                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.checking()))
-                case .off:
-                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOff()))
-                        .accessibilityIdentifier("settings.reminders.status")
-                    Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
-                        .disabled(reminders.isRequesting)
-                        .accessibilityIdentifier("settings.reminders.turnOn")
-                case .deniedInSettings:
-                    Text(RemindersViewCopy.denied)
-                        .accessibilityIdentifier("settings.reminders.denied")
-                    Button(String(localized: RemindersViewCopy.openSettings)) {
-                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
-                    }
-                    .accessibilityIdentifier("settings.reminders.openSettings")
-                case .on:
-                    LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOn()))
-                        .accessibilityIdentifier("settings.reminders.status")
-                }
-                if let settings, settings.hasLoaded {
-                    Toggle(String(localized: RemindersViewCopy.hideCourseNames), isOn: Binding(
-                        get: { settings.hideCourseNamesInNotifications },
-                        set: { settings.setHideCourseNamesInNotifications($0) }))
-                        .accessibilityIdentifier("settings.reminders.hideNames")
-                    if settings.hideCourseNamesSaveFailed {
-                        Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
+            // UX2-16: Quiet Hours used to sit, with its own footer, three paragraphs below its own
+            // rows inside this one Section -- its pickers' own labels already say "Quiet Hours",
+            // so it needs no header of its own, just a Section boundary. Kept in one `Group` (the
+            // same shape `FamilySharingSection` uses for several Sections) so `.task(id:)` below
+            // still covers both.
+            Group {
+                Section {
+                    switch reminders.status(isSampleData: isSampleData) {
+                    case .sampleData:
+                        Text(RemindersViewCopy.sampleData)
                             .font(TallyTypography.footnote)
+                            .foregroundStyle(TallyColor.textSecondary)
+                            .accessibilityIdentifier("settings.reminders.sample")
+                    case .checking:
+                        LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.checking()))
+                    case .off:
+                        LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOff()))
+                            .accessibilityIdentifier("settings.reminders.status")
+                        Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
+                            .disabled(reminders.isRequesting)
+                            .accessibilityIdentifier("settings.reminders.turnOn")
+                    case .deniedInSettings:
+                        Text(RemindersViewCopy.denied)
+                            .accessibilityIdentifier("settings.reminders.denied")
+                        Button(String(localized: RemindersViewCopy.openSettings)) {
+                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                        }
+                        .accessibilityIdentifier("settings.reminders.openSettings")
+                    case .on:
+                        LabeledContent(String(localized: RemindersViewCopy.sectionTitle), value: String(localized: L10n.Reminders.statusOn()))
+                            .accessibilityIdentifier("settings.reminders.status")
                     }
-                    // Idea 5 (FEAT-3): a per-student Quiet Hours override, written to
-                    // `UserState.quietHoursOverride` and fed into the existing planner
-                    // (`ReminderPipeline`/`shiftOutOfQuietHours`). Each picker's own label names
-                    // "Quiet Hours" so the pair reads on its own, with no separate group title row.
-                    DatePicker(String(localized: RemindersViewCopy.quietHoursStart), selection: Binding(
-                        get: { Self.date(hour: settings.quietHours.startHour, minute: settings.quietHours.startMinute) },
-                        set: { settings.setQuietHours(Self.withStart($0, of: settings.quietHours)) }),
-                              displayedComponents: .hourAndMinute)
-                        .accessibilityIdentifier("settings.reminders.quietHours.start")
-                    DatePicker(String(localized: RemindersViewCopy.quietHoursEnd), selection: Binding(
-                        get: { Self.date(hour: settings.quietHours.endHour, minute: settings.quietHours.endMinute) },
-                        set: { settings.setQuietHours(Self.withEnd($0, of: settings.quietHours)) }),
-                              displayedComponents: .hourAndMinute)
-                        .accessibilityIdentifier("settings.reminders.quietHours.end")
-                    if settings.quietHoursSaveFailed {
-                        Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
-                            .font(TallyTypography.footnote)
+                    if let settings, settings.hasLoaded {
+                        Toggle(String(localized: RemindersViewCopy.hideCourseNames), isOn: Binding(
+                            get: { settings.hideCourseNamesInNotifications },
+                            set: { settings.setHideCourseNamesInNotifications($0) }))
+                            .accessibilityIdentifier("settings.reminders.hideNames")
+                        if settings.hideCourseNamesSaveFailed {
+                            Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
+                                .font(TallyTypography.footnote)
+                        }
                     }
-                }
-            } header: {
-                Text(RemindersViewCopy.sectionTitle)
-                    .tallySectionText()
-            } footer: {
-                if !isSampleData {
-                    // Built outside the Text(...) call (not literal-concatenated inside it): the
-                    // separator is two plain newlines, not user-facing words.
-                    let combined = String(localized: RemindersViewCopy.footer) + "\n\n" + String(localized: RemindersViewCopy.hideCourseNamesFooter)
-                        + "\n\n" + String(localized: RemindersViewCopy.quietHoursFooter)
-                    Text(combined)
+                } header: {
+                    Text(RemindersViewCopy.sectionTitle)
                         .tallySectionText()
+                } footer: {
+                    if !isSampleData {
+                        // Built outside the Text(...) call (not literal-concatenated inside it): the
+                        // separator is two plain newlines, not user-facing words.
+                        let combined = String(localized: RemindersViewCopy.footerV2) + "\n\n" + String(localized: RemindersViewCopy.hideCourseNamesFooter)
+                        Text(combined)
+                            .tallySectionText()
+                    }
+                }
+                // Idea 5 (FEAT-3): a per-student Quiet Hours override, written to
+                // `UserState.quietHoursOverride` and fed into the existing planner
+                // (`ReminderPipeline`/`shiftOutOfQuietHours`). Each picker's own label names
+                // "Quiet Hours" so the pair reads on its own, with no separate group title row.
+                //
+                // UX2-16: its own Section, directly under the main Reminders one, with its own
+                // footer right under its two rows instead of three paragraphs down.
+                if let settings, settings.hasLoaded, !isSampleData {
+                    Section {
+                        DatePicker(String(localized: RemindersViewCopy.quietHoursStart), selection: Binding(
+                            get: { Self.date(hour: settings.quietHours.startHour, minute: settings.quietHours.startMinute) },
+                            set: { settings.setQuietHours(Self.withStart($0, of: settings.quietHours)) }),
+                                  displayedComponents: .hourAndMinute)
+                            .accessibilityIdentifier("settings.reminders.quietHours.start")
+                        DatePicker(String(localized: RemindersViewCopy.quietHoursEnd), selection: Binding(
+                            get: { Self.date(hour: settings.quietHours.endHour, minute: settings.quietHours.endMinute) },
+                            set: { settings.setQuietHours(Self.withEnd($0, of: settings.quietHours)) }),
+                                  displayedComponents: .hourAndMinute)
+                            .accessibilityIdentifier("settings.reminders.quietHours.end")
+                        if settings.quietHoursSaveFailed {
+                            Label(String(localized: L10n.Settings.settingSaveFailed()), systemImage: "exclamationmark.triangle")
+                                .font(TallyTypography.footnote)
+                        }
+                    } footer: {
+                        Text(RemindersViewCopy.quietHoursFooter)
+                            .tallySectionText()
+                    }
                 }
             }
             .task(id: scenePhase) {

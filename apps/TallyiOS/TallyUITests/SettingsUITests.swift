@@ -36,6 +36,9 @@ final class SettingsUITests: TallyUITestCase {
                       "the points did not come back. Hierarchy: \(app.debugDescription)")
 
         // Per course: a navigating row, then one menu per course.
+        // UX2-15 moved the Canvas-links picker into the Account section, pushing every row
+        // below it (incl. this one) further down (PR run 40108237805).
+        XCTAssertTrue(scrollUntilHittable(app.buttons["settings.perCourse"], in: app), "no Per Course row. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(app.buttons["settings.perCourse"], in: app)
         XCTAssertTrue(app.navigationBars["Per Course"].waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
         let pickers = app.buttons.matching(identifier: "settings.courseThreshold")
@@ -48,6 +51,12 @@ final class SettingsUITests: TallyUITestCase {
         let perCourse = app.buttons["settings.perCourse"]
         XCTAssertTrue(eventually { perCourse.label.contains("1 course") || perCourse.value as? String == "1 course" },
                       "per-course summary: '\(perCourse.label)' / \(String(describing: perCourse.value))")
+
+        // UX2-15 now requires scrolling down to reach "Per Course" (above): a pushed List/Form
+        // restores its own scroll position on pop, so the Form is still scrolled down here, and
+        // `scrollUntilHittable` below (swipe-up only, never back up) could not otherwise find
+        // "Account" again. Back to the top before the section-by-section pass below.
+        for _ in 0..<10 { app.swipeDown(velocity: .slow) }
 
         // Rows that do not navigate are not buttons (no chevron): the version is a plain row. A Form
         // builds only the rows on screen, so the third-party check runs again after each scroll,
@@ -117,6 +126,9 @@ final class SettingsSignedInUITests: TallyUITestCase {
         tapWhenHittable(app.buttons["Done"], in: app)
         XCTAssertTrue(eventually { !app.navigationBars["Settings"].exists })
         openSettings(app)
+        // UX2-15 moved the Canvas-links picker into the Account section, pushing Sign Out &
+        // Erase further down (PR run 40108237805).
+        XCTAssertTrue(scrollUntilHittable(app.buttons["settings.signOut"], in: app), "no Sign Out & Erase. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'"))
             .firstMatch.waitForExistence(timeout: 10), "no confirmation with the spec's copy. Hierarchy: \(app.debugDescription)")
@@ -222,6 +234,9 @@ final class SettingsSignedInUITests: TallyUITestCase {
 
         app.navigationBars["Subscription"].buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+        // UX2-15 moved the Canvas-links picker into the Account section, pushing Sign Out &
+        // Erase further down (PR run 40108237805).
+        XCTAssertTrue(scrollUntilHittable(app.buttons["settings.signOut"], in: app), "no Sign Out & Erase. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(app.buttons["settings.signOut"], in: app, timeout: LifecycleUITest.tapTimeout)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Tally will delete your saved courses and grades'"))
             .firstMatch.waitForExistence(timeout: 10), "no confirmation with the spec's copy. Hierarchy: \(app.debugDescription)")
