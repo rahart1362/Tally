@@ -20,9 +20,11 @@ struct WhatIfSheet: View {
     /// and the accessibility-tree tests in `GradeControlsViewTests.swift`, which never set it.
     var onSaveGoal: ((Double) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
-    /// UX2-13: the fade under the pinned summary, scaled with the `body` text it fades (about one
-    /// line of it) -- the same metric `WelcomeView`'s own bottom-pinned fade uses.
-    @ScaledMetric(relativeTo: .body) private var fadeHeight: CGFloat = TallyReflow.bottomBarFadeHeight
+    // UX2-13: a `TallyTopBarFade` overlay was tried here (a one-line fade under the pinned
+    // summary) and reverted -- with no extra padding reserved on the list's first row, the fade's
+    // own near-opaque top edge washed directly over `whatif.groupHeader`'s text, which is why CI
+    // run 40086170557 failed `testWhatIf`'s own (pre-existing, previously-passing) contrast audit
+    // on that exact element. Not fixed; see the hand-off reply.
 
     var body: some View {
         NavigationStack {
@@ -73,11 +75,6 @@ struct WhatIfSheet: View {
                     // other pinned chrome so that D02's stacked layout below does not make it
                     // taller at AX5 (`TallyReflow.pinnedChromeMaximumSize`).
                     .tallyPinnedChromeTextSize()
-                    // UX2-13: at rest the first row sat right against the summary's own bottom
-                    // edge, with no cue it keeps scrolling -- a one-line fade (the same recipe
-                    // `DestructiveConfirmation.swift`'s own bottom-pinned fade uses, flipped for
-                    // chrome pinned at the top) softens that seam instead of a hard slice.
-                    .overlay(alignment: .bottom) { TallyTopBarFade(height: fadeHeight, color: TallyColor.bgCard) }
             }
             .navigationTitle(String(localized: L10n.CourseDetail.whatIfHeader()))
             .navigationBarTitleDisplayMode(.inline)
