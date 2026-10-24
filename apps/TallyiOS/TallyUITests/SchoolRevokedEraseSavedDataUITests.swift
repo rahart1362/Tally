@@ -37,6 +37,9 @@ final class SchoolRevokedEraseSavedDataUITests: TallyUITestCase {
         // never Welcome, which would mean this signed the student out.
         XCTAssertTrue(waitUntilGone(title, in: app, timeout: 15), "the notice stayed up after Erase Saved Data. Hierarchy: \(app.debugDescription)")
         openSettings(app)
+        // UX2-15 moved the Canvas-links picker into the Account section, pushing Subscription
+        // further down (PR run 40108237805).
+        XCTAssertTrue(scrollUntilHittable(element("settings.subscription", in: app), in: app), "no Subscription row. Hierarchy: \(app.debugDescription)")
         tapWhenHittable(element("settings.subscription", in: app), in: app)
         XCTAssertTrue(element("subscription.status", in: app).waitForExistence(timeout: 15),
                       "Settings > Subscription never reopened: EB-26 must not sign the student out. Hierarchy: \(app.debugDescription)")

@@ -1208,43 +1208,23 @@ extension TallyUITestCase {
     /// scripting a denied significant-change consent (`AgeRestrictedUITests`' own proven recipe).
     @MainActor
     func a11yReachAgeRestricted(extra: [String] = []) -> XCUIApplication {
-        // PMO ruling 2026-10-24 (CI runs 40090103830, 40092803392, both "account.findMySchool
-        // never appeared"): this reach now mirrors TOUR-2's own `testQ_ageRestrictedScreen`
-        // (`AuditTourUITests.swift`), which reaches this exact view reliably on all 8 of its
-        // legs. That test's own navigation (`go`/`goScrolling`) never hard-asserts on an
-        // intermediate step -- only on the final destination, `ageRestricted.screen`, with a 60 s
-        // wait. `tapWhenHittable`'s hard assert on each intermediate element (this function's
-        // earlier version) is what actually failed the test; a soft wait-and-tap that can fall
-        // through without failing, `a11ySoftTap` below, is the same shape as `go`.
-        let app = launchApp(arguments: TestHooks.entitled + TestHooks.demoSignIn + TestHooks.ageRestricted + extra)
-        if a11ySoftTap(element("account.findMySchool", in: app), in: app, timeout: 60) {
-            let field = a11ySchoolSearchField(app)
-            if a11ySoftTap(field, in: app, timeout: 15) {
-                field.typeText(Self.a11yDemoHost)
-                if a11ySoftTap(element("schoolSearch.useAddress", in: app), in: app, timeout: 15) {
-                    let continueButton = element("onboarding.signIn.continueTo", in: app)
-                    if continueButton.waitForExistence(timeout: 20) {
-                        continueButton.tap()
-                    }
-                }
-            }
-        }
+        // PMO ruling 2026-10-24 (3rd failure, run 40108305345): the real cause was not
+        // `account.findMySchool`'s own wait -- it was the step after `a11yReachHandoff`, where
+        // this function used to tap `onboarding.signIn.continueTo` the moment it merely
+        // *existed*. `AuditTourUITests.signInToDemoSchool`'s own comment on that exact element
+        // has the reason: "CI run 37639511433: `go` alone missed this at AX5 on every leg (the
+        // confirmation screen's button is below the fold at that text size)" -- it uses
+        // `goScrolling`, not a plain tap, for precisely this reason. This reach now matches that
+        // shape exactly: `a11yReachHandoff` (the suite's own proven steps through to the
+        // hand-off screen, already used by `a11yReachFirstSyncSkeleton`), then
+        // `scrollUntilHittable` before tapping Continue, then the one hard assertion on the
+        // actual destination, `ageRestricted.screen`.
+        let app = a11yReachHandoff(extra: TestHooks.entitled + TestHooks.ageRestricted + extra)
+        let continueButton = element("onboarding.signIn.continueTo", in: app)
+        XCTAssertTrue(scrollUntilHittable(continueButton, in: app), "Hierarchy: \(app.debugDescription)")
+        continueButton.tap()
         XCTAssertTrue(element("ageRestricted.screen", in: app).waitForExistence(timeout: 60), "Hierarchy: \(app.debugDescription)")
         return app
-    }
-
-    /// A soft `tapWhenHittable`: waits, taps and returns `true` once `element` is hittable;
-    /// returns `false` instead of failing the test if it never becomes so -- the same shape
-    /// `AuditTourUITests.go` uses, which is why `testQ_ageRestrictedScreen` never hard-fails on
-    /// an intermediate step on the way to the screen it actually cares about.
-    @MainActor
-    @discardableResult
-    private func a11ySoftTap(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND isHittable == true"),
-                                                  object: element)
-        guard XCTWaiter().wait(for: [hittable], timeout: timeout) == .completed else { return false }
-        element.tap()
-        return true
     }
 
     /// The seeded flagship account, already refreshed with `.schoolDisabled`
