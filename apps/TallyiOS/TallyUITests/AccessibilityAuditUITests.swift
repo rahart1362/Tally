@@ -1197,7 +1197,21 @@ extension TallyUITestCase {
     /// scripting a denied significant-change consent (`AgeRestrictedUITests`' own proven recipe).
     @MainActor
     func a11yReachAgeRestricted(extra: [String] = []) -> XCUIApplication {
-        let app = a11yReachHandoff(extra: TestHooks.entitled + TestHooks.ageRestricted + extra)
+        // Not `a11yReachHandoff`: CI run 40090103830 (both scope=only attempts, the budget's
+        // last one) timed out waiting 30 s for "account.findMySchool" with this exact hook
+        // combination. `AgeRestrictedUITests.swift`'s own already-proven test gives its
+        // post-launch wait 60 s (`scaled(60)`) for the same hook, for what is presumably the same
+        // reason -- an age-assurance launch does extra consent-gate work before Welcome paints.
+        // Inlines `a11yReachHandoff`'s own steps with that longer first wait instead of widening
+        // the shared helper (and its 30 s) for every other caller.
+        let app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.entitled + TestHooks.ageRestricted + extra)
+        tapWhenHittable(element("account.findMySchool", in: app), in: app, timeout: 60)
+        let field = a11ySchoolSearchField(app)
+        tapWhenHittable(field, in: app, timeout: 10)
+        field.typeText(Self.a11yDemoHost)
+        tapWhenHittable(element("schoolSearch.useAddress", in: app), in: app, timeout: 10)
+        XCTAssertTrue(element("onboarding.signIn.continueTo", in: app).waitForExistence(timeout: 15),
+                      "Hierarchy: \(app.debugDescription)")
         element("onboarding.signIn.continueTo", in: app).tap()
         XCTAssertTrue(element("ageRestricted.screen", in: app).waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
         return app
