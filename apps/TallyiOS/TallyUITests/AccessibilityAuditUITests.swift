@@ -524,7 +524,9 @@ enum A11yWaivers {
         // "northfield." / "example", each whole (run 38350587735's screenshot).
         Key(elementIdentifier: "onboarding.signIn.schoolText", auditType: "textClipped"),
         // UX-FIX-3 (run 40086170557, this package's own first audit of these three scenes --
-        // none had ever been covered before, which is the G1 gap the brief named).
+        // none had ever been covered before, which is the G1 gap the brief named). PMO accepted
+        // all three 2026-10-24; `docs/pmo/a11y-waivers.md` has the full justification, including
+        // the PMO's own independent 5.44:1 contrast measurement on the `schoolOff.refund` row.
         //
         // confirmation.done: the same `ToolbarItem(.confirmationAction)` "Done" category as
         // whatif.done/settings.done/paywall.close above -- measured 36 pt tall here too (the
