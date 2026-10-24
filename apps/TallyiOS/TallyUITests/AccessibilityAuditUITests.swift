@@ -1219,6 +1219,14 @@ extension TallyUITestCase {
         // hand-off screen, already used by `a11yReachFirstSyncSkeleton`), then
         // `scrollUntilHittable` before tapping Continue, then the one hard assertion on the
         // actual destination, `ageRestricted.screen`.
+        //
+        // PMO, 4th failure (run 40115571468): the hierarchy at the failure was the signed-in
+        // Dashboard ("Good afternoon, Alex Sample"), not Welcome. The light suite's
+        // `testAgeRestricted` audits two variants (std, then AX5), each reaching this screen by
+        // signing in, and nothing reset the app between them, so the second launch opened signed
+        // in, no age request was due, and Welcome never appeared. The Dark and Contrast suites
+        // audit one variant each and passed. Reset first, so every reach starts from Welcome.
+        resetAppState()
         let app = a11yReachHandoff(extra: TestHooks.entitled + TestHooks.ageRestricted + extra)
         let continueButton = element("onboarding.signIn.continueTo", in: app)
         XCTAssertTrue(scrollUntilHittable(continueButton, in: app), "Hierarchy: \(app.debugDescription)")
