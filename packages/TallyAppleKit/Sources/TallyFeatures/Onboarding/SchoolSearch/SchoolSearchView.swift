@@ -132,9 +132,17 @@ struct SchoolSearchView: View {
             // so VoiceOver and Voice Control are unaffected by swapping the visible placeholder.
             ZStack(alignment: .leading) {
                 if viewModel.query.isEmpty {
+                    // Audit tour run 40098611582 (112-schoolSearch-idle.png, AX5): with no
+                    // `.fixedSize`, this `Text` was compressed to the empty `TextField`'s own
+                    // single-line ideal height inside the `ZStack` and truncated ("School / name
+                    // or C…") instead of wrapping -- the standard SwiftUI fix for a `Text` whose
+                    // natural multi-line height a sibling is squeezing (the same pattern
+                    // `TallyUnavailableView`'s AX-size branch, `AgeRestrictedView` and
+                    // `SchoolRevokedNoticeView`'s body text all already use).
                     Text(L10n.Onboarding.SchoolSearch.searchPrompt())
                         .font(TallyTypography.body)
                         .foregroundStyle(TallyColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityHidden(true)
                 }
                 TextField("", text: queryBinding, axis: .vertical)
