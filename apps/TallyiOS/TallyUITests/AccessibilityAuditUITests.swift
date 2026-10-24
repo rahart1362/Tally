@@ -544,6 +544,15 @@ enum A11yWaivers {
         // agenda (this file's own `a11yReachCalendar` doc comment), firing here at the plain
         // default (std) size on a system `ContentUnavailableView` with no larger size in play.
         Key(elementIdentifier: "family.parentEmpty", auditType: "textClipped"),
+        // family.addStudent ("Add a Student", `.tallyPrimary`): Dark only (run 40092803392's
+        // scope=a11y Dark leg; the same Light run did not flag it). Measured false positive --
+        // pixel-sampled from that leg's own `familyParentEmpty-dark-std-audit-screen.png`: the
+        // capsule's fill reads `rgb(45,94,190)` and its label `rgb(255,255,255)`, 6.08:1 by the
+        // WCAG relative-luminance formula, clear of the 4.5:1 floor. The same style already
+        // passes elsewhere (Welcome's "Find My School", `testWelcome`'s own dark-std scene); this
+        // was simply the first time `.tallyPrimary` was audited inside a `List` row with
+        // `.listRowBackground(Color.clear)`.
+        Key(elementIdentifier: "family.addStudent", auditType: "contrast"),
     ]
 
     static func isWaived(elementIdentifier: String, auditType: String) -> Bool {
