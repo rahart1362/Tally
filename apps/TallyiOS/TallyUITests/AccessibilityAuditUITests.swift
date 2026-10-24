@@ -240,6 +240,52 @@ final class AccessibilityAuditUITests: TallyUITestCase {
         auditScreen("lockView", reach: { self.a11yReachLockView(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
                     variant: "light-ax5", types: [.dynamicType, .textClipped])
     }
+
+    // MARK: - UX-FIX-3 (G1): AgeRestricted, SchoolRevoked, PurchaseConfirmation, the subscribe
+    // interstitial, the Family empty state and the To-Do swipe actions had no scene in this suite,
+    // which is how UX2-06 (School revoked contrast) and UX2-07 (Family empty contrast) slipped
+    // through: the 16/16 and 26/26 pass said nothing about them.
+
+    @MainActor
+    func testAgeRestricted() throws {
+        auditScreen("ageRestricted", reach: { self.a11yReachAgeRestricted(extra: $0) }, variant: "light-std")
+        auditScreen("ageRestricted", reach: { self.a11yReachAgeRestricted(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+    }
+
+    @MainActor
+    func testSchoolRevoked() throws {
+        auditScreen("schoolRevoked", reach: { self.a11yReachSchoolRevoked(extra: $0) }, variant: "light-std")
+        auditScreen("schoolRevoked", reach: { self.a11yReachSchoolRevoked(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+    }
+
+    @MainActor
+    func testSchoolRevokedEraseConfirm() throws {
+        auditScreen("schoolRevokedEraseConfirm", reach: { self.a11yReachSchoolRevokedEraseConfirm(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testPurchaseConfirmation() throws {
+        auditScreen("purchaseConfirmation", reach: { self.a11yReachPurchaseConfirmation(extra: $0) }, variant: "light-std")
+        auditScreen("purchaseConfirmation", reach: { self.a11yReachPurchaseConfirmation(extra: $0) }, extra: Self.a11yAccessibilityXXXL,
+                    variant: "light-ax5", types: [.dynamicType, .textClipped])
+    }
+
+    @MainActor
+    func testSubscribeInterstitial() throws {
+        auditScreen("subscribeInterstitial", reach: { self.a11yReachSubscribeInterstitial(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testFamilyParentEmpty() throws {
+        auditScreen("familyParentEmpty", reach: { self.a11yReachFamilyParentEmpty(extra: $0) }, variant: "light-std")
+    }
+
+    @MainActor
+    func testToDoSwipeActions() throws {
+        auditScreen("toDoSwipeActions", reach: { self.a11yReachToDoSwipeActions(extra: $0) }, variant: "light-std")
+    }
 }
 
 /// Dark appearance, default size, every audit type. release-gate.yml sets the simulator to Dark
@@ -306,6 +352,31 @@ final class AccessibilityAuditDarkUITests: TallyUITestCase {
     func testParentMode() throws { auditScreen("parentMode", reach: { self.a11yReachParentMode(extra: $0) }, variant: "dark-std") }
     @MainActor
     func testLockView() throws { auditScreen("lockView", reach: { self.a11yReachLockView(extra: $0) }, variant: "dark-std") }
+    // UX-FIX-3 (G1): see the Light class's own doc comment above `testAgeRestricted`.
+    @MainActor
+    func testAgeRestricted() throws { auditScreen("ageRestricted", reach: { self.a11yReachAgeRestricted(extra: $0) }, variant: "dark-std") }
+    @MainActor
+    func testSchoolRevoked() throws { auditScreen("schoolRevoked", reach: { self.a11yReachSchoolRevoked(extra: $0) }, variant: "dark-std") }
+    @MainActor
+    func testSchoolRevokedEraseConfirm() throws {
+        auditScreen("schoolRevokedEraseConfirm", reach: { self.a11yReachSchoolRevokedEraseConfirm(extra: $0) }, variant: "dark-std")
+    }
+    @MainActor
+    func testPurchaseConfirmation() throws {
+        auditScreen("purchaseConfirmation", reach: { self.a11yReachPurchaseConfirmation(extra: $0) }, variant: "dark-std")
+    }
+    @MainActor
+    func testSubscribeInterstitial() throws {
+        auditScreen("subscribeInterstitial", reach: { self.a11yReachSubscribeInterstitial(extra: $0) }, variant: "dark-std")
+    }
+    @MainActor
+    func testFamilyParentEmpty() throws {
+        auditScreen("familyParentEmpty", reach: { self.a11yReachFamilyParentEmpty(extra: $0) }, variant: "dark-std")
+    }
+    @MainActor
+    func testToDoSwipeActions() throws {
+        auditScreen("toDoSwipeActions", reach: { self.a11yReachToDoSwipeActions(extra: $0) }, variant: "dark-std")
+    }
 }
 
 /// Increase Contrast, default size, `.contrast` only (this class's own doc comment above has the
@@ -370,6 +441,33 @@ final class AccessibilityAuditContrastUITests: TallyUITestCase {
     func testParentMode() throws { auditContrast("parentMode", reach: { self.a11yReachParentMode(extra: $0) }) }
     @MainActor
     func testLockView() throws { auditContrast("lockView", reach: { self.a11yReachLockView(extra: $0) }) }
+    // UX-FIX-3 (G1): see the Light class's own doc comment above `testAgeRestricted`. This is
+    // exactly the gap UX2-06 (School revoked, 3.20:1/3.24:1 in light) and UX2-07 (Family empty,
+    // 3.29:1 in light) slipped through: neither had an Increase Contrast scene before.
+    @MainActor
+    func testAgeRestricted() throws { auditContrast("ageRestricted", reach: { self.a11yReachAgeRestricted(extra: $0) }) }
+    @MainActor
+    func testSchoolRevoked() throws { auditContrast("schoolRevoked", reach: { self.a11yReachSchoolRevoked(extra: $0) }) }
+    @MainActor
+    func testSchoolRevokedEraseConfirm() throws {
+        auditContrast("schoolRevokedEraseConfirm", reach: { self.a11yReachSchoolRevokedEraseConfirm(extra: $0) })
+    }
+    @MainActor
+    func testPurchaseConfirmation() throws {
+        auditContrast("purchaseConfirmation", reach: { self.a11yReachPurchaseConfirmation(extra: $0) })
+    }
+    @MainActor
+    func testSubscribeInterstitial() throws {
+        auditContrast("subscribeInterstitial", reach: { self.a11yReachSubscribeInterstitial(extra: $0) })
+    }
+    @MainActor
+    func testFamilyParentEmpty() throws {
+        auditContrast("familyParentEmpty", reach: { self.a11yReachFamilyParentEmpty(extra: $0) })
+    }
+    @MainActor
+    func testToDoSwipeActions() throws {
+        auditContrast("toDoSwipeActions", reach: { self.a11yReachToDoSwipeActions(extra: $0) })
+    }
 }
 
 // MARK: - Waiver registry
@@ -1086,6 +1184,107 @@ extension TallyUITestCase {
         seedFlagshipAccount()
         let app = launchApp(arguments: TestHooks.replayAccounts + TestHooks.appLockOn + TestHooks.deviceAuth("cancel") + extra)
         XCTAssertTrue(app.buttons["lock.unlock"].waitForExistence(timeout: 15), "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    // MARK: - UX-FIX-3 (G1): the six scenes this suite had no coverage for
+
+    /// Welcome → Find My School → the demo school → Continue, with `AgeAssuranceTestHooks`
+    /// scripting a denied significant-change consent (`AgeRestrictedUITests`' own proven recipe).
+    @MainActor
+    func a11yReachAgeRestricted(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachHandoff(extra: TestHooks.entitled + TestHooks.ageRestricted + extra)
+        element("onboarding.signIn.continueTo", in: app).tap()
+        XCTAssertTrue(element("ageRestricted.screen", in: app).waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// The seeded flagship account, already refreshed with `.schoolDisabled`
+    /// (`SchoolRevokedEraseSavedDataUITests`' own proven launch-argument recipe), so the notice
+    /// shows at launch over the signed-in Home.
+    @MainActor
+    func a11yReachSchoolRevoked(extra: [String] = []) -> XCUIApplication {
+        let app = launchApp(arguments: TestHooks.seedFlagship + TestHooks.replayAccounts + TestHooks.schoolRevoked + extra)
+        XCTAssertTrue(element("schoolOff.title", in: app).waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// UX2-09's D03 confirmation sheet, reached from the notice's own "Erase Saved Data".
+    @MainActor
+    func a11yReachSchoolRevokedEraseConfirm(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachSchoolRevoked(extra: extra)
+        let erase = element("schoolOff.eraseSavedData", in: app)
+        XCTAssertTrue(scrollUntilHittable(erase, in: app), "Hierarchy: \(app.debugDescription)")
+        erase.tap()
+        XCTAssertTrue(element("schoolOff.eraseSavedDataConfirm.erase", in: app).waitForExistence(timeout: 10),
+                      "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// EB-21: the retainable purchase confirmation, right after a direct purchase
+    /// (`PaywallUITests.testSampleModeSettingsInterstitialPaywallAndPurchase`'s own proven steps).
+    @MainActor
+    func a11yReachPurchaseConfirmation(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachPaywall(extra: extra)
+        let purchase = app.buttons["paywall.purchase"]
+        XCTAssertTrue(scrollUntilHittable(purchase, in: app), "Hierarchy: \(app.debugDescription)")
+        purchase.tap()
+        XCTAssertTrue(eventually(timeout: scaled(15)) { !self.element("paywall.root", in: app).exists },
+                      "the paywall stayed open after the purchase. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(element("confirmation.root", in: app).waitForExistence(timeout: scaled(10)),
+                      "no purchase confirmation after buying. Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// PAY-09: See Plans → the interstitial, stopped there (UX2-17's new Cancel button is on this
+    /// alert) -- `openPaywallThroughTheInterstitial` (`PaywallUITests.swift`) continues past it, so
+    /// this reach only borrows `openSubscriptionSettings`.
+    @MainActor
+    func a11yReachSubscribeInterstitial(extra: [String] = []) -> XCUIApplication {
+        let app = launchSample(arguments: TestHooks.entitlement("none") + extra)
+        openSubscriptionSettings(app)
+        let seePlans = app.buttons["subscription.seePlans"]
+        XCTAssertTrue(scrollUntilHittable(seePlans, in: app), "Hierarchy: \(app.debugDescription)")
+        seePlans.tap()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: scaled(10)), "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// UX2-07/UX2-11: the parent "no students" empty state only shows once both sample students
+    /// are removed (`AuditTourUITests.testO_parentEmptyState`'s own recipe, replicated with this
+    /// suite's own helpers).
+    @MainActor
+    func a11yReachFamilyParentEmpty(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachParentMode(extra: extra)
+        openSettings(app)
+        for name in ["Rowan", "Skyler"] {
+            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "\(name) Sample")).firstMatch
+            guard scrollUntilHittable(row, in: app) else { continue }
+            row.tap()
+            let removeButton = app.buttons["family.removeFromTally"]
+            guard scrollUntilHittable(removeButton, in: app) else { continue }
+            removeButton.tap()
+            let confirm = element("familyConfirm.remove.destructive", in: app)
+            if confirm.waitForExistence(timeout: 10) { confirm.tap() }
+            _ = element("family.addStudent", in: app).waitForExistence(timeout: 10)
+        }
+        XCTAssertTrue(element("family.parentEmpty", in: app).waitForExistence(timeout: 10), "Hierarchy: \(app.debugDescription)")
+        return app
+    }
+
+    /// Idea 4/UX2-12: the To-Do row's revealed swipe actions (Remind Me, Done, Open in Canvas),
+    /// at rest once the swipe gesture settles.
+    @MainActor
+    func a11yReachToDoSwipeActions(extra: [String] = []) -> XCUIApplication {
+        let app = a11yReachToDo(extra: extra)
+        let rows = elementsWithPrefix("todo.row", in: app)
+        let first = rows.element(boundBy: 0)
+        XCTAssertTrue(scrollUntilHittable(first, in: app), "Hierarchy: \(app.debugDescription)")
+        first.swipeLeft()
+        XCTAssertTrue(element("todo.swipe.remindMe", in: app).waitForExistence(timeout: 5)
+                      || element("todo.swipe.done", in: app).waitForExistence(timeout: 5)
+                      || element("todo.swipe.notDone", in: app).waitForExistence(timeout: 5),
+                      "no swipe action revealed. Hierarchy: \(app.debugDescription)")
         return app
     }
 }

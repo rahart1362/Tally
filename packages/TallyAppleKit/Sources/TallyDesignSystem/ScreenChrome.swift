@@ -278,3 +278,72 @@ extension LabeledContentStyle where Self == TallyLabeledContentStyle {
     /// grey. See `TallyLabeledContentStyle`.
     public static var tallySecondaryValue: TallyLabeledContentStyle { TallyLabeledContentStyle() }
 }
+
+/// UX2-02: `LabeledContent`'s own layout puts the label and value on one line with no reflow,
+/// which broke mid-word at AX5 on the purchase confirmation's plain `VStack` rows ("Amoun / t",
+/// "Re- / news", "$9.99/ / year") -- a `List`/`Form` row stacks a `LabeledContent` automatically at
+/// the accessibility sizes; a plain row outside one, as this screen uses so it can sit centred in
+/// `TallyNoticeLayout` rather than nest a second scroll view inside it, does not. D02's own
+/// `TallyReflowStack`/`TallyReflowValueColumn` (`AccessibilityReflow.swift`), already used
+/// throughout the app for exactly this row shape, applied to the two pieces `LabeledContent`'s
+/// configuration already splits out.
+public struct TallyStackingLabeledContentStyle: LabeledContentStyle {
+    public func makeBody(configuration: Configuration) -> some View {
+        TallyReflowStack(alignment: .firstTextBaseline, spacing: TallySpacing.sm) {
+            configuration.label
+                .foregroundStyle(TallyColor.textPrimary)
+            TallyReflowSpacer()
+            TallyReflowValueColumn {
+                configuration.content
+                    .foregroundStyle(TallyColor.textSecondary)
+            }
+        }
+    }
+}
+
+extension LabeledContentStyle where Self == TallyStackingLabeledContentStyle {
+    /// UX2-02: stacks label over value from AX1 up, side by side below it (trailing-aligned value,
+    /// leading once stacked). See `TallyStackingLabeledContentStyle`.
+    public static var tallyStacking: TallyStackingLabeledContentStyle { TallyStackingLabeledContentStyle() }
+}
+
+/// UX2-04/UX2-09: a bare `ScrollView` in a `fullScreenCover` with no navigation bar
+/// (`AgeRestrictedView`, `SchoolRevokedNoticeView`) has no toolbar to carry
+/// `TallyScreenChrome`'s opaque `toolbarBackground`, so scrolled content ran under the status bar
+/// at the accessibility sizes instead of being hidden by it -- the same D01 problem, with no bar to
+/// fix it on. Reads the top safe-area inset with a zero-footprint `GeometryReader` behind a
+/// `Color.clear` (the same trick `TallyScreenWidthReader` uses for the tab-root margin, above) and
+/// paints an opaque `bgCanvas` rectangle over exactly that band, ignoring the safe area so it sits
+/// over the status bar instead of pushing the content down.
+public struct TallyStatusBarBand: ViewModifier {
+    @State private var topInset: CGFloat = 0
+
+    public init() {}
+
+    public func body(content: Content) -> some View {
+        content
+            .scrollEdgeEffectStyle(.hard, for: .top)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onChange(of: proxy.safeAreaInsets.top, initial: true) { _, inset in
+                            topInset = inset
+                        }
+                }
+            }
+            .overlay(alignment: .top) {
+                TallyColor.bgCanvas
+                    .frame(height: topInset)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+    }
+}
+
+extension View {
+    /// D01 for a screen with no navigation bar. See `TallyStatusBarBand`.
+    public func tallyStatusBarBand() -> some View {
+        modifier(TallyStatusBarBand())
+    }
+}

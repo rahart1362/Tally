@@ -545,12 +545,19 @@ public enum L10n {
                                     comment: "Settings toggle: notifications say 'a course'/'An assignment' instead of names (PMO R10).")
         }
 
-        public static func footer() -> LocalizedStringResource {
+        /// UX2-08 (owner-approved 2026-10-24): `footer()`'s fixed "11 PM and 7 AM" contradicted
+        /// the Quiet Hours pickers directly below it, which the student can change -- wrong as
+        /// soon as they do. Replaces `reminders.footer` (removed: this key was its only caller, so
+        /// the old key would otherwise fail `check_string_catalogs.py`'s unused-key check); the old
+        /// English text is on record in the UX-FIX-3 report. The visible words otherwise say the
+        /// same thing (the reminder schedule, then the Canvas-freshness note), minus the hard-coded
+        /// hours.
+        public static func footerV2() -> LocalizedStringResource {
             LocalizedStringResource(
-                "reminders.footer",
-                defaultValue: "A day and an hour before each due date, and an evening and a Sunday summary when work is due. Nothing arrives between 11 PM and 7 AM: a reminder comes earlier instead. Reminders use the Canvas data Tally last refreshed, and Tally tells you if it hasn't refreshed for a day.",
+                "reminders.footerV2",
+                defaultValue: "A day and an hour before each due date, and an evening and a Sunday summary when work is due. Nothing arrives during quiet hours: a reminder comes earlier instead. Reminders use the Canvas data Tally last refreshed, and Tally tells you if it hasn't refreshed for a day.",
                 bundle: #bundle,
-                comment: "Settings, Reminders section footer: when reminders arrive.")
+                comment: "Settings, Reminders section footer: when reminders arrive. Replaces reminders.footer (removed), which hard-coded the Quiet Hours default (11 PM-7 AM) instead of referring to the adjustable Quiet Hours section below.")
         }
 
         public static func hideCourseNamesFooter() -> LocalizedStringResource {
@@ -558,7 +565,7 @@ public enum L10n {
                 "reminders.hideCourseNamesFooter",
                 defaultValue: "With Hide Course Names on, notifications say \u{201C}a course\u{201D} and \u{201C}An assignment\u{201D} instead of names. Grades are never shown in notifications.",
                 bundle: #bundle,
-                comment: "Settings, Reminders section footer: explains Hide Course Names. Appended after reminders.footer, separated by a blank line.")
+                comment: "Settings, Reminders section footer: explains Hide Course Names. Appended after reminders.footerV2, separated by a blank line.")
         }
 
         public static func checking() -> LocalizedStringResource {

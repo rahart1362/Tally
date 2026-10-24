@@ -154,7 +154,12 @@ struct ToDoScreen: View {
                 } label: {
                     Label(String(localized: L10n.ToDo.swipeRemindMe()), systemImage: "bell")
                 }
-                .tint(TallyColor.accentFill)
+                // UX2-12: "Remind Me" shared `accentFill` with "Open in Canvas" above, the same
+                // same-blue problem UX1-30 fixed for "Done"/"Open in Canvas". `bgBrand` (the navy
+                // hero token) is a third, distinct tint; white on it computes to about 17.3:1
+                // light (`#071A36`), 14.2:1 dark (`#0D2A55`) from the asset's own sRGB components
+                // with the WCAG relative-luminance formula -- well clear of the 4.5:1 floor.
+                .tint(TallyColor.bgBrand)
                 .accessibilityIdentifier("todo.swipe.remindMe")
             }
         }

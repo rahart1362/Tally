@@ -62,10 +62,14 @@ struct LinkedStudentsSection: View {
             // CI run 39943772680 showed that nesting made the button unreachable by its
             // identifier, even though it still rendered correctly (confirmed visually, Audit tour
             // run 39903157582's 203-family-parentEmpty.png).
+            // UX2-11: these two rows are the empty state's own content, not a list of real rows,
+            // but a plain `List` still drew a separator line across the top of "Add a Student" in
+            // both appearances.
             TallyUnavailableView(Text(L10n.FamilyUI.linkedStudentsHeader()), systemImage: "person.2",
                                  description: Text(L10n.FamilyUI.parentNoStudents()))
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 .accessibilityIdentifier("family.parentEmpty")
             Button(String(localized: L10n.FamilyUI.addStudent())) { presentsAddStudent = true }
                 .buttonStyle(.tallyPrimary)
@@ -73,6 +77,7 @@ struct LinkedStudentsSection: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: TallySpacing.screenMargin,
                                           bottom: TallySpacing.xl, trailing: TallySpacing.screenMargin))
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 .accessibilityIdentifier("family.addStudent")
             if let onExploreStudentMode {
                 Section {

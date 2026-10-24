@@ -1436,7 +1436,13 @@ final class AuditTourUITests: TallyUITestCase {
         openSettings(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "renewalReminderBanner", state: "subscriptionPage",
                        reachedVia: "Settings -> Subscription") {
-            if element("subscription.renewalReminderBanner.text", in: app).waitForExistence(timeout: 20) {
+            // UX-FIX-3 test gap: `element(...)` (a broad `.any`-descendants query) did not
+            // reliably find this banner even when SwiftUI had drawn it, so a real render kept
+            // getting filed as "missing-banner". Direct `app.staticTexts`/`app.buttons` queries
+            // match what this Form's `Text` and (`notDetermined`) `Button` actually are.
+            let bannerText = app.staticTexts["subscription.renewalReminderBanner.text"]
+            let turnOn = app.buttons["subscription.renewalReminderBanner.turnOn"]
+            if bannerText.waitForExistence(timeout: 20) || turnOn.waitForExistence(timeout: 5) {
                 snap(app, screen: "renewalReminderBanner", state: "banner",
                      reachedVia: "Settings -> Subscription, renewal due, notifications off")
             } else {

@@ -24,50 +24,40 @@ struct PurchaseConfirmationView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: TallySpacing.xl) {
-                    // `TallyTypography.stateSymbol`: the same large-symbol scale as an empty or
-                    // error state's icon (`TallyUnavailableView`), so the size is a named token
-                    // rather than a one-off magic number.
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(TallyTypography.stateSymbol)
-                        .foregroundStyle(TallyColor.accent)
-                        .accessibilityHidden(true)
-                    Text(L10n.Subscription.confirmationTitle())
-                        .font(TallyTypography.sectionHeader)
-                        .foregroundStyle(TallyColor.textPrimary)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("confirmation.title")
-                    VStack(alignment: .leading, spacing: TallySpacing.sm) {
-                        LabeledContent(String(localized: L10n.Subscription.planLabel()), value: model.planName)
-                            .accessibilityIdentifier("confirmation.plan")
-                        if let amount = model.amountText {
-                            LabeledContent(String(localized: L10n.Subscription.confirmationAmountLabel()), value: amount)
-                                .accessibilityIdentifier("confirmation.amount")
-                        }
-                        if let renews = model.renewsDateText {
-                            LabeledContent(String(localized: L10n.Subscription.confirmationRenewsLabel()), value: renews)
-                                .accessibilityIdentifier("confirmation.renews")
-                        }
+            // UX2-09: the icon/title/centring this screen used to build by hand are now the
+            // shared `TallyNoticeLayout` (icon at `stateSymbol`, title at `stateTitle`, in place
+            // of this screen's own `sectionHeader`), the same layout `AgeRestrictedView` and
+            // `SchoolRevokedNoticeView` use.
+            TallyNoticeLayout(systemImage: "checkmark.circle.fill",
+                              title: Text(L10n.Subscription.confirmationTitle()),
+                              titleIdentifier: "confirmation.title") {
+                // UX2-02: the rows broke mid-word at AX5 ("Amoun / t", "Re- / news", "$9.99/ /
+                // year") in a plain `VStack` with no reflow; `.tallyStacking` stacks label over
+                // value from AX1 up, the same D02 rule every other two-column row in the app
+                // follows.
+                VStack(alignment: .leading, spacing: TallySpacing.sm) {
+                    LabeledContent(String(localized: L10n.Subscription.planLabel()), value: model.planName)
+                        .accessibilityIdentifier("confirmation.plan")
+                    if let amount = model.amountText {
+                        LabeledContent(String(localized: L10n.Subscription.confirmationAmountLabel()), value: amount)
+                            .accessibilityIdentifier("confirmation.amount")
                     }
-                    .labeledContentStyle(.tallySecondaryValue)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if let detail = model.renewalDetailText {
-                        Text(verbatim: detail)
-                            .font(TallyTypography.body)
-                            .foregroundStyle(TallyColor.textPrimary)
-                            .accessibilityIdentifier("confirmation.renewalDetail")
+                    if let renews = model.renewsDateText {
+                        LabeledContent(String(localized: L10n.Subscription.confirmationRenewsLabel()), value: renews)
+                            .accessibilityIdentifier("confirmation.renews")
                     }
                 }
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, TallySpacing.screenMargin)
-                .padding(.vertical, TallySpacing.xl)
-                .frame(maxWidth: .infinity)
+                .labeledContentStyle(.tallyStacking)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if let detail = model.renewalDetailText {
+                    Text(verbatim: detail)
+                        .font(TallyTypography.body)
+                        .foregroundStyle(TallyColor.textPrimary)
+                        .accessibilityIdentifier("confirmation.renewalDetail")
+                }
             }
-            .background(TallyColor.bgCanvas)
-            .tallyScreenChrome()
             .accessibilityIdentifier("confirmation.root")
+            .tallyScreenChrome()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: L10n.Subscription.confirmationDone())) { dismiss() }
@@ -107,9 +97,12 @@ final class PurchaseConfirmationModel {
 
     var planName: String { String(localized: L10n.Subscription.name()) }
 
-    /// "$9.99/year", once the offer has loaded.
+    /// "$9.99/year", once the offer has loaded. UX2-05: the same word joiner
+    /// `trialEndsThenCharged`/`renewalAutoCancel` wrap their own price in, so this row's value
+    /// never breaks at its slash if it ever has to wrap. `price()` itself stays raw --
+    /// `SubscriptionPlacementTests`'s own PAY-05 assertion.
     var amountText: String? {
-        offer.map(SubscriptionOfferText.price)
+        offer.map { SubscriptionOfferText.unbreakableSlash(SubscriptionOfferText.price($0)) }
     }
 
     /// The current entitlement's renewal date, formatted the same way Settings → Subscription

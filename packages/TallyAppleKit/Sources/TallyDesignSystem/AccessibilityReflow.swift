@@ -233,3 +233,26 @@ public struct TallyBottomBarFade: View {
             .accessibilityHidden(true)
     }
 }
+
+/// UX2-13: the same soft edge, flipped for chrome pinned at the TOP of the screen (What-If's
+/// summary, on `TallyColor.bgCard` rather than `TallyBottomBarFade`'s `bgCanvas`) -- drawn below
+/// the bar's own bottom edge, over the content, so the first row at rest fades out of the bar's own
+/// colour instead of being hard-sliced by it. `color` is a parameter, not a second hard-coded
+/// token, since the two pinned bars this fades under sit on different backgrounds.
+public struct TallyTopBarFade: View {
+    private let height: CGFloat
+    private let color: Color
+
+    public init(height: CGFloat, color: Color) {
+        self.height = height
+        self.color = color
+    }
+
+    public var body: some View {
+        LinearGradient(colors: [color, color.opacity(0)], startPoint: .top, endPoint: .bottom)
+            .frame(height: height)
+            .offset(y: height)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
