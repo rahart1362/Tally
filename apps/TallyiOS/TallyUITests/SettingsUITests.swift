@@ -52,6 +52,12 @@ final class SettingsUITests: TallyUITestCase {
         XCTAssertTrue(eventually { perCourse.label.contains("1 course") || perCourse.value as? String == "1 course" },
                       "per-course summary: '\(perCourse.label)' / \(String(describing: perCourse.value))")
 
+        // UX2-15 now requires scrolling down to reach "Per Course" (above): a pushed List/Form
+        // restores its own scroll position on pop, so the Form is still scrolled down here, and
+        // `scrollUntilHittable` below (swipe-up only, never back up) could not otherwise find
+        // "Account" again. Back to the top before the section-by-section pass below.
+        for _ in 0..<10 { app.swipeDown(velocity: .slow) }
+
         // Rows that do not navigate are not buttons (no chevron): the version is a plain row. A Form
         // builds only the rows on screen, so the third-party check runs again after each scroll,
         // down to the disclaimer, the Form's last element.
