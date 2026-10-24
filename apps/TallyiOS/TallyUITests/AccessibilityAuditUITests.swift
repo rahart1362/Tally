@@ -1208,24 +1208,43 @@ extension TallyUITestCase {
     /// scripting a denied significant-change consent (`AgeRestrictedUITests`' own proven recipe).
     @MainActor
     func a11yReachAgeRestricted(extra: [String] = []) -> XCUIApplication {
-        // Not `a11yReachHandoff`: CI run 40090103830 (both scope=only attempts, the budget's
-        // last one) timed out waiting 30 s for "account.findMySchool" with this exact hook
-        // combination. `AgeRestrictedUITests.swift`'s own already-proven test gives its
-        // post-launch wait 60 s (`scaled(60)`) for the same hook, for what is presumably the same
-        // reason -- an age-assurance launch does extra consent-gate work before Welcome paints.
-        // Inlines `a11yReachHandoff`'s own steps with that longer first wait instead of widening
-        // the shared helper (and its 30 s) for every other caller.
-        let app = launchApp(arguments: TestHooks.demoSignIn + TestHooks.entitled + TestHooks.ageRestricted + extra)
-        tapWhenHittable(element("account.findMySchool", in: app), in: app, timeout: 60)
-        let field = a11ySchoolSearchField(app)
-        tapWhenHittable(field, in: app, timeout: 10)
-        field.typeText(Self.a11yDemoHost)
-        tapWhenHittable(element("schoolSearch.useAddress", in: app), in: app, timeout: 10)
-        XCTAssertTrue(element("onboarding.signIn.continueTo", in: app).waitForExistence(timeout: 15),
-                      "Hierarchy: \(app.debugDescription)")
-        element("onboarding.signIn.continueTo", in: app).tap()
-        XCTAssertTrue(element("ageRestricted.screen", in: app).waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
+        // PMO ruling 2026-10-24 (CI runs 40090103830, 40092803392, both "account.findMySchool
+        // never appeared"): this reach now mirrors TOUR-2's own `testQ_ageRestrictedScreen`
+        // (`AuditTourUITests.swift`), which reaches this exact view reliably on all 8 of its
+        // legs. That test's own navigation (`go`/`goScrolling`) never hard-asserts on an
+        // intermediate step -- only on the final destination, `ageRestricted.screen`, with a 60 s
+        // wait. `tapWhenHittable`'s hard assert on each intermediate element (this function's
+        // earlier version) is what actually failed the test; a soft wait-and-tap that can fall
+        // through without failing, `a11ySoftTap` below, is the same shape as `go`.
+        let app = launchApp(arguments: TestHooks.entitled + TestHooks.demoSignIn + TestHooks.ageRestricted + extra)
+        if a11ySoftTap(element("account.findMySchool", in: app), in: app, timeout: 60) {
+            let field = a11ySchoolSearchField(app)
+            if a11ySoftTap(field, in: app, timeout: 15) {
+                field.typeText(Self.a11yDemoHost)
+                if a11ySoftTap(element("schoolSearch.useAddress", in: app), in: app, timeout: 15) {
+                    let continueButton = element("onboarding.signIn.continueTo", in: app)
+                    if continueButton.waitForExistence(timeout: 20) {
+                        continueButton.tap()
+                    }
+                }
+            }
+        }
+        XCTAssertTrue(element("ageRestricted.screen", in: app).waitForExistence(timeout: 60), "Hierarchy: \(app.debugDescription)")
         return app
+    }
+
+    /// A soft `tapWhenHittable`: waits, taps and returns `true` once `element` is hittable;
+    /// returns `false` instead of failing the test if it never becomes so -- the same shape
+    /// `AuditTourUITests.go` uses, which is why `testQ_ageRestrictedScreen` never hard-fails on
+    /// an intermediate step on the way to the screen it actually cares about.
+    @MainActor
+    @discardableResult
+    private func a11ySoftTap(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND isHittable == true"),
+                                                  object: element)
+        guard XCTWaiter().wait(for: [hittable], timeout: timeout) == .completed else { return false }
+        element.tap()
+        return true
     }
 
     /// The seeded flagship account, already refreshed with `.schoolDisabled`
