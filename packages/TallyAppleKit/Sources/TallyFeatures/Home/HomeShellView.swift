@@ -217,7 +217,8 @@ public struct HomeShellView: View {
                     // redeemed code), shown once (`presentedSheet` below clears the signal on
                     // dismiss).
                     if let appModel {
-                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront)
+                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront,
+                                                 reminders: appModel.reminders)
                     }
                 }
             }

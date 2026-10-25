@@ -167,7 +167,8 @@ struct SubscriptionSettingsView: View {
                                                         storefront: appModel.storefront))
                             .tint(TallyColor.accent)
                     case .confirmation:
-                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront)
+                        PurchaseConfirmationView(subscription: appModel.subscription, storefront: appModel.storefront,
+                                                 reminders: appModel.reminders)
                             .tint(TallyColor.accent)
                     }
                 }
@@ -204,15 +205,15 @@ struct SubscriptionSettingsView: View {
         appModel.subscription.isSchoolSeat
     }
 
-    /// EB-20: `nil` unless a renewal reminder is actually due (`SubscriptionModel.hasUpcomingRenewalReminder`)
-    /// and notifications are not authorized — never shown once allowed, and never shown for nothing
-    /// (no subscription, auto-renew off, or a school seat, all of which make `hasUpcomingRenewalReminder`
-    /// false).
+    /// EB-20/EB-20b: `nil` unless a renewal reminder is actually due
+    /// (`SubscriptionModel.hasUpcomingRenewalReminder`) and notifications are not authorized —
+    /// never shown once allowed, and never shown for nothing (no subscription, auto-renew off, or
+    /// a school seat, all of which make `hasUpcomingRenewalReminder` false). The rule itself is
+    /// `RenewalReminderBannerPolicy`, shared with the Home's own copy of this banner
+    /// (`RenewalReminderHomeBanner`).
     private var renewalReminderBannerPermission: ReminderPermission? {
-        guard appModel.subscription.hasUpcomingRenewalReminder else { return nil }
-        let permission = appModel.reminders.permission
-        guard permission == .notDetermined || permission == .denied else { return nil }
-        return permission
+        RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: appModel.subscription.hasUpcomingRenewalReminder,
+                                               permission: appModel.reminders.permission)
     }
 
     /// A trial or subscription this Apple Account bought, current or ended: what a refund is about.
@@ -279,5 +280,87 @@ nonisolated enum SampleInterstitialState: Equatable, Sendable {
         case .generic: false
         case .named: true
         }
+    }
+}
+
+/// EB-20b: the Home's own copy of Settings > Subscription's renewal-reminder banner, for a
+/// student who never opens Settings. Same condition (`RenewalReminderBannerPolicy`), same
+/// strings and actions (`L10n.Subscription.renewalReminderBannerBody()`,
+/// `RemindersViewCopy.turnOn`/`openSettings`) -- no new strings. Placed on the Dashboard the way
+/// `RemindersTip` is (`DashboardView`), right after it. Dismissible for this session only: unlike
+/// the assignment-reminders tip, this never asks the owner for a snooze that outlives a relaunch,
+/// so a plain `@State` is enough (no store).
+struct RenewalReminderHomeBanner: View {
+    @Environment(AppModel.self) private var app: AppModel?
+    @State private var isDismissed = false
+
+    var body: some View {
+        if !isDismissed, let app,
+           let permission = RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: app.subscription.hasUpcomingRenewalReminder,
+                                                                    permission: app.reminders.permission) {
+            RenewalReminderHomeBannerCard(reminders: app.reminders, permission: permission, onDismiss: { isDismissed = true })
+        }
+    }
+}
+
+private struct RenewalReminderHomeBannerCard: View {
+    let reminders: RemindersModel
+    let permission: ReminderPermission
+    let onDismiss: () -> Void
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TallySpacing.md) {
+            HStack(alignment: .top, spacing: TallySpacing.md) {
+                Image(systemName: "bell.badge")
+                    .foregroundStyle(TallyColor.accent)
+                    .accessibilityHidden(true)
+                Text(L10n.Subscription.renewalReminderBannerBody())
+                    .font(TallyTypography.footnote)
+                    .foregroundStyle(TallyColor.textPrimary)
+                    .accessibilityIdentifier("home.renewalReminderBanner.text")
+                Spacer(minLength: 0)
+                // A 44 × 44 pt target (HIG minimum), labelled for VoiceOver -- the same shape
+                // `RemindersTipCard`'s own dismiss uses.
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(TallyTypography.footnote)
+                        .foregroundStyle(TallyColor.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(String(localized: RemindersViewCopy.notNow))
+                .accessibilityIdentifier("home.renewalReminderBanner.dismiss")
+            }
+            // 44 pt minimum tap target (HIG): `.borderedProminent`'s own text-sized hit area
+            // undershoots it (run 40195787237's layout check measured 34 pt here otherwise --
+            // the same shortfall `RemindersTipCard`'s own "Turn On Reminders" already has;
+            // flagged separately, out of this package's lane).
+            if permission == .notDetermined {
+                Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(TallyColor.accentFill)
+                    .disabled(reminders.isRequesting)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("home.renewalReminderBanner.turnOn")
+            } else {
+                Button(String(localized: RemindersViewCopy.openSettings)) {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(TallyColor.accentFill)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier("home.renewalReminderBanner.openSettings")
+            }
+        }
+        .padding(TallySpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.card, style: .continuous))
+        // A container, not one combined element: both buttons stay their own elements (the same
+        // shape `RemindersTipCard` uses for its own two).
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.renewalReminderBanner")
     }
 }

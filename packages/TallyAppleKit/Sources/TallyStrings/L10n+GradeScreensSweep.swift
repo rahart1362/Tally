@@ -1246,5 +1246,26 @@ extension L10n {
                 "notifications.generic.renewal.body", defaultValue: "Open Tally to manage your subscription.", bundle: #bundle,
                 comment: "EB-20. Generic notification body: the Tally subscription renews in the next few weeks.")
         }
+
+        /// EB-20b: the rich renewal-reminder content, once `SubscriptionEngine` has a verified
+        /// renewal date to schedule with (`UNNotificationScheduler.defaultContent`); `generic.renewal.*`
+        /// above stays the fallback when no date can be decoded. `plan` is the plan's own name
+        /// ("Tally Annual"); `date` is a localized medium date the caller already formatted (e.g.
+        /// "Nov 20, 2026"). Never an amount: counsel's Q37 is open
+        /// (`ReminderContent.renewalReminder`'s own `displayPrice` parameter is the one named place
+        /// to add it later).
+        public static func renewalReminderRichTitle(plan: String, date: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "notifications.renewalReminder.title", defaultValue: "\(plan) renews on \(date)", bundle: #bundle,
+                comment: "EB-20b. Renewal reminder notification title once the plan and renewal date are known: the plan's name (e.g. 'Tally Annual') and a localized medium date (e.g. 'Nov 20, 2026').")
+        }
+
+        public static func renewalReminderRichBody() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "notifications.renewalReminder.body",
+                defaultValue: "To cancel, go to Settings > your name > Subscriptions, or Manage Subscription in Tally.",
+                bundle: #bundle,
+                comment: "EB-20b. Renewal reminder notification body: how to cancel the subscription.")
+        }
     }
 }

@@ -79,9 +79,9 @@ final class RecordingPlatformLogger: TallyPlatformLogger {
 @Suite("UNNotificationScheduler", .serialized)
 struct UNNotificationSchedulerTests {
     private static func reminder(_ id: String = "tally.tests.\(UUID().uuidString)", kind: NotificationKind = .due,
-                                 level: InterruptionLevel = .timeSensitive) -> PendingReminder {
+                                 level: InterruptionLevel = .timeSensitive, subjectID: String = "8111") -> PendingReminder {
         PendingReminder(id: id, kind: kind, fireDate: Date().addingTimeInterval(3600), interruptionLevel: level,
-                        subjectID: "8111")
+                        subjectID: subjectID)
     }
 
     @Test("authorised: schedule adds one request with the resolved content, category, level and trigger",
@@ -125,18 +125,49 @@ struct UNNotificationSchedulerTests {
         #expect(logger.names == ["notificationScheduleFailed"])
     }
 
+    /// `.renewalReminder` is covered on its own below (`renewalReminderFallsBackToGenericWithoutADate`,
+    /// `renewalReminderGetsRichContent`): EB-20b gives it rich content once `subjectID` decodes to
+    /// a date, so it is not generic for every `subjectID` the way every other kind here is.
     @Test("the default content names no course, assignment or grade")
     func defaultContentIsGeneric() async {
         let center = FakeNotificationCenterClient(status: .authorized)
         let scheduler = UNNotificationScheduler(center: center, logger: RecordingPlatformLogger())
-        for kind in NotificationKind.allCases {
+        let kinds = NotificationKind.allCases.filter { $0 != .renewalReminder }
+        for kind in kinds {
             await scheduler.schedule(Self.reminder(kind: kind))
         }
-        #expect(center.added.count == NotificationKind.allCases.count)
+        #expect(center.added.count == kinds.count)
         for request in center.added {
             #expect(!request.content.body.contains("8111"), "\(request.content.body)")
             #expect(request.content.body.hasPrefix("Open Tally"))
         }
+    }
+
+    // MARK: - EB-20b: the renewal reminder's rich content
+
+    @Test("EB-20b: the renewal reminder falls back to the generic key when subjectID carries no date")
+    func renewalReminderFallsBackToGenericWithoutADate() async throws {
+        let center = FakeNotificationCenterClient(status: .authorized)
+        let scheduler = UNNotificationScheduler(center: center, logger: RecordingPlatformLogger())
+        // "-" (every other account-level reminder's own subjectID) and a pre-EB-20b reminder would
+        // both fail to parse as a timestamp; either way, never a wrong date.
+        await scheduler.schedule(Self.reminder(kind: .renewalReminder, subjectID: "-"))
+        let request = try #require(center.added.first)
+        #expect(request.content.body.hasPrefix("Open Tally"))
+    }
+
+    @Test("EB-20b: the renewal reminder gets the plan name and the renewal date once subjectID carries one, and no amount")
+    func renewalReminderGetsRichContent() async throws {
+        let center = FakeNotificationCenterClient(status: .authorized)
+        let scheduler = UNNotificationScheduler(center: center, logger: RecordingPlatformLogger())
+        let renewalDate = Date(timeIntervalSince1970: 1_800_000_000)
+        await scheduler.schedule(Self.reminder(kind: .renewalReminder, subjectID: String(renewalDate.timeIntervalSince1970)))
+        let request = try #require(center.added.first)
+        let expectedDate = renewalDate.formatted(date: .abbreviated, time: .omitted)
+        #expect(request.content.title.contains("Tally Annual"), "\(request.content.title)")
+        #expect(request.content.title.contains(expectedDate), "\(request.content.title)")
+        #expect(request.content.body.contains("Settings"), "\(request.content.body)")
+        #expect(!request.content.title.contains("$") && !request.content.body.contains("$"), "no amount: \(request.content)")
     }
 
     @Test("cancel(ids:) removes exactly those identifiers; cancelAll() removes everything")

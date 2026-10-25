@@ -537,6 +537,16 @@ struct SubscriptionModelsTests {
         #expect(EntitlementPolicy.holding(facts, role: .student, products: products, now: F.now) == .schoolSeat)
         #expect(await hooks.storefront()?.offer(for: .student)?.freeTrial == nil, "a seat is not trial-eligible")
     }
+
+    // MARK: EB-20b: the purchase confirmation's channel offer
+
+    @Test("EB-20b: the confirmation's reminder-channel offer shows only while notifications are not authorized")
+    func confirmationReminderOfferVisibility() {
+        #expect(PurchaseConfirmationModel.showsReminderOffer(permission: .notDetermined))
+        #expect(PurchaseConfirmationModel.showsReminderOffer(permission: .denied))
+        #expect(!PurchaseConfirmationModel.showsReminderOffer(permission: .authorized), "never shown once allowed")
+        #expect(!PurchaseConfirmationModel.showsReminderOffer(permission: nil), "never shown before the permission is known")
+    }
 }
 
 /// Tally Annual as `Products.storekit` defines it: a year at a synthetic "$9.99", a two-week free

@@ -72,6 +72,10 @@ struct DashboardView: View {
                     NeedsAttentionSection(items: model.dashboard.needsAttention)
                     // M3-C (UX-WP-12): the reminders tip, once work is due; renders nothing otherwise.
                     RemindersTip(hasUpcomingDueItem: !model.dashboard.dueSoon.isEmpty, isSampleData: model.isSampleData)
+                    // EB-20b: the Home's own copy of Settings > Subscription's renewal-reminder
+                    // banner, for a student who never opens Settings; renders nothing unless a
+                    // reminder is due and notifications are off.
+                    RenewalReminderHomeBanner()
                     WeekAheadSection(days: model.dashboard.weekAhead,
                                      onAddWeek: { startAddingWeek(model.dashboard.weekAhead) },
                                      shareText: WeekShareText.text(days: model.dashboard.weekAhead,
