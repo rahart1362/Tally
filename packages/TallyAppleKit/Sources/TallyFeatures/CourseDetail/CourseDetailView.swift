@@ -446,11 +446,17 @@ struct GradeOverrideMenu: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     /// UX1-19: at AX5 the nested menu (a 4-line title, then "Automatic"/"Yes"/"No") cut its own
     /// options on the smallest iPhone — "Yes" half cut, "No" never shown; a system menu never
-    /// scrolls. Below the accessibility sizes the menu is unchanged. UX2-10: a `confirmationDialog`
-    /// first replaced it at those sizes, but iOS 26 draws that as the same fixed-width anchored
-    /// popover and cut the third choice too, so a plain sheet (`TallyOptionsSheet`) replaces it at
-    /// AX1 and up instead.
-    @State private var isChoiceDialogPresented = false
+    /// scrolls. UX2-10 round 1 nested an `if typeSize.isAccessibilitySize` branch INSIDE this
+    /// Menu's own content closure (first a `confirmationDialog`, then a `TallyOptionsSheet`) —
+    /// confirmed by the Audit tour (run 40188312337) to never fire: `typeSize` read inside a
+    /// `Menu`'s content closure did not track AX5 the way the rest of the view tree does (the
+    /// before and after captures of `302-course1-gradesOutsideCanvas.png` were pixel-identical),
+    /// so the flattened `Section` below kept rendering and cutting "Tracked in Canvas" at AX5,
+    /// exactly as before. Round 2 moves the check up a level, the same shape
+    /// `CalendarScreen.swift`'s own options button already uses and that run confirmed DOES track
+    /// AX5 correctly: the toolbar item is either a plain `Button` presenting `TallyOptionsSheet`
+    /// (AX1 and up, one tap) or the `Menu` below (unchanged, below AX1).
+    @State private var isChoiceSheetPresented = false
 
     private var choice: Binding<GradeOverrideChoice> {
         Binding(
@@ -459,13 +465,34 @@ struct GradeOverrideMenu: View {
     }
 
     var body: some View {
-        Menu {
-            if typeSize.isAccessibilitySize {
-                Button(String(localized: L10n.GradeOverride.menuRowTitle())) {
-                    isChoiceDialogPresented = true
+        if typeSize.isAccessibilitySize {
+            Button {
+                isChoiceSheetPresented = true
+            } label: {
+                Label {
+                    Text(L10n.GradeOverride.menu())
+                } icon: {
+                    Image(systemName: "ellipsis.circle")
                 }
-                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
-            } else {
+            }
+            .accessibilityIdentifier("courseDetail.menu")
+            .sheet(isPresented: $isChoiceSheetPresented) {
+                TallyOptionsSheet(
+                    title: String(localized: L10n.GradeOverride.menuRowTitle()),
+                    options: GradeOverrideChoice.allCases.map { option in
+                        TallyOptionsSheet.Option(
+                            id: option.rawValue, title: String(localized: option.title),
+                            isSelected: option == choice.wrappedValue,
+                            accessibilityIdentifier: "courseDetail.gradesOutsideCanvas.\(option.rawValue)") {
+                            choice.wrappedValue = option
+                        }
+                    },
+                    cancelTitle: String(localized: L10n.Settings.cancel()),
+                    cancelAccessibilityIdentifier: "courseDetail.gradesOutsideCanvas.cancel",
+                    dismiss: { isChoiceSheetPresented = false })
+            }
+        } else {
+            Menu {
                 // UX1-22: a `Picker` nested inside this Menu rendered as its own one-item submenu
                 // ("Grades kept outside Canvas" › Automatic/Yes/No) -- two taps for the only
                 // action this toolbar button holds. Flattened: the three choices are the menu's
@@ -492,47 +519,14 @@ struct GradeOverrideMenu: View {
                         .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
                     }
                 }
-            }
-        } label: {
-            Label {
-                Text(L10n.GradeOverride.menu())
-            } icon: {
-                Image(systemName: "ellipsis.circle")
-            }
-        }
-        .accessibilityIdentifier("courseDetail.menu")
-        // UX2-10 (continuing UX1-19): at AX5 this `confirmationDialog` still cut the third choice
-        // ("Tracked in Canvas" sliced on the smallest iPhone, missing on Pro Max) -- iOS 26 draws it
-        // as an anchored popover. Below AX1 it is unchanged; at AX1 and up the same three choices
-        // present in a plain sheet instead (`TallyOptionsSheet`, D03's AX1+ pattern).
-        .confirmationDialog(Text(L10n.GradeOverride.menuRowTitle()), isPresented: Binding(
-            get: { isChoiceDialogPresented && !typeSize.isAccessibilitySize },
-            set: { shown in if !shown { isChoiceDialogPresented = false } }
-        ), titleVisibility: .visible) {
-            ForEach(GradeOverrideChoice.allCases) { option in
-                Button(String(localized: option.title)) {
-                    choice.wrappedValue = option
+            } label: {
+                Label {
+                    Text(L10n.GradeOverride.menu())
+                } icon: {
+                    Image(systemName: "ellipsis.circle")
                 }
-                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
             }
-        }
-        .sheet(isPresented: Binding(
-            get: { isChoiceDialogPresented && typeSize.isAccessibilitySize },
-            set: { shown in if !shown { isChoiceDialogPresented = false } }
-        )) {
-            TallyOptionsSheet(
-                title: String(localized: L10n.GradeOverride.menuRowTitle()),
-                options: GradeOverrideChoice.allCases.map { option in
-                    TallyOptionsSheet.Option(
-                        id: option.rawValue, title: String(localized: option.title),
-                        isSelected: option == choice.wrappedValue,
-                        accessibilityIdentifier: "courseDetail.gradesOutsideCanvas.\(option.rawValue)") {
-                        choice.wrappedValue = option
-                    }
-                },
-                cancelTitle: String(localized: L10n.Settings.cancel()),
-                cancelAccessibilityIdentifier: "courseDetail.gradesOutsideCanvas.cancel",
-                dismiss: { isChoiceDialogPresented = false })
+            .accessibilityIdentifier("courseDetail.menu")
         }
     }
 }
