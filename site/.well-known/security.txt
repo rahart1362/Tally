@@ -1,0 +1,6 @@
+# Tally's security contact (RFC 9116). Policy: how to report, and what to expect.
+Contact: mailto:__SECURITY_EMAIL__
+Expires: 2027-10-24T23:59:59.000Z
+Policy: https://tally-app.dev/security/
+Preferred-Languages: en
+Canonical: https://tally-app.dev/.well-known/security.txt
