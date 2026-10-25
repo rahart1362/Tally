@@ -71,8 +71,14 @@ struct PurchaseConfirmationView: View {
                             .font(TallyTypography.body)
                             .foregroundStyle(TallyColor.textPrimary)
                         Spacer(minLength: TallySpacing.sm)
+                        // 44 pt minimum tap target (HIG): a plain `Button`'s own text-sized hit
+                        // area (run 40195787237's layout check measured 20 pt here otherwise),
+                        // the same `frame`/`contentShape` fix `SchoolRevokedNoticeView`'s own
+                        // plain-text buttons use.
                         Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
                             .disabled(reminders.isRequesting)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                             .accessibilityIdentifier("confirmation.reminderOffer.turnOn")
                     }
                     .accessibilityIdentifier("confirmation.reminderOffer")

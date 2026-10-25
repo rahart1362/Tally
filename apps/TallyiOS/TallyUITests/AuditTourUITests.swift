@@ -1439,11 +1439,14 @@ final class AuditTourUITests: TallyUITestCase {
         }
 
         // EB-20b: the Home's own copy of this banner, reusing the same launch (`renewalDue` plus
-        // `-TallyTestHooks.notifications notDetermined`): it renders without scrolling, right on
-        // the Dashboard this cold launch already lands on.
+        // `-TallyTestHooks.notifications notDetermined`). It sits below the Hero, Next up and
+        // Needs attention sections, so `waitForExistence` alone (true once it exists anywhere in
+        // the hierarchy, on screen or not) is not enough to capture it: `scrollUntilHittable`
+        // brings it on screen first (run 40195787237's own captures showed only the Hero,
+        // confirming the gap -- `home.settingsButton` stays reachable afterwards for
+        // `openSettings` below, a pinned toolbar button, scroll-position-independent).
         let homeBannerText = app.staticTexts["home.renewalReminderBanner.text"]
-        let homeBannerTurnOn = app.buttons["home.renewalReminderBanner.turnOn"]
-        if homeBannerText.waitForExistence(timeout: 10) || homeBannerTurnOn.waitForExistence(timeout: 5) {
+        if homeBannerText.waitForExistence(timeout: 10), scrollUntilHittable(homeBannerText, in: app) {
             snap(app, screen: "renewalReminderBanner", state: "home", reachedVia: "seeded launch, renewalDue entitlement")
         } else {
             snap(app, screen: "renewalReminderBanner", state: "missing-home", reachedVia: "seeded launch, renewalDue entitlement")

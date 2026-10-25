@@ -332,11 +332,17 @@ private struct RenewalReminderHomeBannerCard: View {
                 .accessibilityLabel(String(localized: RemindersViewCopy.notNow))
                 .accessibilityIdentifier("home.renewalReminderBanner.dismiss")
             }
+            // 44 pt minimum tap target (HIG): `.borderedProminent`'s own text-sized hit area
+            // undershoots it (run 40195787237's layout check measured 34 pt here otherwise --
+            // the same shortfall `RemindersTipCard`'s own "Turn On Reminders" already has;
+            // flagged separately, out of this package's lane).
             if permission == .notDetermined {
                 Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
                     .buttonStyle(.borderedProminent)
                     .tint(TallyColor.accentFill)
                     .disabled(reminders.isRequesting)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                     .accessibilityIdentifier("home.renewalReminderBanner.turnOn")
             } else {
                 Button(String(localized: RemindersViewCopy.openSettings)) {
@@ -344,6 +350,8 @@ private struct RenewalReminderHomeBannerCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(TallyColor.accentFill)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityIdentifier("home.renewalReminderBanner.openSettings")
             }
         }
