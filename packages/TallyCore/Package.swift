@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         // Linux test lane only: Apple's swift-crypto mirrors CryptoKit's API.
         // iOS/macOS builds use the system CryptoKit (encryption.md, WP-ENC-07).
-        .package(url: "https://github.com/apple/swift-crypto.git", exact: "4.5.2"),
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "5.0.3"),
     ],
     targets: [
         // Dependency direction (architecture.md §3.1):
