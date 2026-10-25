@@ -83,13 +83,27 @@ public struct AgeAssuranceSignal: Sendable, Equatable {
 }
 
 /// What one `requestAgeAssurance()` call told this launch.
+///
+/// AGE-2: `.declined` and `.unavailable` used to be one case (`declinedOrUnavailable`), which
+/// conflated the user's own choice with a request that never reached them. They are split because
+/// `AgeAssuranceModel.evaluate` must treat them differently: a technical failure must not count as
+/// "requested" (it must retry on the next launch, and must not acknowledge a significant-change
+/// version), while a real decline keeps today's behaviour on both counts. EB-01(g)'s invariant —
+/// neither case ever blocks the app — is unchanged.
 public enum AgeAssuranceOutcome: Sendable, Equatable {
     /// `AgeRangeService.isEligibleForAgeFeatures == false`: EB-01(b), "Request only where Apple
     /// reports that regulatory requirements apply" — the request UI was never shown.
     case regulatoryRequirementsDoNotApply
-    /// `Response.declinedSharing`, a thrown `AgeRangeService.Error`, or no window to present from
-    /// (the Simulator — DeclaredAgeRange has no effect there). EB-01(g): never blocks.
-    case declinedOrUnavailable
+    /// `Response.declinedSharing`: the person was shown the system sheet and chose not to share.
+    /// A real, informed choice. EB-01(g): never blocks.
+    case declined
+    /// The system sheet never reached (or never resolved for) the person: a thrown
+    /// `AgeRangeService.Error`, no window to present from (the Simulator — DeclaredAgeRange has no
+    /// effect there), or an unrecognized SDK response. EB-01(g): never blocks. AGE-2: never
+    /// treated as a completed request — `AgeAssuranceModel` retries it on the next launch instead
+    /// of counting it against the 12-month floor, and never acknowledges a significant-change
+    /// version on its account.
+    case unavailable
     case shared(AgeAssuranceSignal)
 }
 

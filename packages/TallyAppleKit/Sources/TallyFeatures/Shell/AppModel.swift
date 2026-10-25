@@ -120,6 +120,10 @@ public final class AppModel {
     @ObservationIgnored private var isEnteringFamily = false
     /// The launch's projection (L5–L8) and the attach that follows it, or a sign-in's attach.
     private let launchWork = TaskBox()
+    /// SEC2-14 (AGE-2): `presentPaywallAfterAgeRequest`'s await-the-age-request-then-present task,
+    /// owned here like every other session task so a superseded or abandoned attempt is cancelled
+    /// rather than racing a later one.
+    private let paywallPresentation = TaskBox()
     /// TallyCore's logging port (plan 06 A8): the composition root passes its `os.Logger`
     /// adapter, which the sample gateway (and later the account's gateway) reports to.
     private let logger: any TallyLogger
@@ -568,10 +572,7 @@ public final class AppModel {
         guard context.session == .signedIn, !context.isLocked, context.accountState != nil else { return }
         isFirstSyncPaywallDue = false
         if PaywallPlacement.shows(.firstSyncFinished, in: context) {
-            // AGE-1 (EB-01(b)): "before a purchase from the paywall when no request was made this
-            // launch" — `AgeAssuranceModel` itself skips this if a request already ran.
-            ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
-            paywall = PaywallRequest(trigger: .firstSyncFinished)
+            presentPaywallAfterAgeRequest(.firstSyncFinished)
         }
     }
 
@@ -579,9 +580,23 @@ public final class AppModel {
     /// for the paywall.
     public func showPaywall(for trigger: PaywallTrigger) {
         guard paywall == nil, PaywallPlacement.shows(trigger, in: paywallContext()) else { return }
-        // AGE-1 (EB-01(b)): the same "before a paywall purchase" request point.
-        ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
-        paywall = PaywallRequest(trigger: trigger)
+        presentPaywallAfterAgeRequest(trigger)
+    }
+
+    /// SEC2-14 (AGE-2): "before a purchase from the paywall when no request was made this
+    /// launch" — `AgeAssuranceModel.evaluateBeforePaywall()` itself skips this if a request
+    /// already ran — must FINISH (shared, declined, or unavailable) before the paywall sheet is
+    /// presented: the system age sheet and the paywall sheet must never both try to present over
+    /// the same window. `paywallPresentation` keeps this re-entrant the way every other owned task
+    /// here is: a second trigger while the first is still awaiting the age request cancels the
+    /// first, so at most one pending presentation is ever in flight, and a cancelled or
+    /// superseded attempt never also sets `paywall`.
+    private func presentPaywallAfterAgeRequest(_ trigger: PaywallTrigger) {
+        paywallPresentation.replace(with: Task { [weak self] in
+            await self?.ageAssurance.evaluateBeforePaywall()
+            guard let self, self.paywall == nil else { return }
+            self.paywall = PaywallRequest(trigger: trigger)
+        })
     }
 
     /// The paywall closed (bought, restored or "Not Now").
@@ -742,6 +757,12 @@ public final class AppModel {
     /// Tests: the launch's projection and attach (or a sign-in's attach), awaited.
     func awaitLaunchWork() async {
         await launchWork.value()
+    }
+
+    /// Tests: `presentPaywallAfterAgeRequest`'s pending age request (and paywall assignment),
+    /// awaited.
+    func awaitPaywallPresentation() async {
+        await paywallPresentation.value()
     }
 
     private func recordSignOutStep(_ step: SignOutStep) {

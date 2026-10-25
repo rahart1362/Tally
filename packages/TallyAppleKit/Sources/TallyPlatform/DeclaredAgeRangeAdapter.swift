@@ -44,8 +44,12 @@ public final class DeclaredAgeRangeAdapter: AgeAssuranceRequesting {
 
     public func requestAgeAssurance() async -> AgeAssuranceOutcome {
         #if canImport(DeclaredAgeRange)
-        guard #available(iOS 26.2, *) else { return .declinedOrUnavailable }
-        guard let viewController = Self.presentationController() else { return .declinedOrUnavailable }
+        // AGE-2: every path below that never actually presented the system sheet (the OS floor,
+        // no window, a thrown error, or an SDK response this adapter cannot interpret) is
+        // `.unavailable`, never `.declined` — only `Response.declinedSharing`, an answer the
+        // person actually gave, is a decline.
+        guard #available(iOS 26.2, *) else { return .unavailable }
+        guard let viewController = Self.presentationController() else { return .unavailable }
         guard await Self.isEligibleForAgeFeatures() else { return .regulatoryRequirementsDoNotApply }
         do {
             // EB-01(b): the four TX/UT/AL/LA categories (child <13, younger teen 13-15, older teen
@@ -53,19 +57,19 @@ public final class DeclaredAgeRangeAdapter: AgeAssuranceRequesting {
             let response = try await AgeRangeService.shared.requestAgeRange(ageGates: 13, 16, 18, in: viewController)
             switch response {
             case .declinedSharing:
-                return .declinedOrUnavailable
+                return .declined
             case .sharing(let range):
                 let category = AgeCategory.fromLowerBound(range.lowerBound)
                 let requirement = await Self.significantChangeRequirement(for: category, range: range)
                 return .shared(AgeAssuranceSignal(category: category, significantChangeRequirement: requirement))
             @unknown default:
-                return .declinedOrUnavailable
+                return .unavailable
             }
         } catch {
-            return .declinedOrUnavailable
+            return .unavailable
         }
         #else
-        return .declinedOrUnavailable
+        return .unavailable
         #endif
     }
 

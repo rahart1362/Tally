@@ -105,6 +105,15 @@ public enum TallyConfig {
     /// flag — the two are independent "is this launch a significant-change launch?" sources, and
     /// either one is enough.
     public static let currentReleaseIsSignificantChange = false
+    /// SEC2-14: `AgeAssuranceModel.evaluateBeforePaywall()`'s bounded wait for the paywall's age
+    /// request before presenting the paywall sheet anyway, with the request left running in the
+    /// background. EB-01(g): age assurance must never block the purchase flow — not even by
+    /// hanging on an Apple API that never resolves, which is what the real `DeclaredAgeRange`
+    /// call was observed to do in the iOS Simulator (CI run 40187586640, `PaywallUITests`: three
+    /// tests timed out waiting for the paywall sheet once it started awaiting that call). Long
+    /// enough that a normal, resolving request still wins the race in practice; short enough that
+    /// a hung one never meaningfully delays the paywall a student is waiting to see.
+    public static let ageAssurancePaywallWaitBudget: Duration = .seconds(3)
 }
 
 extension Duration {
