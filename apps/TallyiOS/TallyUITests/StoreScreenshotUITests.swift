@@ -7,23 +7,21 @@ import XCTest
 /// local runs) every method skips in `setUpWithError`, the same gate `AuditTourUITests` uses for
 /// `AUDIT_APPEARANCE`.
 ///
-/// Eight scenes, each ONE capture, at rest (pmo-ux-common.md's visual quality bar: "captures only
+/// Seven scenes, each ONE capture, at rest (pmo-ux-common.md's visual quality bar: "captures only
 /// at rest"), in Sample Data / the bundled flagship persona (synthetic data only, ASC-11): the
 /// Dashboard hero with its trend, Courses with the sparklines, Course detail (grades + chart),
-/// the What-If sheet, To-Do, Calendar, Insights, and (scene 8) Quiet Hours.
+/// the What-If sheet, To-Do, Calendar and Insights.
 ///
-/// **Scene 8 is Quiet Hours (Settings → Reminders), replacing parent mode (CLAIMS-1,
-/// 2026-10-25).** Family/parent linking through a real Canvas observer account is sample-only
-/// until M4 (owner decision), so the store listing no longer shows parent mode: a shipped-only
-/// feature replaces it. Course goals (FEAT-4) was the brief's first choice, but its own doc
-/// comment calls it "a small entry point" — a single Stepper/button appended to Course Detail's
-/// Overview, the same screen scene 3 already captures — so it would not read as a distinct scene.
-/// Quiet Hours (`RemindersSettingsSection`, idea 5 / FEAT-3) is its own Section with two
-/// `DatePicker` rows, a header and a footer, inside Settings (not captured elsewhere), which
-/// composes as a clean, self-contained scene the way the brief's "otherwise use Quiet Hours /
-/// Remind Me" fallback calls for. Unlike parent mode, Quiet Hours only renders for a signed-in
-/// account (`!isSampleData`), so this scene launches the same flagship-persona sign-in scenes
-/// 1-7 use, not "Explore with Sample Data".
+/// **Scene 8 (parent mode) was dropped, not replaced (CLAIMS-1, owner decision 2026-10-25).**
+/// Family/parent linking through a real Canvas observer account is sample-only until M4, so the
+/// store listing no longer shows parent mode. Quiet Hours (Settings → Reminders) was tried as a
+/// replacement and reverted: its own 200%-review evidence
+/// (`docs/pmo/reviews/claims1-report.md`) found no scroll position that kept every row whole at
+/// both the top AND bottom edge in every language — fixing the original top-edge clip (a
+/// `scrollUntilHittable`-vs-"hittable" artifact) surfaced a worse one (the row's own label
+/// scrolling out of view in Spanish) and a previously-unchecked bottom-edge mid-glyph cut in
+/// all 4 variants, since Settings has no bottom hard-edge treatment the way tab-root screens do.
+/// A scene 8 comes back when real parent linking ships at M4.
 ///
 /// Appearance and language are read the same way `AuditTourUITests` reads `AUDIT_APPEARANCE` /
 /// `AUDIT_LANGUAGE`: the workflow sets the simulator's own appearance with `simctl ui ...
@@ -143,15 +141,14 @@ final class StoreScreenshotUITests: TallyUITestCase {
     /// least 95% of its own pixels within 1.2:1 of that part's own colour, and no pixel row above
     /// 1.5:1 — genuinely invisible, not merely "mostly" under the bar.
     ///
-    /// Skips entirely while a sheet with no tab bar of its own is on screen (What-If, and now
-    /// Settings for scene 8's Quiet Hours, CLAIMS-1): the tab bar's own element can still report
-    /// `exists` from underneath a presented sheet (it never leaves the hierarchy, only the
-    /// screen), so rows behind the sheet must never be judged against it. Detected structurally,
-    /// by the sheet's own "Done" identifier, not by counting bars or guessing at presentation
-    /// state.
+    /// Skips entirely while a sheet with no tab bar of its own is on screen (What-If, the only
+    /// sheet this suite ever captures): the tab bar's own element can still report `exists` from
+    /// underneath a presented sheet (it never leaves the hierarchy, only the screen), so rows
+    /// behind the sheet must never be judged against it. Detected structurally, by the sheet's own
+    /// "Done" identifier, not by counting bars or guessing at presentation state.
     @MainActor
     private func recordWhatIsUnderTheTabBar(_ app: XCUIApplication, screenshot: XCUIScreenshot, scene: String) {
-        guard !element("whatif.done", in: app).exists, !element("settings.done", in: app).exists else { return }
+        guard !element("whatif.done", in: app).exists else { return }
         let tabBar = app.tabBars.firstMatch
         guard tabBar.exists else { return }
         let tabBarFrame = tabBar.frame
@@ -313,46 +310,6 @@ final class StoreScreenshotUITests: TallyUITestCase {
         add(attachment)
     }
 
-    /// CLAIMS-1 PMO fix (2026-10-25): anchors `element`'s top edge just under `navBar` by a
-    /// section boundary's own identifier, not a fixed scroll offset — `scrollUntilHittable` alone
-    /// stops at the first point `element` is hittable, which can leave the PREVIOUS section's last
-    /// row still peeking out from under the bar when a longer translation shifts every row down
-    /// (`08-quiet-hours-dark-es`'s own "Reminders [Off]" row, half-cut). `navBar` must already be
-    /// scoped to the presented sheet's own bar by the caller (e.g.
-    /// `app.navigationBars.containing(.button, identifier: "settings.done")`), never
-    /// `app.navigationBars.firstMatch`: like the tab bar (`recordWhatIsUnderTheTabBar`'s own doc
-    /// comment), a presenting screen's navigation bar can still report `exists` from underneath a
-    /// sheet, so an unscoped query could resolve to the wrong one. Precision held drags, the same
-    /// approach `nudgeTheCutLineIntoAGap` already uses for the bottom edge, but targeting
-    /// `element.frame.minY` against `navBar`'s own measured frame instead of a hard-coded point,
-    /// so it lands at the same visual position (a clean boundary, nothing of the prior section
-    /// showing) in every language. `true` once it lands within `tolerance` points of the target;
-    /// `false` if it never does (never silently captures a bad position).
-    @MainActor
-    @discardableResult
-    private func anchorJustBelowTheNavigationBar(_ element: XCUIElement, navBar: XCUIElement,
-                                                  in app: XCUIApplication, margin: CGFloat = 4,
-                                                  tolerance: CGFloat = 3) -> Bool {
-        guard navBar.exists else { return false }
-        let target = navBar.frame.maxY + margin
-        let centre = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        var slop: CGFloat = 10
-        for _ in 0..<6 {
-            guard element.exists else { return false }
-            let before = element.frame.minY
-            let error = before - target // positive: element sits below target, scroll up to raise it
-            if abs(error) <= tolerance { return true }
-            let distance = abs(error) + slop
-            let end = centre.withOffset(CGVector(dx: 0, dy: error > 0 ? -distance : distance))
-            centre.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
-            _ = waitUntilAtRest(app)
-            guard element.exists else { continue }
-            let actual = abs(before - element.frame.minY)
-            slop = actual > 0 ? max(0, distance - actual) : slop + 8
-        }
-        return element.exists && abs(element.frame.minY - target) <= tolerance
-    }
-
     @MainActor
     private func waitUntilAtRest(_ app: XCUIApplication, timeout: TimeInterval = 6, interval: TimeInterval = 0.4) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -505,31 +462,6 @@ final class StoreScreenshotUITests: TallyUITestCase {
         XCTAssertTrue(element("chart.trend", in: app).waitForExistence(timeout: 30),
                      "Insights shows no content. Hierarchy: \(app.debugDescription)")
         capture(app, number: 7, scene: "insights")
-        app.terminate()
-    }
-
-    // MARK: - 8: Quiet Hours (see the file's own doc comment for why, replacing parent mode)
-
-    @MainActor
-    func test08_quietHours() throws {
-        resetAppState()
-        let app = launchSignedIn()
-        openSettings(app)
-        let quietHoursStart = element("settings.reminders.quietHours.start", in: app)
-        // Roughly into view first (scrollUntilHittable's own swipe-by-swipe search), then anchored
-        // precisely against the navigation bar (CLAIMS-1 PMO fix): the Quiet Hours section's own
-        // first row is the section boundary, so the previous section never peeks out from under
-        // the bar, in any language.
-        XCTAssertTrue(scrollUntilHittable(quietHoursStart, in: app, maxSwipes: 15),
-                     "no settings.reminders.quietHours.start. Hierarchy: \(app.debugDescription)")
-        XCTAssertTrue(element("settings.reminders.quietHours.end", in: app).waitForExistence(timeout: 10),
-                     "no settings.reminders.quietHours.end. Hierarchy: \(app.debugDescription)")
-        // Scoped to the Settings sheet's own bar (never app.navigationBars.firstMatch, which can
-        // still resolve to a tab root's bar underneath the sheet).
-        let settingsNavBar = app.navigationBars.containing(.button, identifier: "settings.done").firstMatch
-        XCTAssertTrue(anchorJustBelowTheNavigationBar(quietHoursStart, navBar: settingsNavBar, in: app),
-                     "could not anchor Quiet Hours Start just under the navigation bar. Hierarchy: \(app.debugDescription)")
-        capture(app, number: 8, scene: "quiet-hours")
         app.terminate()
     }
 }

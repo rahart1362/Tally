@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """MVP-3 (app-store-compliance.md R14, ASC-12; ux-ui.md UX-WP-23): the App Store screenshot
-pipeline's post-processing. `StoreScreenshotUITests` (apps/TallyiOS/TallyUITests) captures 8
+pipeline's post-processing. `StoreScreenshotUITests` (apps/TallyiOS/TallyUITests) captures 7
 scenes on the Pro Max simulator, one leg per appearance x language (light/dark x en/es), each
 attachment named `NN-<scene>.png`. This script turns those raw legs into what the brief asks for:
 
@@ -16,7 +16,7 @@ recompositing that changes app content.
 
     python3 scripts/release/screenshots.py --raw RAWDIR --out OUTDIR
         RAWDIR holds one subdirectory per leg, named store-shots-<light|dark>-<en|es> (the
-        workflow's own per-leg artifact name), each with the 8 raw NN-<scene>.png captures. Writes
+        workflow's own per-leg artifact name), each with the 7 raw NN-<scene>.png captures. Writes
         the final named PNGs plus manifest.json to OUTDIR. A raw image that is missing, unreadable,
         or not exactly 1320x2868 after flattening is recorded in the manifest's "errors" and left
         out of "images" -- nothing passes by being missing.
@@ -41,7 +41,7 @@ import sys
 
 SCENES: tuple[tuple[int, str], ...] = (
     (1, "dashboard"), (2, "courses"), (3, "course-detail"), (4, "what-if"),
-    (5, "todo"), (6, "calendar"), (7, "insights"), (8, "quiet-hours"),
+    (5, "todo"), (6, "calendar"), (7, "insights"),
 )
 MODES = ("light", "dark")
 LANGUAGES = ("en", "es")
@@ -247,7 +247,7 @@ def self_test() -> int:
         opaque = Image.new("RGB", (4, 4), (1, 2, 3))
         assert flatten_to_rgb(opaque).tobytes() == opaque.tobytes()
 
-        # process_raw: one complete leg (all 8 scenes, right size) plus one leg missing a scene
+        # process_raw: one complete leg (all 7 scenes, right size) plus one leg missing a scene
         # and one leg with a wrong-sized image -- every outcome must show up, nothing silently
         # dropped.
         raw = tmp / "raw"
@@ -272,7 +272,7 @@ def self_test() -> int:
 
         out = tmp / "final"
         manifest = process_raw(raw, out)
-        assert len(manifest["images"]) == 8 + 7 + 7, len(manifest["images"])  # light-en 8, dark-en 7, light-es 7
+        assert len(manifest["images"]) == 7 + 6 + 6, len(manifest["images"])  # light-en 7, dark-en 6, light-es 6
         assert "todo-dark-en" in manifest["missing"], manifest["missing"]
         assert "calendar-light-es" in manifest["missing"], manifest["missing"]
         assert "dark-es" in manifest["missingLegs"], manifest["missingLegs"]
@@ -308,7 +308,7 @@ def self_test() -> int:
         languages_seen = {p.stem.split("-")[2] for p in sheets}
         assert languages_seen == {"en", "es"}, languages_seen
         en_parts = [p for p in sheets if "-en" in p.stem]
-        assert len(en_parts) > 1, "a tight height cap on 8 scenes must split into more than one part"
+        assert len(en_parts) > 1, "a tight height cap on 7 scenes must split into more than one part"
         for path in sheets:
             assert path.stat().st_size <= MAX_CONTACT_SHEET_BYTES, (path, path.stat().st_size)
             with Image.open(path) as sheet_image:
