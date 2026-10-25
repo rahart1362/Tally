@@ -159,14 +159,51 @@ All three in `Localizable.xcstrings`: en `translated` (owner-approved content), 
   `/renewalReminderGetsRichContent`, and `AuditTourUITests/testY_subscriptionRenewalReminderBanner`.
   The 1 skip was not investigated (0 failures; a pre-existing conditional skip, not one of this
   package's new tests).
-- Audit tour run [40195787237](https://github.com/rahart1362/Tally/actions/runs/40195787237)
+- **Audit tour run [40195787237](https://github.com/rahart1362/Tally/actions/runs/40195787237)**
   (`testA_dashboard,testS_paywallDisclosuresAndPostPurchaseConfirmation,testY_subscriptionRenewalReminderBanner`,
-  sizes std/ax5/xxxLarge, widgets=false, on `9e1cccc`) — see the hand-off reply for the result (the
-  brief's budget is exactly one dispatch).
+  sizes std/ax5/xxxLarge, widgets=false, on `9e1cccc`): all 12 legs (2 devices × 2 appearances ×
+  3 sizes) succeeded. Downloaded and reviewed every capture at 200%:
+  - **The confirmation row** (`testS_`, all 12 legs incl. xxxLarge): renders correctly, matches
+    the std/light screenshot's layout exactly, and the automated layout check found 0
+    `offscreenOrClipped`/`overlap`/`truncationHint` touching it in any leg.
+  - **The Home banner** (`testY_`, 8 std/ax5 legs — testY is not in the Audit tour's fixed
+    xxxLarge list): the condition fired correctly in all 8 (the underlying
+    `hasUpcomingRenewalReminder`/permission state is ready essentially at launch, even before the
+    Settings banner is reached — exactly item 4's goal). But the capture itself showed only the
+    Dashboard's Hero section in every leg: `waitForExistence` confirms an element exists
+    somewhere in the hierarchy, not that it is on screen, and the banner sits below Hero/Next
+    up/Needs attention. Fixed in `8cea3d9` (`scrollUntilHittable`, the same helper `goScrolling`
+    already uses in this file) — not re-verified by a fresh capture (the budget's one dispatch is
+    spent), but a direct reuse of an already-proven pattern.
+  - **Two real 44 pt tap-target gaps**, both fixed in `8cea3d9`:
+    `home.renewalReminderBanner.turnOn`/`.openSettings` measured 34 pt (a `.borderedProminent`
+    button's own text-sized hit area — `RemindersTipCard`'s pre-existing, identical "Turn On
+    Reminders" button has the exact same shortfall, confirmed in the same layout-check JSON;
+    **not fixed here**, flagged below instead), and `confirmation.reminderOffer.turnOn` measured
+    20 pt (a plain `Button` with no style at all). Both now use the
+    `frame(minHeight: 44)`/`contentShape(Rectangle())` fix `SchoolRevokedNoticeView`'s own
+    plain-text buttons already use.
+  - The pre-existing Settings banner check (`subscription.renewalReminderBanner.text`/`.turnOn`,
+    code this package did not touch) reported "missing-banner" in all 8 legs despite the banner
+    rendering correctly (confirmed visually — e.g.
+    `audit-en-proMax-light-std/562-renewalReminderBanner-missing-banner.png` shows it in full).
+    This is the same class of flake this exact test's own comment already documents (a prior
+    "missing-banner on every leg" episode, "a real race", `PR #86`) — not an assertion failure
+    (`testY_` still passed; `continueAfterFailure = true` and `snap()` only records evidence), and
+    not something this package's own changes touch. Recorded as an open item below rather than
+    fixed, per "stay in your lane."
 - PR run — see the hand-off reply.
 
 ## Open items
 
-- No a11y waiver proposed or needed for this package's two new UI surfaces (the Home banner reuses
-  the Settings banner's own layout shape; the confirmation row is a plain `LabeledContent`-style
-  row). Confirmed at std/AX5/xxxLarge via the Audit tour capture named in the brief (see CI below).
+- No a11y waiver proposed or needed for this package's two new UI surfaces — confirmed clean
+  (0 offscreen/clipped/overlap/truncation touching either) at std/AX5/xxxLarge, light and dark,
+  via the Audit tour capture (run 40195787237, see CI above).
+- **`RemindersTipCard`'s pre-existing "Turn On Reminders" button** (`packages/TallyAppleKit/Sources/TallyFeatures/Reminders/RemindersViews.swift`,
+  `tip.enableReminders`) has the same 34 pt tap-target shortfall this package's own copy of it had
+  (fixed here, not there — out of this package's lane). A cheap, well-scoped follow-up: the same
+  `frame(minHeight: 44)`/`contentShape(Rectangle())` fix.
+- **The Settings banner's "missing-banner" audit-capture flake** (`testY_subscriptionRenewalReminderBanner`,
+  code this package did not touch) — see the Audit tour findings above. Does not fail the test or
+  any CI gate; worth a look if it recurs.
+- The owner-approved privacy-page wording lands via `release/claims-1`, not this PR.
