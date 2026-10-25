@@ -313,6 +313,46 @@ final class StoreScreenshotUITests: TallyUITestCase {
         add(attachment)
     }
 
+    /// CLAIMS-1 PMO fix (2026-10-25): anchors `element`'s top edge just under `navBar` by a
+    /// section boundary's own identifier, not a fixed scroll offset — `scrollUntilHittable` alone
+    /// stops at the first point `element` is hittable, which can leave the PREVIOUS section's last
+    /// row still peeking out from under the bar when a longer translation shifts every row down
+    /// (`08-quiet-hours-dark-es`'s own "Reminders [Off]" row, half-cut). `navBar` must already be
+    /// scoped to the presented sheet's own bar by the caller (e.g.
+    /// `app.navigationBars.containing(.button, identifier: "settings.done")`), never
+    /// `app.navigationBars.firstMatch`: like the tab bar (`recordWhatIsUnderTheTabBar`'s own doc
+    /// comment), a presenting screen's navigation bar can still report `exists` from underneath a
+    /// sheet, so an unscoped query could resolve to the wrong one. Precision held drags, the same
+    /// approach `nudgeTheCutLineIntoAGap` already uses for the bottom edge, but targeting
+    /// `element.frame.minY` against `navBar`'s own measured frame instead of a hard-coded point,
+    /// so it lands at the same visual position (a clean boundary, nothing of the prior section
+    /// showing) in every language. `true` once it lands within `tolerance` points of the target;
+    /// `false` if it never does (never silently captures a bad position).
+    @MainActor
+    @discardableResult
+    private func anchorJustBelowTheNavigationBar(_ element: XCUIElement, navBar: XCUIElement,
+                                                  in app: XCUIApplication, margin: CGFloat = 4,
+                                                  tolerance: CGFloat = 3) -> Bool {
+        guard navBar.exists else { return false }
+        let target = navBar.frame.maxY + margin
+        let centre = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        var slop: CGFloat = 10
+        for _ in 0..<6 {
+            guard element.exists else { return false }
+            let before = element.frame.minY
+            let error = before - target // positive: element sits below target, scroll up to raise it
+            if abs(error) <= tolerance { return true }
+            let distance = abs(error) + slop
+            let end = centre.withOffset(CGVector(dx: 0, dy: error > 0 ? -distance : distance))
+            centre.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+            _ = waitUntilAtRest(app)
+            guard element.exists else { continue }
+            let actual = abs(before - element.frame.minY)
+            slop = actual > 0 ? max(0, distance - actual) : slop + 8
+        }
+        return element.exists && abs(element.frame.minY - target) <= tolerance
+    }
+
     @MainActor
     private func waitUntilAtRest(_ app: XCUIApplication, timeout: TimeInterval = 6, interval: TimeInterval = 0.4) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -476,10 +516,19 @@ final class StoreScreenshotUITests: TallyUITestCase {
         let app = launchSignedIn()
         openSettings(app)
         let quietHoursStart = element("settings.reminders.quietHours.start", in: app)
+        // Roughly into view first (scrollUntilHittable's own swipe-by-swipe search), then anchored
+        // precisely against the navigation bar (CLAIMS-1 PMO fix): the Quiet Hours section's own
+        // first row is the section boundary, so the previous section never peeks out from under
+        // the bar, in any language.
         XCTAssertTrue(scrollUntilHittable(quietHoursStart, in: app, maxSwipes: 15),
                      "no settings.reminders.quietHours.start. Hierarchy: \(app.debugDescription)")
         XCTAssertTrue(element("settings.reminders.quietHours.end", in: app).waitForExistence(timeout: 10),
                      "no settings.reminders.quietHours.end. Hierarchy: \(app.debugDescription)")
+        // Scoped to the Settings sheet's own bar (never app.navigationBars.firstMatch, which can
+        // still resolve to a tab root's bar underneath the sheet).
+        let settingsNavBar = app.navigationBars.containing(.button, identifier: "settings.done").firstMatch
+        XCTAssertTrue(anchorJustBelowTheNavigationBar(quietHoursStart, navBar: settingsNavBar, in: app),
+                     "could not anchor Quiet Hours Start just under the navigation bar. Hierarchy: \(app.debugDescription)")
         capture(app, number: 8, scene: "quiet-hours")
         app.terminate()
     }
