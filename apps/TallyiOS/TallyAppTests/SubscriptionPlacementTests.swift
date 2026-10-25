@@ -123,6 +123,72 @@ extension AccountLifecycleSuites {
             await signOut(model)
         }
 
+        @Test("SEC2-14: a hanging request times out -- the paywall presents anyway, and the outcome stays nil")
+        func paywallPresentsAfterTheWaitWhenTheRequestHangs() async throws {
+            let harness = try AccountHarness()
+            let hangingRequester = GatedAgeAssuranceRequester(outcome: .unavailable) // never unblocked in this test
+            let fastTimeout = GatedClock()
+            let model = try await makeModel(harness, SubscriptionRig(),
+                                            ageAssurance: AgeAssuranceModel(requester: hangingRequester, paywallWaitClock: fastTimeout))
+            #expect(try await signInThroughFirstSync(model, harness))
+            #expect(model.isFirstSyncPaywallDue)
+
+            model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
+            // Resolves the bounded wait at once instead of waiting out the real
+            // `TallyConfig.ageAssurancePaywallWaitBudget` -- the point under test is that SOME
+            // bounded wait wins, not how long it takes.
+            fastTimeout.fire()
+            await model.awaitPaywallPresentation()
+            #expect(model.paywall?.trigger == .firstSyncFinished, "the hanging request blocked the paywall")
+            #expect(model.ageAssurance.outcome == nil, "the request never actually finished, so there is no outcome yet")
+            model.dismissPaywall()
+            hangingRequester.unblock() // let the orphaned request settle before the test ends
+            await signOut(model)
+        }
+
+        @Test("SEC2-14: a request that resolves quickly wins the race -- the sheet comes from it, not from the timeout")
+        func paywallPresentsFromAFastRequestNotTheTimeout() async throws {
+            let harness = try AccountHarness()
+            let fastRequester = GatedAgeAssuranceRequester(outcome: .unavailable)
+            fastRequester.unblock() // resolves at once, however soon it is actually called
+            let neverFires = GatedClock() // if the race ever waited on this instead, the test would hang
+            let model = try await makeModel(harness, SubscriptionRig(),
+                                            ageAssurance: AgeAssuranceModel(requester: fastRequester, paywallWaitClock: neverFires))
+            #expect(try await signInThroughFirstSync(model, harness))
+            #expect(model.isFirstSyncPaywallDue)
+
+            model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
+            await model.awaitPaywallPresentation()
+            #expect(model.paywall?.trigger == .firstSyncFinished, "the sheet never presented from the fast request")
+            #expect(model.ageAssurance.outcome == .unavailable, "the request's own outcome must have landed")
+            model.dismissPaywall()
+            await signOut(model)
+        }
+
+        @Test("SEC2-14: nothing due means zero awaits on the requester -- the paywall presents at once")
+        func paywallPresentsAtOnceWhenNoRequestIsDue() async throws {
+            let harness = try AccountHarness()
+            let requester = GatedAgeAssuranceRequester(outcome: .unavailable)
+            requester.unblock()
+            let ageAssurance = AgeAssuranceModel(requester: requester)
+            let model = try await makeModel(harness, SubscriptionRig(), ageAssurance: ageAssurance)
+            // Force this launch's one age request before the paywall ever asks, the way AppModel's
+            // own launch call (`apply(_:)`) does -- so `evaluateBeforePaywall()` later finds nothing
+            // left to do and never touches `requester` again.
+            ageAssurance.evaluateIfDue(isFirstLaunchAfterInstall: true, isAboutToPresentPaywallPurchase: false)
+            #expect(try await HomeTestSupport.waitUntil { ageAssurance.outcome != nil })
+            #expect(requester.callCount == 1)
+
+            #expect(try await signInThroughFirstSync(model, harness))
+            #expect(model.isFirstSyncPaywallDue)
+            model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
+            await model.awaitPaywallPresentation()
+            #expect(model.paywall?.trigger == .firstSyncFinished)
+            #expect(requester.callCount == 1, "SEC2-14: nothing was due, so the paywall must never await the requester again")
+            model.dismissPaywall()
+            await signOut(model)
+        }
+
         @Test("PAY-06: an account entitled at its first sync sees no paywall, and nothing is locked")
         func entitledSkipsThePaywall() async throws {
             let harness = try AccountHarness()
@@ -518,24 +584,93 @@ final class ScriptedStorefront: SubscriptionStorefront {
 /// calls `unblock()` — proves `AppModel.showFirstSyncPaywallIfDue`/`showPaywall` actually wait for
 /// the age request (`presentPaywallAfterAgeRequest`) rather than presenting the paywall sheet in
 /// the same turn the request started, the way `ScriptedSignificantChangeConsent`
-/// (`AgeAssuranceModelTests.swift`) scripts the consent side of the same feature.
+/// (`AgeAssuranceModelTests.swift`) scripts the consent side of the same feature. `unblock()`
+/// before OR after a call both work (a `released` flag, not just a one-shot waiter list), so a
+/// test may release it before the call ever happens (a "fast requester") as well as after (a
+/// "hanging, then eventually answered" one). `callCount` lets a test prove a path never called it
+/// again (SEC2-14's short-circuit: "no request due" must mean zero awaits on the requester).
 final class GatedAgeAssuranceRequester: AgeAssuranceRequesting {
-    private let state: Mutex<(outcome: AgeAssuranceOutcome, waiters: [CheckedContinuation<Void, Never>])>
-
-    init(outcome: AgeAssuranceOutcome) {
-        state = Mutex((outcome, []))
+    private struct State {
+        var outcome: AgeAssuranceOutcome
+        var released = false
+        var waiters: [CheckedContinuation<Void, Never>] = []
+        var callCount = 0
     }
 
+    private let state: Mutex<State>
+
+    init(outcome: AgeAssuranceOutcome) {
+        state = Mutex(State(outcome: outcome))
+    }
+
+    var callCount: Int { state.withLock { $0.callCount } }
+
     func requestAgeAssurance() async -> AgeAssuranceOutcome {
-        await withCheckedContinuation { continuation in
-            state.withLock { $0.waiters.append(continuation) }
+        let alreadyReleased = state.withLock { current -> Bool in
+            current.callCount += 1
+            return current.released
+        }
+        if !alreadyReleased {
+            await withCheckedContinuation { continuation in
+                let releasedNow = state.withLock { current -> Bool in
+                    if current.released { return true }
+                    current.waiters.append(continuation)
+                    return false
+                }
+                if releasedNow { continuation.resume() }
+            }
         }
         return state.withLock { $0.outcome }
     }
 
-    /// Lets the pending (and every future) `requestAgeAssurance()` call resume.
+    /// Lets the pending (and every future) `requestAgeAssurance()` call resume at once, whether
+    /// called before or after `requestAgeAssurance()` itself.
     func unblock() {
         let waiters = state.withLock { current -> [CheckedContinuation<Void, Never>] in
+            current.released = true
+            let pending = current.waiters
+            current.waiters = []
+            return pending
+        }
+        waiters.forEach { $0.resume() }
+    }
+}
+
+/// SEC2-14: a `Clock` whose `sleep` suspends until the test calls `fire()` — deterministic proof
+/// of which side of `AgeAssuranceModel.evaluateBeforePaywall()`'s race wins, without ever waiting
+/// out `TallyConfig.ageAssurancePaywallWaitBudget` in real time: never firing it proves the
+/// request wins (the wait could not have), and firing it proves the wait wins, however long the
+/// never-resolving request would otherwise take.
+final class GatedClock: Clock, Sendable {
+    typealias Instant = ContinuousClock.Instant
+
+    private struct State {
+        var fired = false
+        var waiters: [CheckedContinuation<Void, Never>] = []
+    }
+
+    private let state = Mutex(State())
+
+    var now: Instant { ContinuousClock().now }
+    var minimumResolution: Duration { .zero }
+
+    func sleep(until deadline: Instant, tolerance: Duration? = nil) async throws {
+        let alreadyFired = state.withLock { $0.fired }
+        guard !alreadyFired else { return }
+        await withCheckedContinuation { continuation in
+            let firedNow = state.withLock { current -> Bool in
+                if current.fired { return true }
+                current.waiters.append(continuation)
+                return false
+            }
+            if firedNow { continuation.resume() }
+        }
+    }
+
+    /// Resolves the pending (and every future) `sleep`, whether called before or after it.
+    func fire() {
+        let waiters = state.withLock { current -> [CheckedContinuation<Void, Never>] in
+            current.fired = true
             let pending = current.waiters
             current.waiters = []
             return pending
