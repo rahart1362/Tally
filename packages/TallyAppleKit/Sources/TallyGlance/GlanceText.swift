@@ -211,6 +211,12 @@ enum GlanceText {
         resolve(L10n.Widgets.busy(), locale)
     }
 
+    /// UX2-18: a week-strip column's day-of-month number, the widget's own version of the in-app
+    /// strip's ringed day mark (`WeekDayMark`).
+    static func dayNumber(_ date: Date, calendar: Calendar, locale: Locale) -> String {
+        date.formatted(style(calendar, locale).day())
+    }
+
     static func number(_ value: Int, locale: Locale = TallyLocale.effective) -> String {
         value.formatted(.number.locale(locale))
     }

@@ -184,8 +184,9 @@ struct GlanceItemRow: View {
     }
 }
 
-/// Seven day columns: the weekday, the count of open items due, and "Busy" (with a warning symbol)
-/// on a heavy day. The words and numbers carry the meaning, never a colour (UX-WP-38).
+/// Seven day columns: the weekday, the day number (ringed on today, UX2-18), the count of open
+/// items due, and "Busy" (with a warning symbol) on a heavy day. The words and numbers carry the
+/// meaning, never a colour alone (UX-WP-38).
 struct GlanceWeekStrip: View {
     let days: [GlanceSummary.Day]
     @Environment(\.widgetRenderingMode) private var renderingMode
@@ -200,6 +201,18 @@ struct GlanceWeekStrip: View {
                     Text(verbatim: GlanceText.weekdayShort(day.start, calendar: .autoupdatingCurrent, locale: locale))
                         .font(TallyTypography.caption)
                         .foregroundStyle(style.secondary)
+                    // UX2-18: the day number, ringed on today -- the widget's own version of the
+                    // in-app strip's letter/number/ring format (`WeekDayMark`), which this strip
+                    // previously left out entirely.
+                    Text(verbatim: GlanceText.dayNumber(day.start, calendar: .autoupdatingCurrent, locale: locale))
+                        .font(.caption2)
+                        .foregroundStyle(style.secondary)
+                        .frame(width: GlanceMetrics.dayMarkDiameter, height: GlanceMetrics.dayMarkDiameter)
+                        .overlay {
+                            if day.isToday {
+                                Circle().strokeBorder(style.accent, lineWidth: 1.5)
+                            }
+                        }
                     Text(verbatim: GlanceText.dayCount(day, locale: locale))
                         .font(TallyTypography.cardTitle)
                         .foregroundStyle(style.primary)

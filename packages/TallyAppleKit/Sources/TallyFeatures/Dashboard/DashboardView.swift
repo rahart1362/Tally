@@ -574,74 +574,68 @@ private struct WeekAheadSection: View {
         if !isAllZero {
             VStack(alignment: .leading, spacing: TallySpacing.sm) {
                 SectionHeader(title: L10n.Dashboard.weekAheadHeader())
-                // D09: `.center` (the default) pulled a busy column about 8 pt higher than its
-                // neighbours, since its extra glyph row made it taller; `.top` plus a row every
-                // column reserves the same HEIGHT for (round 2: never the WIDTH — R1) keeps every
-                // column's three rows aligned, at std and AX5 alike.
-                HStack(alignment: .top, spacing: TallySpacing.sm) {
-                    ForEach(days) { day in
-                        VStack(spacing: TallySpacing.xs) {
-                            // UX1-16: the strip had no "today" marker and no dates, just seven
-                            // narrow weekday letters (two "S", two "T" in the same week) --
-                            // bolding and ringing the one column that is today, as Calendar's own
-                            // week strip does, gives the reader a fixed point to read the rest from.
-                            Text(day.date.formatted(.dateTime.weekday(.narrow)))
-                                .font(TallyTypography.caption)
-                                .fontWeight(day.isToday ? .semibold : .regular)
-                                .foregroundStyle(day.isToday ? TallyColor.accent : TallyColor.textSecondary)
-                            // UX2-03 (regression from UX1-16): capped at AX1 the same way the
-                            // glyph row below already caps the busy icon -- uncapped, the ring and
-                            // the day number collided with their neighbours at AX5 (the layout
-                            // check's own overlap finding: column "W, 14, 8" at x 15.3-81.7
-                            // overlapping "T, 15, 2" at x 76.3). Pulled into its own `WeekDayMark`
-                            // because `@ScaledMetric` reads the environment of the view that owns
-                            // it, so the cap has to sit on an ANCESTOR of the view that computes the
-                            // diameter, not merely on a sibling inside the same body.
-                            WeekDayMark(day: day)
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                            Text("\(day.dueCount)")
-                                .font(TallyTypography.cardTitle)
-                                .foregroundStyle(day.isBusy ? TallyColor.warning : TallyColor.textPrimary)
-                            // R1 (round 2): a zero-WIDTH spacer reserves the row's height for every
-                            // column, busy or not — the glyph itself draws only on busy days, as an
-                            // overlay that cannot widen the column (SwiftUI reports `.overlay`'s size
-                            // as the base view's, not the overlaid content's). Capped at
-                            // `.accessibility1` so the overlaid icon never balloons past a size that
-                            // would crowd the rows above and below it at AX5.
-                            Color.clear
-                                .frame(width: 0, height: glyphRowHeight)
-                                .overlay {
-                                    if day.isBusy {
-                                        Image(systemName: "exclamationmark.triangle")
-                                            .font(.caption2)
-                                            .foregroundStyle(TallyColor.warning)
-                                            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                // UX2-14: the day strip and (when there's something to act on) the Week-ahead
+                // actions now share one card -- a divider, then the footer row -- instead of the
+                // actions sitting below it as orphan text with no glyphs of their own.
+                VStack(spacing: 0) {
+                    // D09: `.center` (the default) pulled a busy column about 8 pt higher than its
+                    // neighbours, since its extra glyph row made it taller; `.top` plus a row every
+                    // column reserves the same HEIGHT for (round 2: never the WIDTH — R1) keeps every
+                    // column's three rows aligned, at std and AX5 alike.
+                    HStack(alignment: .top, spacing: TallySpacing.sm) {
+                        ForEach(days) { day in
+                            VStack(spacing: TallySpacing.xs) {
+                                // UX1-16: the strip had no "today" marker and no dates, just seven
+                                // narrow weekday letters (two "S", two "T" in the same week) --
+                                // bolding and ringing the one column that is today, as Calendar's own
+                                // week strip does, gives the reader a fixed point to read the rest from.
+                                Text(day.date.formatted(.dateTime.weekday(.narrow)))
+                                    .font(TallyTypography.caption)
+                                    .fontWeight(day.isToday ? .semibold : .regular)
+                                    .foregroundStyle(day.isToday ? TallyColor.accent : TallyColor.textSecondary)
+                                // UX2-03 (regression from UX1-16): capped at AX1 the same way the
+                                // glyph row below already caps the busy icon -- uncapped, the ring and
+                                // the day number collided with their neighbours at AX5 (the layout
+                                // check's own overlap finding: column "W, 14, 8" at x 15.3-81.7
+                                // overlapping "T, 15, 2" at x 76.3). Pulled into its own `WeekDayMark`
+                                // because `@ScaledMetric` reads the environment of the view that owns
+                                // it, so the cap has to sit on an ANCESTOR of the view that computes the
+                                // diameter, not merely on a sibling inside the same body.
+                                WeekDayMark(day: day)
+                                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                Text("\(day.dueCount)")
+                                    .font(TallyTypography.cardTitle)
+                                    .foregroundStyle(day.isBusy ? TallyColor.warning : TallyColor.textPrimary)
+                                // R1 (round 2): a zero-WIDTH spacer reserves the row's height for every
+                                // column, busy or not — the glyph itself draws only on busy days, as an
+                                // overlay that cannot widen the column (SwiftUI reports `.overlay`'s size
+                                // as the base view's, not the overlaid content's). Capped at
+                                // `.accessibility1` so the overlaid icon never balloons past a size that
+                                // would crowd the rows above and below it at AX5.
+                                Color.clear
+                                    .frame(width: 0, height: glyphRowHeight)
+                                    .overlay {
+                                        if day.isBusy {
+                                            Image(systemName: "exclamationmark.triangle")
+                                                .font(.caption2)
+                                                .foregroundStyle(TallyColor.warning)
+                                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                        }
                                     }
-                                }
+                            }
+                            // R1: lets every column shrink together instead of the row's width being the
+                            // sum of each column's own natural (glyph-driven) width.
+                            .frame(minWidth: 0, maxWidth: .infinity)
+                            .accessibilityElement(children: .combine)
                         }
-                        // R1: lets every column shrink together instead of the row's width being the
-                        // sum of each column's own natural (glyph-driven) width.
-                        .frame(minWidth: 0, maxWidth: .infinity)
-                        .accessibilityElement(children: .combine)
+                    }
+                    .padding(TallySpacing.md)
+                    if hasItemsThisWeek {
+                        Divider()
+                        WeekAheadActionsRow(onAddWeek: onAddWeek, shareText: shareText)
                     }
                 }
-                .padding(TallySpacing.md)
                 .background(TallyColor.bgCard, in: RoundedRectangle(cornerRadius: TallyRadius.card, style: .continuous))
-                if hasItemsThisWeek {
-                    VStack(alignment: .leading, spacing: TallySpacing.xs) {
-                        Button(String(localized: L10n.Dashboard.addWeekButton()), action: onAddWeek)
-                            .frame(minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                            .accessibilityIdentifier("dashboard.addWeekToCalendar")
-                        ShareLink(item: shareText) {
-                            Text(L10n.Dashboard.shareWeekButton())
-                        }
-                        .frame(minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .accessibilityIdentifier("dashboard.shareWeek")
-                    }
-                    .font(TallyTypography.subheadline)
-                }
             }
         }
     }
@@ -666,6 +660,35 @@ private struct WeekDayMark: View {
                     Circle().strokeBorder(TallyColor.accent, lineWidth: 1.5)
                 }
             }
+    }
+}
+
+/// UX2-14: "Add This Week to Calendar" and "Send My Week" as a footer row inside the Week-ahead
+/// card, below a divider from the day strip, instead of sitting outside the card as orphan text with
+/// no glyphs of their own. Side by side at std, each a tappable area at least 44 pt tall;
+/// `TallyReflowStack` stacks them (D02's pattern) once the accessibility sizes leave no room for two
+/// columns.
+private struct WeekAheadActionsRow: View {
+    let onAddWeek: () -> Void
+    let shareText: String
+
+    var body: some View {
+        TallyReflowStack(spacing: TallySpacing.sm) {
+            Button(action: onAddWeek) {
+                Label { Text(L10n.Dashboard.addWeekButton()) } icon: { Image(systemName: "calendar.badge.plus") }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("dashboard.addWeekToCalendar")
+            ShareLink(item: shareText) {
+                Label { Text(L10n.Dashboard.shareWeekButton()) } icon: { Image(systemName: "square.and.arrow.up") }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("dashboard.shareWeek")
+        }
+        .font(TallyTypography.subheadline)
+        .padding(TallySpacing.md)
     }
 }
 

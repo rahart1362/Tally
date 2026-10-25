@@ -446,8 +446,10 @@ struct GradeOverrideMenu: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     /// UX1-19: at AX5 the nested menu (a 4-line title, then "Automatic"/"Yes"/"No") cut its own
     /// options on the smallest iPhone — "Yes" half cut, "No" never shown; a system menu never
-    /// scrolls. A `confirmationDialog`, which does scroll, replaces it at the accessibility sizes
-    /// only; below them the menu is unchanged.
+    /// scrolls. Below the accessibility sizes the menu is unchanged. UX2-10: a `confirmationDialog`
+    /// first replaced it at those sizes, but iOS 26 draws that as the same fixed-width anchored
+    /// popover and cut the third choice too, so a plain sheet (`TallyOptionsSheet`) replaces it at
+    /// AX1 and up instead.
     @State private var isChoiceDialogPresented = false
 
     private var choice: Binding<GradeOverrideChoice> {
@@ -499,13 +501,38 @@ struct GradeOverrideMenu: View {
             }
         }
         .accessibilityIdentifier("courseDetail.menu")
-        .confirmationDialog(Text(L10n.GradeOverride.menuRowTitle()), isPresented: $isChoiceDialogPresented, titleVisibility: .visible) {
+        // UX2-10 (continuing UX1-19): at AX5 this `confirmationDialog` still cut the third choice
+        // ("Tracked in Canvas" sliced on the smallest iPhone, missing on Pro Max) -- iOS 26 draws it
+        // as an anchored popover. Below AX1 it is unchanged; at AX1 and up the same three choices
+        // present in a plain sheet instead (`TallyOptionsSheet`, D03's AX1+ pattern).
+        .confirmationDialog(Text(L10n.GradeOverride.menuRowTitle()), isPresented: Binding(
+            get: { isChoiceDialogPresented && !typeSize.isAccessibilitySize },
+            set: { shown in if !shown { isChoiceDialogPresented = false } }
+        ), titleVisibility: .visible) {
             ForEach(GradeOverrideChoice.allCases) { option in
                 Button(String(localized: option.title)) {
                     choice.wrappedValue = option
                 }
                 .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
             }
+        }
+        .sheet(isPresented: Binding(
+            get: { isChoiceDialogPresented && typeSize.isAccessibilitySize },
+            set: { shown in if !shown { isChoiceDialogPresented = false } }
+        )) {
+            TallyOptionsSheet(
+                title: String(localized: L10n.GradeOverride.menuRowTitle()),
+                options: GradeOverrideChoice.allCases.map { option in
+                    TallyOptionsSheet.Option(
+                        id: option.rawValue, title: String(localized: option.title),
+                        isSelected: option == choice.wrappedValue,
+                        accessibilityIdentifier: "courseDetail.gradesOutsideCanvas.\(option.rawValue)") {
+                        choice.wrappedValue = option
+                    }
+                },
+                cancelTitle: String(localized: L10n.Settings.cancel()),
+                cancelAccessibilityIdentifier: "courseDetail.gradesOutsideCanvas.cancel",
+                dismiss: { isChoiceDialogPresented = false })
         }
     }
 }
