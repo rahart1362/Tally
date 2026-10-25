@@ -8,19 +8,21 @@ on) and adds two project-wide settings:
 - `SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) TALLY_TEST_HOOKS`
 - `ENABLE_TESTABILITY = YES`
 
-**Why it exists.** `app-store-compliance.md` §3.3.1 lists 8 of the 14 critical flows (the ones that
-need a scripted account, a blocked or trapped network, a scripted device authenticator, or a
-seeded entitlement) as running only against the `Debug` configuration today, because the hooks
-that script them (`LaunchTestHooks`, `ReminderTestHooks`, `SubscriptionTestHooks`,
-`AgeAssuranceTestHooks`, `FamilyTestHooks` — every one gated `#if DEBUG || TALLY_TEST_HOOKS`) are
-compiled out of a plain Release build. `scripts/ci/check_release.py`'s `REL.flow.*.release-config`
-checks exist to prove those same 8 flows also pass under Release **optimizations**, not just under
-Debug, before App Review ever sees the shipping binary. Before RELCFG-1 those 8 checks were a
-hardcoded `FAIL` with a fixed `due: M5` (PENDING at the MVP milestone) — not a real check. RELCFG-1
-makes them real: the `UITest` configuration is what the `ios-release-config` job in
-`.github/workflows/release-gate.yml` now builds and runs those 8 flows' tests against, and
-`scripts/ci/check_release.py --release-config` turns the resulting xcresult into a real PASS/FAIL
-per flow, due now (`MVP`), not deferred.
+**Why it exists.** `app-store-compliance.md` §3.3.1 lists critical flows (the ones that need a
+scripted account, a blocked or trapped network, a scripted device authenticator, or a seeded
+entitlement) that run only against the `Debug` configuration, because the hooks that script them
+(`LaunchTestHooks`, `ReminderTestHooks`, `SubscriptionTestHooks`, `AgeAssuranceTestHooks`,
+`FamilyTestHooks` — every one gated `#if DEBUG || TALLY_TEST_HOOKS`) are compiled out of a plain
+Release build. At RELCFG-1's original cut these were 8 of the 14; REL-M5 wired two more
+Debug-configured flows (`REL.flow.01-first-login`, `REL.flow.04-refresh-under-10s`), so
+`DEBUG_FLOWS` (`.github/workflows/release-gate.yml`) now names 10. `scripts/ci/check_release.py`'s
+`REL.flow.*.release-config` checks exist to prove those same flows also pass under Release
+**optimizations**, not just under Debug, before App Review ever sees the shipping binary. Before
+RELCFG-1 those checks were a hardcoded `FAIL` with a fixed `due: M5` (PENDING at the MVP milestone)
+— not a real check. RELCFG-1 makes them real: the `UITest` configuration is what the
+`ios-release-config` job in `.github/workflows/release-gate.yml` now builds and runs those flows'
+tests against, and `scripts/ci/check_release.py --release-config` turns the resulting xcresult into
+a real PASS/FAIL per flow, due now (`MVP`), not deferred.
 
 ## Why `TALLY_TEST_HOOKS`, not `TALLY_UI_TESTING`
 
@@ -32,7 +34,7 @@ test build (`Makefile`'s `IOS_PERF_CONDITIONS`, a command-line
 `SWIFT_ACTIVE_COMPILATION_CONDITIONS` override on top of `-configuration Release`), already used
 `TALLY_TEST_HOOKS`. Introducing `TALLY_UI_TESTING` as a second flag would mean either adding it to
 every existing hook gate (for no behavioural difference — both flags would always be set together)
-or leaving the 8 flows still unable to reach the hooks they need. RELCFG-1 follows the rule "trust
+or leaving these flows still unable to reach the hooks they need. RELCFG-1 follows the rule "trust
 the code over a stale document": the `UITest` configuration sets `TALLY_TEST_HOOKS`, the flag that
 already does this job everywhere else, and formalizes it as its own named Xcode configuration
 instead of only a command-line override. `app-store-compliance.md` is owned by the App Store

@@ -129,6 +129,39 @@ final class SlowRefreshUITests: TallyUITestCase {
                       "Hierarchy: \(app.debugDescription)")
     }
 
+    /// REL.flow.04-refresh-under-10s (release-gate.yml): the plain-case sibling of the two slow
+    /// refreshes above — a pull-to-refresh well inside the 10 s live budget, against the replayed
+    /// (sample) account, updates in place with no stale breadcrumb and a visible freshness label.
+    /// `refreshUntilSettledOrDelayed` (`HomeModel.swift`) returns once the refresh settles OR the
+    /// budget passes, whichever is first; at this latency the refresh settles first, so the pull
+    /// itself measures the whole round trip, the same clock-starts-at-the-gesture reasoning this
+    /// file's own top doc comment gives for the slow-refresh tests above.
+    @MainActor
+    func testPullToRefreshUnderTenSecondsUpdatesInPlace() throws {
+        let latency: TimeInterval = 2
+        let app = launchSampleDashboard(refreshLatency: Int(latency))
+        let breadcrumb = Self.breadcrumb(in: app)
+        XCTAssertFalse(breadcrumb.exists, "a breadcrumb before any refresh. Hierarchy: \(app.debugDescription)")
+
+        let scroll = app.scrollViews.firstMatch
+        let top = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let pulled = Date()
+        // Returns once the app is idle: once the refresh control's spinner has stopped, which at
+        // this latency is once the refresh itself has settled (see the doc comment above).
+        top.press(forDuration: 0.1, thenDragTo: top.withOffset(CGVector(dx: 0, dy: 400)))
+        let elapsed = Date().timeIntervalSince(pulled)
+
+        XCTAssertLessThan(elapsed, Self.liveRefreshBudget,
+                          "the pull-to-refresh took \(elapsed) s, at or past the 10 s live budget")
+        XCTAssertFalse(breadcrumb.exists,
+                       "the stale breadcrumb showed for a refresh well under the live budget. Hierarchy: \(app.debugDescription)")
+        // The visible freshness label: the footer reads "Updated just now" right after the refresh
+        // lands, in place (no navigation, no new screen) — the same label the slow-refresh tests
+        // above wait for once their own breadcrumb self-heals.
+        XCTAssertTrue(app.staticTexts["Updated just now"].waitForExistence(timeout: 10),
+                      "no visible freshness label after the in-place refresh. Hierarchy: \(app.debugDescription)")
+    }
+
     /// Launches with every refresh after the first load delayed by `seconds`, enters sample mode
     /// and waits for the first load's Dashboard.
     @MainActor
