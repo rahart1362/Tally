@@ -248,6 +248,37 @@ struct SignOutUseCaseTests {
         #expect(!nothingToRevoke, "nothing left to revoke must never report failure")
     }
 
+    /// EB-20b (SEC2-12): the App Store subscription itself is untouched by sign-out, so the two
+    /// renewal reminders (`RenewalReminderPlan.owns`) must survive it -- unlike every other
+    /// pending notification, which `signOutRemovesEverythingForTheAccount` already covers.
+    @Test func signOutKeepsTheRenewalReminders() async throws {
+        let harness = try await makeHarness()
+        let renewalID = RenewalReminderPlan.identifierPrefix + "student.renewalReminder.20"
+        await harness.notifications.schedule(PendingReminder(
+            id: renewalID, kind: .renewalReminder, fireDate: Date(), interruptionLevel: .active, subjectID: "0"))
+
+        await signOut(harness)
+
+        #expect(await harness.notifications.pendingIdentifiers() == [renewalID],
+                "the renewal reminder must survive Sign Out & Erase; every other reminder must still be gone")
+    }
+
+    /// EB-20b: Erase Saved Data (never a sign-out) must keep the renewal reminders too, for the
+    /// same reason.
+    @Test func eraseSavedDataKeepsTheRenewalReminders() async throws {
+        let harness = try await makeHarness()
+        let renewalID = RenewalReminderPlan.identifierPrefix + "student.renewalReminder.40"
+        await harness.notifications.schedule(PendingReminder(
+            id: renewalID, kind: .renewalReminder, fireDate: Date(), interruptionLevel: .active, subjectID: "0"))
+
+        await SignOutUseCase.eraseSavedData(
+            accountKey: harness.accountKey, ledgerStore: harness.ledgerStore, notifications: harness.notifications,
+            storeRoot: harness.root, keyring: harness.keyring)
+
+        #expect(await harness.notifications.pendingIdentifiers() == [renewalID],
+                "the renewal reminder must survive Erase Saved Data; every other reminder must still be gone")
+    }
+
     @Test func signOutTwiceIsIdempotent() async throws {
         let harness = try await makeHarness()
         await signOut(harness)

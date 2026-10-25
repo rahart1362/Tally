@@ -119,6 +119,17 @@ public struct ReminderContent: Sendable, Equatable {
                             body: String(localized: L10n.Notifications.renewalReminderBody()))
         }
     }
+
+    /// EB-20b: the renewal reminder's rich content, once `SubscriptionEngine` has a verified
+    /// renewal date to schedule with (`defaultContent(_:)` below decodes it). `displayPrice` is
+    /// the one named place to add StoreKit's own formatted amount later: counsel's Q37 is open, so
+    /// it is always `nil` today and never read.
+    public static func renewalReminder(planName: String, renewalDate: Date, displayPrice: String? = nil) -> ReminderContent {
+        let date = renewalDate.formatted(date: .abbreviated, time: .omitted)
+        return ReminderContent(
+            title: String(localized: L10n.Notifications.renewalReminderRichTitle(plan: planName, date: date)),
+            body: String(localized: L10n.Notifications.renewalReminderRichBody()))
+    }
 }
 
 /// `UNUserNotificationCenter`-backed conformance to TallySync's `NotificationScheduling`, the port
@@ -144,11 +155,31 @@ public struct UNNotificationScheduler: NotificationScheduling {
     public init(
         center: any NotificationCenterClient = SystemNotificationCenter(),
         logger: any TallyPlatformLogger = OSLogPlatformLogger(),
-        content: @escaping @Sendable (PendingReminder) -> ReminderContent = { ReminderContent.generic(for: $0.kind) }
+        content: @escaping @Sendable (PendingReminder) -> ReminderContent = UNNotificationScheduler.defaultContent
     ) {
         self.center = center
         self.logger = logger
         self.content = content
+    }
+
+    /// EB-20b: every production call site's content resolver (the default above): generic for
+    /// every kind except `.renewalReminder`, which gets the plan name and the renewal date once
+    /// `subjectID` decodes to one (`SubscriptionEngine.reconcileRenewalReminders` encodes it as a
+    /// Unix timestamp); generic otherwise, so a malformed or pre-EB-20b value never shows a wrong
+    /// date — it shows nothing date-specific at all.
+    public static func defaultContent(_ reminder: PendingReminder) -> ReminderContent {
+        guard reminder.kind == .renewalReminder, let renewalDate = renewalDate(from: reminder.subjectID) else {
+            return ReminderContent.generic(for: reminder.kind)
+        }
+        return ReminderContent.renewalReminder(planName: String(localized: L10n.Subscription.name()), renewalDate: renewalDate)
+    }
+
+    /// Decodes the renewal date `SubscriptionEngine` encodes into `PendingReminder.subjectID` for
+    /// `.renewalReminder` alone (a Unix timestamp string). `nil` for anything unparseable, so the
+    /// caller falls back to the generic key rather than trap or misread.
+    static func renewalDate(from subjectID: String) -> Date? {
+        guard let seconds = TimeInterval(subjectID) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
     }
 
     /// Registers the categories every Tally notification needs (`hiddenPreviewsBodyPlaceholder`;

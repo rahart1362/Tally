@@ -10,7 +10,7 @@ configs:
   Release: release
   # ASC-10/RELCFG-1 (app-store-compliance.md §3.3.1): a dedicated, Release-optimized configuration
   # that also compiles the test-only launch hooks (`#if DEBUG || TALLY_TEST_HOOKS`, LaunchTestHooks
-  # et al.) so the 8 critical-flow UI tests that need a hook can run against Release optimizations
+  # et al.) so the 10 critical-flow UI tests that need a hook can run against Release optimizations
   # instead of a Debug build. It reuses TALLY_TEST_HOOKS, the flag `make ios-perf` already sets by
   # command-line override for its own Release test build (Makefile IOS_PERF_CONDITIONS) -- the same
   # flag every hook gate in the tree already checks -- rather than the design doc's working name
@@ -38,6 +38,12 @@ settings:
     # Building it from TALLY_BUNDLE_ID_PREFIX instead keeps one literal
     # group string for both, without editing Identity.xcconfig.
     TALLY_SHARED_APP_GROUP_ID: group.$(TALLY_BUNDLE_ID_PREFIX).tally
+    # REL-M5 (REL.plist.version-variables, R19): the one place both Info.plist blocks below
+    # (app and widget) read their version/build number from, so every target always agrees. M5's
+    # TestFlight lane overrides CURRENT_PROJECT_VERSION per upload (a unique, increasing build
+    # number); MARKETING_VERSION stays the owner's shipping version until that lane changes it.
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
   configs:
     # ASC-10/RELCFG-1: Release optimizations (inherited from the "release" type above) plus the
     # test-only launch hooks and testability, project-wide, so `xcodebuild test -configuration
@@ -103,8 +109,8 @@ targets:
         CFBundleLocalizations:
           - en
           - es
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
@@ -184,8 +190,8 @@ targets:
         CFBundleLocalizations:
           - en
           - es
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         # Plan 06 step 11: what the widget process needs to find the glance

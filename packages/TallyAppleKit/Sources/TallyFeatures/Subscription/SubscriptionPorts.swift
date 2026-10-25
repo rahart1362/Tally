@@ -1,6 +1,7 @@
 import Foundation
 import Synchronization
 import TallyDomain
+import TallySync
 
 /// What the subscription engine needs from StoreKit (PAY-03), as a port: TallyFeatures' engine is
 /// tested with a scripted source, and `StoreKitEntitlementSource` is the real one (StoreKit 2, on
@@ -112,4 +113,14 @@ public nonisolated struct NoBackgroundRefreshScheduler: BackgroundRefreshSchedul
     public func schedule(earliestBegin: Date) async {}
     public func cancel() async {}
     public func isScheduled() async -> Bool { false }
+}
+
+/// EB-20b: no platform notifications. The default for the engine's account-independent
+/// `notifications` handle when the composition root injects none (tests, previews that never
+/// touch renewal reminders); schedules and cancels nothing, and reports nothing pending.
+public nonisolated struct NoOpNotificationScheduling: NotificationScheduling {
+    public init() {}
+    public func pendingIdentifiers() async -> Set<String> { [] }
+    public func schedule(_ reminder: PendingReminder) async {}
+    public func cancel(ids: Set<String>) async {}
 }

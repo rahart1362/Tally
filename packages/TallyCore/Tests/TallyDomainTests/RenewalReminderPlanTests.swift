@@ -32,6 +32,9 @@ struct RenewalReminderPlanTests {
         #expect(reminders.map(\.daysBeforeRenewal) == [40, 20])
         #expect(reminders.map(\.fireDate) == [renewalDate.addingTimeInterval(-40 * Self.day), renewalDate.addingTimeInterval(-20 * Self.day)])
         #expect(Set(reminders.map(\.id)).count == 2, "the two reminders must have distinct, stable ids")
+        // EB-20b: both reminders carry the same verified renewal date, for the content built at
+        // schedule time (`SubscriptionEngine.reconcileRenewalReminders`).
+        #expect(reminders.map(\.renewalDate) == [renewalDate, renewalDate])
     }
 
     @Test func aReminderWhoseDateHasAlreadyPassedIsDropped() {

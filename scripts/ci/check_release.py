@@ -502,9 +502,9 @@ def source_checks(root: pathlib.Path) -> list[Check]:
     allowed = [h for h in rest if h[1] in PLACEHOLDER_ALLOWLIST]
     elsewhere = [h for h in rest if h[1] not in shipping_paths and h[1] not in PLACEHOLDER_ALLOWLIST]
     fmt = lambda hs: "; ".join(f"{p}:{n}" for _, p, n in hs[:8]) + (f" (+{len(hs) - 8})" if len(hs) > 8 else "")
-    add("REL.go-live.owner-values", "No go-live placeholder values remain (Team ID, support e-mail, dates; GL-02)",
+    add("REL.go-live.owner-values", "No go-live placeholder values remain (Team ID, support and security e-mails, governing law, dates; GL-02)",
         not owner_values, fmt(owner_values) or "none", due="M5", owner="owner (GO-LIVE GL-02)")
-    add("REL.go-live.legal", "The privacy policy has counsel's sign-off (GL-03)", not legal,
+    add("REL.go-live.legal", "The legal pages (privacy, terms, security) have counsel's sign-off (GL-03)", not legal,
         fmt(legal) or "none", due="M5", owner="owner and counsel (GO-LIVE GL-03)")
     add("REL.go-live.shipping-identifiers",
         "Shipping code has no legacy or placeholder identifier outside the documented exceptions",
@@ -832,14 +832,25 @@ class Flow:
 
 
 FLOWS = (
-    Flow("REL.flow.01-first-login", "First login: OAuth sign-in, then the Dashboard", (), "", "M5",
-         "M5: ASC-11's mock OAuth/Canvas server was deferred to M5 (plan 07 §1); M2-C1 builds the replay-backed first sync"),
+    # REL-M5: SignInSignOutUITests already drives the whole path (Welcome -> school search ->
+    # hand-off -> the demoSignIn hook's ASWebAuthenticationSession stub -> first sync -> the
+    # Dashboard hero and tab bar), so it is mapped here rather than duplicated into a new test.
+    # Runs against Debug (the hook needs DEBUG or TALLY_TEST_HOOKS), so it also gets an automatic
+    # RELCFG-1 .release-config check from the ios-release-config job's UITest-configuration run.
+    Flow("REL.flow.01-first-login", "First login: OAuth sign-in, then the Dashboard",
+         ("SignInSignOutUITests/testDemoSignInFirstSyncRootSwitchThenSignOut",), "Debug", "M5",
+         "M5: a mock OAuth/token-exchange stands in for the real ASC-11 server (plan 07 §1); "
+         "signing in against a real Canvas account stays a device check (H1)"),
     Flow("REL.flow.02-launch-with-cache", "Launch with a valid cache paints it before the network",
          ("LaunchFromCacheUITests/testSeededLaunchPaintsCachedRowsBeforeAnyNetworkActivity",), "Debug", "M2", ""),
     Flow("REL.flow.03-launch-no-cache", "Launch with no cache shows Welcome",
          ("TallyLaunchUITests/testAppLaunchesAndRootViewExists",), "Release", "M2", ""),
-    Flow("REL.flow.04-refresh-under-10s", "A refresh under 10 s updates in place", (), "", "M5",
-         "M5: no UI test yet (HomeModelTests cover the live budget in-process)"),
+    # REL-M5: SlowRefreshUITests' own fast-refresh sibling (well under the 10 s live budget) is the
+    # measured path for this flow -- modelled on that file's slow-refresh tests, same Debug hook.
+    Flow("REL.flow.04-refresh-under-10s", "A refresh under 10 s updates in place",
+         ("SlowRefreshUITests/testPullToRefreshUnderTenSecondsUpdatesInPlace",), "Debug", "M5",
+         "M5: HomeModelTests already cover the live refresh budget in-process; this UI test proves "
+         "the same in-place update end to end"),
     Flow("REL.flow.05-refresh-over-10s", "A refresh over 10 s shows the stale breadcrumb and last-refreshed time",
          ("SlowRefreshUITests/testSlowRefreshShowsTheBreadcrumbThenSelfHeals",), "Debug", "M2", ""),
     Flow("REL.flow.06-refresh-self-heals", "A refresh that lands after the budget self-heals the UI",
@@ -1110,14 +1121,16 @@ def self_test() -> int:
     assert by_id["REL.flow.05-refresh-over-10s"].status == "FAIL", "a test that did not run never passes"
     assert "REL.flow.05-refresh-over-10s.release-config" not in by_id, \
         "release-config checks come from release_config_checks(), not flow_checks() (separate CI jobs)"
-    assert by_id["REL.flow.04-refresh-under-10s"].status == "PENDING", "a flow due after MVP with no test is pending"
+    assert by_id["REL.flow.04-refresh-under-10s"].status == "PENDING", \
+        "a flow due after MVP whose mapped test did not run (here: not given at all) is pending"
     assert by_id["REL.flow.01-first-login"].status == "PENDING"
     only = {c.id for c in flow_checks({"Release": results}, only_given=True)}
     assert "REL.flow.03-launch-no-cache" in only and "REL.flow.05-refresh-over-10s" not in only \
         and "REL.flow.01-first-login" not in only, only
     # ASC-10/RELCFG-1: REL.flow.<id>.release-config, from the UITest-configuration run.
     debug_flow_ids = {f"{f.id}.release-config" for f in FLOWS if f.configuration == "Debug" and f.tests}
-    assert len(debug_flow_ids) == 8, sorted(debug_flow_ids)  # the 8 checks RELCFG-1's brief names
+    # RELCFG-1's brief named 8; REL-M5 wired two more Debug-configured flows (01, 04), making 10.
+    assert len(debug_flow_ids) == 10, sorted(debug_flow_ids)
     rc_all_pass = {test: "Passed" for flow in FLOWS if flow.configuration == "Debug" for test in flow.tests}
     rc_pass = {c.id: c.settle() for c in release_config_checks(rc_all_pass)}
     assert set(rc_pass) == debug_flow_ids, sorted(rc_pass)

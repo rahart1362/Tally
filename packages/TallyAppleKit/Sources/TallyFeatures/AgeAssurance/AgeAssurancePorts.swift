@@ -20,7 +20,7 @@ public protocol AgeAssuranceRequesting: Sendable {
 /// from): EB-01(g), "unavailable" never blocks and never asks.
 public struct UnavailableAgeAssurance: AgeAssuranceRequesting {
     public init() {}
-    public func requestAgeAssurance() async -> AgeAssuranceOutcome { .declinedOrUnavailable }
+    public func requestAgeAssurance() async -> AgeAssuranceOutcome { .unavailable }
 }
 
 /// EB-02(b)/EB-01(e): PermissionKit's `SignificantAppUpdateTopic` for an affected minor, or

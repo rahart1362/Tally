@@ -49,6 +49,11 @@ struct AppEnvironment {
         // PAY-07: the one entitlement gate. Enforcement follows `SubscriptionConfig.isGatingEnforced`
         // (on since M3-B2 shipped the paywall).
         let entitlementGate = EntitlementGate(clock: SystemDateProvider())
+        // EB-20b: one real notification center, shared by every account's environment and the
+        // subscription engine, so a renewal reminder can still be cancelled (auto-renew turning
+        // off) even while no account is attached (`SubscriptionEngine`'s own account-independent
+        // `notifications` handle).
+        let notifications = UNNotificationScheduler()
         // No explicit Keychain access groups yet: an explicit group fails with
         // errSecMissingEntitlement under CI's ad-hoc signing (KeychainVaultKeyStoreTests' known
         // issue), so every key lives in the app's default group until a real Team ID exists
@@ -76,7 +81,7 @@ struct AppEnvironment {
                 try StoreLocation.privateRoot().appendingPathComponent("canvas-link-preference.txt")
             }),
             transport: transport,
-            notifications: UNNotificationScheduler(),
+            notifications: notifications,
             reloadWidgets: { WidgetReloader().reloadAllTimelines() },
             logger: logger,
             clock: SystemDateProvider(),
@@ -123,8 +128,8 @@ struct AppEnvironment {
         }
         #endif
         let subscription = SubscriptionModel(engine: SubscriptionEngine(
-            source: source, records: KeychainEntitlementStore(),
-            gate: entitlementGate, scheduler: BackgroundRefreshScheduler(), products: products))
+            source: source, records: KeychainEntitlementStore(), gate: entitlementGate,
+            scheduler: BackgroundRefreshScheduler(), notifications: notifications, products: products))
         // AGE-1: account-independent, like `accounts.json` — the age-assurance request happens
         // before any sign-in (EB-01(b): "first launch after install"), so it uses the app's
         // PRIVATE root (SEC1-09, #71: the App Group holds only the widget's own inputs; the widget

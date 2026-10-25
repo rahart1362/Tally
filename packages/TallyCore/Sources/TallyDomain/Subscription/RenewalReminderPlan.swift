@@ -11,11 +11,16 @@ public enum RenewalReminderPlan {
         public let id: String
         public let fireDate: Date
         public let daysBeforeRenewal: Int
+        /// EB-20b: the renewal date itself (verified: the same date `fireDate` counts back from),
+        /// carried alongside it so the content built at schedule time never has to re-derive it
+        /// from `fireDate` and `daysBeforeRenewal` (`SubscriptionEngine.reconcileRenewalReminders`).
+        public let renewalDate: Date
 
-        public init(id: String, fireDate: Date, daysBeforeRenewal: Int) {
+        public init(id: String, fireDate: Date, daysBeforeRenewal: Int, renewalDate: Date) {
             self.id = id
             self.fireDate = fireDate
             self.daysBeforeRenewal = daysBeforeRenewal
+            self.renewalDate = renewalDate
         }
     }
 
@@ -44,7 +49,8 @@ public enum RenewalReminderPlan {
         return daysBefore.compactMap { days in
             let fireDate = renewalDate.addingTimeInterval(-Double(days) * 24 * 60 * 60)
             guard fireDate > now else { return nil }
-            return Reminder(id: identifier(role: role, daysBefore: days), fireDate: fireDate, daysBeforeRenewal: days)
+            return Reminder(id: identifier(role: role, daysBefore: days), fireDate: fireDate, daysBeforeRenewal: days,
+                            renewalDate: renewalDate)
         }
     }
 
