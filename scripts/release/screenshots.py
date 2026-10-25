@@ -41,7 +41,7 @@ import sys
 
 SCENES: tuple[tuple[int, str], ...] = (
     (1, "dashboard"), (2, "courses"), (3, "course-detail"), (4, "what-if"),
-    (5, "todo"), (6, "calendar"), (7, "insights"), (8, "parent-mode"),
+    (5, "todo"), (6, "calendar"), (7, "insights"), (8, "quiet-hours"),
 )
 MODES = ("light", "dark")
 LANGUAGES = ("en", "es")

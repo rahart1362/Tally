@@ -10,17 +10,20 @@ import XCTest
 /// Eight scenes, each ONE capture, at rest (pmo-ux-common.md's visual quality bar: "captures only
 /// at rest"), in Sample Data / the bundled flagship persona (synthetic data only, ASC-11): the
 /// Dashboard hero with its trend, Courses with the sparklines, Course detail (grades + chart),
-/// the What-If sheet, To-Do, Calendar, Insights, and (scene 8) parent mode.
+/// the What-If sheet, To-Do, Calendar, Insights, and (scene 8) Quiet Hours.
 ///
-/// **Scene 8 is parent mode, not a composited widget render.** The Home Screen itself is not
-/// reachable in XCUITest (the brief's own framing), and the brief allows widget renders "only if
-/// they are honest renders of the real widget views" — `WidgetFamilyRenderTests` (TallyAppTests,
-/// M3-D's own file, outside this work package's ownership) already produces honest, hosted
-/// renders with the real `containerBackground`, but not at every combination this pipeline needs:
-/// its own `spanishSnapshot` is light-only (no dark+es), and extending it would mean editing a
-/// file owned by another work package. The brief's explicit fallback applies instead: "otherwise
-/// use parent mode" — real app UI, already proven reachable in both languages by
-/// `AuditTourUITests.testN_sampleDataAndParentMode` and `ReviewPathUITests`'s own walk.
+/// **Scene 8 is Quiet Hours (Settings → Reminders), replacing parent mode (CLAIMS-1,
+/// 2026-10-25).** Family/parent linking through a real Canvas observer account is sample-only
+/// until M4 (owner decision), so the store listing no longer shows parent mode: a shipped-only
+/// feature replaces it. Course goals (FEAT-4) was the brief's first choice, but its own doc
+/// comment calls it "a small entry point" — a single Stepper/button appended to Course Detail's
+/// Overview, the same screen scene 3 already captures — so it would not read as a distinct scene.
+/// Quiet Hours (`RemindersSettingsSection`, idea 5 / FEAT-3) is its own Section with two
+/// `DatePicker` rows, a header and a footer, inside Settings (not captured elsewhere), which
+/// composes as a clean, self-contained scene the way the brief's "otherwise use Quiet Hours /
+/// Remind Me" fallback calls for. Unlike parent mode, Quiet Hours only renders for a signed-in
+/// account (`!isSampleData`), so this scene launches the same flagship-persona sign-in scenes
+/// 1-7 use, not "Explore with Sample Data".
 ///
 /// Appearance and language are read the same way `AuditTourUITests` reads `AUDIT_APPEARANCE` /
 /// `AUDIT_LANGUAGE`: the workflow sets the simulator's own appearance with `simctl ui ...
@@ -140,14 +143,15 @@ final class StoreScreenshotUITests: TallyUITestCase {
     /// least 95% of its own pixels within 1.2:1 of that part's own colour, and no pixel row above
     /// 1.5:1 — genuinely invisible, not merely "mostly" under the bar.
     ///
-    /// Skips entirely while a sheet with no tab bar of its own is on screen (What-If, the only
-    /// sheet this suite ever captures): the tab bar's own element can still report `exists` from
-    /// underneath a presented sheet (it never leaves the hierarchy, only the screen), so rows
-    /// behind the sheet must never be judged against it. Detected structurally, by the sheet's own
-    /// "Done" identifier, not by counting bars or guessing at presentation state.
+    /// Skips entirely while a sheet with no tab bar of its own is on screen (What-If, and now
+    /// Settings for scene 8's Quiet Hours, CLAIMS-1): the tab bar's own element can still report
+    /// `exists` from underneath a presented sheet (it never leaves the hierarchy, only the
+    /// screen), so rows behind the sheet must never be judged against it. Detected structurally,
+    /// by the sheet's own "Done" identifier, not by counting bars or guessing at presentation
+    /// state.
     @MainActor
     private func recordWhatIsUnderTheTabBar(_ app: XCUIApplication, screenshot: XCUIScreenshot, scene: String) {
-        guard !element("whatif.done", in: app).exists else { return }
+        guard !element("whatif.done", in: app).exists, !element("settings.done", in: app).exists else { return }
         let tabBar = app.tabBars.firstMatch
         guard tabBar.exists else { return }
         let tabBarFrame = tabBar.frame
@@ -464,26 +468,19 @@ final class StoreScreenshotUITests: TallyUITestCase {
         app.terminate()
     }
 
-    // MARK: - 8: parent mode (see the file's own doc comment for why, not a widget render)
+    // MARK: - 8: Quiet Hours (see the file's own doc comment for why, replacing parent mode)
 
     @MainActor
-    func test08_parentMode() throws {
+    func test08_quietHours() throws {
         resetAppState()
-        XCUIDevice.shared.appearance = Self.appearance
-        let app = launchApp()
-        let exploreSampleData = element("account.exploreWithSampleData", in: app)
-        XCTAssertTrue(exploreSampleData.waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
-        exploreSampleData.tap()
-        XCTAssertTrue(element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30),
-                     "the sample projection never landed. Hierarchy: \(app.debugDescription)")
+        let app = launchSignedIn()
         openSettings(app)
-        let exploreParentMode = app.buttons["family.sample.viewAsParent"]
-        XCTAssertTrue(scrollUntilHittable(exploreParentMode, in: app, maxSwipes: 30),
-                     "no family.sample.viewAsParent. Hierarchy: \(app.debugDescription)")
-        exploreParentMode.tap() // Settings dismisses itself (AppModel.enterSampleFamily()).
-        XCTAssertTrue(element("family.switcher", in: app).waitForExistence(timeout: 15),
-                     "parent mode shows no content. Hierarchy: \(app.debugDescription)")
-        capture(app, number: 8, scene: "parent-mode")
+        let quietHoursStart = element("settings.reminders.quietHours.start", in: app)
+        XCTAssertTrue(scrollUntilHittable(quietHoursStart, in: app, maxSwipes: 15),
+                     "no settings.reminders.quietHours.start. Hierarchy: \(app.debugDescription)")
+        XCTAssertTrue(element("settings.reminders.quietHours.end", in: app).waitForExistence(timeout: 10),
+                     "no settings.reminders.quietHours.end. Hierarchy: \(app.debugDescription)")
+        capture(app, number: 8, scene: "quiet-hours")
         app.terminate()
     }
 }

@@ -8,8 +8,8 @@
      the script's dated allowlist (dossier.md §12 P1, P2). Update this block whenever the prose
      changes; do not hand-parse the English sentences instead.
 canvas-api: active
-school-search: active
-school-list-download: active
+school-search: inactive
+school-list-download: inactive
 summary-sharing: active
 -->
 <div class="draft">DRAFT-PENDING-LEGAL-REVIEW. This policy has not yet been reviewed by counsel.</div>
@@ -27,7 +27,7 @@ summary-sharing: active
 <h2>Information Tally uses and where it goes</h2>
 <p><b>Your Canvas information.</b> This covers your courses, grades, assignments, due dates, calendar events, announcements and profile name. When you sign in, your iPhone requests it directly from your school's Canvas service (operated by your school and Instructure). Tally stores it only on your iPhone, encrypted with a key that never leaves the device, and replaces it on every successful refresh. It is not sent to us or to anyone else, and it is excluded from iCloud and computer backups. The only exceptions are the ones you start yourself: adding items to your calendar and sharing a summary, both described below.</p>
 <p><b>Sign-in.</b> You sign in to Canvas in Apple's secure sign-in sheet, on your school's own page. Canvas gives Tally an access token that lets it read your information. The token is stored in your iPhone's Keychain, available only on this device. Signing out asks Canvas to revoke it.</p>
-<p><b>Finding your school.</b> When you search for your school, the app sends the search text to Instructure's public school directory. Tally also downloads a signed list of the schools where it is available from tally-app.dev. That is a static file; our web host may see your IP address as normal web traffic, and we don't receive or keep it.</p>
+<p><b>Finding your school.</b> The school name you type stays on your iPhone; Tally connects only to your school's own Canvas.</p>
 <p><b>Reminders and widgets.</b> Reminders are scheduled on your iPhone; nothing is sent to a push server. By default, grade values are never shown on your Lock Screen or in notifications, and you can hide course names too. If your subscription renews automatically, Tally also schedules two reminders on your iPhone, 40 and 20 days before it renews.</p>
 <p><b>Calendar.</b> If you choose to subscribe to your Canvas calendar, your calendar app (for example Apple Calendar, Google or Outlook) fetches your personal Canvas calendar feed directly from Canvas. That provider's own privacy policy applies.</p>
 <p><b>Adding to your calendar.</b> If you tap Add to Calendar or Add This Week to Calendar, Tally opens Apple's calendar editor with the item's title, course, time, location (if Canvas lists one) and a link to its Canvas page. You pick the calendar and confirm; Tally can't read your calendars, and grades are never added. The event then belongs to that calendar, and if the calendar syncs (for example through iCloud or Google), that provider's privacy policy applies.</p>
@@ -38,7 +38,7 @@ summary-sharing: active
 <!-- EB-28 (DRAFTS-1): the Do Not Track sentence (Cal. Bus. & Prof. Code 22575(b)), and the static host's logs (EB-24(a) left them to this policy). Counsel/owner: confirm the final host's terms support "we don't receive or keep those records" (GO-LIVE GL-02 names GitHub Pages as the lowest-effort option). --></p>
 
 <h2>Parents and linked accounts</h2>
-<p>A student can invite a parent or guardian using Canvas's own pairing codes. The parent signs in with <b>their own</b> Canvas observer account; a student's password or token is never shared. A parent sees what Canvas already allows observers to see. That information is fetched directly from Canvas to the parent's iPhone and stored encrypted there. Students can see who is linked to their Canvas account in the app. Only the parent or the school can remove a link, because Canvas works that way.</p>
+<p>Linking a parent or guardian's own Canvas observer account isn't available yet. In Explore with Sample Data you can preview parent mode with made-up students; nothing is sent or kept.</p>
 <p>A student can also share a plain-text summary of their week with anyone they choose. Nothing is sent until the student taps Send My Week and picks who receives it. If Hide Course Names is on, the summary shows only how many items are due each day.
 <!-- DRAFTS-1 accuracy fix: the app ships a weekly summary only (FEAT-B "Send My Week", a system share sheet), not a monthly one and no separate Mail button. --></p>
 
@@ -50,7 +50,7 @@ summary-sharing: active
 <p><b>How long Tally keeps it.</b> Tally keeps only the latest copy of your Canvas information and replaces it each time it refreshes. That copy stays on your iPhone until you or Tally erase it, as described below, or you delete the app. If your subscription ends, Tally keeps showing the saved copy but stops refreshing it. To work offline, Tally also keeps the date your subscription is active until in your iPhone's Keychain; it never keeps a receipt, a payment detail or a price.
 <!-- EB-28 (DRAFTS-1): plain retention terms (dossier §12 P12), reconciled with the live EB-26 bullets below rather than repeating them. Counsel: Apple Guideline 5.1.1(i); C.R.S. 6-1-1308.5(2)(a)(III) ("no longer than reasonably necessary"). Confirm that keeping the saved copy readable, with no time limit, after a subscription ends is acceptable, given the 30-day limit applies only when a school turns Tally off. --></p>
 <ul>
-<li><b>Sign Out &amp; Erase</b> (Settings) revokes the Canvas token and deletes all Tally data, keys and scheduled reminders from your iPhone.</li>
+<li><b>Sign Out &amp; Erase</b> (Settings) revokes the Canvas token and deletes all Tally data, keys and scheduled reminders from your iPhone. Your subscription renewal reminders stay, because your App Store subscription continues.</li>
 <li><b>Erase Saved Data</b> appears if your school turns Tally off. It deletes your Canvas data and its reminders from your iPhone but keeps you signed in, so Tally can rebuild it if your school turns Tally back on. If your school keeps Tally off for 30 days, Tally erases this data automatically. Your settings, such as hiding course names, are kept.</li>
 <li>Deleting the app deletes Tally's files from your iPhone, but your iPhone's Keychain can keep Tally's Canvas sign-in and subscription date; reinstalling Tally removes the old sign-in. Before you delete Tally, use <b>Sign Out &amp; Erase</b> to end its access at your school.<!-- DRAFTS-1 accuracy fix (dossier §12 P3): Keychain items outlive the app; the second sentence is the app's own Settings footer (EB-17). --></li>
 <li>Subscriptions are managed and cancelled in your Apple Account settings.</li>
@@ -65,5 +65,5 @@ summary-sharing: active
 
 <h2>Changes and contact</h2>
 <p>If this policy changes, we'll update the effective date and describe the change in the app's release notes. Questions: <a href="mailto:__SUPPORT_EMAIL__">__SUPPORT_EMAIL__</a>.</p>
-<p class="muted">Tally is an independent app and is not affiliated with or endorsed by Instructure. Canvas is a trademark of Instructure, Inc.</p>
+<p class="muted">Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc.</p>
 </main></body></html>

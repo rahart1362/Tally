@@ -990,7 +990,7 @@ def _lookup(results: dict[str, str], test: str) -> str:
 # ------------------------------------------------------------------------------------------------
 
 STORE_SCREENSHOT_SCENES = ("dashboard", "courses", "course-detail", "what-if", "todo", "calendar", "insights",
-                           "parent-mode")
+                           "quiet-hours")
 STORE_SCREENSHOT_MODES = ("light", "dark")
 STORE_SCREENSHOT_LANGUAGES = ("en", "es")
 STORE_SCREENSHOT_SIZE = (1320, 2868)
