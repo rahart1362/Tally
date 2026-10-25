@@ -192,7 +192,15 @@ All three in `Localizable.xcstrings`: en `translated` (owner-approved content), 
     (`testY_` still passed; `continueAfterFailure = true` and `snap()` only records evidence), and
     not something this package's own changes touch. Recorded as an open item below rather than
     fixed, per "stay in your lane."
-- PR run — see the hand-off reply.
+- **PR #93, run [40209758565](https://github.com/rahart1362/Tally/actions/runs/40209758565)**
+  (on `eca74c8`): every required job green — `Hygiene gates`, `TallyCore tests (Linux, Swift
+  6.4)`, `Crash-safety lint`, `TallyCore sanitizers`, `iOS build + test`, `iOS AddressSanitizer
+  (app tests)`, `iOS ThreadSanitizer`, `iOS perf budgets`. `iOS build + test`'s own xcresult:
+  `totalTestCount=882, passedTests=763, failedTests=0, skippedTests=117, expectedFailures=2`. No
+  `Failed attempt (retried once)` warnings anywhere in the run. `TallyCore perf gates (Linux,
+  release, non-blocking)` failed — `GoalSeek.solve`'s `extremeRatiosInAPeriod` case, 643.64 ms
+  against a 600 ms ceiling (CI runner noise; nothing this package touches, and non-blocking by
+  the job's own name/rule 4).
 
 ## Open items
 
