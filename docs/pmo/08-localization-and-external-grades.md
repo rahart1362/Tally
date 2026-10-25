@@ -488,7 +488,7 @@ L10N-04 translates from that merge commit. Any English change after it needs the
 - `welcome.tagline.noBreak` (UX2-20, PR #88), amended on **2026-10-24**: it gains a U+00A0 non-breaking space before the em dash. The visible words are unchanged from the 2026-10-23 approval; this amends that key, not a new one.
 - `notifications.renewalReminder.title` = "%@ renews on %@", `.body` = "To cancel, go to Settings > your name > Subscriptions, or Manage Subscription in Tally.", `subscription.confirmation.reminderOffer` = "Get a reminder before it renews" (EB-20b, PR #93), approved on **2026-10-25**. The renewal amount stays out pending counsel Q37.
 
-No frozen English value has changed. Every key above was confirmed present in `packages/TallyAppleKit/Sources/TallyStrings/Resources/Localizable.xcstrings` on `main`, except `notifications.renewalReminder.title`/`.body` and `subscription.confirmation.reminderOffer`, which ship in PR #93 (EB-20b, open at the time of this PR).
+No frozen English value has changed. Every key above was confirmed present in `packages/TallyAppleKit/Sources/TallyStrings/Resources/Localizable.xcstrings` on `main` (PR #93 merged as `e9e2f79`, 2026-10-25, so its three keys are confirmed present too).
 | **M4** | as planned | **XG-05** alongside real sign-in | This is the first real-data check of G-2. |
 | **M5** | as planned | **L10N-05** with ASC-10/12/17 | Localized metadata and screenshots become release gates. If L-3 = "not a gate" and es isn't ready, the gate runs for en only. |
 

@@ -1,7 +1,8 @@
 # DOCS-5: 10-24/25 decisions, approvals and wave-3 status
 
 Agent: Claude Sonnet 5. Worktree `Tally-worktrees/pmodocs5`, branch `pmo/docs-5`, from `origin/main`
-@ `f2e785c` (PR #91, AGE-2). Docs only.
+@ `f2e785c` (PR #91, AGE-2), merged with `origin/main` @ `f3cc163` (PR #95, UX-POLISH-1) before
+opening the PR, once #93 (EB-20b), #94 (CLAIMS-1) and #95 (UX-POLISH-1) had all merged. Docs only.
 
 ## Sources
 
@@ -13,9 +14,9 @@ Agent: Claude Sonnet 5. Worktree `Tally-worktrees/pmodocs5`, branch `pmo/docs-5`
 
 | # | Item | Where | Status |
 |---|---|---|---|
-| 1 | #86's status-table row filled in (`4b3c21f`); rows added for #88-#92 (merge commits) and #93/CLAIMS-1/UX-POLISH-1 (open, no final commit yet) | `docs/pmo/02-program-plan.md` | Added |
+| 1 | #86's status-table row filled in (`4b3c21f`); rows added for #88-#95, all with final merge commits | `docs/pmo/02-program-plan.md` | Added |
 | 2 | Owner decisions 2026-10-24 (UX-2 verdict, the UX-FIX-3 scope, `reminders.footerV2`, the interstitial Cancel, the tagline no-break amendment, #88's merge, the sign-off send, the a11y-waiver acceptances) | `docs/pmo/02-program-plan.md` | Added |
-| 3 | Owner decisions 2026-10-25 (EB-20b copy + the Sign Out & Erase bullet, DRAFTS-1's 107 sentences + store links, Family removed until M4, privacy C1/C3, the 7-scene gallery, the site-hosting correction) | `docs/pmo/02-program-plan.md` | Added |
+| 3 | Owner decisions 2026-10-25 (EB-20b copy + the Sign Out & Erase bullet, DRAFTS-1's 107 sentences + store links, Family removed until M4, privacy C1/C3, the 7-scene gallery — corrected after #94 merged to "7 scenes outright", not the Quiet Hours replacement the notes described mid-flight — the site-hosting correction) | `docs/pmo/02-program-plan.md` | Added |
 | 4 | REL-M5's own release gate (FAIL 0 / PENDING 3 / WARN 0 / PASS 123) | `docs/pmo/02-program-plan.md` | Added |
 | 5 | Watch list: removed the now-fixed `ios27` WARN row and the Dependabot #70 row | `docs/pmo/02-program-plan.md` | Removed, with a one-line note on what fixed each |
 | 6 | Every owner-approved string since DOCS-4: `reminders.footerV2`, the `welcome.tagline.noBreak` amendment, `notifications.renewalReminder.title`/`.body`, `subscription.confirmation.reminderOffer` | `docs/pmo/08-localization-and-external-grades.md` §6 | Added. `family.notification.belowGoal.hiddenCourse` skipped — already recorded by DOCS-4. |
@@ -31,17 +32,23 @@ Full step-by-step evidence is in `build/logs/journal/2026-10-25-docs5.md`.
 - `family.notification.belowGoal.hiddenCourse`: already in plan 08 §6 from DOCS-4 (dated
   2026-10-23). No action needed.
 
+## Timeline note
+
+This content was drafted and committed (`ccc51ad`) while #93 (EB-20b), CLAIMS-1 and UX-POLISH-1
+were still open, per the brief's timing section. All three merged by 2026-10-25T23:41:36Z (#93
+`e9e2f79`, #94 CLAIMS-1 `d6d8c90`, #95 UX-POLISH-1 `f3cc163`), confirmed by polling
+`gh pr view`/`gh pr list` every 15 minutes. Before opening the PR: merged `origin/main` (clean,
+no conflicts), re-grepped `Localizable.xcstrings` to confirm the three EB-20b keys are now present,
+updated plan 02's status table to the final merge commits, and corrected the App Store gallery
+bullet after reading CLAIMS-1's own report (`docs/pmo/reviews/claims1-report.md` §5): the owner's
+final decision was 7 scenes outright (no scene 8 at all), not the Quiet-Hours replacement
+`pmo-next-pr-notes.md` described while CLAIMS-1 was still in progress; the matching agent-rules
+lesson was reworded to match.
+
 ## Open items (not this PR's to fix)
 
-- `notifications.renewalReminder.title`/`.body` and `subscription.confirmation.reminderOffer` ship
-  in #93 (EB-20b), still open at the time this content was written. Plan 08 §6's closing sentence
-  names this exception explicitly rather than claim they're on `main`. **Revisit before this PR
-  opens:** if #93 has merged by then, re-grep `Localizable.xcstrings` and drop the exception.
-- #93, CLAIMS-1 and UX-POLISH-1's final merge commits are not yet known; plan 02's status table
-  carries them as open/no-PR-yet placeholders, to be updated to final commits right before this PR
-  opens (per the brief's timing section).
-- The final consolidated release gate and the updated sign-off package (next after wave 3 closes)
-  are still queued, listed in plan 02's wave-3 section.
+- The final consolidated release gate and the updated sign-off package (next after wave 3) are
+  still queued, listed in plan 02's wave-3 section.
 - Device-only checks (A-H), O1 Canvas keys, the go-live values, counsel (O7), `/terms` sign-off
   (EB-05), the App Store Connect 2-week trial offer, the native Spanish review, the launch
   baseline (G1), and the pre-school-sales EB-27/28/29/32 all remain for the owner — unchanged from
@@ -49,9 +56,10 @@ Full step-by-step evidence is in `build/logs/journal/2026-10-25-docs5.md`.
 
 ## Verification
 
-- `python3 scripts/ci/check_localizable_literals.py .` — PASS (238 Swift files, 0 literals).
-- `python3 scripts/ci/check_string_catalogs.py .` — PASS (806 keys, 0 problems; unchanged, confirms
-  no catalog file was touched).
+- `python3 scripts/ci/check_localizable_literals.py .` — PASS (239 Swift files, 0 literals, after
+  merging `origin/main`).
+- `python3 scripts/ci/check_string_catalogs.py .` — PASS (809 keys, 0 problems, after merging
+  `origin/main` — this PR's own diff touches no catalog file).
 - `python3 scripts/ci/check_policy_matches_app.py .` — PASS.
 - `python3 scripts/ci/check_privacy_manifest.py .` — PASS (11/11 checks).
 - `python3 scripts/ci/check_significant_change_notice.py` — PASS: this commit touches neither
@@ -61,10 +69,12 @@ Full step-by-step evidence is in `build/logs/journal/2026-10-25-docs5.md`.
 - `python3 scripts/ci/check_widget_isolation.py --sources .` — PASS.
 - `python3 scripts/ci/check_storekit_products.py .` — PASS.
 - `python3 scripts/ci/check_release.py --self-test` — PASS (51 checks).
-- `make lint` (SwiftLint, crash-safety config) — 0 violations in 319 files.
+- `make lint` (SwiftLint, crash-safety config) — 0 violations in 320 files, after merging
+  `origin/main`.
 - Every string key named in plan 08 §6's new bullets was checked against
   `packages/TallyAppleKit/Sources/TallyStrings/Resources/Localizable.xcstrings` on `main` by grep
-  before being listed; the two EB-20b keys not yet present are flagged as such, not claimed present.
+  before being listed, including a re-check after #93 merged (all three EB-20b keys present).
 - Every PR merge commit added to plan 02's table was read from `gh pr view <n>
   --json mergeCommit,mergedAt` and cross-checked against `gh pr list --state all`.
+- Re-ran the full hygiene set after merging `origin/main` (below) — all still PASS.
 - This PR's own CI run is the remaining verification; see the hand-off reply for its result.
