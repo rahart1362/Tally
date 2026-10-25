@@ -63,6 +63,13 @@ public actor SubscriptionEngine {
     private let source: any EntitlementSourcing
     private let records: any EntitlementRecordStoring
     private let scheduler: any BackgroundRefreshScheduling
+    /// EB-20b: the renewal reminders' own handle onto the platform's notification center --
+    /// account-independent (unlike `environment`, below, which only exists once a signed-in
+    /// account attaches), injected once at init from `AppEnvironment` (the same real
+    /// `UNNotificationScheduler` instance `AccountEnvironment.notifications` shares). This is what
+    /// lets a verified pass schedule or cancel the two reminders (`reconcileRenewalReminders`)
+    /// whether or not an account is attached yet.
+    private let notifications: any NotificationScheduling
     private let clock: any DateProviding
 
     private var started = false
@@ -78,9 +85,6 @@ public actor SubscriptionEngine {
     private var isPurchasePending = false
     private weak var coordinator: RefreshCoordinator?
     private var environment: AccountEnvironment?
-    /// EB-20: the last verified pass's facts and holding, so an account that attaches after StoreKit
-    /// has already answered still gets its renewal reminders planned (`accountAttached`).
-    private var lastVerified: (facts: [SubscriptionFacts], holding: SubscriptionHolding?)?
     private var observer: (@Sendable (SubscriptionStatus) async -> Void)?
 
     /// What the effects last acted on.
@@ -96,12 +100,14 @@ public actor SubscriptionEngine {
     public init(source: any EntitlementSourcing = NoEntitlementSource(),
                 records: any EntitlementRecordStoring = InMemoryEntitlementRecordStore(), gate: EntitlementGate,
                 scheduler: any BackgroundRefreshScheduling = NoBackgroundRefreshScheduler(),
+                notifications: any NotificationScheduling = NoOpNotificationScheduling(),
                 products: SubscriptionProducts, role: SubscriptionRole = .student,
                 clock: any DateProviding = SystemDateProvider()) {
         self.source = source
         self.records = records
         self.gate = gate
         self.scheduler = scheduler
+        self.notifications = notifications
         self.products = products
         self.role = role
         self.clock = clock
@@ -166,18 +172,10 @@ public actor SubscriptionEngine {
         if let applied, !applied.remindersAllowed, let environment {
             await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
         }
-        // EB-20: the launch's verified pass may have run before this attach, with no environment to
-        // schedule into, so plan the renewal reminders from that pass's facts now instead of
-        // waiting for the next verification (the next foreground, at the earliest).
-        if let lastVerified, let environment {
-            let upcoming = await planRenewalReminders(lastVerified.facts, holding: lastVerified.holding,
-                                                      environment: environment)
-            if var current = status, current.hasUpcomingRenewalReminder != upcoming {
-                current.hasUpcomingRenewalReminder = upcoming
-                status = current
-                await publish()
-            }
-        }
+        // EB-20b: the renewal reminders themselves need no catch-up here. `notifications` is
+        // account-independent (injected once at init, never from `environment`), so every verified
+        // pass already plans and reconciles them (`apply`) whether or not an account is attached --
+        // including the launch's own pass, which may well finish before this attach runs at all.
     }
 
     /// Sign-out: the account is gone.
@@ -295,15 +293,14 @@ public actor SubscriptionEngine {
                 await ReminderPipeline.reconcile(coordinator: coordinator, environment: environment)
             }
         }
-        // EB-20: only on a verified pass (StoreKit's own facts, never the Keychain record's) and
-        // only once an account is attached (same gate the background-refresh and reminders effects
-        // above already use); an account that attaches later is planned from these same facts then
-        // (`accountAttached`). Reconciled every verification, so turning auto-renew off cancels the
-        // two reminders at the very next one (foreground, a transaction update, or the next launch).
-        if verified, let facts { lastVerified = (facts, holding) }
+        // EB-20b: only on a verified pass (StoreKit's own facts, never the Keychain record's), but
+        // independent of whether an account is attached — `notifications` is the engine's own
+        // handle (init-injected), not `environment`'s. Reconciled every verification, so turning
+        // auto-renew off cancels the two reminders at the very next one (foreground, a transaction
+        // update, or the next launch), with or without a signed-in account.
         let upcomingRenewalReminder: Bool
-        if verified, let environment, let facts {
-            upcomingRenewalReminder = await planRenewalReminders(facts, holding: holding, environment: environment)
+        if verified, let facts {
+            upcomingRenewalReminder = await planRenewalReminders(facts, holding: holding)
         } else {
             upcomingRenewalReminder = status?.hasUpcomingRenewalReminder ?? false
         }
@@ -313,27 +310,36 @@ public actor SubscriptionEngine {
         await publish()
     }
 
-    /// EB-20: schedules and cancels only the difference (`RenewalReminderPlan.diff`), off the main
-    /// actor, directly through the platform's base `NotificationScheduling` — never through
-    /// `ReminderPipeline`/`ReminderPlanner`, which plan from a Canvas snapshot this has nothing to
-    /// do with. The generic content (`ReminderContent.generic(for: .renewalReminder)`) is the only
-    /// content ever scheduled: no price, no grade, no Canvas data.
-    /// EB-20: plans the renewal reminders from verified facts and reconciles them with what is
-    /// pending; whether any reminder is still ahead (Settings > Subscription's banner reads it).
-    private func planRenewalReminders(_ facts: [SubscriptionFacts], holding: SubscriptionHolding?,
-                                      environment: AccountEnvironment) async -> Bool {
+    /// EB-20/EB-20b: schedules and cancels only the difference (`RenewalReminderPlan.diff`), off
+    /// the main actor, directly through `notifications` — the engine's own account-independent
+    /// handle, never through `ReminderPipeline`/`ReminderPlanner`, which plan from a Canvas
+    /// snapshot this has nothing to do with. Rich content once a renewal date is known
+    /// (`UNNotificationScheduler.defaultContent`, from the `subjectID` below); the generic key is
+    /// its own fallback, never a price or a grade either way (R10's own rule, extended by EB-20).
+    ///
+    /// Plans the renewal reminders from verified facts and reconciles them with what is pending;
+    /// returns whether any reminder is still ahead (Settings > Subscription's and the Home's own
+    /// banners read it).
+    private func planRenewalReminders(_ facts: [SubscriptionFacts], holding: SubscriptionHolding?) async -> Bool {
         let desired = RenewalReminderPlan.plan(facts, role: role, products: products, holding: holding ?? .none, now: clock.now())
-        await reconcileRenewalReminders(desired: desired, environment: environment)
+        await reconcileRenewalReminders(desired: desired)
         return !desired.isEmpty
     }
 
-    private func reconcileRenewalReminders(desired: [RenewalReminderPlan.Reminder], environment: AccountEnvironment) async {
-        let pending = await environment.notifications.pendingIdentifiers()
+    private func reconcileRenewalReminders(desired: [RenewalReminderPlan.Reminder]) async {
+        let pending = await notifications.pendingIdentifiers()
         let diff = RenewalReminderPlan.diff(desired: desired, pending: pending, role: role)
-        if !diff.toCancel.isEmpty { await environment.notifications.cancel(ids: diff.toCancel) }
+        if !diff.toCancel.isEmpty { await notifications.cancel(ids: diff.toCancel) }
         for reminder in diff.toSchedule {
-            await environment.notifications.schedule(PendingReminder(
-                id: reminder.id, kind: .renewalReminder, fireDate: reminder.fireDate, interruptionLevel: .active, subjectID: "-"))
+            // EB-20b: the renewal date, verified and already computed (`RenewalReminderPlan.plan`),
+            // encoded as a Unix timestamp in `subjectID` — the "opaque ID the app layer resolves
+            // display content from" (`PendingReminder`'s own doc comment), repurposed here since
+            // there is no Canvas snapshot to resolve a renewal reminder's content from.
+            // `UNNotificationScheduler.defaultContent` decodes it; an undecodable value (there is
+            // none today) falls back to the generic key, never a crash.
+            await notifications.schedule(PendingReminder(
+                id: reminder.id, kind: .renewalReminder, fireDate: reminder.fireDate, interruptionLevel: .active,
+                subjectID: String(reminder.renewalDate.timeIntervalSince1970)))
         }
     }
 

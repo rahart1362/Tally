@@ -572,6 +572,20 @@ struct RemindersModelTests {
         #expect(!ReminderTipPolicy.showsTip(isSampleData: false, permission: .notDetermined, hasUpcomingDueItem: true, isSnoozed: true))
     }
 
+    /// EB-20b: the renewal-reminder banner's one rule, shared by Settings > Subscription's own
+    /// banner and the Home's copy of it (`RenewalReminderHomeBanner`).
+    @Test("the renewal-reminder banner: a reminder due, permission not yet authorized; each condition alone hides it")
+    func renewalReminderBannerPolicy() {
+        #expect(RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: true, permission: .notDetermined) == .notDetermined)
+        #expect(RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: true, permission: .denied) == .denied)
+        #expect(RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: true, permission: .authorized) == nil,
+                "never shown once allowed")
+        #expect(RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: true, permission: nil) == nil,
+                "never shown before the permission is known")
+        #expect(RenewalReminderBannerPolicy.permission(hasUpcomingRenewalReminder: false, permission: .notDetermined) == nil,
+                "never shown for nothing: no reminder due")
+    }
+
     @Test("dismissed, the tip stays away for 7 days (clock-injected), then returns")
     func tipReturnsAfterSevenDays() async {
         let clock = TestClock()

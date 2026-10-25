@@ -344,10 +344,10 @@ extension AccountLifecycleSuites {
             #expect(!model.subscription.allows(.fullApp, isSampleMode: false, firstSyncSucceeded: true))
         }
 
-        // MARK: EB-20: renewal reminders
+        // MARK: EB-20/EB-20b: renewal reminders
 
-        @Test("EB-20: an account attached after StoreKit answered still gets its renewal reminder and the banner flag")
-        func attachAfterVerificationPlansRenewalReminders() async throws {
+        @Test("EB-20b: the launch's own verified pass already schedules a renewal reminder, with no account attached yet")
+        func launchPlansRenewalRemindersBeforeAnyAccountAttaches() async throws {
             let renewing = SubscriptionFacts(productID: F.products.studentAnnual, isVerified: true,
                                              expirationDate: F.now.addingTimeInterval(25 * F.day), renewalState: .subscribed,
                                              signedDate: F.now.addingTimeInterval(-60), willAutoRenew: true)
@@ -356,18 +356,37 @@ extension AccountLifecycleSuites {
             await MainActor.run { model.start() } // as `TallyApp.init` does: observe, then start
             #expect(await F.eventually { await MainActor.run { model.isVerifiedThisLaunch } })
             await rig.engine.settle()
-            // StoreKit has answered and no account is attached yet: nothing can be scheduled.
-            let account = try await rig.unattachedAccount()
-            #expect(await MainActor.run { !model.hasUpcomingRenewalReminder })
 
-            await rig.engine.accountAttached(account.coordinator, environment: account.environment)
-
-            // 25 days out: the 40-day reminder is already past, the 20-day one is still ahead.
-            let renewalIDs = account.platform.pending.keys.filter(RenewalReminderPlan.owns)
+            // 25 days out: the 40-day reminder is already past, the 20-day one is still ahead --
+            // scheduled on the engine's own account-independent handle, before any account exists.
+            let renewalIDs = rig.notifications.pending.keys.filter(RenewalReminderPlan.owns)
             #expect(renewalIDs == [RenewalReminderPlan.identifierPrefix + "student.renewalReminder.20"],
-                    "the attach planned no renewal reminder: \(renewalIDs)")
+                    "no account attached yet, but the 20-day reminder must already be scheduled: \(renewalIDs)")
             #expect(await F.eventually { await MainActor.run { model.hasUpcomingRenewalReminder } },
                     "the banner flag never reached the model")
+
+            // Attaching an account later changes nothing about what is already scheduled: the same
+            // shared handle, so `account.platform` sees exactly what `rig.notifications` already has.
+            let account = try await rig.unattachedAccount()
+            await rig.engine.accountAttached(account.coordinator, environment: account.environment)
+            #expect(Set(account.platform.pending.keys.filter(RenewalReminderPlan.owns)) == Set(renewalIDs))
+        }
+
+        @Test("EB-20b: turning auto-renew off cancels the pending reminder even while no account is attached")
+        func autoRenewOffCancelsWithNoAccountAttached() async throws {
+            let renewing = SubscriptionFacts(productID: F.products.studentAnnual, isVerified: true,
+                                             expirationDate: F.now.addingTimeInterval(25 * F.day), renewalState: .subscribed,
+                                             signedDate: F.now.addingTimeInterval(-60), willAutoRenew: true)
+            let rig = await SubscriptionRig(facts: [renewing]).started()
+            #expect(!rig.notifications.pending.keys.filter(RenewalReminderPlan.owns).isEmpty, "nothing was scheduled to begin with")
+
+            var autoRenewOff = renewing
+            autoRenewOff.willAutoRenew = false
+            rig.source.setFacts([autoRenewOff])
+            await rig.engine.foreground()
+
+            #expect(rig.notifications.pending.keys.filter(RenewalReminderPlan.owns).isEmpty,
+                    "auto-renew off must cancel the reminder with no account attached")
         }
 
         // MARK: M3-B3: how the account holds its entitlement

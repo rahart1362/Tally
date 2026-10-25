@@ -167,18 +167,23 @@ struct SubscriptionRig: Sendable {
     let records: InMemoryEntitlementRecordStore
     let source: ScriptedEntitlementSource
     let scheduler: RecordingBackgroundScheduler
+    /// EB-20b: the engine's own account-independent notification handle, reused as every
+    /// account's own `environment.notifications` too (`unattachedAccount`) -- the same single
+    /// real `UNNotificationScheduler` `AppEnvironment.live()` shares between both in production.
+    let notifications: FakeReminderPlatform
     let engine: SubscriptionEngine
     let clock: TestClock
 
     init(enforced: Bool = true, facts: [SubscriptionFacts] = [], record: EntitlementRecord? = nil,
-         now: Date = SubscriptionFixtures.now) {
+         now: Date = SubscriptionFixtures.now, permission: ReminderPermission = .authorized) {
         clock = TestClock(now)
         gate = EntitlementGate(isEnforced: enforced, clock: clock, resolutionTimeout: .seconds(30))
         records = InMemoryEntitlementRecordStore(record)
         source = ScriptedEntitlementSource(facts: facts, gate: gate, records: records)
         scheduler = RecordingBackgroundScheduler()
+        notifications = FakeReminderPlatform(permission: permission)
         engine = SubscriptionEngine(source: source, records: records, gate: gate, scheduler: scheduler,
-                                    products: SubscriptionFixtures.products, clock: clock)
+                                    notifications: notifications, products: SubscriptionFixtures.products, clock: clock)
     }
 
     /// Starts the engine and waits for the launch verification.
@@ -189,23 +194,23 @@ struct SubscriptionRig: Sendable {
     }
 
     /// `unattachedAccount`, attached to the engine.
-    func attachedAccount(permission: ReminderPermission = .authorized) async throws -> SubscriptionAccount {
-        let account = try await unattachedAccount(permission: permission)
+    func attachedAccount() async throws -> SubscriptionAccount {
+        let account = try await unattachedAccount()
         await engine.accountAttached(account.coordinator, environment: account.environment)
         return account
     }
 
-    /// A signed-in account for the effects: an environment carrying this rig's gate and a
-    /// `FakeReminderPlatform`, and a coordinator over the flagship snapshot, committed to the
-    /// account's store (so its glance can be rewritten). Not attached to the engine.
-    func unattachedAccount(permission: ReminderPermission = .authorized) async throws -> SubscriptionAccount {
+    /// A signed-in account for the effects: an environment carrying this rig's gate and its one
+    /// `notifications` handle (shared with the engine, EB-20b), and a coordinator over the
+    /// flagship snapshot, committed to the account's store (so its glance can be rewritten). Not
+    /// attached to the engine.
+    func unattachedAccount() async throws -> SubscriptionAccount {
         let harness = try AccountHarness()
-        let platform = FakeReminderPlatform(permission: permission)
         let reloads = CallCounter()
         let root = harness.root
         let environment = AccountEnvironment(
             storeRoot: { root }, credentialStore: harness.credentials, keyring: harness.keyring,
-            lockPreferences: harness.lockPreferences, transport: harness.transport, notifications: platform,
+            lockPreferences: harness.lockPreferences, transport: harness.transport, notifications: notifications,
             reloadWidgets: { reloads.increment() }, clock: FixedClock(now: SubscriptionFixtures.now),
             gatewayOverride: { account in FlagshipAccountGateway(account: account.accountKey) }, entitlement: gate)
         let snapshot = try await FlagshipAccountGateway.flagship(account: harness.account)
@@ -214,7 +219,7 @@ struct SubscriptionRig: Sendable {
         let coordinator = RefreshCoordinator(gateway: FlagshipAccountGateway(account: harness.account), store: store,
                                              clock: FixedClock(now: SubscriptionFixtures.now), initialSnapshot: snapshot,
                                              entitlement: gate)
-        return SubscriptionAccount(harness: harness, platform: platform, reloads: reloads, environment: environment,
+        return SubscriptionAccount(harness: harness, platform: notifications, reloads: reloads, environment: environment,
                                    store: store, coordinator: coordinator)
     }
 }

@@ -16,10 +16,16 @@ import TallyStrings
 /// is nothing here to go stale, and nothing new to keep secret-free (rule 7).
 struct PurchaseConfirmationView: View {
     @State private var model: PurchaseConfirmationModel
+    /// EB-20b: the reminders model, for the one-row channel offer below ("Get a reminder before
+    /// it renews" + the existing "Turn On Reminders"), shown only while notifications are not
+    /// authorized yet. `nil` in a context that never wires one (tests, previews): the row then
+    /// never shows.
+    let reminders: RemindersModel?
     @Environment(\.dismiss) private var dismiss
 
-    init(subscription: SubscriptionModel, storefront: any SubscriptionStorefront) {
+    init(subscription: SubscriptionModel, storefront: any SubscriptionStorefront, reminders: RemindersModel? = nil) {
         _model = State(initialValue: PurchaseConfirmationModel(subscription: subscription, storefront: storefront))
+        self.reminders = reminders
     }
 
     var body: some View {
@@ -55,6 +61,22 @@ struct PurchaseConfirmationView: View {
                         .foregroundStyle(TallyColor.textPrimary)
                         .accessibilityIdentifier("confirmation.renewalDetail")
                 }
+                // EB-20b (compliance-us §3's "offer the reminder channel at purchase"): one row,
+                // only while notifications are not authorized (never asked, or denied) -- hidden
+                // once allowed, like every other reminders surface (Settings > Subscription's own
+                // banner, the Dashboard tip, the Home's copy of that banner).
+                if let reminders, PurchaseConfirmationModel.showsReminderOffer(permission: reminders.permission) {
+                    HStack(spacing: TallySpacing.md) {
+                        Text(L10n.Subscription.confirmationReminderOffer())
+                            .font(TallyTypography.body)
+                            .foregroundStyle(TallyColor.textPrimary)
+                        Spacer(minLength: TallySpacing.sm)
+                        Button(String(localized: RemindersViewCopy.turnOn)) { reminders.requestPermission() }
+                            .disabled(reminders.isRequesting)
+                            .accessibilityIdentifier("confirmation.reminderOffer.turnOn")
+                    }
+                    .accessibilityIdentifier("confirmation.reminderOffer")
+                }
             }
             .accessibilityIdentifier("confirmation.root")
             .tallyScreenChrome()
@@ -66,6 +88,7 @@ struct PurchaseConfirmationView: View {
             }
         }
         .task { await model.load() }
+        .task { await reminders?.refreshPermission() }
     }
 }
 
@@ -117,5 +140,12 @@ final class PurchaseConfirmationModel {
     /// EB-18 sentence the paywall shows, reused rather than restated under a second key.
     var renewalDetailText: String? {
         offer.map(SubscriptionOfferText.renewalAutoCancel)
+    }
+
+    /// EB-20b: whether the channel-offer row shows -- never once authorized, never before the
+    /// permission is known (`nil`), by the same `.notDetermined`/`.denied` rule every other
+    /// reminders surface uses (`RenewalReminderBannerPolicy`, `ReminderTipPolicy`).
+    static func showsReminderOffer(permission: ReminderPermission?) -> Bool {
+        permission == .notDetermined || permission == .denied
     }
 }

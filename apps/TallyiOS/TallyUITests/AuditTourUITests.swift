@@ -1411,12 +1411,16 @@ final class AuditTourUITests: TallyUITestCase {
     /// 40-day reminder's own fire date already past and the 20-day one still due.
     ///
     /// Round 1 (run 39974117302) showed "missing-banner" on every leg: a real race, since fixed in
-    /// `SubscriptionEngine.accountAttached` (PR #86). StoreKit's launch verification can finish
-    /// before the account attaches, and the engine then planned nothing until the next
-    /// verification. This leg deliberately launches cold and never cycles the scene, so it
-    /// captures what a student sees on first open, and shows "missing-banner" again if that race
-    /// ever comes back. It waits for the banner with a plain existence wait: it renders without
-    /// scrolling.
+    /// `SubscriptionEngine.accountAttached` (PR #86; EB-20b's own account-independent
+    /// `notifications` handle removes the race's root cause entirely). StoreKit's launch
+    /// verification can finish before the account attaches, and the engine then planned nothing
+    /// until the next verification. This leg deliberately launches cold and never cycles the
+    /// scene, so it captures what a student sees on first open, and shows "missing-banner" again
+    /// if that race ever comes back. It waits for the banner with a plain existence wait: it
+    /// renders without scrolling.
+    ///
+    /// EB-20b: also checks the Home's own copy of the banner (`RenewalReminderHomeBanner`), on
+    /// the very same cold launch, before navigating into Settings.
     @MainActor
     func testY_subscriptionRenewalReminderBanner() throws {
         continueAfterFailure = true
@@ -1433,6 +1437,18 @@ final class AuditTourUITests: TallyUITestCase {
             app.terminate()
             return
         }
+
+        // EB-20b: the Home's own copy of this banner, reusing the same launch (`renewalDue` plus
+        // `-TallyTestHooks.notifications notDetermined`): it renders without scrolling, right on
+        // the Dashboard this cold launch already lands on.
+        let homeBannerText = app.staticTexts["home.renewalReminderBanner.text"]
+        let homeBannerTurnOn = app.buttons["home.renewalReminderBanner.turnOn"]
+        if homeBannerText.waitForExistence(timeout: 10) || homeBannerTurnOn.waitForExistence(timeout: 5) {
+            snap(app, screen: "renewalReminderBanner", state: "home", reachedVia: "seeded launch, renewalDue entitlement")
+        } else {
+            snap(app, screen: "renewalReminderBanner", state: "missing-home", reachedVia: "seeded launch, renewalDue entitlement")
+        }
+
         openSettings(app)
         if goScrolling(app.buttons["settings.subscription"], app, screen: "renewalReminderBanner", state: "subscriptionPage",
                        reachedVia: "Settings -> Subscription") {
