@@ -24,14 +24,38 @@ guide. Sign in to iCloud with it on the test device before each check below.
    visibly changes by category; confirm by checking Settings → "What Tally Stores" shows the same
    defaults regardless of which sandbox age was used).
 3. **Decline sharing.** At the system sheet, decline. Confirm Tally continues normally (EB-01(g):
-   never blocks) — Dashboard renders, no restricted screen.
+   never blocks) — Dashboard renders, no restricted screen. This is `AgeAssuranceOutcome.declined`
+   (AGE-2): the person's own choice, and it counts as this device's request for the 12-month floor
+   exactly as before.
 4. **Simulator parity.** Launch the same build in the Simulator. Confirm the same "no blocking,
-   app behaves as today" result — `DeclaredAgeRangeAdapter.requestAgeAssurance()` has no window to
-   present from there and returns `.declinedOrUnavailable`, which is this same path.
+   app behaves as today" result. **Correcting this check's old assumption (CI run 40187586640):**
+   `presentationController()` does find a real window in the Simulator, so this is not the "no
+   window" path; the real `AgeRangeService` call itself was observed to simply never resolve there
+   at all (not a quick `.unavailable`) — `DeclaredAgeRangeAdapter.requestAgeAssurance()` hangs.
+   That is exactly why `evaluateBeforePaywall()` now bounds its wait (5a) rather than awaiting it
+   unconditionally; outside that bounded wait (the launch-time `evaluateIfDue`, which stays
+   fire-and-forget) a hang here is harmless — it just never resolves until (if ever) the real
+   `AgeRangeService` call does. Confirm the app behaves normally regardless. If it ever DOES
+   resolve to `.unavailable` (AGE-2) instead of hanging, that's the same never-blocks path as a
+   decline, except it is never recorded as a request: relaunching the same Simulator build asks
+   again every time (do not expect the 12-month floor to apply there).
 5. **The 12-month floor.** Not practically re-runnable on a device in real time; covered instead
    by `AgeAssuranceTests.swift`'s `twelveMonthsIsDue`/`justUnderTwelveMonthsIsNotDue` (pure, exact
    calendar-month arithmetic). Record here only that the pure test exists and passed (CI run ID in
    the PR), not a device observation.
+5a. **SEC2-14: the paywall's bounded wait.** Reach the paywall at a point where EB-01(b)'s
+   "before a purchase" request is due (for example, the very first launch's first-sync paywall,
+   with the account not entitled). Confirm the paywall appears promptly either way — it must never
+   wait noticeably on the system age sheet. If the age sheet happens to still be showing when
+   `TallyConfig.ageAssurancePaywallWaitBudget` (3 s) elapses, Tally presents the paywall anyway and
+   lets the age request keep running underneath; when that request then tries to present its own
+   sheet over the now-visible paywall, it cannot, and `DeclaredAgeRangeAdapter` returns
+   `.unavailable` — which AGE-2 item 2 does not record as a request, so the next launch asks again
+   rather than waiting out the 12-month floor. This is the accepted trade-off of EB-01(g) extended
+   to the wait itself ("age assurance must never block the purchase flow, not even by hanging" —
+   the real `DeclaredAgeRange` call was observed to never resolve at all in CI's Simulator, run
+   40187586640). Record whether the age sheet and the paywall ever visibly collided on screen, and
+   whether a later relaunch asked again.
 
 ## EB-02/EB-03: significant change (no concrete change ships in AGE-1 — exercise the mechanism only)
 

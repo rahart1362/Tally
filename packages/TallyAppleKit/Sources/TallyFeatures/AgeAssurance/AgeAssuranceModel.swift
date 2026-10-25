@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Synchronization
 import TallyDomain
 import TallyStore
 
@@ -48,19 +49,29 @@ public final class AgeAssuranceModel {
     @ObservationIgnored private let changeDescription: String
     @ObservationIgnored private let evaluateTask = TaskBox()
     @ObservationIgnored private let listenTask = TaskBox()
+    /// SEC2-14: `evaluateBeforePaywall()`'s bounded wait, on whatever `Clock` `init` was given
+    /// (production: `ContinuousClock`; tests: a clock that resolves at once, or on command, so
+    /// nothing waits in real time). Captured as a closure the way `CanvasClient`'s `sleep` is, so
+    /// the generic `Clock` type never has to be stored.
+    @ObservationIgnored private let sleepForPaywallWait: @Sendable (Duration) async throws -> Void
     /// SEC2-01: set while this launch's significant-change consent is still `.pending`, `.denied`
     /// or `.unavailable` — i.e. not yet safe to acknowledge. A later `.granted` for THIS version,
     /// arriving through `listenForAnswers`, finishes the acknowledgement `evaluate` deferred.
     @ObservationIgnored private var unacknowledgedSignificantChangeVersion: String?
 
-    public init(requester: any AgeAssuranceRequesting = UnavailableAgeAssurance(),
+    /// - Parameter paywallWaitClock: measures `evaluateBeforePaywall()`'s bounded wait
+    ///   (`TallyConfig.ageAssurancePaywallWaitBudget`). Tests pass a clock whose `sleep` they
+    ///   control (a virtual one that resolves at once, or a gated one that resolves on command),
+    ///   the way `CanvasClient`'s `clock` parameter works.
+    public init<C: Clock>(requester: any AgeAssuranceRequesting = UnavailableAgeAssurance(),
                 consent: any SignificantChangeConsenting = UnavailableSignificantChangeConsent(),
                 ageRating: any AppStoreAgeRatingReading = UnavailableAppStoreAgeRating(),
                 recordStore: any AgeRequestRecordStoring = InMemoryAgeRequestRecordStore(),
                 versionStore: any SignificantChangeVersionStoring = InMemorySignificantChangeVersionStore(),
                 clock: any DateProviding = SystemDateProvider(),
+                paywallWaitClock: C = ContinuousClock(),
                 currentAppVersion: String = AgeAssuranceModel.bundleShortVersion(),
-                changeDescription: String = "") {
+                changeDescription: String = "") where C.Duration == Duration {
         self.requester = requester
         self.consent = consent
         self.ageRating = ageRating
@@ -69,6 +80,7 @@ public final class AgeAssuranceModel {
         self.clock = clock
         self.currentAppVersion = currentAppVersion
         self.changeDescription = changeDescription
+        sleepForPaywallWait = { try await paywallWaitClock.sleep(for: $0) }
         listenTask.replace(with: Task { [weak self] in await self?.listenForAnswers() })
     }
 
@@ -76,15 +88,84 @@ public final class AgeAssuranceModel {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
-    /// EB-01(b): called at each of the three request points this app controls (`AppModel.apply(_:)`
-    /// once a launch resolves its route, and before presenting the paywall); the 12-month floor is
-    /// evaluated the same way, every time. Re-entrant: a call while an earlier one is still running
-    /// supersedes it (the newer call has the same or newer `clock.now()`, so nothing is lost).
+    /// EB-01(b): the launch request point this app controls (`AppModel.apply(_:)`, once a launch
+    /// resolves its route); `evaluateBeforePaywall()` below is the awaitable twin for the other
+    /// two (first-sync and locked-feature paywall) request points — SEC2-14's "before a purchase"
+    /// request must finish before the paywall sheet is presented, which this fire-and-forget form
+    /// cannot guarantee. The 12-month floor is evaluated the same way, every time. Re-entrant: a
+    /// call while an earlier one is still running supersedes it (the newer call has the same or
+    /// newer `clock.now()`, so nothing is lost).
     public func evaluateIfDue(isFirstLaunchAfterInstall: Bool, isAboutToPresentPaywallPurchase: Bool) {
         evaluateTask.replace(with: Task { [weak self] in
             await self?.evaluate(isFirstLaunchAfterInstall: isFirstLaunchAfterInstall,
                                  isAboutToPresentPaywallPurchase: isAboutToPresentPaywallPurchase)
         })
+    }
+
+    /// SEC2-14: the same "before a paywall purchase" request as `evaluateIfDue(isFirstLaunchAfterInstall:
+    /// false, isAboutToPresentPaywallPurchase: true)`, but awaitable, so `AppModel` can wait for
+    /// it before presenting the paywall sheet instead of racing it — the system age sheet and the
+    /// paywall sheet must never compete to present over the same window.
+    ///
+    /// **EB-01(g) extended to the wait itself: age assurance must never block the purchase flow,
+    /// not even by hanging.** The real `DeclaredAgeRange` call was observed to never resolve in
+    /// the iOS Simulator (CI run 40187586640: three `PaywallUITests` timed out once the paywall
+    /// started awaiting it) — plausible on a slow or stuck device too. So this method:
+    /// 1. First asks whether a request is even due (`AgeRequestPolicy.trigger`, via
+    ///    `isPaywallRequestDue()`). If not — most calls, once this launch has already requested
+    ///    once — it returns at once: no await on `requester`, and no await on `evaluateTask`
+    ///    either, since whatever is already running there (possibly the launch-time call that IS
+    ///    hanging) is irrelevant to this decision.
+    /// 2. Otherwise it races the real request against `TallyConfig.ageAssurancePaywallWaitBudget`.
+    ///    If the wait wins, this returns anyway and the request keeps running in `evaluateTask`
+    ///    (cancelled only if a later call supersedes it): `outcome` and every store it would have
+    ///    written still land whenever it eventually finishes. If it never finishes winning the
+    ///    race just means the paywall was never blocked by it, same as before this method existed.
+    public func evaluateBeforePaywall() async {
+        guard await isPaywallRequestDue() else { return }
+        // Two statements on purpose, not `await self?.evaluate(...)` alone: a single-expression
+        // closure's implicit return would make this `Task<Void?, Never>` (from the `self?.`
+        // optional chain), not the `Task<Void, Never>` `evaluateTask`/`run.value` below need.
+        let run = Task { [weak self] in
+            guard let self else { return }
+            await self.evaluate(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
+        }
+        evaluateTask.replace(with: run)
+        let gate = PaywallWaitGate()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            gate.install(continuation)
+            let timer = Task { [sleepForPaywallWait] in
+                do { try await sleepForPaywallWait(TallyConfig.ageAssurancePaywallWaitBudget) } catch { return }
+                gate.open()
+            }
+            Task {
+                await run.value
+                timer.cancel()
+                gate.open()
+            }
+        }
+    }
+
+    /// SEC2-14: whether `evaluate(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase:
+    /// true)` would actually attempt a NEW request — i.e. whether `AgeRequestPolicy.trigger`
+    /// returns non-nil for exactly that call shape — without ever touching `requester`. Reads
+    /// only the same cheap, bounded stores `evaluate()` itself reads (never the hanging-prone
+    /// system call), and when this launch has already requested once
+    /// (`hasRequestedThisProcessLaunch`), not even those: `AgeRequestPolicy.trigger`'s very first
+    /// guard rules it out regardless of anything else, so there is nothing to read.
+    private func isPaywallRequestDue() async -> Bool {
+        guard !hasRequestedThisProcessLaunch else { return false }
+        let record = await recordStore.load()
+        let versionState = await versionStore.load() ?? SignificantChangeVersionState()
+        let ratingCode = await ageRating.currentAgeRatingCode()
+        let ratingChanged = AgeRatingChangeDetector.didChange(current: ratingCode, lastKnown: versionState.lastKnownAgeRatingCode)
+        let isSignificantChangeVersion = (TallyConfig.currentReleaseIsSignificantChange || ratingChanged)
+            && versionState.lastAcknowledgedSignificantChangeVersion != currentAppVersion
+        let input = AgeRequestPolicyInput(hasRequestedThisProcessLaunch: false, isFirstLaunchAfterInstall: false,
+                                          isFirstLaunchOfSignificantChangeVersion: isSignificantChangeVersion,
+                                          isAboutToPresentPaywallPurchase: true,
+                                          lastRequestedAt: record?.lastRequestedAt, now: clock.now())
+        return AgeRequestPolicy.trigger(for: input) != nil
     }
 
     private func evaluate(isFirstLaunchAfterInstall: Bool, isAboutToPresentPaywallPurchase: Bool) async {
@@ -109,23 +190,37 @@ public final class AgeAssuranceModel {
             try? await versionStore.save(versionState) // still records the rating observation
             return
         }
+        // AGE-2: this launch gets at most one attempt either way — `hasRequestedThisProcessLaunch`
+        // is set before the call, whatever it returns, so an `.unavailable` result still cannot
+        // retry within the SAME launch (only on the next one, below).
         hasRequestedThisProcessLaunch = true
-        // EB-01(c): the date of the REQUEST itself, recorded before Apple answers — it is a
-        // request record, not a response record, and every trigger here is a real presentation
-        // of the system UI (or an attempt at one).
-        try? await recordStore.save(AgeRequestRecord(lastRequestedAt: now))
         let result = await requester.requestAgeAssurance()
         outcome = result
 
-        // SEC2-01: a significant-change version is acknowledged — and never asked about again —
-        // only once nothing is left pending: either this outcome never required consent at all,
-        // or consent came back `.granted`/`.notRequired`. A `.pending` question, a `.denied`
-        // answer or an `.unavailable` attempt must ask again on the next launch, so none of them
-        // may set `lastAcknowledgedSignificantChangeVersion` here. No age value is persisted
-        // either way — this only ever writes the version string and the rating-observation
-        // baseline already computed above.
+        // AGE-2: the request record is saved only once `result` is known, still carrying the
+        // date the request STARTED (`now`, captured above, before Apple answered) — it is a
+        // request record, not a response record. `.unavailable` means the system sheet never
+        // reached (or never resolved for) the person, so it must not count against the 12-month
+        // floor: skipping the save here is cleaner than saving-then-clearing, since `outcome`
+        // already carries the one signal (`.unavailable`) that distinguishes a real attempt from
+        // a failed one — no second, separate "did it actually present" flag has to cross the
+        // adapter boundary. The next launch then reads the same (possibly still-nil)
+        // `lastRequestedAt` as before and retries, exactly like "never requested."
+        if result != .unavailable {
+            try? await recordStore.save(AgeRequestRecord(lastRequestedAt: now))
+        }
+
+        // SEC2-01/AGE-2: a significant-change version is acknowledged — and never asked about
+        // again — only once nothing is left pending: either this outcome never required consent
+        // at all, or consent came back `.granted`/`.notRequired`. A `.pending` question, a
+        // `.denied` answer or a consent `.unavailable` attempt must ask again on the next launch,
+        // so none of them may set `lastAcknowledgedSignificantChangeVersion` here — and neither
+        // may an `.unavailable` AGE-ASSURANCE result (the residual from #85): a technical failure
+        // never acknowledges the version, only a real decline or a real signal does. No age value
+        // is persisted either way — this only ever writes the version string and the
+        // rating-observation baseline already computed above.
         guard case .shared(let signal) = result, signal.significantChangeRequirement.isAny else {
-            if trigger == .firstLaunchOfSignificantChangeVersion {
+            if trigger == .firstLaunchOfSignificantChangeVersion, result != .unavailable {
                 versionState.lastAcknowledgedSignificantChangeVersion = currentAppVersion
             }
             try? await versionStore.save(versionState)
@@ -164,5 +259,39 @@ public final class AgeAssuranceModel {
             versionState.lastAcknowledgedSignificantChangeVersion = version
             try? await versionStore.save(versionState)
         }
+    }
+}
+
+/// SEC2-14: resumes `evaluateBeforePaywall()`'s one continuation the first time either side of
+/// its race calls `open()`, as `HomeModel`'s identical `ResumeGate` does for
+/// `refreshUntilSettledOrDelayed` (not reused directly: that one is file-private to
+/// `HomeModel.swift`). A late second `open()` (the loser, finishing after the winner already
+/// resumed) is a no-op, never a double-resume.
+private nonisolated final class PaywallWaitGate: Sendable {
+    private struct State {
+        var continuation: CheckedContinuation<Void, Never>?
+        var isOpen = false
+    }
+
+    private let state = Mutex(State())
+
+    func install(_ continuation: CheckedContinuation<Void, Never>) {
+        let resumeNow = state.withLock { state -> Bool in
+            if state.isOpen { return true }
+            state.continuation = continuation
+            return false
+        }
+        if resumeNow { continuation.resume() }
+    }
+
+    func open() {
+        let pending = state.withLock { state -> CheckedContinuation<Void, Never>? in
+            if state.isOpen { return nil }
+            state.isOpen = true
+            let taken = state.continuation
+            state.continuation = nil
+            return taken
+        }
+        pending?.resume()
     }
 }

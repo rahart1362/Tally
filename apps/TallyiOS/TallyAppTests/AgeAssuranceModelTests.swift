@@ -27,11 +27,14 @@ struct AgeAssuranceModelTests {
     /// `AgeRequestPolicy.trigger` returns `.firstLaunchOfSignificantChangeVersion` — the trigger
     /// this app ships today is the compile-time `TallyConfig.currentReleaseIsSignificantChange`,
     /// which a test cannot flip, but both triggers feed the exact same `evaluate()` path, and
-    /// `AppStoreAgeRatingReading` is the seam the model already exposes for tests.
-    private func launch(ratingCode: Int, consent: ScriptedSignificantChangeConsent,
+    /// `AppStoreAgeRatingReading` is the seam the model already exposes for tests. `outcome`
+    /// defaults to a restricted `.shared` signal (every existing test's scenario); AGE-2's
+    /// declined/unavailable tests override it.
+    private func launch(ratingCode: Int, outcome: AgeAssuranceOutcome = .shared(Self.restrictedSignal),
+                        consent: ScriptedSignificantChangeConsent,
                         recordStore: InMemoryAgeRequestRecordStore,
                         versionStore: InMemorySignificantChangeVersionStore) -> AgeAssuranceModel {
-        AgeAssuranceModel(requester: FixedAgeAssuranceRequester(outcome: .shared(Self.restrictedSignal)),
+        AgeAssuranceModel(requester: FixedAgeAssuranceRequester(outcome: outcome),
                           consent: consent,
                           ageRating: FixedAgeRating(code: ratingCode),
                           recordStore: recordStore,
@@ -83,6 +86,59 @@ struct AgeAssuranceModelTests {
         // AGE-1's invariant: the only things ever written are the version string and the rating
         // baseline, never an age or category.
         #expect(await recordStore.load()?.lastRequestedAt != nil)
+    }
+
+    @Test("AGE-2: declined is recorded as a request, and (today's behaviour) a significant-change version IS acknowledged")
+    func declinedIsRecordedAndAcknowledgesTheVersion() async throws {
+        let recordStore = InMemoryAgeRequestRecordStore()
+        let versionStore = InMemorySignificantChangeVersionStore(
+            SignificantChangeVersionState(lastAcknowledgedSignificantChangeVersion: nil, lastKnownAgeRatingCode: 4))
+        let consent = ScriptedSignificantChangeConsent(.notRequired)
+
+        let model = launch(ratingCode: 9, outcome: .declined, consent: consent, recordStore: recordStore, versionStore: versionStore)
+        model.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: false)
+        try await waitForEvaluation(versionStore, ratingCode: 9)
+
+        #expect(model.outcome == .declined)
+        #expect(await recordStore.load()?.lastRequestedAt != nil,
+                "a decline is a real, informed answer and must count toward the 12-month floor")
+        #expect(await versionStore.load()?.lastAcknowledgedSignificantChangeVersion == Self.appVersion,
+                "a decline resolves the significant-change version today, same as before this split")
+        #expect(consent.requestCount == 0, "no age signal was ever shared, so there is nothing to ask consent about")
+    }
+
+    @Test("AGE-2: unavailable is never recorded as a request, never acknowledges a significant-change version, and a relaunch retries")
+    func unavailableNeverRecordsAndRetries() async throws {
+        let recordStore = InMemoryAgeRequestRecordStore()
+        let versionStore = InMemorySignificantChangeVersionStore(
+            SignificantChangeVersionState(lastAcknowledgedSignificantChangeVersion: nil, lastKnownAgeRatingCode: 4))
+        let consent = ScriptedSignificantChangeConsent(.notRequired)
+
+        let first = launch(ratingCode: 9, outcome: .unavailable, consent: consent, recordStore: recordStore, versionStore: versionStore)
+        first.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: false)
+        try await waitForEvaluation(versionStore, ratingCode: 9)
+
+        #expect(first.outcome == .unavailable)
+        #expect(await recordStore.load()?.lastRequestedAt == nil,
+                "a technical failure must not count toward the 12-month floor")
+        #expect(await versionStore.load()?.lastAcknowledgedSignificantChangeVersion == nil,
+                "a technical failure must never acknowledge the significant-change version (the #85 residual)")
+        #expect(consent.requestCount == 0)
+
+        // Relaunch: a second model instance over the SAME stores (a fresh process reading the
+        // same disk state). Nothing was persisted, so the still-unacknowledged version must
+        // trigger the request again — production relies on `TallyConfig
+        // .currentReleaseIsSignificantChange` staying true across every launch of an
+        // unacknowledged version; a test cannot flip that compile-time flag, so (like
+        // `unresolvedOutcomesAskAgain` above) it uses a different rating code to re-fire the
+        // same `evaluate()` path through the rating-change detector instead.
+        let second = launch(ratingCode: 14, outcome: .unavailable, consent: consent, recordStore: recordStore, versionStore: versionStore)
+        second.evaluateIfDue(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: false)
+        try await waitForEvaluation(versionStore, ratingCode: 14)
+
+        #expect(second.outcome == .unavailable, "the relaunch never retried the request")
+        #expect(await recordStore.load()?.lastRequestedAt == nil)
+        #expect(await versionStore.load()?.lastAcknowledgedSignificantChangeVersion == nil)
     }
 
     @Test("granted is acknowledged at once, and the relaunch never asks again")
