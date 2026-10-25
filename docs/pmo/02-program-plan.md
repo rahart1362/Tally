@@ -220,6 +220,28 @@ Canvas natively supports parent access through **observer** accounts and student
   - the parent's below-goal alert hides the course by default, matching the student's own ruling (SEC2-08);
   - the privacy-page additions ship as a draft PR for line-by-line owner approval, with counsel review later (SEC2-13; approved 2026-10-23, delivered in this PR).
 
+### Owner decisions, UX-2 and the sign-off package (2026-10-24)
+
+- **UX-2 review** (Opus, read-only; report LOCAL at `pmo-audit/.build-audit/ux2/report.md`, tour 40042251418 on `4b3c21f`): 20 items, S1 4 / S2 6 / S3 10. Verdict: not ready for sign-off until the 4 S1 AX5 layout fixes land (2 are regressions from UX-FIX-2's UX1-20/UX1-16); ready after that, with S2 follow-ups.
+- **Owner decision, UX-FIX-3 scope:** S1 + S2 (except UX2-10, which waits on the device check) + the no-string XS S3s (UX2-11 separator, UX2-12, UX2-13, UX2-15 moves the picker to Account, UX2-16, UX2-17, UX2-19, UX2-20) + the test gaps (a11y scenes for the new surfaces, xxxLarge tour legs, the testY lookup). UX2-14 (the week-ahead action row) and UX2-18 (the widget strip) become post-launch follow-ups (now UX-POLISH-1).
+- **Owner approval, the reminders footer:** a new key, `reminders.footerV2` (UX2-08) — "A day and an hour before each due date, and an evening and a Sunday summary when work is due. Nothing arrives during quiet hours: a reminder comes earlier instead. Reminders use the Canvas data Tally last refreshed, and Tally tells you if it hasn't refreshed for a day." This replaces the use of `reminders.footer`; the old key is untouched. Recorded with plan 08 §6.
+- **Owner approval, the Cancel on the interstitial:** UX2-17 adds a Cancel action to the subscribe interstitial, reusing the existing `L10n.Settings.cancel()` string (no new key).
+- **Owner approval, the tagline no-break space:** UX2-20 — `welcome.tagline.noBreak` gains a U+00A0 non-breaking space before the em dash. The visible words are unchanged; this amends the key approved 2026-10-23, not a new key.
+- **#88 UX-FIX-3 MERGED** (`d8ab0c3`): PR run 40118214755, 877/0; the PMO's confirming `scope=a11y` run 40118254758, 31/31 + 21/21 + 21/21. All engineering for the MVP sign-off is merged.
+- **Sign-off package sent to the owner (2026-10-24):** `pmo-kit/signoff/` (README.md, device-checks.md, owner-sheet-{en,es}-{1,2}.jpg); the gallery artifact is in `pmo-audit/.build-audit/signoff-gallery/`.
+- **A11y waivers confirmed (`docs/pmo/a11y-waivers.md`):** the 4 waivers UX-FIX-3 added (`confirmation.done` dynamicType, `schoolOff.refund` contrast, `family.parentEmpty` textClipped, `family.addStudent` contrast) each carry the PMO's acceptance, dated 2026-10-24.
+
+### Owner decisions, wave 3 (2026-10-25)
+
+- **EB-20b copy approved:** `notifications.renewalReminder.title` "%@ renews on %@" (the plan name and a medium date); `notifications.renewalReminder.body` "To cancel, go to Settings > your name > Subscriptions, or Manage Subscription in Tally."; `subscription.confirmation.reminderOffer` "Get a reminder before it renews". The renewal amount stays out of the notification, pending counsel Q37. Ships in PR #93.
+- **Privacy, the Sign Out & Erase bullet approved:** "Sign Out & Erase (Settings) revokes the Canvas token and deletes all Tally data, keys and scheduled reminders from your iPhone. Your subscription renewal reminders stay, because your App Store subscription continues." (Answers the EB-20b/SEC2-12 watch item: reminders survive Sign Out & Erase.) Carried in CLAIMS-1, not #93. **Merge order: EB-20b before CLAIMS-1.**
+- **DRAFTS-1 approved, all 107 sentences** (Terms 64, Privacy 24, Security 19; list in `docs/pmo/reviews/drafts1-report.md` §7), including two live-privacy corrections (P8: summary sharing is weekly only; P15: deleting the app leaves the Keychain sign-in). Also approved: adding "Terms of Use: https://tally-app.dev/terms/" and "Privacy Policy: https://tally-app.dev/privacy/" to the store description, with an es-MX machine pass. Shipped in PR #90.
+- **Family removed from public claims until M4** (DRAFTS-1 follow-up C1–C3, verified by the PMO against the code): real parent linking is sample-only until M4 (`SettingsView.swift:159-161`; the only `FamilyLinkService` conformer is `SampleFamilyLinkService`). Drop the store description's Family bullet (en, es); replace store screenshot #8 (parent mode) with a shipped feature; the privacy page gets "Linking a parent or guardian's own Canvas observer account isn't available yet. In Explore with Sample Data you can preview parent mode with made-up students; nothing is sent or kept." Restore all of it when M4 ships (ledger row "yes", test 4). Carried in CLAIMS-1.
+- **Privacy C1 approved:** "Finding your school. The school name you type stays on your iPhone; Tally connects only to your school's own Canvas." Mark `POLICY-FLOWS` school-search and school-list-download `inactive`, and remove the matching allowlist entries in `check_policy_matches_app.py` (and update its self-test). Carried in CLAIMS-1.
+- **Privacy C3 approved:** the disclaimer becomes "Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc." (also on `site/index.html`). Carried in CLAIMS-1.
+- **Owner decision, the App Store gallery:** 7 scenes (drop scene 8; parent mode is removed until M4, per the Family decision above). Quiet Hours in the Settings sheet didn't compose cleanly as a store shot (top/bottom cuts, the es label), so scene 8 became Quiet Hours instead, anchored to a section boundary. `REL.store.screenshots` now expects 28 images. A scene returns at M4.
+- **Correction, site-hosting status (2026-10-25):** `tally-app.dev` has no DNS record and GitHub Pages is not enabled (the Pages API returns 404) — nothing is hosted, including the privacy/terms text PRs #87 and #90 merged. Publishing is the owner's own `docs/GO-LIVE.md` GL-02 step 3; the owner chose instructions only (`pmo-kit/signoff/site-hosting-steps.md`, local). `docs/GO-LIVE.md` GL-02 is corrected in this PR, along with the two review files that said merging publishes the site.
+
 ### Post-MVP PRs #63–#86 and the remaining queue (2026-10-21 → 10-23)
 
 | PR | What | Merge commit |
@@ -247,14 +269,25 @@ Canvas natively supports parent access through **observer** accounts and student
 | #83 | UX-FIX-2: the 23 UX-1 S3 items | `5572670` |
 | #84 | TOUR-2: Audit tour legs for post-MVP surfaces + the CanvasLinkPreference flake fix | `89c0fc6` |
 | #85 | SEC-FIX-5: SEC-2 hardening | `ef180d0` |
-| #86 | EB20-ATTACH: plan renewal reminders when the account attaches after StoreKit answers | **open**, not yet merged |
+| #86 | EB20-ATTACH: plan renewal reminders when the account attaches after StoreKit answers | `4b3c21f` |
+| #88 | UX-FIX-3: UX-2 fixes before sign-off (S1 01–04; S2 05–09; S3 11–13, 15–17, 19–20; a11y scenes for the new surfaces; xxxLarge tour legs; the testY lookup fix) | `d8ab0c3` |
+| #89 | DEP-1: swift-crypto 5.0.3, Linux-only lane (supersedes #70) | `655563b` |
+| #90 | DRAFTS-1: Terms of Use, privacy rights text, security contact (owner-approved, all 107 sentences) | `4c4ac77` |
+| #91 | AGE-2: separate declined from unavailable; a bounded wait before the paywall | `f2e785c` |
+| #92 | REL-M5: version variables, first-login and refresh flows, the iOS 27.1 test query | `be12627` |
+| #93 | EB-20b: renewal reminders with the date and cancel path, a Home banner, the purchase-time offer | **open** |
+| CLAIMS-1 | Family removed until M4, privacy C1/C3, the App Store gallery at 7 scenes | branch `release/claims-1`, **no PR yet** (opens after #93 merges) |
+| UX-POLISH-1 | UX2-10 (a sheet at AX5), UX2-14 (week-ahead action row), UX2-18 (widget strip) | branch `ux/polish-1`, **no PR yet** |
 
-**Remaining queue, in order:**
-1. #86 and this docs PR (DOCS-4) merge.
-2. **The final consolidated full Audit tour** (every leg, including TOUR-2's Q–Y, English, `widgets=true`) plus an a11y run and a release gate, run once on that `main`.
-3. **UX-2:** an Opus re-review of every new surface against that tour (the sample interstitial, `AgeRestrictedView`, Quiet Hours, Remind me, course goals, the paywall disclosures and confirmation, FEAT-B, the school-revoked notice and Erase).
-4. A fresh store-screenshot gallery.
-5. The owner sign-off package, including one consolidated device-check list (EB-04, the SEC1-10 Siri unlock, UX1-19, the launch-baseline calibration, the SEC1-05 redirect at O1, and the SEC-2 device steps: Siri unlock, the AGE relaunch, the upgrade migration, the calendar export).
+**Queue items 1–5 above are done (2026-10-18 → 10-24):** #86 and DOCS-4 (#87) merged; the final consolidated Audit tour (run 40042251418), a11y run (40042253045) and release gate (run 40042254647: FAIL 0 / PENDING 6 (owner/go-live/M5) / WARN 1 / PASS 117, `REL.store.screenshots` 32/32) ran once on `4b3c21f`; **UX-2** (Opus, read-only; report LOCAL at `pmo-audit/.build-audit/ux2/report.md`) reviewed every new surface against that tour and found 20 items (S1 4 / S2 6 / S3 10); UX-FIX-3 (#88) shipped the S1/S2 fixes plus the no-string XS S3s; a fresh store-screenshot gallery ran as part of that final gate; the owner sign-off package (`pmo-kit/signoff/`) was sent 2026-10-24.
+
+**REL-M5's own release gate** (run 40191813333 on `5cb26ca`, the pre-merge branch commit): **FAIL 0 / PENDING 3 (owner-only: legal, owner-values, the launch baseline) / WARN 0 / PASS 123.** flow.01, flow.04 (and their release-config variants), the version-variables check and the iOS 27.1 query all PASS; the previous gate's WARN (`REL.flow.14-demo-mode.ios27`) is fixed, test-only: the positive tab checks now accept any button with that label, while the "More" negative check stays scoped to `tabBars`.
+
+**Wave 3 (10-25), owner: "resume the remaining completions, parallel where usage allows, before 10-28":**
+1. EB-20b (#93), UX-POLISH-1, AGE-2 (#91), REL-M5 (#92) and DRAFTS-1 (#90) ran in parallel. **CLAIMS-1 is based on DRAFTS-1's branch**, so it opens only after #90 merges; its privacy bullet also depends on EB-20b's copy. **Merge order: #90 (DRAFTS-1) → #93 (EB-20b) → CLAIMS-1.**
+2. This docs PR (DOCS-5): record the 10-24/10-25 decisions, approvals and the wave-3 status.
+3. A final release gate on the resulting `main`, and an updated sign-off package.
+4. Still waiting on the owner: the device checks (A–H), O1 Canvas keys, the go-live values, counsel (O7), `/terms` sign-off (EB-05), the App Store Connect 2-week trial offer, the native Spanish review, the launch baseline (G1), and the pre-school-sales EB-27/28/29/32.
 
 ### Execution cadence (owner request, 2026-10-01: "maximize progress with token usage")
 The owner saw too many CI cancellations and too much rework. Measured that day:
@@ -362,9 +395,9 @@ Non-blocking findings carried forward, each with the run it was seen in:
 | `HomeRenderTests` render count under ASan | run [39657400478](https://github.com/rahart1362/Tally/actions/runs/39657400478) | `HomeRenderTests.swift:44` saw 3 `DashboardView` bodies where 2 were expected: a render-count timing flake under ASan, not a real regression. |
 | The non-blocking GoalSeek/`core-perf` Linux gate | run [39643001656](https://github.com/rahart1362/Tally/actions/runs/39643001656) | `GoalSeekBoundedWorstCaseGate` `extremeRatiosInAPeriod`: median 674.45 ms exceeds its 600 ms ceiling under load (headroom −74.45 ms). Non-blocking by design; reassess the ceiling with PERF-FIX-2's lane-ratio data. |
 | The `ubuntu-latest` → 26 migration | run [39943975542](https://github.com/rahart1362/Tally/actions/runs/39943975542) | The `TallyCore tests (Linux, Swift 6.4)` job already runs on `Image: ubuntu-26.04`, while the container pins `SWIFT_PLATFORM=ubuntu24.04`. Pin the runner to `ubuntu-24.04` if `core-linux` breaks. |
-| `REL.flow.14-demo-mode.ios27` (Xcode 27 preview) | gate [39975879943](https://github.com/rahart1362/Tally/actions/runs/39975879943) | `testWelcomeToSampleDataDashboard` failed (WARN, non-blocking); it passed at PR #81's gate. |
 | The CI-simulator launch baseline (owner device calibration) | gate [39975879943](https://github.com/rahart1362/Tally/actions/runs/39975879943) | The launch metric reads 2.21 s against the stale stored baseline (report-only, PERF-FIX-1's 20% rule); needs recalibration on a real device. |
-| Dependabot PR #70 (swift-crypto 4.5.2 → 5.0.1) | run [39657400478](https://github.com/rahart1362/Tally/actions/runs/39657400478) | Still open. iOS links the system CryptoKit, so the iOS jobs don't exercise this bump; the one required red on that run is the unrelated `HomeRenderTests` flake above. Prefer `exact: "5.0.3"` (bounds-hardening patches) once the CI queue is quiet. |
+
+**Fixed, removed from this list (2026-10-25):** `REL.flow.14-demo-mode.ios27` (REL-M5, PR #92: test-only, the positive tab checks now accept any button with that label); the `CanvasLinkPreferenceUITests` picker flake (TOUR-2, PR #84: waits for the menu to open and re-taps if it hasn't); Dependabot PR #70, swift-crypto (superseded and closed by DEP-1, PR #89, which took `exact: "5.0.3"`).
 
 ## 5. What starts immediately (no owner input needed)
 
