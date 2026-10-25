@@ -167,7 +167,7 @@ public struct UNNotificationScheduler: NotificationScheduling {
     /// `subjectID` decodes to one (`SubscriptionEngine.reconcileRenewalReminders` encodes it as a
     /// Unix timestamp); generic otherwise, so a malformed or pre-EB-20b value never shows a wrong
     /// date — it shows nothing date-specific at all.
-    static func defaultContent(_ reminder: PendingReminder) -> ReminderContent {
+    public static func defaultContent(_ reminder: PendingReminder) -> ReminderContent {
         guard reminder.kind == .renewalReminder, let renewalDate = renewalDate(from: reminder.subjectID) else {
             return ReminderContent.generic(for: reminder.kind)
         }

@@ -665,9 +665,13 @@ struct RemindersModelTests {
         }
         let reminders = "packages/TallyAppleKit/Sources/TallyFeatures/Reminders/"
         // EB-20: Settings > Subscription's renewal-reminder banner has its own Turn On button.
+        // EB-20b: the Home's copy of that banner adds a second button in the same file
+        // (`RenewalReminderHomeBannerCard`), and the purchase confirmation's new channel-offer row
+        // adds its own, one-button file.
         #expect(try callSites(".requestPermission()") == [reminders + "RemindersViews.swift": 2,
                                                           reminders + "RemindersModel.swift": 1,
-                                                          "packages/TallyAppleKit/Sources/TallyFeatures/Settings/SubscriptionSettingsView.swift": 1],
+                                                          "packages/TallyAppleKit/Sources/TallyFeatures/Settings/SubscriptionSettingsView.swift": 2,
+                                                          "packages/TallyAppleKit/Sources/TallyFeatures/Subscription/PurchaseConfirmationView.swift": 1],
                 "the reminders permission is requested from somewhere other than a button")
         #expect(try callSites("requestAuthorization(").keys.sorted() == ["packages/TallyAppleKit/Sources/TallyPlatform/UNNotificationScheduler.swift"])
     }
