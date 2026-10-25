@@ -123,8 +123,12 @@ public final class AgeAssuranceModel {
     ///    race just means the paywall was never blocked by it, same as before this method existed.
     public func evaluateBeforePaywall() async {
         guard await isPaywallRequestDue() else { return }
+        // Two statements on purpose, not `await self?.evaluate(...)` alone: a single-expression
+        // closure's implicit return would make this `Task<Void?, Never>` (from the `self?.`
+        // optional chain), not the `Task<Void, Never>` `evaluateTask`/`run.value` below need.
         let run = Task { [weak self] in
-            await self?.evaluate(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
+            guard let self else { return }
+            await self.evaluate(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
         }
         evaluateTask.replace(with: run)
         let gate = PaywallWaitGate()
