@@ -502,9 +502,9 @@ def source_checks(root: pathlib.Path) -> list[Check]:
     allowed = [h for h in rest if h[1] in PLACEHOLDER_ALLOWLIST]
     elsewhere = [h for h in rest if h[1] not in shipping_paths and h[1] not in PLACEHOLDER_ALLOWLIST]
     fmt = lambda hs: "; ".join(f"{p}:{n}" for _, p, n in hs[:8]) + (f" (+{len(hs) - 8})" if len(hs) > 8 else "")
-    add("REL.go-live.owner-values", "No go-live placeholder values remain (Team ID, support e-mail, dates; GL-02)",
+    add("REL.go-live.owner-values", "No go-live placeholder values remain (Team ID, support and security e-mails, governing law, dates; GL-02)",
         not owner_values, fmt(owner_values) or "none", due="M5", owner="owner (GO-LIVE GL-02)")
-    add("REL.go-live.legal", "The privacy policy has counsel's sign-off (GL-03)", not legal,
+    add("REL.go-live.legal", "The legal pages (privacy, terms, security) have counsel's sign-off (GL-03)", not legal,
         fmt(legal) or "none", due="M5", owner="owner and counsel (GO-LIVE GL-03)")
     add("REL.go-live.shipping-identifiers",
         "Shipping code has no legacy or placeholder identifier outside the documented exceptions",

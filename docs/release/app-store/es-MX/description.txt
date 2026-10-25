@@ -21,3 +21,6 @@ Tally es una suscripción de $9.99/año, con una prueba gratis de 2 semanas para
 Funciona con Canvas LMS — el administrador de Canvas de tu escuela debe habilitar el acceso de apps externas; no todas las escuelas lo han hecho todavía.
 
 Tally es una app independiente, no afiliada a Instructure, Inc. ni patrocinada o avalada por ella. Canvas es una marca comercial de Instructure, Inc.
+
+Términos de uso: https://tally-app.dev/terms/
+Política de privacidad: https://tally-app.dev/privacy/
