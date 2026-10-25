@@ -24,10 +24,14 @@ guide. Sign in to iCloud with it on the test device before each check below.
    visibly changes by category; confirm by checking Settings → "What Tally Stores" shows the same
    defaults regardless of which sandbox age was used).
 3. **Decline sharing.** At the system sheet, decline. Confirm Tally continues normally (EB-01(g):
-   never blocks) — Dashboard renders, no restricted screen.
+   never blocks) — Dashboard renders, no restricted screen. This is `AgeAssuranceOutcome.declined`
+   (AGE-2): the person's own choice, and it counts as this device's request for the 12-month floor
+   exactly as before.
 4. **Simulator parity.** Launch the same build in the Simulator. Confirm the same "no blocking,
    app behaves as today" result — `DeclaredAgeRangeAdapter.requestAgeAssurance()` has no window to
-   present from there and returns `.declinedOrUnavailable`, which is this same path.
+   present from there and returns `.unavailable` (AGE-2), the same never-blocks path as a decline.
+   Unlike a decline, `.unavailable` is never recorded as a request: relaunching the same Simulator
+   build asks again every time (confirm this — do not expect the 12-month floor to apply here).
 5. **The 12-month floor.** Not practically re-runnable on a device in real time; covered instead
    by `AgeAssuranceTests.swift`'s `twelveMonthsIsDue`/`justUnderTwelveMonthsIsNotDue` (pure, exact
    calendar-month arithmetic). Record here only that the pure test exists and passed (CI run ID in

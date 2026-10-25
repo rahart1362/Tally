@@ -76,15 +76,32 @@ public final class AgeAssuranceModel {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
-    /// EB-01(b): called at each of the three request points this app controls (`AppModel.apply(_:)`
-    /// once a launch resolves its route, and before presenting the paywall); the 12-month floor is
-    /// evaluated the same way, every time. Re-entrant: a call while an earlier one is still running
-    /// supersedes it (the newer call has the same or newer `clock.now()`, so nothing is lost).
+    /// EB-01(b): the launch request point this app controls (`AppModel.apply(_:)`, once a launch
+    /// resolves its route); `evaluateBeforePaywall()` below is the awaitable twin for the other
+    /// two (first-sync and locked-feature paywall) request points — SEC2-14's "before a purchase"
+    /// request must finish before the paywall sheet is presented, which this fire-and-forget form
+    /// cannot guarantee. The 12-month floor is evaluated the same way, every time. Re-entrant: a
+    /// call while an earlier one is still running supersedes it (the newer call has the same or
+    /// newer `clock.now()`, so nothing is lost).
     public func evaluateIfDue(isFirstLaunchAfterInstall: Bool, isAboutToPresentPaywallPurchase: Bool) {
         evaluateTask.replace(with: Task { [weak self] in
             await self?.evaluate(isFirstLaunchAfterInstall: isFirstLaunchAfterInstall,
                                  isAboutToPresentPaywallPurchase: isAboutToPresentPaywallPurchase)
         })
+    }
+
+    /// SEC2-14: the same "before a paywall purchase" request as `evaluateIfDue(isFirstLaunchAfterInstall:
+    /// false, isAboutToPresentPaywallPurchase: true)`, but awaitable — it returns only once that
+    /// attempt (shared, declined, or unavailable) has actually finished, so `AppModel` can await
+    /// it before presenting the paywall sheet instead of racing it. The system age sheet and the
+    /// paywall sheet must never compete to present over the same window (`AppModel.showPaywall`,
+    /// `showFirstSyncPaywallIfDue`). Goes through `evaluateTask` like `evaluateIfDue`, so the two
+    /// stay mutually re-entrant: whichever call is newer wins, and nothing runs twice at once.
+    public func evaluateBeforePaywall() async {
+        evaluateTask.replace(with: Task { [weak self] in
+            await self?.evaluate(isFirstLaunchAfterInstall: false, isAboutToPresentPaywallPurchase: true)
+        })
+        await evaluateTask.value()
     }
 
     private func evaluate(isFirstLaunchAfterInstall: Bool, isAboutToPresentPaywallPurchase: Bool) async {
@@ -109,23 +126,37 @@ public final class AgeAssuranceModel {
             try? await versionStore.save(versionState) // still records the rating observation
             return
         }
+        // AGE-2: this launch gets at most one attempt either way — `hasRequestedThisProcessLaunch`
+        // is set before the call, whatever it returns, so an `.unavailable` result still cannot
+        // retry within the SAME launch (only on the next one, below).
         hasRequestedThisProcessLaunch = true
-        // EB-01(c): the date of the REQUEST itself, recorded before Apple answers — it is a
-        // request record, not a response record, and every trigger here is a real presentation
-        // of the system UI (or an attempt at one).
-        try? await recordStore.save(AgeRequestRecord(lastRequestedAt: now))
         let result = await requester.requestAgeAssurance()
         outcome = result
 
-        // SEC2-01: a significant-change version is acknowledged — and never asked about again —
-        // only once nothing is left pending: either this outcome never required consent at all,
-        // or consent came back `.granted`/`.notRequired`. A `.pending` question, a `.denied`
-        // answer or an `.unavailable` attempt must ask again on the next launch, so none of them
-        // may set `lastAcknowledgedSignificantChangeVersion` here. No age value is persisted
-        // either way — this only ever writes the version string and the rating-observation
-        // baseline already computed above.
+        // AGE-2: the request record is saved only once `result` is known, still carrying the
+        // date the request STARTED (`now`, captured above, before Apple answered) — it is a
+        // request record, not a response record. `.unavailable` means the system sheet never
+        // reached (or never resolved for) the person, so it must not count against the 12-month
+        // floor: skipping the save here is cleaner than saving-then-clearing, since `outcome`
+        // already carries the one signal (`.unavailable`) that distinguishes a real attempt from
+        // a failed one — no second, separate "did it actually present" flag has to cross the
+        // adapter boundary. The next launch then reads the same (possibly still-nil)
+        // `lastRequestedAt` as before and retries, exactly like "never requested."
+        if result != .unavailable {
+            try? await recordStore.save(AgeRequestRecord(lastRequestedAt: now))
+        }
+
+        // SEC2-01/AGE-2: a significant-change version is acknowledged — and never asked about
+        // again — only once nothing is left pending: either this outcome never required consent
+        // at all, or consent came back `.granted`/`.notRequired`. A `.pending` question, a
+        // `.denied` answer or a consent `.unavailable` attempt must ask again on the next launch,
+        // so none of them may set `lastAcknowledgedSignificantChangeVersion` here — and neither
+        // may an `.unavailable` AGE-ASSURANCE result (the residual from #85): a technical failure
+        // never acknowledges the version, only a real decline or a real signal does. No age value
+        // is persisted either way — this only ever writes the version string and the
+        // rating-observation baseline already computed above.
         guard case .shared(let signal) = result, signal.significantChangeRequirement.isAny else {
-            if trigger == .firstLaunchOfSignificantChangeVersion {
+            if trigger == .firstLaunchOfSignificantChangeVersion, result != .unavailable {
                 versionState.lastAcknowledgedSignificantChangeVersion = currentAppVersion
             }
             try? await versionStore.save(versionState)

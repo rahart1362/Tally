@@ -33,6 +33,18 @@ extension AccountLifecycleSuites {
             return model
         }
 
+        /// SEC2-14: like the two-argument `makeModel`, but over an injected `AgeAssuranceModel`
+        /// instead of the default — lets a test control exactly when the paywall's age request
+        /// resolves.
+        private func makeModel(_ harness: AccountHarness, _ rig: SubscriptionRig, ageAssurance: AgeAssuranceModel) async throws -> AppModel {
+            let model = AppModel(accountEnvironment: harness.environment.replacingEntitlement(rig.gate),
+                                 subscription: SubscriptionModel(engine: rig.engine), storefront: ScriptedStorefront(),
+                                 ageAssurance: ageAssurance)
+            model.subscription.start()
+            #expect(try await HomeTestSupport.waitUntil { model.subscription.isVerifiedThisLaunch })
+            return model
+        }
+
         /// An app model with no account environment, `rig`'s engine started and observed.
         private func makeModel(_ rig: SubscriptionRig) async throws -> AppModel {
             let model = AppModel(subscription: SubscriptionModel(engine: rig.engine), storefront: ScriptedStorefront())
@@ -70,8 +82,12 @@ extension AccountLifecycleSuites {
             #expect(model.isFirstSyncPaywallDue)
 
             model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
+            #expect(!model.isFirstSyncPaywallDue, "the one chance is used up the moment placement is decided")
+            // SEC2-14: the placement decision above is synchronous, but presenting the sheet
+            // waits for the paywall's age request (`AgeAssuranceModel.evaluateBeforePaywall`) to
+            // finish first.
+            await model.awaitPaywallPresentation()
             #expect(model.paywall?.trigger == .firstSyncFinished)
-            #expect(!model.isFirstSyncPaywallDue)
             model.dismissPaywall()
             model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
             #expect(model.paywall == nil, "shown a second time")
@@ -79,10 +95,32 @@ extension AccountLifecycleSuites {
             #expect(model.locks(.fullApp), "the tabs are not locked without a trial or subscription")
             #expect(model.locks(.refresh))
             model.showPaywall(for: .lockedFeature)
+            await model.awaitPaywallPresentation()
             #expect(model.paywall?.trigger == .lockedFeature, "a locked feature did not ask for the paywall")
             model.dismissPaywall()
             await signOut(model)
             #expect(!model.isFirstSyncPaywallDue && model.paywall == nil)
+        }
+
+        @Test("SEC2-14: the paywall's age request must finish before the paywall sheet is presented, never racing it")
+        func paywallAwaitsTheAgeRequestBeforePresenting() async throws {
+            let harness = try AccountHarness()
+            let gatedRequester = GatedAgeAssuranceRequester(outcome: .unavailable)
+            let model = try await makeModel(harness, SubscriptionRig(), ageAssurance: AgeAssuranceModel(requester: gatedRequester))
+            #expect(try await signInThroughFirstSync(model, harness))
+            #expect(model.isFirstSyncPaywallDue)
+
+            model.showFirstSyncPaywallIfDue(homeIsLoaded: true)
+            // The gated request has not resolved yet: the sheet must not be on screen, whatever
+            // order a future refactor might be tempted to use.
+            #expect(model.paywall == nil, "SEC2-14: the paywall presented before its age request finished")
+            #expect(!model.isFirstSyncPaywallDue, "the one chance is used up at placement, not once the request finishes")
+
+            gatedRequester.unblock()
+            await model.awaitPaywallPresentation()
+            #expect(model.paywall?.trigger == .firstSyncFinished, "the paywall never presented once the age request finished")
+            model.dismissPaywall()
+            await signOut(model)
         }
 
         @Test("PAY-06: an account entitled at its first sync sees no paywall, and nothing is locked")
@@ -473,6 +511,36 @@ final class ScriptedStorefront: SubscriptionStorefront {
 
     func refundableTransaction(for role: SubscriptionRole) async -> UInt64? {
         state.withLock { $0.refundable }
+    }
+}
+
+/// SEC2-14: an `AgeAssuranceRequesting` whose `requestAgeAssurance()` suspends until the test
+/// calls `unblock()` — proves `AppModel.showFirstSyncPaywallIfDue`/`showPaywall` actually wait for
+/// the age request (`presentPaywallAfterAgeRequest`) rather than presenting the paywall sheet in
+/// the same turn the request started, the way `ScriptedSignificantChangeConsent`
+/// (`AgeAssuranceModelTests.swift`) scripts the consent side of the same feature.
+final class GatedAgeAssuranceRequester: AgeAssuranceRequesting {
+    private let state: Mutex<(outcome: AgeAssuranceOutcome, waiters: [CheckedContinuation<Void, Never>])>
+
+    init(outcome: AgeAssuranceOutcome) {
+        state = Mutex((outcome, []))
+    }
+
+    func requestAgeAssurance() async -> AgeAssuranceOutcome {
+        await withCheckedContinuation { continuation in
+            state.withLock { $0.waiters.append(continuation) }
+        }
+        return state.withLock { $0.outcome }
+    }
+
+    /// Lets the pending (and every future) `requestAgeAssurance()` call resume.
+    func unblock() {
+        let waiters = state.withLock { current -> [CheckedContinuation<Void, Never>] in
+            let pending = current.waiters
+            current.waiters = []
+            return pending
+        }
+        waiters.forEach { $0.resume() }
     }
 }
 
