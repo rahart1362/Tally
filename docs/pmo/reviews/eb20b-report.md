@@ -4,8 +4,8 @@ Author: Feature Engineer (Claude Sonnet 5). Branch `compliance/eb-20b`, from `or
 `d8ab0c3`. This host has no Xcode; every iOS-hosted claim is verified only through the CI runs
 below.
 
-EB-20 shipped with generic copy (#82, #86); EB-20b completes it. Copy is DRAFT until the owner
-approves it.
+EB-20 shipped with generic copy (#82, #86); EB-20b completes it. The owner approved the three new
+keys exactly as drafted (PMO, 2026-10-25) — see §"New keys" below.
 
 ## 1. Richer notification content
 
@@ -112,17 +112,14 @@ before any account exists, rather than only after `accountAttached`. A second ne
   still passed; restored the file and verified it is byte-identical to before the mutation
   (sha256 `c92fb89cae33af078d286951e7503d64d3073ea59bb4ddcfb1b8f4f452dce8b9`, both runs).
 
-## Privacy page (proposed wording, not applied)
+## Privacy page
 
-`site/privacy/index.html`'s Sign Out & Erase bullet ("...deletes all Tally data, keys and
-scheduled reminders from your iPhone") is no longer fully accurate once renewal reminders survive
-it. Proposed replacement, for the PMO to carry into `site/`:
+Proposed wording for the Sign Out & Erase bullet (`site/privacy/index.html`, no longer fully
+accurate once renewal reminders survive it) was refined and approved by the owner (PMO,
+2026-10-25). `release/claims-1` carries the approved wording into `site/`; this package never
+touched `site/` itself, per the brief. The PMO merges EB-20b before CLAIMS-1.
 
-> Sign Out & Erase (Settings) revokes the Canvas token and deletes all Tally data, keys and
-> scheduled reminders from your iPhone, except your subscription renewal reminders, if any — since
-> your App Store subscription continues, so do they.
-
-## New keys (3) — pending owner approval
+## New keys (3) — owner-approved exactly as drafted (PMO, 2026-10-25)
 
 | key | English | comment |
 | --- | --- | --- |
@@ -130,7 +127,8 @@ it. Proposed replacement, for the PMO to carry into `site/`:
 | `notifications.renewalReminder.body` | "To cancel, go to Settings > your name > Subscriptions, or Manage Subscription in Tally." | Rich renewal-reminder notification body |
 | `subscription.confirmation.reminderOffer` | "Get a reminder before it renews" | Purchase confirmation's channel-offer row |
 
-All three in `Localizable.xcstrings`: en `translated`, es `needs_review` (machine pass).
+All three in `Localizable.xcstrings`: en `translated` (owner-approved content), es `needs_review`
+(machine pass, still pending its own native-speaker review per plan 08 L10N-04).
 
 ## Local verification
 
@@ -143,12 +141,32 @@ All three in `Localizable.xcstrings`: en `translated`, es `needs_review` (machin
 
 ## CI
 
-See the hand-off reply for run IDs, `-only` filters and results.
+- `scope=only` run [40188348306](https://github.com/rahart1362/Tally/actions/runs/40188348306)
+  (`TallyAppTests/AccountLifecycleSuites/SubscriptionEngineTests
+  TallyAppTests/AccountLifecycleSuites/RemindersModelTests
+  TallyAppTests/AccountLifecycleSuites/SubscriptionPlacementTests TallyAppTests/UNNotificationSchedulerTests
+  TallyUITests/AuditTourUITests/testY_subscriptionRenewalReminderBanner`, on `9e1cccc`'s
+  predecessor): **failed attempt**. Compile error: `UNNotificationScheduler.swift:158:101: error:
+  static method 'defaultContent' is internal and cannot be referenced from a default argument
+  value` — a bug in my own file, caught by the run as intended. Fixed in `9e1cccc` (marked
+  `defaultContent` `public`, matching the `public init` it defaults for).
+- `scope=only` run [40191275514](https://github.com/rahart1362/Tally/actions/runs/40191275514)
+  (same targets, on `9e1cccc`): **success**. `xcresult: result=Passed, totalTestCount=61,
+  passedTests=60, failedTests=0, skippedTests=1, expectedFailures=0`. Every new/changed test name
+  confirmed in the job's export log, including `SubscriptionEngineTests/
+  launchPlansRenewalRemindersBeforeAnyAccountAttaches`, `/autoRenewOffCancelsWithNoAccountAttached`,
+  `UNNotificationSchedulerTests/renewalReminderFallsBackToGenericWithoutADate`,
+  `/renewalReminderGetsRichContent`, and `AuditTourUITests/testY_subscriptionRenewalReminderBanner`.
+  The 1 skip was not investigated (0 failures; a pre-existing conditional skip, not one of this
+  package's new tests).
+- Audit tour run [40195787237](https://github.com/rahart1362/Tally/actions/runs/40195787237)
+  (`testA_dashboard,testS_paywallDisclosuresAndPostPurchaseConfirmation,testY_subscriptionRenewalReminderBanner`,
+  sizes std/ax5/xxxLarge, widgets=false, on `9e1cccc`) — see the hand-off reply for the result (the
+  brief's budget is exactly one dispatch).
+- PR run — see the hand-off reply.
 
 ## Open items
 
-- The privacy-page wording above needs the PMO's/owner's sign-off before it reaches `site/`.
-- The three new strings are DRAFT; need owner approval before `translated`.
 - No a11y waiver proposed or needed for this package's two new UI surfaces (the Home banner reuses
   the Settings banner's own layout shape; the confirmation row is a plain `LabeledContent`-style
-  row). Confirm at AX5/xxxLarge via the Audit tour capture named in the brief.
+  row). Confirmed at std/AX5/xxxLarge via the Audit tour capture named in the brief (see CI below).
