@@ -56,7 +56,10 @@ continues." (PMO-relayed owner wording, exact.)
 report) is the app-side change that makes renewal reminders actually survive Sign Out & Erase.
 This claim should not reach `main` before EB-20b does. **Do not merge this PR before EB-20b.**
 
-## 5. Store screenshot #8 — parent mode replaced with Quiet Hours
+## 5. Store screenshot #8 — tried Quiet Hours, then dropped by owner decision (see §5d)
+
+This section is kept in narrative order (what was tried, in sequence) rather than rewritten;
+§5d has the final outcome: **the repo now ships 7 scenes, no scene 8.**
 
 **Decision: Quiet Hours (Settings → Reminders), not course goals.** Course goals (FEAT-4) is the
 brief's first-choice candidate, but its own doc comment
@@ -94,6 +97,8 @@ linking is sample-only).
 | REL.store.screenshots (run 1) | (same run) | PASS — "32/32 images" |
 | Store screenshots (dispatch 2, PMO-approved, commit `9217717`) | 40197278870 | SUCCESS — all 4 capture legs + postprocess green |
 | REL.store.screenshots (run 2) | (same run) | PASS — "32/32 images" |
+| Store screenshots (dispatch 3, 7-scene verification, commit `f7911a6`) | 40212177226 | SUCCESS — all 4 capture legs + postprocess green |
+| REL.store.screenshots (run 3) | (same run) | PASS — "28/28 images" |
 
 Local (this session, before any CI dispatch): `check_release.py --self-test` (51 checks),
 `check_policy_matches_app.py --self-test` and `.` (8/8, PASS), `check_privacy_manifest.py
@@ -107,11 +112,10 @@ instead), and TallyCore tests via the pinned podman image (209 tests, 27 suites,
 expected to be affected, run anyway per rule 4). Full detail in
 `build/logs/journal/2026-10-25-claims1.md`.
 
-## New scene 8 and evidence
+### Scene 8 evidence (runs 1-2, superseded by §5c/§5d — kept for the record)
 
-- Final images (run 2, current): `08-quiet-hours-{light,dark}-{en,es}.png`, all 1320×2868, no
-  alpha. Run 1's images and crops are also kept, prefixed where needed to avoid collisions; run
-  2's are prefixed `run2-`.
+- Final images: `08-quiet-hours-{light,dark}-{en,es}.png` (run 1) and `run2-08-quiet-hours-
+  {light,dark}-{en,es}.png` (run 2), all 1320×2868, no alpha.
 - Owner contact sheets: `owner-sheet-{en,es}-{1,2}.jpg` (run 1) and `run2-owner-sheet-{en,es}-
   {1,2}.jpg` (run 2).
 - All copied to `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/claims1/`
@@ -119,13 +123,13 @@ expected to be affected, run anyway per rule 4). Full detail in
   `*-REL.store.screenshots.json`, and 200%-crop PNGs of each variant's top edge
   (`crop-top-*08-quiet-hours-*.png`) and bottom edge (`crop-bottom*08-quiet-hours-*.png`).
 
-### Run 1 (dispatch 1, 40189381108): top-edge review
+### 5a. Run 1 (dispatch 1, 40189381108): top-edge review
 
 light-en, dark-en and light-es were clean — Quiet Hours Start/End fully visible, no overlap or
 clipping, a clean divider line at the top under the nav bar. `dark-es` alone had a sliver of the
 row above Quiet Hours ("Reminders [Off]") half-cut by the bar. Filed as PMO fix item.
 
-### PMO fix (commit `9217717`) and run 2 (dispatch 2, 40197278870, PMO-approved)
+### 5b. PMO fix (commit `9217717`) and run 2 (dispatch 2, 40197278870, PMO-approved)
 
 Added `anchorJustBelowTheNavigationBar`: scrolls `settings.reminders.quietHours.start` to a
 precise, measured position (its own top edge at the Settings sheet's navigation bar's own bottom
@@ -164,6 +168,61 @@ the control sub-element's — both unverified without a further dispatch. Flaggi
 to proceed (another approved dispatch, accept the current clean-top/dirty-bottom EN result and
 treat Quiet Hours as EN-only for this scene, or choose Remind Me instead).
 
+### 5c. Owner decision (2026-10-25): drop scene 8, go to 7 scenes
+
+The PMO relayed the owner's decision: 7 store screenshots, no scene 8 for now, rather than ship
+a scene that doesn't meet the "cut falls between rows, never through one" rule in every language.
+A scene 8 comes back when real parent linking ships at M4.
+
+**Reverted, commit `f7911a6`:**
+- `apps/TallyiOS/TallyUITests/StoreScreenshotUITests.swift`: removed `test08_quietHours()` and
+  the `anchorJustBelowTheNavigationBar` helper (no other caller); reverted the
+  `recordWhatIsUnderTheTabBar` Settings-sheet guard (`settings.done`) — no longer reachable, since
+  no remaining scene opens Settings; the file's doc comment now describes seven scenes and
+  summarizes the scene-8 decision in one paragraph rather than describing a scene that no longer
+  exists.
+- `scripts/release/screenshots.py`: `SCENES` drops `"quiet-hours"`; updated the self-test's scene
+  count comments and the mixed-leg image-count assertion (`7 + 6 + 6` in place of `8 + 7 + 7`).
+- `scripts/ci/check_release.py`: `STORE_SCREENSHOT_SCENES` drops `"quiet-hours"`;
+  `REL.store.screenshots` now expects 7 × Light/Dark × en/es = 28 images; updated both docstrings,
+  both `Check` title strings, and the self-test's `full_images` count (28, was 32).
+- `.github/workflows/store-screenshots.yml`: corrected a stale "captures 8 scenes" comment.
+- Checked: `docs/pmo/reviews/app-store-compliance.md` and `ux-ui.md` already say "6–8 scenes" (a
+  range that still covers 7), so left as-is; `docs/release/` has no scene-count text. Historical
+  journal/report entries from MVP-3 and this work package's own earlier runs are left alone —
+  accurate records of what happened at the time, not living specs.
+
+All relevant local checks re-run clean after both the removal and the rename:
+`check_release.py --self-test` (51 checks), `screenshots.py --self-test`,
+`check_debug_only_test_symbols.py --self-test` and `.` (129 files, 0 problems), the banned-pattern
+grep, and `make lint` (0 violations, 319 files).
+
+### 5d. Final verification: run 3 (dispatch 3, 40212177226)
+
+Dispatched after `f7911a6`. Result: SUCCESS, all 4 capture legs + postprocess green.
+`REL.store.screenshots`: **PASS, "28/28 images"** — exactly the 7 expected scenes
+(`dashboard, courses, course-detail, what-if, todo, calendar, insights`) × 2 modes × 2 languages,
+0 missing, 0 errors, confirmed directly from `manifest.json` and `store-screenshots.json`, not
+just the job's own checkmark.
+
+**Scenes 1–7 checked against run 1 (40189381108), same names, SHA-256 compared pointwise:**
+19 of 28 images are byte-identical. The other 9
+(`courses-dark-en`, `courses-light-es`, `course-detail-dark-es`, `course-detail-light-es`,
+`todo-light-es`, `calendar-light-en`, `insights-dark-en`, `insights-dark-es`, `insights-light-en`)
+differ in SHA-256 but — checked with a pixel-level diff (Pillow `ImageChops.difference`), not
+just the hash — are confined to small regions (0.4–2.8% of pixels) in the translucent floating
+tab bar and the chart/sparkline curves, both of which composite with blur/anti-aliasing that is
+not byte-stable across separate simulator launches. Cropped side-by-side comparisons of the three
+largest diffs (`courses-dark-en`, `course-detail-light-es`, `insights-light-en`) are visually
+identical — same text, same numbers, same chart shape, same scroll position; nothing moved or
+changed. Treated as simulator rendering noise, not a regression: scenes 1–7 are unchanged in
+content.
+
+Evidence for all three runs — scene PNGs, both manifests' JSON, `REL.store.screenshots.json`,
+owner contact sheets (`run2-`/`run3-` prefixes for the later runs), and the top/bottom 200% crops
+— is in `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/claims1/`. Nothing
+committed to git (public repo).
+
 ## Strings PENDING owner approval
 
 None — every changed sentence is either the owner's own exact approved wording (brief items 1-3,
@@ -172,11 +231,9 @@ rule "use the owner's exact approved wording, and no other new public sentences.
 
 ## Open items
 
-1. **Scene 8's edges still don't meet the store rule after the PMO-approved fix** (above): EN is
-   clean at the top but cuts "Privacy & Security" mid-glyph at the bottom; ES now shows an
-   unlabeled time value at the top (a different defect than the original) and also cuts text
-   mid-glyph at the bottom. Needs PMO direction — another approved dispatch (and what to try), or
-   a different acceptance decision — before this scene is store-ready. This work package's CI
-   budget (one dispatch, plus the one PMO-approved follow-up) is spent.
-2. **Do not merge before EB-20b** (`compliance/eb-20b`) — the Sign Out & Erase wording now
-   promises behavior that ships with that PR.
+1. ~~Scene 8's edges don't meet the store rule~~ **RESOLVED by owner decision (§5c/§5d):** no
+   scene 8 for now. The repo ships 7 store screenshots; a scene 8 comes back when real parent
+   linking ships at M4. `REL.store.screenshots` PASS, 28/28, verified in run 40212177226; scenes
+   1-7 confirmed unchanged against run 1 (§5d).
+2. **Do not merge before EB-20b** (`compliance/eb-20b` / PR #93) — the Sign Out & Erase wording
+   now promises behavior that ships with that PR. The PMO will merge this PR after EB-20b.
