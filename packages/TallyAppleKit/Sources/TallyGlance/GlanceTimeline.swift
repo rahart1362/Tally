@@ -86,12 +86,16 @@ public struct GlanceSummary: Equatable, Sendable {
         public let coverage: Coverage
         /// At least `GlanceTimelinePlanner.busyDayItemCount` open items are due that day.
         public let isBusy: Bool
+        /// UX2-18: true for the week's first column, so the widget's strip can ring today's day
+        /// number exactly as the in-app strip does (`WeekDayMark`).
+        public let isToday: Bool
 
-        public init(start: Date, count: Int, coverage: Coverage, isBusy: Bool) {
+        public init(start: Date, count: Int, coverage: Coverage, isBusy: Bool, isToday: Bool) {
             self.start = start
             self.count = count
             self.coverage = coverage
             self.isBusy = isBusy
+            self.isToday = isToday
         }
     }
 
@@ -341,7 +345,8 @@ public enum GlanceTimelinePlanner {
                 coverage = .complete
             }
             days.append(GlanceSummary.Day(start: start, count: count, coverage: coverage,
-                                          isBusy: coverage != .unknown && count >= busyDayItemCount))
+                                          isBusy: coverage != .unknown && count >= busyDayItemCount,
+                                          isToday: offset == 0))
         }
         return days
     }

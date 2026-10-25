@@ -10,7 +10,6 @@ QUÉ INCLUYE
 • Recordatorios — un aviso un día antes y una hora antes de cada fecha límite, de forma predeterminada. Las notificaciones nunca muestran calificaciones, y los widgets las muestran solo si tú lo activas.
 • Widgets de pantalla de inicio y pantalla bloqueada — lo próximo, lo que vence pronto, los próximos 7 días o tu promedio general, con un botón para marcar como hecho.
 • Atajos y Siri — pregunta qué tienes pendiente, o agrega un atajo de Tally a tu día.
-• Familia — un padre, madre o tutor puede seguir las fechas de entrega y calificaciones de un estudiante usando su propia cuenta de observador de Canvas, vinculada con un código que el estudiante genera y comparte. Tally no combina esto desde ninguna otra fuente.
 
 PRIVACIDAD
 No existe una cuenta de Tally ni un servidor de Tally que guarde tus datos. Tu información de Canvas va directamente del Canvas de tu escuela a tu iPhone, cifrada, y se reemplaza cada vez que Tally se actualiza — nunca se nos envía a nosotros ni a nadie más. Configuración → Cerrar sesión y borrar elimina todo de tu iPhone. Si activas la suscripción al calendario de Canvas, tu app de calendario (Apple, Google u Outlook) obtiene ese calendario directamente de Canvas, bajo su propia política de privacidad. Consulta nuestra Política de privacidad completa para más detalles.

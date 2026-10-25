@@ -8245,6 +8245,42 @@
         }
       }
     },
+    "notifications.renewalReminder.body" : {
+      "comment" : "EB-20b. Renewal reminder notification body: how to cancel the subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To cancel, go to Settings > your name > Subscriptions, or Manage Subscription in Tally."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Para cancelar, ve a Configuración > tu nombre > Suscripciones, o Gestionar suscripción en Tally."
+          }
+        }
+      }
+    },
+    "notifications.renewalReminder.title" : {
+      "comment" : "EB-20b. Renewal reminder notification title once the plan and renewal date are known: the plan's name (e.g. 'Tally Annual') and a localized medium date (e.g. 'Nov 20, 2026').",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ renews on %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ se renueva el %@"
+          }
+        }
+      }
+    },
     "onboarding.chooseDifferentSchool" : {
       "comment" : "Button that abandons the current sign-in or first-sync attempt and returns to school search.",
       "extractionState" : "manual",
@@ -10623,6 +10659,24 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Listo"
+          }
+        }
+      }
+    },
+    "subscription.confirmation.reminderOffer" : {
+      "comment" : "EB-20b. The purchase confirmation's row offering a renewal reminder, shown beside the existing 'Turn On Reminders' button while notifications are not yet authorized.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get a reminder before it renews"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Recibe un recordatorio antes de que se renueve"
           }
         }
       }

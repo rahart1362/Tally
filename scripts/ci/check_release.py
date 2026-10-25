@@ -39,7 +39,7 @@ same gate and stay PENDING here until they land.
         --waivers is the waiver count the CI step read from A11yWaivers.waived.
     python3 scripts/ci/check_release.py --screenshots MANIFEST [--due M] --json OUT
         MVP-3: REL.store.screenshots, from `scripts/release/screenshots.py --raw`'s own manifest.json
-        (8 scenes x Light/Dark x en/es, each exactly 1320x2868). MANIFEST is that file's path.
+        (7 scenes x Light/Dark x en/es, each exactly 1320x2868). MANIFEST is that file's path.
     python3 scripts/ci/check_release.py --release-config RESULTS [--due M] --json OUT
         ASC-10/RELCFG-1: one REL.flow.<id>.release-config check per Debug-configuration flow, from
         the same tests run against the UITest build configuration (Release optimizations plus
@@ -1000,8 +1000,7 @@ def _lookup(results: dict[str, str], test: str) -> str:
 # App Store screenshots (MVP-3, ASC-12, R14; UX-WP-23)
 # ------------------------------------------------------------------------------------------------
 
-STORE_SCREENSHOT_SCENES = ("dashboard", "courses", "course-detail", "what-if", "todo", "calendar", "insights",
-                           "parent-mode")
+STORE_SCREENSHOT_SCENES = ("dashboard", "courses", "course-detail", "what-if", "todo", "calendar", "insights")
 STORE_SCREENSHOT_MODES = ("light", "dark")
 STORE_SCREENSHOT_LANGUAGES = ("en", "es")
 STORE_SCREENSHOT_SIZE = (1320, 2868)
@@ -1009,12 +1008,12 @@ STORE_SCREENSHOT_SIZE = (1320, 2868)
 
 def screenshot_checks(manifest: dict, due: str = "MVP") -> list[Check]:
     """One check, REL.store.screenshots: passes only when `manifest` (`scripts/release/
-    screenshots.py --raw`'s own manifest.json) has all 8 scenes x 2 appearances x 2 languages,
+    screenshots.py --raw`'s own manifest.json) has all 7 scenes x 2 appearances x 2 languages,
     each exactly 1320x2868, and the script recorded no error. No manifest, a missing combination,
     or any recorded error is a failing check -- the same "nothing passes by being missing" rule
     `a11y_audit_checks` and `flow_checks` use."""
     if not manifest:
-        return [Check("REL.store.screenshots", "App Store screenshots: 8 scenes x Light/Dark x en/es, 1320x2868, no alpha",
+        return [Check("REL.store.screenshots", "App Store screenshots: 7 scenes x Light/Dark x en/es, 1320x2868, no alpha",
                       "ERROR", due, False, "no screenshots.py manifest was given")]
     expected = {(scene, mode, language) for scene in STORE_SCREENSHOT_SCENES for mode in STORE_SCREENSHOT_MODES
                 for language in STORE_SCREENSHOT_LANGUAGES}
@@ -1031,7 +1030,7 @@ def screenshot_checks(manifest: dict, due: str = "MVP") -> list[Check]:
         detail.append("wrong size: " + ", ".join(bad_size[:8]))
     if errors:
         detail.append("errors: " + "; ".join(errors[:5]) + (f" (+{len(errors) - 5})" if len(errors) > 5 else ""))
-    return [Check("REL.store.screenshots", "App Store screenshots: 8 scenes x Light/Dark x en/es, 1320x2868, no alpha",
+    return [Check("REL.store.screenshots", "App Store screenshots: 7 scenes x Light/Dark x en/es, 1320x2868, no alpha",
                   "ERROR", due, ok, "; ".join(detail))]
 
 
@@ -1167,7 +1166,7 @@ def self_test() -> int:
                     "width": 1320, "height": 2868, "sha256": "x", "hadAlpha": False}
                    for n, s in enumerate(STORE_SCREENSHOT_SCENES, start=1)
                    for m in STORE_SCREENSHOT_MODES for l in STORE_SCREENSHOT_LANGUAGES]
-    assert len(full_images) == 32, len(full_images)
+    assert len(full_images) == 28, len(full_images)
     full_manifest = {"images": full_images, "missing": [], "errors": []}
     shots_pass = screenshot_checks(full_manifest)[0].settle()
     assert shots_pass.status == "PASS", shots_pass

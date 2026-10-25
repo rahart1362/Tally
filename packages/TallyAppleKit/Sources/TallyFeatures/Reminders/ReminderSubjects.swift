@@ -158,8 +158,9 @@ nonisolated struct ReminderSubjects: Sendable {
             guard courseCodes[reminder.subjectID] != nil else { return nil }
             return .belowGoal(.hidden)
         case .renewalReminder:
-            // EB-20: never planned from a Canvas snapshot (`RenewalReminderPlan`, `SubscriptionEngine`
-            // schedule it directly, generic content only); nothing here to resolve.
+            // EB-20/EB-20b: never planned from a Canvas snapshot (`RenewalReminderPlan`,
+            // `SubscriptionEngine` schedule it directly, with their own rich-or-generic content
+            // from `UNNotificationScheduler.defaultContent`); nothing here to resolve.
             return nil
         }
     }

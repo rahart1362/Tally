@@ -10,7 +10,9 @@ import TallyStore
 ///    refresh in flight, so a late result can never land after this point. That also retires the
 ///    coordinator (`shutdown()`): its subscribers' streams finish, it never fetches again, and it
 ///    releases its decoded snapshot.
-/// 2. Remove every Tally notification this account has pending or the ledger remembers.
+/// 2. Remove every Tally notification this account has pending or the ledger remembers, except
+///    the two renewal reminders (EB-20b, SEC2-12): the App Store subscription continues after
+///    sign-out, so `SubscriptionEngine` alone manages those.
 /// 3. Crypto-shred the account's vault keys and delete its store files
 ///    (`AccountPurger.purge`, which itself calls `VaultPurger.purge` — one call covers both halves
 ///    of this step).
@@ -71,14 +73,19 @@ public enum SignOutUseCase {
 
         // 2. Remove every Tally notification for this account: whatever the ledger remembers,
         // unioned with whatever the platform actually still has pending (the same "trust both,
-        // union them" rule `NotificationReconciler` uses for stale detection).
+        // union them" rule `NotificationReconciler` uses for stale detection). EB-20b (SEC2-12):
+        // the two renewal reminders (`RenewalReminderPlan.owns`) are excluded -- the App Store
+        // subscription continues after sign-out, so `SubscriptionEngine` alone manages their
+        // lifecycle (its own account-independent `notifications` handle), both here and through
+        // `eraseSavedData` below.
         let ledger: SyncLedger
         switch await ledgerStore.load() {
         case .loaded(let loaded): ledger = loaded
         case .absent, .unavailable: ledger = SyncLedger()
         }
         let pendingOnPlatform = await notifications.pendingIdentifiers()
-        let idsToRemove = Set(ledger.notifications.keys).union(pendingOnPlatform)
+        let candidateIDs = Set(ledger.notifications.keys).union(pendingOnPlatform)
+        let idsToRemove = Set(candidateIDs.filter { !RenewalReminderPlan.owns($0) })
         if !idsToRemove.isEmpty { await notifications.cancel(ids: idsToRemove) }
 
         // 3. Crypto-shred the vault keys and delete the account's store files: the snapshot,
@@ -122,8 +129,12 @@ public enum SignOutUseCase {
         case .loaded(let loaded): ledger = loaded
         case .absent, .unavailable: ledger = SyncLedger()
         }
+        // EB-20b (SEC2-12): see `signOut`'s own comment above -- the renewal reminders survive
+        // Erase Saved Data too, since neither it nor `signOut` ever cancels the App Store
+        // subscription itself.
         let pendingOnPlatform = await notifications.pendingIdentifiers()
-        let idsToRemove = Set(ledger.notifications.keys).union(pendingOnPlatform)
+        let candidateIDs = Set(ledger.notifications.keys).union(pendingOnPlatform)
+        let idsToRemove = Set(candidateIDs.filter { !RenewalReminderPlan.owns($0) })
         if !idsToRemove.isEmpty { await notifications.cancel(ids: idsToRemove) }
 
         try? AccountPurger.eraseCanvasData(accountKey: accountKey, root: storeRoot, sharedRoot: sharedRoot, keyring: keyring)

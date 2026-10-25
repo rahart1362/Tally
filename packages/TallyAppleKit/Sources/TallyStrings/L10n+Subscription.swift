@@ -485,6 +485,16 @@ extension L10n {
                 comment: "EB-21. The purchase confirmation's button that closes it.")
         }
 
+        /// EB-20b: the purchase confirmation's one-row channel offer, shown only while
+        /// notifications are not authorized yet (never asked, or denied); its action reuses
+        /// `L10n.Reminders.turnOn()` (`RemindersViewCopy.turnOn`), the same "Turn On Reminders"
+        /// every other reminders surface already uses.
+        public static func confirmationReminderOffer() -> LocalizedStringResource {
+            LocalizedStringResource(
+                "subscription.confirmation.reminderOffer", defaultValue: "Get a reminder before it renews", bundle: #bundle,
+                comment: "EB-20b. The purchase confirmation's row offering a renewal reminder, shown beside the existing 'Turn On Reminders' button while notifications are not yet authorized.")
+        }
+
         public static func viewPurchaseConfirmation() -> LocalizedStringResource {
             LocalizedStringResource(
                 "subscription.settings.viewConfirmation", defaultValue: "View Purchase Confirmation", bundle: #bundle,

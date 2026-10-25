@@ -44,6 +44,20 @@ public nonisolated enum ReminderTipPolicy {
     }
 }
 
+/// EB-20b: when a renewal-reminder banner shows -- shared by Settings > Subscription's own banner
+/// (`SubscriptionSettingsView`) and the Home's copy of it (`RenewalReminderHomeBanner`), so the
+/// one rule lives in one place. Shown only while a reminder is actually due
+/// (`SubscriptionModel.hasUpcomingRenewalReminder`) and notifications are not authorized yet
+/// (never asked, or denied) -- never once allowed, and never for nothing (no subscription,
+/// auto-renew off, or a school seat, all of which make `hasUpcomingRenewalReminder` false).
+public nonisolated enum RenewalReminderBannerPolicy {
+    public static func permission(hasUpcomingRenewalReminder: Bool, permission: ReminderPermission?) -> ReminderPermission? {
+        guard hasUpcomingRenewalReminder else { return nil }
+        guard permission == .notDetermined || permission == .denied else { return nil }
+        return permission
+    }
+}
+
 /// The reminders permission, asked in context (UX-WP-12, A11Y-11): never at launch, only when the
 /// student taps "Turn On Reminders" on the Dashboard tip or in Settings. iOS's permission is the
 /// on/off switch; turning it on runs a reminders pass at once, so the student's reminders exist before

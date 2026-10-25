@@ -7,20 +7,21 @@ import XCTest
 /// local runs) every method skips in `setUpWithError`, the same gate `AuditTourUITests` uses for
 /// `AUDIT_APPEARANCE`.
 ///
-/// Eight scenes, each ONE capture, at rest (pmo-ux-common.md's visual quality bar: "captures only
+/// Seven scenes, each ONE capture, at rest (pmo-ux-common.md's visual quality bar: "captures only
 /// at rest"), in Sample Data / the bundled flagship persona (synthetic data only, ASC-11): the
 /// Dashboard hero with its trend, Courses with the sparklines, Course detail (grades + chart),
-/// the What-If sheet, To-Do, Calendar, Insights, and (scene 8) parent mode.
+/// the What-If sheet, To-Do, Calendar and Insights.
 ///
-/// **Scene 8 is parent mode, not a composited widget render.** The Home Screen itself is not
-/// reachable in XCUITest (the brief's own framing), and the brief allows widget renders "only if
-/// they are honest renders of the real widget views" — `WidgetFamilyRenderTests` (TallyAppTests,
-/// M3-D's own file, outside this work package's ownership) already produces honest, hosted
-/// renders with the real `containerBackground`, but not at every combination this pipeline needs:
-/// its own `spanishSnapshot` is light-only (no dark+es), and extending it would mean editing a
-/// file owned by another work package. The brief's explicit fallback applies instead: "otherwise
-/// use parent mode" — real app UI, already proven reachable in both languages by
-/// `AuditTourUITests.testN_sampleDataAndParentMode` and `ReviewPathUITests`'s own walk.
+/// **Scene 8 (parent mode) was dropped, not replaced (CLAIMS-1, owner decision 2026-10-25).**
+/// Family/parent linking through a real Canvas observer account is sample-only until M4, so the
+/// store listing no longer shows parent mode. Quiet Hours (Settings → Reminders) was tried as a
+/// replacement and reverted: its own 200%-review evidence
+/// (`docs/pmo/reviews/claims1-report.md`) found no scroll position that kept every row whole at
+/// both the top AND bottom edge in every language — fixing the original top-edge clip (a
+/// `scrollUntilHittable`-vs-"hittable" artifact) surfaced a worse one (the row's own label
+/// scrolling out of view in Spanish) and a previously-unchecked bottom-edge mid-glyph cut in
+/// all 4 variants, since Settings has no bottom hard-edge treatment the way tab-root screens do.
+/// A scene 8 comes back when real parent linking ships at M4.
 ///
 /// Appearance and language are read the same way `AuditTourUITests` reads `AUDIT_APPEARANCE` /
 /// `AUDIT_LANGUAGE`: the workflow sets the simulator's own appearance with `simctl ui ...
@@ -461,29 +462,6 @@ final class StoreScreenshotUITests: TallyUITestCase {
         XCTAssertTrue(element("chart.trend", in: app).waitForExistence(timeout: 30),
                      "Insights shows no content. Hierarchy: \(app.debugDescription)")
         capture(app, number: 7, scene: "insights")
-        app.terminate()
-    }
-
-    // MARK: - 8: parent mode (see the file's own doc comment for why, not a widget render)
-
-    @MainActor
-    func test08_parentMode() throws {
-        resetAppState()
-        XCUIDevice.shared.appearance = Self.appearance
-        let app = launchApp()
-        let exploreSampleData = element("account.exploreWithSampleData", in: app)
-        XCTAssertTrue(exploreSampleData.waitForExistence(timeout: 30), "Hierarchy: \(app.debugDescription)")
-        exploreSampleData.tap()
-        XCTAssertTrue(element("dashboard.hero.averageOfCourses", in: app).waitForExistence(timeout: 30),
-                     "the sample projection never landed. Hierarchy: \(app.debugDescription)")
-        openSettings(app)
-        let exploreParentMode = app.buttons["family.sample.viewAsParent"]
-        XCTAssertTrue(scrollUntilHittable(exploreParentMode, in: app, maxSwipes: 30),
-                     "no family.sample.viewAsParent. Hierarchy: \(app.debugDescription)")
-        exploreParentMode.tap() // Settings dismisses itself (AppModel.enterSampleFamily()).
-        XCTAssertTrue(element("family.switcher", in: app).waitForExistence(timeout: 15),
-                     "parent mode shows no content. Hierarchy: \(app.debugDescription)")
-        capture(app, number: 8, scene: "parent-mode")
         app.terminate()
     }
 }
