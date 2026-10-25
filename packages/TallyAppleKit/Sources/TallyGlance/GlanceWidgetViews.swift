@@ -140,8 +140,12 @@ enum GlanceMetrics {
     /// The medium Standing widget lists at most this many courses.
     static let standingCourseRows = 4
     static let dayCountMinimumScale: CGFloat = 0.7
-    /// The gap between a week-strip column's weekday, count and "Busy" lines.
+    /// The gap between a week-strip column's weekday, day mark, count and "Busy" lines.
     static let dayColumnSpacing: CGFloat = 2
+    /// UX2-18: the week-strip day mark's fixed size (the ring sits around the day number), the
+    /// widget's own version of the in-app strip's `WeekDayMark`, which scales with Dynamic Type; a
+    /// widget's layout is fixed, so this stays one size rather than growing unbounded.
+    static let dayMarkDiameter: CGFloat = 16
     /// How far a Lock Screen accessory's text may shrink to fit before it truncates.
     static let accessoryMinimumScale: CGFloat = 0.6
     /// How far a Standing widget caption ("Average of N courses", "N courses not included") may

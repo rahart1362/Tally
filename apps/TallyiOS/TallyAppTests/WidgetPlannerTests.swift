@@ -69,6 +69,8 @@ struct WidgetPlannerTests {
         // Today counts the open item already past due as well as the one still coming; the submitted one is done.
         #expect(summary.week.map(\.count) == [2, 3, 0, 1, 0, 0, 0])
         #expect(summary.week.map(\.isBusy) == [false, true, false, false, false, false, false])
+        // UX2-18: only the first column (today) is ringed on the widget's week strip.
+        #expect(summary.week.map(\.isToday) == [true, false, false, false, false, false, false])
         #expect(summary.week.allSatisfy { $0.coverage == .complete })
         #expect(!summary.laterIsLowerBound)
         #expect(GlanceTimelinePlanner.upcomingCutoff(of: Self.glance([Self.item("a", Self.date(7, 9))])) == nil)

@@ -30,6 +30,16 @@ struct CourseDetailView: View {
     let sparklines: CourseSparklineModel
     @Environment(HomeModel.self) private var model
     @Environment(\.locale) private var locale
+    // UX2-10 round 3: read here and threaded into `GradeOverrideMenu` as a plain parameter (not
+    // read via its OWN `@Environment(\.dynamicTypeSize)`) -- round 2 moved the AX1+ check to the
+    // top of that struct's own body, matching `CalendarScreen`'s toolbar item exactly, and it
+    // still didn't fire (confirmed by the Audit tour, run 40212806839: pixel-identical to the
+    // original defect). The one remaining difference from Calendar's working pattern is that
+    // `GradeOverrideMenu` is a separate `View` type merely instantiated inside a `ToolbarItem`,
+    // not inline content the way Calendar's check is; threading the value down as an ordinary
+    // property sidesteps whatever makes a child view's own `@Environment` read inside a
+    // `ToolbarItem` not track a live AX5 value on this iOS version.
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var segment: CourseDetailSegment = .overview
     @State private var grades = CourseGradesModel()
     /// Built by the What-If button's action, never in a view initialiser (perf-app-runtime.md §3 item 6).
@@ -98,7 +108,7 @@ struct CourseDetailView: View {
         .toolbar {
             // Plan 08 XG-04 (G-3): the course's "grades kept outside Canvas" answer.
             ToolbarItem(placement: .topBarTrailing) {
-                GradeOverrideMenu(courseID: detail.id)
+                GradeOverrideMenu(courseID: detail.id, typeSize: typeSize)
             }
             // Sample data has no real Canvas to open (ASC-14).
             if !model.isSampleData, let url = detail.canvasURL {
@@ -442,13 +452,25 @@ private struct CourseGoalSection: View {
 /// the widget's glance.
 struct GradeOverrideMenu: View {
     let courseID: CanvasID<Course>
+    /// UX2-10 round 3: a plain parameter, read by `CourseDetailView`'s own `@Environment` and
+    /// passed down, not this struct's own `@Environment(\.dynamicTypeSize)`. See the doc comment
+    /// on `CourseDetailView.typeSize`.
+    let typeSize: DynamicTypeSize
     @Environment(HomeModel.self) private var model
-    @Environment(\.dynamicTypeSize) private var typeSize
     /// UX1-19: at AX5 the nested menu (a 4-line title, then "Automatic"/"Yes"/"No") cut its own
     /// options on the smallest iPhone — "Yes" half cut, "No" never shown; a system menu never
-    /// scrolls. A `confirmationDialog`, which does scroll, replaces it at the accessibility sizes
-    /// only; below them the menu is unchanged.
-    @State private var isChoiceDialogPresented = false
+    /// scrolls. UX2-10 round 1 nested an `if typeSize.isAccessibilitySize` branch INSIDE this
+    /// Menu's own content closure (first a `confirmationDialog`, then a `TallyOptionsSheet`) —
+    /// confirmed by the Audit tour (run 40188312337) to never fire: `typeSize` read inside a
+    /// `Menu`'s content closure did not track AX5 the way the rest of the view tree does (the
+    /// before and after captures of `302-course1-gradesOutsideCanvas.png` were pixel-identical),
+    /// so the flattened `Section` below kept rendering and cutting "Tracked in Canvas" at AX5,
+    /// exactly as before. Round 2 moved the check up a level, the same shape
+    /// `CalendarScreen.swift`'s own options button already uses, which confirmed AX5 correctly --
+    /// but round 2 STILL used this struct's own `@Environment(\.dynamicTypeSize)`, and it still
+    /// didn't fire (run 40212806839, same pixel-identical result). Round 3 (this one) stops
+    /// reading the environment inside this child view at all.
+    @State private var isChoiceSheetPresented = false
 
     private var choice: Binding<GradeOverrideChoice> {
         Binding(
@@ -457,13 +479,34 @@ struct GradeOverrideMenu: View {
     }
 
     var body: some View {
-        Menu {
-            if typeSize.isAccessibilitySize {
-                Button(String(localized: L10n.GradeOverride.menuRowTitle())) {
-                    isChoiceDialogPresented = true
+        if typeSize.isAccessibilitySize {
+            Button {
+                isChoiceSheetPresented = true
+            } label: {
+                Label {
+                    Text(L10n.GradeOverride.menu())
+                } icon: {
+                    Image(systemName: "ellipsis.circle")
                 }
-                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas")
-            } else {
+            }
+            .accessibilityIdentifier("courseDetail.menu")
+            .sheet(isPresented: $isChoiceSheetPresented) {
+                TallyOptionsSheet(
+                    title: String(localized: L10n.GradeOverride.menuRowTitle()),
+                    options: GradeOverrideChoice.allCases.map { option in
+                        TallyOptionsSheet.Option(
+                            id: option.rawValue, title: String(localized: option.title),
+                            isSelected: option == choice.wrappedValue,
+                            accessibilityIdentifier: "courseDetail.gradesOutsideCanvas.\(option.rawValue)") {
+                            choice.wrappedValue = option
+                        }
+                    },
+                    cancelTitle: String(localized: L10n.Settings.cancel()),
+                    cancelAccessibilityIdentifier: "courseDetail.gradesOutsideCanvas.cancel",
+                    dismiss: { isChoiceSheetPresented = false })
+            }
+        } else {
+            Menu {
                 // UX1-22: a `Picker` nested inside this Menu rendered as its own one-item submenu
                 // ("Grades kept outside Canvas" › Automatic/Yes/No) -- two taps for the only
                 // action this toolbar button holds. Flattened: the three choices are the menu's
@@ -490,22 +533,14 @@ struct GradeOverrideMenu: View {
                         .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
                     }
                 }
-            }
-        } label: {
-            Label {
-                Text(L10n.GradeOverride.menu())
-            } icon: {
-                Image(systemName: "ellipsis.circle")
-            }
-        }
-        .accessibilityIdentifier("courseDetail.menu")
-        .confirmationDialog(Text(L10n.GradeOverride.menuRowTitle()), isPresented: $isChoiceDialogPresented, titleVisibility: .visible) {
-            ForEach(GradeOverrideChoice.allCases) { option in
-                Button(String(localized: option.title)) {
-                    choice.wrappedValue = option
+            } label: {
+                Label {
+                    Text(L10n.GradeOverride.menu())
+                } icon: {
+                    Image(systemName: "ellipsis.circle")
                 }
-                .accessibilityIdentifier("courseDetail.gradesOutsideCanvas.\(option.rawValue)")
             }
+            .accessibilityIdentifier("courseDetail.menu")
         }
     }
 }

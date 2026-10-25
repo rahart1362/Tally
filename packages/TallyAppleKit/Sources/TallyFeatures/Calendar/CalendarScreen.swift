@@ -24,6 +24,11 @@ struct CalendarScreen: View {
     @State private var selectedDay: Date?
     @State private var draft: CalendarEventDraft?
     @State private var showsSampleFeedNote = false
+    /// UX2-10: at AX5 this toolbar `Menu` itself cut its one row ("Subscribe to Canvas Calendar…")
+    /// the same way Course Options' confirmation dialog cut its third choice -- iOS 26 draws a Menu
+    /// as the same fixed-width anchored popover. Presents `TallyOptionsSheet` at AX1 and up, in
+    /// place of the Menu, from the toolbar item below.
+    @State private var isOptionsSheetPresented = false
 
     var body: some View {
         let calendar = model.calendarScreen
@@ -145,38 +150,66 @@ struct CalendarScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Menu {
-                    if calendar.subscribeURL != nil {
-                        Button {
-                            subscribe(calendar.subscribeURL)
-                        } label: {
-                            // UX1-39: at `xxxLarge` (a standard size, so on the default path) the
-                            // icon + label truncated "Subscribe to Canvas Cal…" on the smallest
-                            // iPhone, in light and dark; dropping the icon from `xxxLarge` up
-                            // frees about 40 pt for the text itself.
-                            if typeSize.isAccessibilitySize || typeSize == .xxxLarge {
-                                Text(L10n.Calendar.subscribeMenuItem())
-                            } else {
-                                Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
+                // UX2-10: at AX1 and up iOS 26 draws this Menu as the same fixed-width anchored
+                // popover that cut Course Options' choices, cutting the Subscribe row's own label
+                // ("Subscribe to Canvas Calendar…") instead. The timeline Picker never reaches here
+                // at those sizes (`offersTimeline`), so a plain Button opening `TallyOptionsSheet`
+                // replaces the Menu outright; below AX1 the Menu is unchanged.
+                if typeSize.isAccessibilitySize {
+                    Button {
+                        isOptionsSheetPresented = true
+                    } label: {
+                        Label(String(localized: L10n.Calendar.optionsMenuLabel()), systemImage: "ellipsis.circle")
+                    }
+                    .accessibilityIdentifier("calendar.options")
+                } else {
+                    Menu {
+                        if calendar.subscribeURL != nil {
+                            Button {
+                                subscribe(calendar.subscribeURL)
+                            } label: {
+                                // UX1-39: at `xxxLarge` (a standard size, so on the default path) the
+                                // icon + label truncated "Subscribe to Canvas Cal…" on the smallest
+                                // iPhone, in light and dark; dropping the icon from `xxxLarge` up
+                                // frees about 40 pt for the text itself.
+                                if typeSize == .xxxLarge {
+                                    Text(L10n.Calendar.subscribeMenuItem())
+                                } else {
+                                    Label(String(localized: L10n.Calendar.subscribeMenuItem()), systemImage: "calendar.badge.plus")
+                                }
+                            }
+                            // L10N-04: a stable id (the Audit tour looked this menu row up by its
+                            // English label, which Spanish changes).
+                            .accessibilityIdentifier("calendar.subscribeMenuItem")
+                        }
+                        // ux-ui.md §3.7.4: the timeline only below the accessibility sizes.
+                        if Self.offersTimeline(at: typeSize) {
+                            Picker(String(localized: L10n.Calendar.viewPickerLabel()), selection: $mode) {
+                                ForEach(Mode.allCases) { mode in
+                                    Text(mode.title).tag(mode)
+                                }
                             }
                         }
-                        // L10N-04: a stable id (the Audit tour looked this menu row up by its
-                        // English label, which Spanish changes).
-                        .accessibilityIdentifier("calendar.subscribeMenuItem")
+                    } label: {
+                        Label(String(localized: L10n.Calendar.optionsMenuLabel()), systemImage: "ellipsis.circle")
                     }
-                    // ux-ui.md §3.7.4: the timeline only below the accessibility sizes.
-                    if Self.offersTimeline(at: typeSize) {
-                        Picker(String(localized: L10n.Calendar.viewPickerLabel()), selection: $mode) {
-                            ForEach(Mode.allCases) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                    }
-                } label: {
-                    Label(String(localized: L10n.Calendar.optionsMenuLabel()), systemImage: "ellipsis.circle")
+                    .accessibilityIdentifier("calendar.options")
                 }
-                .accessibilityIdentifier("calendar.options")
             }
+        }
+        .sheet(isPresented: $isOptionsSheetPresented) {
+            TallyOptionsSheet(
+                title: String(localized: L10n.Calendar.optionsMenuLabel()),
+                options: calendar.subscribeURL != nil ? [
+                    TallyOptionsSheet.Option(
+                        id: "subscribe", title: String(localized: L10n.Calendar.subscribeMenuItem()),
+                        accessibilityIdentifier: "calendar.subscribeMenuItem") {
+                        subscribe(calendar.subscribeURL)
+                    },
+                ] : [],
+                cancelTitle: String(localized: L10n.Settings.cancel()),
+                cancelAccessibilityIdentifier: "calendar.optionsCancel",
+                dismiss: { isOptionsSheetPresented = false })
         }
         .sheet(item: $draft) { draft in
             AddToCalendarView(draft: draft) { self.draft = nil }
