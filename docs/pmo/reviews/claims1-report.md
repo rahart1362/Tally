@@ -90,8 +90,10 @@ linking is sample-only).
 
 | Run | ID | Result |
 | --- | --- | --- |
-| Store screenshots (dispatch, `release/claims-1`) | 40189381108 | SUCCESS — all 4 capture legs + postprocess green |
-| REL.store.screenshots | (from the above run's postprocess job) | PASS — "32/32 images" |
+| Store screenshots (dispatch 1, `release/claims-1`) | 40189381108 | SUCCESS — all 4 capture legs + postprocess green |
+| REL.store.screenshots (run 1) | (same run) | PASS — "32/32 images" |
+| Store screenshots (dispatch 2, PMO-approved, commit `9217717`) | 40197278870 | SUCCESS — all 4 capture legs + postprocess green |
+| REL.store.screenshots (run 2) | (same run) | PASS — "32/32 images" |
 
 Local (this session, before any CI dispatch): `check_release.py --self-test` (51 checks),
 `check_policy_matches_app.py --self-test` and `.` (8/8, PASS), `check_privacy_manifest.py
@@ -107,30 +109,60 @@ expected to be affected, run anyway per rule 4). Full detail in
 
 ## New scene 8 and evidence
 
-- Final images: `08-quiet-hours-{light,dark}-{en,es}.png`, all 1320×2868, no alpha.
-- Owner contact sheets: `owner-sheet-{en,es}-{1,2}.jpg`.
+- Final images (run 2, current): `08-quiet-hours-{light,dark}-{en,es}.png`, all 1320×2868, no
+  alpha. Run 1's images and crops are also kept, prefixed where needed to avoid collisions; run
+  2's are prefixed `run2-`.
+- Owner contact sheets: `owner-sheet-{en,es}-{1,2}.jpg` (run 1) and `run2-owner-sheet-{en,es}-
+  {1,2}.jpg` (run 2).
 - All copied to `/home/rahart1362/Documents/Tally-worktrees/pmo-audit/.build-audit/claims1/`
-  (never committed — public repo). Also there: `screenshots-manifest.json`,
-  `REL.store.screenshots.json`, and 200%-crop PNGs of each variant's top edge
-  (`crop-top-08-quiet-hours-*.png`).
+  (never committed — public repo). Also there: both runs' `*-screenshots-manifest.json` and
+  `*-REL.store.screenshots.json`, and 200%-crop PNGs of each variant's top edge
+  (`crop-top-*08-quiet-hours-*.png`) and bottom edge (`crop-bottom*08-quiet-hours-*.png`).
 
-**200% review of all 4 variants:** light-en, dark-en and light-es are clean — the Settings sheet
-scrolls to a resting position with the Quiet Hours Start/End pickers and their header/footer
-fully visible, no overlap or clipping, a clean divider line at the very top under the nav bar.
+### Run 1 (dispatch 1, 40189381108): top-edge review
 
-**Open item: `08-quiet-hours-dark-es` has a minor top-edge clip.** A sliver of the row above
-Quiet Hours (the main "Reminders [Desactivado]" status row) is cut by the nav bar — only the
-bottom ~40% of its glyphs show (see `crop-dark-es-top.png`). The other 3 variants, from the same
-test code, scrolled to a clean position with that row fully hidden above the bar; this is most
-likely `scrollUntilHittable`'s own swipe-by-swipe stopping point landing slightly differently on
-this one leg (not a deterministic layout bug — same Spanish text renders clean in light-es). The
-Quiet Hours Start/End rows themselves — the scene's actual subject — are fully intact and legible
-in this capture. Not fixed blind: this work package's CI budget is ONE `store-screenshots.yml`
-dispatch (already used), and a code change here would reach `main` with no further verification,
-which rule 5 ("Exit code 0 is never evidence") and rule 14 ("never write a verification claim …
-unless you observed it") both weigh against. Flagging for the PMO/owner's visual call — the same
-report-only, human-decides pattern this suite already uses for `recordWhatIsUnderTheTabBar`'s own
-borderline findings.
+light-en, dark-en and light-es were clean — Quiet Hours Start/End fully visible, no overlap or
+clipping, a clean divider line at the top under the nav bar. `dark-es` alone had a sliver of the
+row above Quiet Hours ("Reminders [Off]") half-cut by the bar. Filed as PMO fix item.
+
+### PMO fix (commit `9217717`) and run 2 (dispatch 2, 40197278870, PMO-approved)
+
+Added `anchorJustBelowTheNavigationBar`: scrolls `settings.reminders.quietHours.start` to a
+precise, measured position (its own top edge at the Settings sheet's navigation bar's own bottom
+edge + 4pt), via the same precision held-drag technique `nudgeTheCutLineIntoAGap` already uses
+for the bottom tab-bar edge, instead of `scrollUntilHittable`'s "first hittable point." The bar
+is resolved by identifier (`app.navigationBars.containing(.button, identifier:
+"settings.done")`), not `.firstMatch`, since a tab root's own bar can still `exist` from
+underneath the sheet.
+
+**Result, checked at 200% on all 4 variants, top AND bottom, against the store rule (a cut falls
+between rows, never through one):**
+
+| Variant | Top edge | Bottom edge |
+| --- | --- | --- |
+| light-en | Clean. "Quiet Hours Start  11:00 PM" is the first row, full label + value, no residue from the Reminders section above. | **Not clean.** "Privacy & Security" (the next section heading) is cut mid-glyph — only the top half of its letters show (`crop-bottom150-run2-...light-en.png`). |
+| dark-en | Same as light-en: clean top, same "Privacy & Security" mid-glyph cut at bottom. | Same. |
+| light-es | **New problem, not the original one.** The "Inicio del horario sin interrupciones" label is entirely gone — only the "11:00 p.m." value pill shows, flush under the bar, no label text at all (`crop-top-run2-...light-es.png`). The Spanish label is long enough that the DatePicker's own identified element (the control) sits lower, within a taller row, than its English counterpart; anchoring the control's own top edge under the bar pushes the row's actual top (and its label) out of view above the bar. | **Not clean.** "tus calendarios." (end of a body paragraph) is cut mid-glyph (`crop-bottom150-run2-...light-es.png`). |
+| dark-es | Same new top problem as light-es (label gone, bare value pill). | Same bottom cut as light-es. |
+
+**Net assessment: this fix traded one problem for two, and did not meet the store rule.** The
+original top-edge issue (a half-cut row, 1 of 4 variants) is gone, but en now shows a label with
+no value-row residue at top yet a mid-glyph cut at bottom (2 of 4 variants newly affected at the
+bottom), and es now shows a value with no label at top (2 of 4 variants, a different defect than
+before) plus the same bottom cut. All 4 variants fail the bottom-edge rule. The bottom-edge issue
+was not checked in run 1 and may well have been present there too — Settings has no bottom
+hard-edge/chrome treatment the way tab-root screens do (no `TallyScreenChrome` cut line to nudge
+against), so nothing in this suite currently protects a plain scrolling Form's bottom edge the
+way `nudgeTheCutLineIntoAGap` protects the tab bar's.
+
+**Not fixing further blind.** The PMO approved exactly one more dispatch for the top-edge fix;
+it is spent. Solving both edges at once needs a different mechanism — most likely a
+`nudgeTheCutLineIntoAGap`-style helper adapted to Settings' own bottom (the screen's own bottom
+edge in place of the tab bar, no fixed "cut line" to anchor the drag against the way a tab bar's
+`frame.minY` gives one), plus re-deciding the top anchor so it targets the row's full frame, not
+the control sub-element's — both unverified without a further dispatch. Flagging for the PMO: how
+to proceed (another approved dispatch, accept the current clean-top/dirty-bottom EN result and
+treat Quiet Hours as EN-only for this scene, or choose Remind Me instead).
 
 ## Strings PENDING owner approval
 
@@ -140,6 +172,11 @@ rule "use the owner's exact approved wording, and no other new public sentences.
 
 ## Open items
 
-1. `08-quiet-hours-dark-es`'s top-edge clip (above) — PMO/owner visual call.
+1. **Scene 8's edges still don't meet the store rule after the PMO-approved fix** (above): EN is
+   clean at the top but cuts "Privacy & Security" mid-glyph at the bottom; ES now shows an
+   unlabeled time value at the top (a different defect than the original) and also cuts text
+   mid-glyph at the bottom. Needs PMO direction — another approved dispatch (and what to try), or
+   a different acceptance decision — before this scene is store-ready. This work package's CI
+   budget (one dispatch, plus the one PMO-approved follow-up) is spent.
 2. **Do not merge before EB-20b** (`compliance/eb-20b`) — the Sign Out & Erase wording now
    promises behavior that ships with that PR.
