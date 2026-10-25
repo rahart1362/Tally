@@ -1,6 +1,6 @@
 name: Store screenshots
 # MVP-3 (app-store-compliance.md R14, ASC-12; ux-ui.md UX-WP-23): the App Store screenshot
-# pipeline. `StoreScreenshotUITests` (apps/TallyiOS/TallyUITests) captures 8 scenes on the Pro Max
+# pipeline. `StoreScreenshotUITests` (apps/TallyiOS/TallyUITests) captures 7 scenes on the Pro Max
 # simulator, at rest, in Sample Data / the flagship persona, one leg per appearance x language
 # (Light/Dark x en/es, the same `AUDIT_LANGUAGE` mechanism `AuditTourUITests` uses). The
 # `postprocess` job then runs `scripts/release/screenshots.py` to flatten every capture to RGB,

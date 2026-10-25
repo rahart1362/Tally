@@ -62,13 +62,11 @@ FLOWS = ("canvas-api", "school-search", "school-list-download", "summary-sharing
 # dossier.md §12 (2026-10-12). Each entry excuses exactly one flow's OVERCLAIM (the policy calls
 # it active; the app does not wire it) until counsel's rewrite stops claiming it. Never excuses
 # the opposite direction (an undisclosed flow the app actually wires).
+#
+# CLAIMS-1 (2026-10-25, Privacy C1): "Finding your school" now says the search stays on-device,
+# so the policy no longer claims school-search or school-list-download are active (P1's allowlist
+# entries are gone, not just excused -- both flows now match what the policy says).
 ALLOWLIST = {
-    # P1: "Finding your school" (site/privacy/index.html, the paragraph after "Your Canvas
-    # information") describes both the Instructure search and the tally-app.dev list download as
-    # if live. Neither is wired on `main` (dossier F5: search exists in code but is never
-    # instantiated; the enablement list is empty).
-    "school-search": "dossier.md §12 P1, 2026-10-12",
-    "school-list-download": "dossier.md §12 P1, 2026-10-12",
     # P2: "Parents and linked accounts" describes a weekly/monthly summary a student can share.
     # No such feature exists in the app at all (no code; engineering-backlog.md BL-14).
     "summary-sharing": "dossier.md §12 P2, 2026-10-12",
@@ -265,10 +263,12 @@ def self_test() -> int:
     errors, _ = check(policy_html, sign_in_services, app_environment, shipping_text)
     assert errors == [], f"the repository's own inputs must pass with the real allowlist, got {errors}"
 
-    # With no allowlist at all, today's three known dossier mismatches must still be caught —
-    # proof the allowlist (not a bug in the comparison) is what keeps the real check green.
+    # With no allowlist at all, today's one known dossier mismatch (summary-sharing) must still be
+    # caught — proof the allowlist (not a bug in the comparison) is what keeps the real check
+    # green. CLAIMS-1 (2026-10-25): school-search and school-list-download are no longer claimed
+    # active, so they are no longer mismatches at all, bare or not.
     bare_errors, _ = check(policy_html, sign_in_services, app_environment, shipping_text, allowlist={})
-    expected_bare = {"school-search", "school-list-download", "summary-sharing"}
+    expected_bare = {"summary-sharing"}
     found_bare = {error.split(":", 1)[0] for error in bare_errors}
     assert found_bare == expected_bare, f"expected {expected_bare} without an allowlist, got {found_bare}"
 
@@ -283,7 +283,9 @@ def self_test() -> int:
               + (f": {mutated_errors[0]}" if mutated_errors else ""))
 
     # --- Overclaims the app does not wire, undoing each allowlist entry one at a time --------
-    for flow in ("school-search", "school-list-download", "summary-sharing"):
+    # Iterates ALLOWLIST itself (not a hardcoded tuple): CLAIMS-1 shrank it to just
+    # summary-sharing, and this loop must only exercise flows the allowlist still excuses.
+    for flow in ALLOWLIST:
         errs, _ = check(policy_html, sign_in_services, app_environment, shipping_text,
                         allowlist={k: v for k, v in ALLOWLIST.items() if k != flow})
         case(f"{flow} overclaim, un-allow-listed", errs, should_fail=True)
@@ -309,8 +311,10 @@ def self_test() -> int:
     errs, _ = check(search_live_claims, sign_in_services, assigned_search_app_env, shipping_text)
     case("school-search assigned after construction and left inactive (undisclosed)", errs, should_fail=True)
     # Sanity: the same code change, with the claim correctly flipped to active too, must pass.
-    both_active = policy_html  # already "active" for school-search
-    errs, _ = check(both_active, sign_in_services, wired_search_app_env, shipping_text)
+    # CLAIMS-1: the real policy now claims school-search inactive, so this builds the "claimed
+    # active" variant explicitly instead of relying on the real file already saying so.
+    claimed_active_search = policy_html.replace("school-search: inactive", "school-search: active")
+    errs, _ = check(claimed_active_search, sign_in_services, wired_search_app_env, shipping_text)
     case("school-search wired AND claimed active (consistent)", errs, should_fail=False)
 
     # --- canvas-api stops being wired while still claimed active (new, unlisted overclaim) ---
@@ -347,7 +351,7 @@ def self_test() -> int:
     except InputError:
         print("POLICY self-test | caught | an unknown flow name in POLICY-FLOWS")
 
-    total = 3 + 2 + 1 + 1 + 1 + 2  # +1: the canvas-api mutation guard (SEC-FIX-3)
+    total = len(ALLOWLIST) + 2 + 1 + 1 + 1 + 2  # +1: the canvas-api mutation guard (SEC-FIX-3)
     print(f"POLICY self-test | {'PASS' if failures == 0 else 'FAIL'} | {total - failures} of {total}")
     return 0 if failures == 0 else 1
 
