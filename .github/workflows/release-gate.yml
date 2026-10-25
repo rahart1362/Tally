@@ -49,11 +49,15 @@ env:
   # MVP-3 (MVP-4 gate-2 review, S4-6): ReviewPathUITests/testReviewPathShowsEveryScreenWithNoSignInAndNoNetwork
   # (apps/TallyiOS/TallyUITests/ReviewPathUITests.swift, class name checked against the file) uses
   # `TestHooks.trapAllNetwork`, a DEBUG-only hook, so it runs here, not in RELEASE_FLOWS.
+  # REL-M5: SignInSignOutUITests (flow 01, the demoSignIn hook) added whole, so its one method runs
+  # here (flow_checks.FLOWS is the source of truth for which test proves which flow; -only-testing
+  # just has to include the class or method).
   DEBUG_FLOWS: >-
     -only-testing:TallyUITests/SlowRefreshUITests -only-testing:TallyUITests/LaunchFromCacheUITests
     -only-testing:TallyUITests/RemindersUITests -only-testing:TallyUITests/PaywallUITests
     -only-testing:TallyUITests/SettingsSignedInUITests/testAccountRowsThenSignOutAndErase
     -only-testing:TallyUITests/ReviewPathUITests/testReviewPathShowsEveryScreenWithNoSignInAndNoNetwork
+    -only-testing:TallyUITests/SignInSignOutUITests
 
 jobs:
   static-linux:
@@ -490,7 +494,7 @@ jobs:
           retention-days: 30
 
   ios-release-config:
-    name: UITest configuration (ASC-10/RELCFG-1; the 8 release-config flows, Release optimizations + TALLY_TEST_HOOKS)
+    name: UITest configuration (ASC-10/RELCFG-1; the 10 release-config flows, Release optimizations + TALLY_TEST_HOOKS)
     # A separate job, not an extra step inside ios-gate: ios-gate already runs 95-109 min against a
     # 170 min cap (PMO 2026-10-21), and this reruns the same DEBUG_FLOWS suites a second time, in a
     # second configuration, so it runs in parallel on its own runner instead of risking ios-gate's
@@ -548,7 +552,7 @@ jobs:
             "xcodebuild build-for-testing -configuration UITest, iOS Simulator: $(grep -oE 'BUILD (SUCCEEDED|FAILED)' "$RUNNER_TEMP/build-uitest.log" | tail -1)" \
             --title "The UITest configuration builds (Release optimizations, TALLY_TEST_HOOKS; ASC-10)" \
             --json "$RUNNER_TEMP/compliance/build-uitest.json" || [ $? -eq 1 ]
-      - name: The 8 release-config flows against the UITest configuration
+      - name: The 10 release-config flows against the UITest configuration
         # DEBUG_FLOWS (workflow env, above): the same suites ios-gate's own "Critical flows that
         # need a DEBUG-only hook" step runs against Debug -- here against UITest instead, so each
         # REL.flow.*.release-config check (below) reflects a real run, not a hardcoded PENDING.
