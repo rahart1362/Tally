@@ -9,7 +9,9 @@ import TallyDomain
 /// "Accessing the event store"; ux-ui.md §3.2 stage 6). The student chooses whether to add it.
 struct AddToCalendarView: UIViewControllerRepresentable {
     let draft: CalendarEventDraft
-    let onFinish: () -> Void
+    /// Called once the editor closes: `true` when the student tapped Add, `false` when they
+    /// cancelled (the Week-ahead walk asks whether to skip or stop on `false`).
+    let onFinish: (_ added: Bool) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onFinish: onFinish)
@@ -42,9 +44,9 @@ struct AddToCalendarView: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, EKEventEditViewDelegate {
-        private let onFinish: () -> Void
+        private let onFinish: (_ added: Bool) -> Void
 
-        init(onFinish: @escaping () -> Void) {
+        init(onFinish: @escaping (_ added: Bool) -> Void) {
             self.onFinish = onFinish
         }
 
@@ -57,7 +59,7 @@ struct AddToCalendarView: UIViewControllerRepresentable {
             _ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction
         ) {
             MainActor.assumeIsolated {
-                onFinish()
+                onFinish(action == .saved)
             }
         }
     }

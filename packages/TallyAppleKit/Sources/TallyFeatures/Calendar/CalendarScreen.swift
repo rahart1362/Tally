@@ -212,7 +212,7 @@ struct CalendarScreen: View {
                 dismiss: { isOptionsSheetPresented = false })
         }
         .sheet(item: $draft) { draft in
-            AddToCalendarView(draft: draft) { self.draft = nil }
+            AddToCalendarView(draft: draft) { _ in self.draft = nil }
                 .ignoresSafeArea()
         }
         .alert(String(localized: L10n.Calendar.subscribeAlertTitle()), isPresented: $showsSampleFeedNote) {

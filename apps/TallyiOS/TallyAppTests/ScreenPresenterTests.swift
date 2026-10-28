@@ -72,6 +72,72 @@ struct ScreenPresenterTests {
         #expect(unsafe.url == nil, "a Canvas-supplied link on another host must never reach the calendar event")
     }
 
+    /// Three drafts an hour apart, for the walk tests below.
+    private static func walkDrafts() -> [CalendarEventDraft] {
+        ["Essay", "Lab Report", "Quiz"].enumerated().map { index, title in
+            let due = ScreenFixtures.anchor.addingTimeInterval(TimeInterval(index * 3600))
+            return CalendarEventDraft(title: title, start: due.addingTimeInterval(-900), end: due,
+                                      isAllDay: false, location: nil, url: nil)
+        }
+    }
+
+    @Test("Idea 10: Add opens the next draft, and the last Add ends the walk without a question")
+    func weekAddWalkAddsThroughTheWeek() {
+        let drafts = Self.walkDrafts()
+        var walk = WeekAddWalk(drafts: drafts)
+        #expect(walk.showing == drafts[0])
+        walk.finish(added: true)
+        #expect(walk.showing == drafts[1])
+        walk.finish(added: true)
+        walk.finish(added: true)
+        walk.sheetDismissed()
+        #expect(walk.showing == nil)
+        #expect(!walk.asksToSkipOrStop)
+    }
+
+    @Test("Idea 10 (owner, 2026-10-27): Cancel with more to go asks to skip or stop once the sheet has closed, and never reopens a sheet by itself")
+    func weekAddWalkCancelAsksToSkipOrStop() {
+        let drafts = Self.walkDrafts()
+        var walk = WeekAddWalk(drafts: drafts)
+        walk.finish(added: false)
+        #expect(walk.showing == nil, "Cancel used to open the next draft at once")
+        #expect(!walk.asksToSkipOrStop, "the question waits until the sheet has finished closing")
+        walk.sheetDismissed()
+        #expect(walk.asksToSkipOrStop)
+        #expect(walk.remaining.count == 2, "the alert's message counts what is still to add")
+
+        var skipped = walk
+        skipped.skipAndContinue()
+        #expect(skipped.showing == drafts[1])
+        #expect(!skipped.asksToSkipOrStop)
+
+        var stopped = walk
+        stopped.stop()
+        #expect(stopped.showing == nil)
+        #expect(stopped.remaining.isEmpty)
+        #expect(!stopped.asksToSkipOrStop)
+        stopped.sheetDismissed()
+        #expect(!stopped.asksToSkipOrStop)
+    }
+
+    @Test("Idea 10: Cancel on the last draft ends the walk without a question, and a second close report changes nothing")
+    func weekAddWalkCancelOnTheLastDraftEnds() {
+        let drafts = Self.walkDrafts()
+        var walk = WeekAddWalk(drafts: drafts)
+        walk.finish(added: true)
+        walk.finish(added: true)
+        walk.finish(added: false)
+        walk.finish(added: false)
+        walk.sheetDismissed()
+        #expect(walk.showing == nil)
+        #expect(!walk.asksToSkipOrStop)
+
+        var empty = WeekAddWalk(drafts: [])
+        empty.finish(added: false)
+        #expect(empty.showing == nil)
+        #expect(!empty.asksToSkipOrStop)
+    }
+
     @Test("Idea 11 (\"Send my week\"): never a grade value, and \"Hide Course Names\" hides both the title and the course code")
     func weekShareTextContentRules() async throws {
         let (snapshot, _) = try await ScreenFixtures.projections("flagship")

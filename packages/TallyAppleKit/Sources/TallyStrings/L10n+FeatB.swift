@@ -13,6 +13,33 @@ extension L10n.Dashboard {
                                 comment: "Dashboard, Week-ahead strip: button that walks the week's due items through the existing per-item \"Add to Calendar\" sheet, one at a time.")
     }
 
+    /// Idea 10's question when the student cancels one item's sheet with more still to go (owner,
+    /// 2026-10-27): skip that one and open the next, or stop. "Event", not "deadline": the week's
+    /// items include class meetings and calendar events, and each one is a "New Event" sheet.
+    public static func addWeekSkipTitle() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.skipAlert.title", defaultValue: "Skip This Event?", bundle: #bundle,
+                                comment: "Dashboard, \"Add This Week to Calendar\": alert title shown after the student cancels one item's \"New Event\" sheet while more of the week's items are still to add. The items can be assignments, quizzes, classes or events; each one becomes a calendar event.")
+    }
+
+    /// The question's message. A plural key: the count is how many of the week's items are still to add.
+    public static func addWeekSkipMessage(_ remaining: Int) -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.skipAlert.message",
+                                defaultValue: "This event won't be added to Calendar. You have \(remaining) more to add this week.", bundle: #bundle,
+                                comment: "Dashboard, \"Add This Week to Calendar\": message of the skip-or-stop alert. The cancelled item is not added; the placeholder is how many of the week's items are still to add. A plural key.")
+    }
+
+    /// The question's continue button: leaves the cancelled item out and opens the next one.
+    public static func addWeekSkipButton() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.skipAlert.skip", defaultValue: "Skip and Continue", bundle: #bundle,
+                                comment: "Dashboard, \"Add This Week to Calendar\" skip-or-stop alert: button that leaves the cancelled item out and opens the next item's \"New Event\" sheet.")
+    }
+
+    /// The question's stop button: ends the walk; what was already added stays in Calendar.
+    public static func addWeekStopButton() -> LocalizedStringResource {
+        LocalizedStringResource("dashboard.weekAhead.skipAlert.stop", defaultValue: "Stop Adding", bundle: #bundle,
+                                comment: "Dashboard, \"Add This Week to Calendar\" skip-or-stop alert: button that stops adding the week's items. Events already added stay in Calendar.")
+    }
+
     /// The Week-ahead strip's `ShareLink` (Idea 11): shares the plain-text weekly summary
     /// `WeekShareText` builds.
     public static func shareWeekButton() -> LocalizedStringResource {
