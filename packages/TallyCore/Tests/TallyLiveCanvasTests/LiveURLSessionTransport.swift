@@ -61,12 +61,48 @@ public final class LiveURLSessionTransport: HTTPTransport, @unchecked Sendable {
             let urlRequest = Self.urlRequest(for: request, forceScheme: forceScheme, forcePort: forcePort)
             let (data, response) = try await send(urlRequest)
             guard let http = response as? HTTPURLResponse else { throw TransportError.other }
-            return HTTPResponse(status: http.statusCode, headers: Self.headers(from: http), body: data)
+            var headers = Self.headers(from: http)
+            // Item 5 (LIVE-3) companion fix: `CanvasClient.fetchAllPages` now THROWS on a `next`
+            // link `PageURLPolicy` rejects (not https, a foreign host, or embedded credentials)
+            // instead of silently truncating -- correct against production Canvas (always TLS,
+            // F2/live1-report.md), but this dev stack's own `Link` header comes back `http://`
+            // (same deviation F2/F3 already cover on the request side: Rails emits whatever
+            // scheme/port it was actually reached on, and this harness reaches it over plain
+            // HTTP). Left alone, every paginated endpoint here would now throw `.unknown` on its
+            // second page -- reproduced once, confirmed read-only: `GET
+            // /api/v1/planner/items?per_page=100` for the seeded student returns a `rel="next"`
+            // link whose scheme is http even at that page size. Rewriting it back to https (and
+            // dropping the forced port, restoring the bare host `CanvasClient`'s own
+            // `allowedHosts` expects) here mirrors what production Canvas's own Link header
+            // would actually look like, the same disclosed-deviation shape as `forceScheme`/
+            // `forcePort` above -- never a change to `PageURLPolicy` or `CanvasClient` itself.
+            if let link = headers["Link"] { headers["Link"] = Self.rewriteLinkHeaderToHTTPS(link) }
+            return HTTPResponse(status: http.statusCode, headers: headers, body: data)
         } catch let error as TransportError {
             throw error
         } catch {
             throw Self.classify(error)
         }
+    }
+
+    /// Rewrites every `<url>` segment of a `Link` header to https, with no port -- the shape
+    /// `PageURLPolicy.validate` requires and the one a real, TLS-only Canvas would actually send.
+    static func rewriteLinkHeaderToHTTPS(_ header: String) -> String {
+        var result = "", rest = Substring(header)
+        while let open = rest.firstIndex(of: "<"), let close = rest[open...].firstIndex(of: ">") {
+            result += rest[rest.startIndex..<open]
+            let raw = String(rest[rest.index(after: open)..<close])
+            if var components = URLComponents(string: raw) {
+                components.scheme = "https"
+                components.port = nil
+                result += "<\(components.string ?? raw)>"
+            } else {
+                result += "<\(raw)>"
+            }
+            rest = rest[rest.index(after: close)...]
+        }
+        result += rest
+        return result
     }
 
     private func send(_ urlRequest: URLRequest) async throws -> (Data, URLResponse) {
@@ -90,7 +126,10 @@ public final class LiveURLSessionTransport: HTTPTransport, @unchecked Sendable {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
-        for name in ["Accept", "User-Agent", "Content-Type", "Authorization"] {
+        // Item 3 (LIVE-FIX-2/LIVE-3): `If-None-Match`, the same addition the shipping
+        // `URLSessionTransport`'s own `knownRequestHeaderNames` needed -- missing here first
+        // produced a real, reproducible symptom: a second live refresh never got a single 304.
+        for name in ["Accept", "User-Agent", "Content-Type", "Authorization", "If-None-Match"] {
             if let value = request.headers[name] { urlRequest.setValue(value, forHTTPHeaderField: name) }
         }
         return urlRequest

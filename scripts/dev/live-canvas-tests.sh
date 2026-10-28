@@ -15,6 +15,13 @@
 #   --refresh-tokens  mint fresh student/observer tokens first (~/canvas-e2e/tools/e2e_oauth.py),
 #                      since a public-client Canvas access token lives 120 minutes
 #                      (RUNBOOK.md finding 2) and a long edit/CI gap can outlive one.
+#
+# Item 3 (LIVE-FIX-2/LIVE-3): the conditional-GET cache (`TALLY_LIVE_ETAG_CACHE_FILE`) lives at
+# $REPO_ROOT/.build-live-etag-cache/cache.json -- a real file on the host (the whole worktree is
+# bind-mounted read-write below), so running this script twice in a row shows real 304s on the
+# second run. Plain JSON, never sealed (test-only scratch; the shipping store is sealed,
+# `TallyStore`'s `SealedETagStore`). Git-ignored like every other `.build-*/` scratch directory
+# (rule 1); delete it to start the cache fresh.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -22,6 +29,7 @@ CANVAS_E2E_DIR="${CANVAS_E2E_DIR:-$HOME/canvas-e2e}"
 CANVAS_BASE_URL="${TALLY_LIVE_CANVAS_URL:-http://127.0.0.1:8790}"
 STUDENT_TOKEN_FILE="$CANVAS_E2E_DIR/secrets/student-token"
 OBSERVER_TOKEN_FILE="$CANVAS_E2E_DIR/secrets/observer-token"
+ETAG_CACHE_DIR="$REPO_ROOT/.build-live-etag-cache"
 CONTAINER="${CONTAINER:-podman}"
 
 # Single source of truth for the pinned image: read it out of the Makefile instead of
@@ -41,7 +49,10 @@ if ! curl -fsS -m 5 "$CANVAS_BASE_URL/health_check" > /dev/null; then
 fi
 test -r "$STUDENT_TOKEN_FILE" || { echo "error: no student token at $STUDENT_TOKEN_FILE" >&2; exit 1; }
 
-ENV_ARGS=(-e "TALLY_LIVE_CANVAS_URL=$CANVAS_BASE_URL" -e "TALLY_LIVE_TOKEN_FILE=/canvas-e2e-secrets/student-token")
+mkdir -p "$ETAG_CACHE_DIR"
+
+ENV_ARGS=(-e "TALLY_LIVE_CANVAS_URL=$CANVAS_BASE_URL" -e "TALLY_LIVE_TOKEN_FILE=/canvas-e2e-secrets/student-token"
+          -e "TALLY_LIVE_ETAG_CACHE_FILE=/repo/.build-live-etag-cache/cache.json")
 MOUNT_ARGS=(-v "$STUDENT_TOKEN_FILE:/canvas-e2e-secrets/student-token:ro,Z")
 if [[ -r "$OBSERVER_TOKEN_FILE" ]]; then
     ENV_ARGS+=(-e "TALLY_LIVE_OBSERVER_TOKEN_FILE=/canvas-e2e-secrets/observer-token")

@@ -111,11 +111,23 @@ struct TokenCoordinatorTests {
         #expect(store.credential != nil && !needsReauth)
     }
 
-    @Test func refreshedTokenRejectedAgainMeansReauthNotALoop() async throws {
+    /// LIVE-FIX-2 (EB-26, live2-security's "school-disabled: binding OFF, key still active"
+    /// finding): before this fix, a token the coordinator itself had just refreshed being
+    /// rejected again inside `refreshLoopGuard` dropped the tokens and reported
+    /// `.reauthRequired` -- indistinguishable from a real sign-in problem, and (via
+    /// `SignInHandoffViewModel`) the auth loop EB-26 found: a fresh, legitimately-issued token
+    /// being rejected again is the one shape a school switching the account binding off while
+    /// the developer key stays active actually produces, so it is now `.schoolDisabled`
+    /// instead, with the tokens and the saved data kept (`needsReauth` stays false) and still
+    /// without a second refresh attempt (`refresher.callCount` stays 1).
+    @Test func refreshedTokenRejectedAgainMeansSchoolDisabledNotALoop() async throws {
+        let store = InMemoryCredentialStore(credential(expiresIn: 3000))
         let refresher = FakeRefresher()
-        let coordinator = TokenCoordinator(initial: credential(expiresIn: 3000), store: InMemoryCredentialStore(), refresher: refresher, clock: clock)
+        let coordinator = TokenCoordinator(initial: credential(expiresIn: 3000), store: store, refresher: refresher, clock: clock)
         #expect(try await coordinator.tokenAfterRejection(of: "a1") == "a2")
-        await #expect(throws: AuthError.reauthRequired) { try await coordinator.tokenAfterRejection(of: "a2") }
-        #expect(refresher.callCount == 1)
+        await #expect(throws: AuthError.schoolDisabled) { try await coordinator.tokenAfterRejection(of: "a2") }
+        #expect(refresher.callCount == 1, "without looping refreshes: still at most one refresh for this rejection")
+        #expect(store.credential != nil, "the school's switch is not the student's sign-in: the tokens stay")
+        #expect(await coordinator.needsReauth == false)
     }
 }

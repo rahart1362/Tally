@@ -4,6 +4,10 @@ import TallyDomain
 /// What a Canvas response means for the client (architecture §3.3, security §3.2).
 public enum ResponseClass: Sendable, Equatable {
     case success
+    /// Item 3: 304 to a conditional `If-None-Match` request -- the cached body is still current.
+    /// Only ever produced when `CanvasClient` sent `If-None-Match` itself (it is the only
+    /// caller that can), so this is never seen unless a cache entry already exists to reuse.
+    case notModified
     /// 401 with `WWW-Authenticate`: invalid, expired or revoked token. Refresh once, retry once.
     case tokenRejected
     /// 401 without `WWW-Authenticate`: the key lacks a scope. Never refresh.
@@ -24,6 +28,7 @@ public enum ResponseClassifier {
     public static func classify(_ response: HTTPResponse) -> ResponseClass {
         switch response.status {
         case 200..<300: return .success
+        case 304: return .notModified
         case 401: return response.headers["WWW-Authenticate"] == nil ? .insufficientScope : .tokenRejected
         case 429: return .rateLimited
         case 403: return isRateLimitBody(response.body) ? .rateLimited : .forbidden
@@ -37,6 +42,10 @@ public enum ResponseClassifier {
     public static func refreshFailure(for responseClass: ResponseClass) -> RefreshFailure? {
         switch responseClass {
         case .success: nil
+        // CanvasClient's own `fetchPage` resolves this into a synthesized success from the
+        // cached body before any caller ever sees `.notModified` as a failure; this branch only
+        // keeps the switch exhaustive for `ResponseClassifierTests`' direct calls.
+        case .notModified: nil
         case .tokenRejected: .authExpired
         case .rateLimited: .rateLimited
         case .serverError: .server

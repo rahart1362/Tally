@@ -35,7 +35,10 @@ enum LiveCanvasHarness {
                                           refreshToken: "", accessTokenExpiresAt: Date().addingTimeInterval(60 * 60))
         let store = InMemoryCredentialStore(credential)
         let coordinator = TokenCoordinator(initial: credential, store: store, refresher: Unrefreshable(), clock: SystemDateProvider())
-        let client = CanvasClient(host: config.host, transport: meter, tokens: coordinator)
+        // Item 3 (LIVE-FIX-2/LIVE-3): only when the brief's own live check asks for it
+        // (`TALLY_LIVE_ETAG_CACHE_FILE`) -- every other live test is unaffected.
+        let etags = config.etagCacheFile.map { FileETagStore(path: $0) }
+        let client = CanvasClient(host: config.host, transport: meter, tokens: coordinator, etags: etags)
         return Session(client: client, meter: meter, logger: RecordingLogger())
     }
 

@@ -57,8 +57,19 @@ public actor TokenCoordinator {
         guard !needsReauth, let credential = current else { throw .reauthRequired }
         if credential.accessToken != rejected { return credential.accessToken } // already refreshed by someone else
         if let last = lastRefreshAt, clock.now().timeIntervalSince(last) < Self.refreshLoopGuard.timeInterval {
-            await dropTokens()
-            throw .reauthRequired
+            // LIVE-FIX-2 (EB-26, live2-security's "school-disabled: binding OFF, key still
+            // active" finding): a token this fresh being rejected again is never an ordinary
+            // sign-in problem -- a refresh that recently succeeded proves Canvas still considers
+            // this client known and the student's own sign-in valid. The one case the live
+            // server actually produces this in is the school switching the account binding off
+            // while the developer key stays active: the refresh grant keeps succeeding (binding
+            // is never consulted there, `base_type.rb`'s `has_valid_key?`), but the account no
+            // longer accepts the resulting token. Reporting `.schoolDisabled` here (not
+            // `.reauthRequired`) keeps the tokens and the saved data, the same as the
+            // `isClientRejected` branch in `refreshed()` below, and -- critically -- does not
+            // refresh again: this guard already stops at one refresh per `refreshLoopGuard`
+            // window, so the "without looping refreshes" requirement holds for free.
+            throw .schoolDisabled
         }
         return try await refreshed().accessToken
     }

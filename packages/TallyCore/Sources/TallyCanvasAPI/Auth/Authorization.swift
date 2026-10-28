@@ -61,7 +61,14 @@ public struct AuthorizationRequest: Sendable, Equatable, Codable {
 }
 
 public enum OAuthCallbackError: Error, Sendable, Equatable {
-    case wrongRedirect, stateMismatch, expired, accessDenied, missingCode, providerError
+    /// LIVE-FIX-2 (EB-26, live2-security's "new authorize attempt" finding): the account's
+    /// binding to Tally's developer key is off (`authorized_for_account?` false,
+    /// `oauth2_provider_controller.rb`'s `auth` action), the same condition
+    /// `TokenCoordinator`/`CanvasClient` report as `RefreshFailure.schoolDisabled` for an
+    /// already-refreshing account. Distinct from `providerError` so a caller can show the same
+    /// school-revoked notice instead of a generic sign-in failure, and so a retry never re-sends
+    /// the student through the same dead authorize/consent round trip.
+    case wrongRedirect, stateMismatch, expired, accessDenied, missingCode, schoolDisabled, providerError
 }
 
 public enum OAuthCallback {
@@ -78,7 +85,18 @@ public enum OAuthCallback {
         func value(_ name: String) -> String? { items.first { $0.name == name }?.value }
         guard let state = value("state"), Self.constantTimeEquals(state, request.state) else { throw .stateMismatch }
         guard now.timeIntervalSince(request.createdAt) < ttl.timeInterval else { throw .expired }
-        if let error = value("error") { throw error == "access_denied" ? .accessDenied : .providerError }
+        if let error = value("error") {
+            switch error {
+            case "access_denied": throw .accessDenied
+            // LIVE-FIX-2: `unauthorized_client` here is Canvas's own authorize-redirect error for
+            // an account whose binding to this developer key is off (live2-security, confirmed
+            // against a real Canvas: `error_description=Client does not have access to the
+            // specified Canvas account.`) -- never the student declining consent or a foreign
+            // client, so it gets its own case rather than folding into `providerError`.
+            case "unauthorized_client": throw .schoolDisabled
+            default: throw .providerError
+            }
+        }
         guard let code = value("code"), !code.isEmpty else { throw .missingCode }
         return code
     }
