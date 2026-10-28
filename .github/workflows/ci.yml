@@ -299,6 +299,19 @@ jobs:
         id: generate
         working-directory: apps/TallyiOS
         run: xcodegen generate --spec project.yml
+      - name: XcodeGen changed no tracked file under apps/TallyiOS
+        # XcodeGen writes every `entitlements`/`info` file project.yml names. Given only a `path`,
+        # it wrote an empty dict over both .entitlements files, so every iOS build here ran with no
+        # entitlements while the release gate's REL.entitlements checks, which read the committed
+        # files before any generate, still passed. A generate must leave the checkout exactly as
+        # committed: the files the source checks read are then the ones every build signs with.
+        run: |
+          if [ -n "$(git status --porcelain -- apps/TallyiOS)" ]; then
+            git status --porcelain -- apps/TallyiOS
+            git diff -- apps/TallyiOS
+            echo "::error::xcodegen generate changed the files above. List entitlements and Info.plist keys under project.yml's \`properties:\` and commit the file XcodeGen writes from them."
+            exit 1
+          fi
       - name: Build for iOS Simulator (Debug)
         # scope=only: the build-for-testing below builds the app as its test host anyway.
         if: ${{ inputs.scope != 'only' }}
