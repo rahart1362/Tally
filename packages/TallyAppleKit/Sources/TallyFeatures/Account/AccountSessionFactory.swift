@@ -45,7 +45,7 @@ public nonisolated enum AccountSessionFactory {
         }
         let record = RefreshStateStore.startingRecord(persisted: await persisted,
                                                       committedDataFetchedAt: initialSnapshot?.fetchedAt)
-        let gateway = await gateway(for: account, environment: environment)
+        let gateway = await gateway(for: account, root: root, environment: environment)
         // M3-A (Settings; M2-C2 OI5): the account's own settings, read here with the snapshot, off
         // the main actor: the widget grade opt-in every commit's glance is built with, the "What
         // changed" thresholds every commit's digest uses, and the student's "grades kept outside
@@ -95,8 +95,13 @@ public nonisolated enum AccountSessionFactory {
     /// The live gateway: `CanvasClient` over the injected transport, with a `TokenCoordinator`
     /// that refreshes through the institution's token endpoint and saves every rotated credential
     /// to the Keychain before using it (ADR 0001 step 4).
+    ///
+    /// Item 3 (LIVE-FIX-2/LIVE-3): `root` is the one `coordinator(for:...)` already resolved
+    /// (`environment.storeRoot()`, SEC1-09's private root), passed straight through rather than
+    /// re-read here, so the conditional-GET cache lives in the exact same account directory as
+    /// `RefreshStateStore` -- sealed, private-store-only, never the shared App Group container.
     @concurrent
-    static func gateway(for account: AccountRecord, environment: AccountEnvironment) async -> any CanvasGateway {
+    static func gateway(for account: AccountRecord, root: URL, environment: AccountEnvironment) async -> any CanvasGateway {
         if let override = environment.gatewayOverride { return await override(account) }
         let credential = await environment.credentialStore.load()
         let refresher = CanvasTokenRefresher(endpoint: TokenEndpoint(host: account.host, clientID: account.clientID),
@@ -108,7 +113,9 @@ public nonisolated enum AccountSessionFactory {
         // a different host or user: re-auth instead of silently attaching the wrong bearer token.
         let tokens = TokenCoordinator(initial: Self.matchingCredential(credential, for: account),
                                       store: environment.credentialStore, refresher: refresher, clock: environment.clock)
-        let client = CanvasClient(host: account.host, transport: environment.transport, tokens: tokens)
+        let etagStore = ETagCacheStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
+        let client = CanvasClient(host: account.host, transport: environment.transport, tokens: tokens,
+                                  etags: SealedETagStore(etagStore))
         return LiveCanvasGateway(host: account.host, accountKey: account.accountKey, client: client,
                                  logger: environment.logger)
     }

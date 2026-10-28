@@ -36,6 +36,13 @@ enum LiveCanvasEnvironment {
         let port: Int?
         let studentToken: String
         let observerToken: String?
+        /// Item 3 (LIVE-FIX-2/LIVE-3): a file this harness may read and write a plain-JSON
+        /// `[String: ETagCacheEntry]` cache to (`TALLY_LIVE_ETAG_CACHE_FILE`), so running this
+        /// script twice in a row shows real 304s on the second run -- never sealed, never under
+        /// `StoreLocation.privateRoot()` (this is test-only scratch, not the shipping app's own
+        /// store; `SealedETagStore`'s own round-trip is covered by `TallyStoreTests` instead).
+        /// `nil` (unset) disables it entirely, same as every other opt-in piece of this target.
+        let etagCacheFile: String?
     }
 
     /// Read once per process; environment variables don't change mid-run.
@@ -49,7 +56,9 @@ enum LiveCanvasEnvironment {
         else { return nil }
         guard let studentToken = readToken(at: tokenPath) else { return nil }
         let observerToken = env["TALLY_LIVE_OBSERVER_TOKEN_FILE"].flatMap(readToken(at:))
-        return Config(scheme: url.scheme ?? "https", host: host, port: url.port, studentToken: studentToken, observerToken: observerToken)
+        let etagCacheFile = env["TALLY_LIVE_ETAG_CACHE_FILE"].flatMap { $0.isEmpty ? nil : $0 }
+        return Config(scheme: url.scheme ?? "https", host: host, port: url.port, studentToken: studentToken,
+                     observerToken: observerToken, etagCacheFile: etagCacheFile)
     }
 
     private static func readToken(at path: String) -> String? {

@@ -14,6 +14,10 @@ public enum StoreFile: UInt8, Sendable, CaseIterable {
     case snapshot = 0x01, glance = 0x02, userState = 0x03, ledger = 0x04
     /// O5 (PERF-L): the account's `RefreshRecord` (`RefreshStateStore`). App audience, rederivable.
     case refreshState = 0x05
+    /// Item 3 (LIVE-FIX-2/LIVE-3): `If-None-Match` cache entries (`ETagCacheStore`). App
+    /// audience and rederivable, same as `refreshState` -- a lost or discarded cache just means
+    /// the next refresh re-fetches in full instead of getting a 304.
+    case etagCache = 0x06
 
     /// `glance` is the only file whose key the widget extension may hold (encryption.md §3.4).
     public var audience: KeyAudience { self == .glance ? .widget : .app }

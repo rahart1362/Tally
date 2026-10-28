@@ -24,7 +24,11 @@ public enum TallyConfig {
     // Canvas API
     public static let perPage = 100 // UNVERIFIED maximum
     public static let maxPagesPerResource = 50
-    public static let maxConcurrentRequests = 3
+    /// LIVE-3 (`docs/pmo/reviews/live1-report.md`): 3 -> 6 cut a large account's wall time by
+    /// about 10% against a live Canvas, with no new rate-limit or throttling symptom at that
+    /// concurrency (`RequestScheduler` already drops to 1 in-flight request itself whenever
+    /// Canvas reports a low `X-Rate-Limit-Remaining`, independently of this ceiling).
+    public static let maxConcurrentRequests = 6
     public static let lowQuotaThreshold = 100.0 // UNVERIFIED; X-Rate-Limit-Remaining units
     public static let backoffBase: Duration = .seconds(1)
     public static let contextCodesPerRequest = 10

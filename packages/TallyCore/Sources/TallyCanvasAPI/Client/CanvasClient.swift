@@ -36,6 +36,10 @@ public actor CanvasClient {
     private let sleep: @Sendable (Duration) async throws -> Void
     /// R-1: "now" for an HTTP-date `Retry-After` on a response without a `Date` header.
     private let wallClock: any DateProviding
+    /// Item 3 (LIVE-FIX-2/LIVE-3): `nil` (the default) is exactly today's client -- no
+    /// `If-None-Match`, no 304 handling, no behaviour change for a caller that does not pass
+    /// one.
+    private let etags: (any ETagStore)?
 
     /// - Parameters:
     ///   - allowedHosts: hosts a bearer token may be attached to (this account's own host
@@ -43,10 +47,13 @@ public actor CanvasClient {
     ///   - clock: measures each request's budget and runs its backoff waits (R-1). Tests pass a
     ///     virtual clock (`TallyTestSupport.VirtualClock`).
     ///   - wallClock: reads an HTTP-date `Retry-After` when the response has no `Date` header.
+    ///   - etags: item 3's conditional-request cache (`If-None-Match` per endpoint and request,
+    ///     reusing the cached body on a 304). `nil` (the default) disables it entirely.
     public init<C: Clock>(host: String, allowedHosts: Set<String>? = nil, transport: any HTTPTransport, tokens: TokenCoordinator,
                           scheduler: RequestScheduler = RequestScheduler(), backoff: BackoffPolicy = BackoffPolicy(),
                           rng: any RandomNumberGenerator = SystemRandomNumberGenerator(),
-                          clock: C = ContinuousClock(), wallClock: any DateProviding = SystemDateProvider())
+                          clock: C = ContinuousClock(), wallClock: any DateProviding = SystemDateProvider(),
+                          etags: (any ETagStore)? = nil)
         where C.Duration == Duration {
         self.host = host
         self.allowedHosts = allowedHosts ?? [host]
@@ -59,6 +66,7 @@ public actor CanvasClient {
         elapsed = { origin.duration(to: clock.now) }
         sleep = { try await clock.sleep(for: $0) }
         self.wallClock = wallClock
+        self.etags = etags
     }
 
     private static var baseHeaders: HTTPHeaders { HTTPHeaders(["Accept": acceptHeader, "User-Agent": userAgent]) }
@@ -91,16 +99,66 @@ public actor CanvasClient {
     /// pages have been fetched. Returns every page's raw body, in order.
     public func fetchAllPages(path: String, query: [(String, String)] = [],
                               budget: Duration = TallyConfig.liveRefreshBudget) async throws(RefreshFailure) -> [Data] {
-        var bodies: [Data] = []
-        var request = HTTPRequest(url: try url(path: path, query: query), headers: Self.baseHeaders)
-        var pageCount = 0
-        while true {
-            let response = try await fetchPage(request, budget: budget)
+        let request = HTTPRequest(url: try url(path: path, query: query), headers: Self.baseHeaders)
+        let first = try await fetchPage(request, budget: budget)
+        return try await continuePaginating(firstPageBody: first.body, from: first, budget: budget)
+    }
+
+    /// Item 2 (LIVE-FIX-2, live2-security's "enrollment_or_course" finding): like `fetchAllPages`,
+    /// except a 403 or 404 on the very FIRST page -- a deleted or forbidden course's own
+    /// resource -- is reported back as `.failure` instead of thrown, so a per-course caller
+    /// (`CanvasGateway.fetchAssignmentGroups`) can skip just that course and keep the rest of a
+    /// required section instead of failing the whole refresh. Any other failure (offline, 5xx,
+    /// rate-limited, insufficient scope, a malformed/oversized body, or a 403/404 on a LATER
+    /// page once pagination is already under way) still throws exactly as `fetchAllPages` does.
+    public func fetchAllPagesOrSkip(path: String, query: [(String, String)] = [],
+                                    budget: Duration = TallyConfig.liveRefreshBudget)
+        async throws(RefreshFailure) -> Result<[Data], CourseFetchSkipReason> {
+        let request = HTTPRequest(url: try url(path: path, query: query), headers: Self.baseHeaders)
+        let first = try await fetchPage(request, budget: budget, throwOnClientError: false)
+        switch first.status {
+        case 403: return .failure(.forbidden)
+        case 404: return .failure(.notFound)
+        default: break
+        }
+        guard case .success = ResponseClassifier.classify(first) else {
+            // `throwOnClientError: false` also tolerates `.insufficientScope`/`.unexpected`
+            // without throwing (so this call can inspect the status itself); neither is a
+            // per-course "resource unavailable" shape this caller should skip, so reclassify
+            // and fail exactly as `fetchAllPages` would have.
+            throw ResponseClassifier.refreshFailure(for: ResponseClassifier.classify(first)) ?? .unknown
+        }
+        return .success(try await continuePaginating(firstPageBody: first.body, from: first, budget: budget))
+    }
+
+    /// Follows `Link rel=next` from `first`'s own headers, starting from its already-fetched
+    /// body, until the link is absent or `TallyConfig.maxPagesPerResource` pages have been
+    /// fetched.
+    ///
+    /// Item 5 (LIVE-3, `docs/pmo/reviews/live1-report.md`): a `next` link `PageURLPolicy` rejects
+    /// (not https, a foreign host, or embedded credentials) used to `try?`-swallow the rejection
+    /// and silently stop, exactly as if pagination had ended naturally -- so a page Canvas really
+    /// did have more of was dropped with no error and no trace (reproduced live: Riley's
+    /// announcements, 61 of 67, because the dev Link header's scheme is http). Production Canvas
+    /// is always https (F2, live1-report.md), so a real rejection there is not an ordinary
+    /// end-of-data case but a malformed or suspicious `Link` header; this now throws `.unknown`
+    /// instead (the same non-retryable bucket `insufficientScope`/`forbidden`/`notFound` already
+    /// use) rather than returning a silently truncated result. For an OPTIONAL section this is
+    /// caught by `CanvasGateway.optionalSection` exactly like any other fetch failure, which
+    /// already carries the previous value forward flagged `carriedForward` -- so the snapshot is
+    /// correctly marked incomplete instead of silently truncated. For a REQUIRED section this
+    /// fails the whole refresh, the same as any other required-section failure (offline, a 5xx,
+    /// a rate limit) already does.
+    private func continuePaginating(firstPageBody: Data, from first: HTTPResponse,
+                                    budget: Duration) async throws(RefreshFailure) -> [Data] {
+        var bodies = [firstPageBody]
+        var response = first
+        var pageCount = 1
+        while pageCount < TallyConfig.maxPagesPerResource, let next = LinkHeader.nextURL(in: response) {
+            do { try PageURLPolicy.validate(next, allowedHosts: allowedHosts) } catch { throw .unknown }
+            response = try await fetchPage(HTTPRequest(url: next, headers: Self.baseHeaders), budget: budget)
             bodies.append(response.body)
             pageCount += 1
-            guard pageCount < TallyConfig.maxPagesPerResource, let next = LinkHeader.nextURL(in: response) else { break }
-            guard (try? PageURLPolicy.validate(next, allowedHosts: allowedHosts)) != nil else { break }
-            request = HTTPRequest(url: next, headers: Self.baseHeaders)
         }
         return bodies
     }
@@ -139,9 +197,21 @@ public actor CanvasClient {
     /// `fetchAllPages` are unchanged): when `false`, `.insufficientScope`, `.forbidden`,
     /// `.notFound` and `.unexpected` return the raw response instead of throwing `.unknown`
     /// — the caller inspects the status/body itself rather than losing that distinction.
+    ///
+    /// Item 3 (LIVE-FIX-2/LIVE-3): when `etags` is set and this is a GET with a cached entry for
+    /// its exact URL, `If-None-Match` is attached once, up front -- it never changes across this
+    /// call's own retries, only whether the token attached alongside it does. A 304 answers from
+    /// that cached body (as a synthesized 200, so every caller above this method is unaffected);
+    /// a 200 that carries a fresh `ETag` replaces the cache entry.
     private func fetchPage(_ initialRequest: HTTPRequest, budget: Duration,
                            throwOnClientError: Bool = true) async throws(RefreshFailure) -> HTTPResponse {
         var request = initialRequest
+        let cacheKey = request.url.absoluteString
+        var cachedEntry: ETagCacheEntry?
+        if request.method == .get, let etags {
+            cachedEntry = await etags.entry(for: cacheKey)
+            if let cachedEntry { request.headers["If-None-Match"] = cachedEntry.etag }
+        }
         var alreadyRefreshed = false
         var serverErrorAttempts = 0
         var rateLimitRetries = 0
@@ -167,9 +237,24 @@ public actor CanvasClient {
                 // decoding (and whatever a mapper does with the result) even starts. A real
                 // Canvas page is nowhere close (see `TallyConfig.maxResponseBodyBytes`'s doc).
                 guard response.body.count <= TallyConfig.maxResponseBodyBytes else { throw .contract }
+                if request.method == .get, let etags, let etag = response.headers["ETag"] {
+                    await etags.setEntry(ETagCacheEntry(etag: etag, body: response.body), for: cacheKey)
+                }
                 return response
+            case .notModified:
+                // Only ever reached when this call itself sent `If-None-Match` above, which only
+                // happens with a `cachedEntry` already in hand -- `.unknown` here is defensive,
+                // not a real path (a transport that fabricates a 304 unprompted).
+                guard let cachedEntry else { throw .unknown }
+                return HTTPResponse(status: 200, headers: response.headers, body: cachedEntry.body)
             case .tokenRejected:
-                guard !alreadyRefreshed else { throw .authExpired } // already retried once this call
+                // LIVE-FIX-2 (EB-26): a second rejection in THIS call means the token this call
+                // itself just refreshed (`tokenAfterRejection` below) was rejected again right
+                // away -- the same "fresh token rejected" signature `TokenCoordinator`'s own
+                // loop guard reports as `.schoolDisabled` for a rejection that arrives via a
+                // separate call. `alreadyRefreshed` already guarantees at most one refresh per
+                // `fetchPage` call, so this never loops either.
+                guard !alreadyRefreshed else { throw .schoolDisabled }
                 alreadyRefreshed = true
                 do { _ = try await tokens.tokenAfterRejection(of: token) } catch { throw Self.authFailure(error) }
             case .insufficientScope:

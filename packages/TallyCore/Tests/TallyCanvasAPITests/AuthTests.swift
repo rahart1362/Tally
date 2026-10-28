@@ -87,6 +87,10 @@ struct AuthTests {
         ("https://tally-app.dev/oauth/callback?code=x&state=forged", .stateMismatch),
         ("https://tally-app.dev/oauth/callback?code=x", .stateMismatch),
         ("https://tally-app.dev/oauth/callback?error=access_denied&state=S", .accessDenied),
+        // LIVE-FIX-2 (EB-26): the school turned off the account's binding to Tally's developer
+        // key (live2-security's live-confirmed authorize redirect); distinct from a student
+        // declining consent or any other provider error.
+        ("https://tally-app.dev/oauth/callback?error=unauthorized_client&state=S", .schoolDisabled),
         ("https://tally-app.dev/oauth/callback?error=server_error&state=S", .providerError),
         ("https://tally-app.dev/oauth/callback?state=S", .missingCode),
     ])

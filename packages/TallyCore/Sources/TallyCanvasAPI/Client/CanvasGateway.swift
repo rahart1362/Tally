@@ -104,13 +104,23 @@ public actor LiveCanvasGateway: CanvasGateway {
         return try pages.flatMap { page in try mapOrContract(page) { try CourseMapper.map($0, host: host).items } }
     }
 
+    /// Item 2 (LIVE-FIX-2, live2-security's "enrollment_or_course" finding): a deleted or
+    /// forbidden course (a concluded enrollment that was then deleted, or the course itself
+    /// deleted) 403s/404s on its own direct fetch even though the courses *list* had already
+    /// filtered it out by `enrollment_state` -- that course is skipped, logged (a reason only,
+    /// never which course), and the rest of the refresh proceeds; the skipped course simply has
+    /// no entry in the result, same as a course with zero groups.
     private func fetchAssignmentGroups(for courses: [Course]) async throws -> [CanvasID<Course>: [AssignmentGroup]] {
         var groups: [CanvasID<Course>: [AssignmentGroup]] = [:]
         for course in courses {
-            let pages = try await client.fetchAllPages(path: "/api/v1/courses/\(course.id.rawValue)/assignment_groups",
-                                                       query: CanvasQuery.assignmentGroups())
-            groups[course.id] = try pages.flatMap { page in
-                try mapOrContract(page) { try AssignmentGroupMapper.map($0, courseID: course.id).items }
+            switch try await client.fetchAllPagesOrSkip(path: "/api/v1/courses/\(course.id.rawValue)/assignment_groups",
+                                                        query: CanvasQuery.assignmentGroups()) {
+            case .success(let pages):
+                groups[course.id] = try pages.flatMap { page in
+                    try mapOrContract(page) { try AssignmentGroupMapper.map($0, courseID: course.id).items }
+                }
+            case .failure(let reason):
+                logger.log(.courseSkipped(reason))
             }
         }
         return groups
