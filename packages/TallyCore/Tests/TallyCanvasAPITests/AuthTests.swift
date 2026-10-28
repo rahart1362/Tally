@@ -31,14 +31,47 @@ struct AuthTests {
 
     @Test func authorizeURLCarriesExactlyTheExpectedParameters() throws {
         let request = begin(forceLogin: true)
-        let parts = try #require(URLComponents(url: request.url, resolvingAgainstBaseURL: false))
+        let parts = try #require(URLComponents(url: try request.url, resolvingAgainstBaseURL: false))
         #expect(parts.scheme == "https" && parts.host == "canvas.northfield.example" && parts.path == "/login/oauth2/auth")
         let q = Dictionary(uniqueKeysWithValues: (parts.queryItems ?? []).map { ($0.name, $0.value ?? "") })
         #expect(q == ["client_id": "170000000000001", "response_type": "code",
                       "redirect_uri": "https://tally-app.dev/oauth/callback", "state": request.state,
-                      "code_challenge": request.pkce.challenge, "code_challenge_method": "S256", "force_login": "1"])
-        #expect(!request.url.absoluteString.contains("client_secret"))
-        #expect(!begin().url.absoluteString.contains("force_login"))
+                      "code_challenge": request.pkce.challenge, "code_challenge_method": "S256", "force_login": "1",
+                      "scope": AuthorizationRequest.scope])
+        #expect(try !request.url.absoluteString.contains("client_secret"))
+        #expect(try !begin().url.absoluteString.contains("force_login"))
+    }
+
+    /// LIVE-2 finding (`docs/pmo/reviews/live1-report.md`, "Least privilege"): Tally sent no
+    /// `scope` parameter, so a `require_scopes` developer key failed authorize with
+    /// `invalid_scope`. Item 1: the exact 9 scopes, space-separated, derived from one source
+    /// (`CanvasScopes.tally`) so the authorize request and the endpoint catalogue can't drift.
+    @Test func authorizeURLScopeIsExactlyTheNineCanvasScopesSpaceSeparated() throws {
+        let request = begin()
+        let parts = try #require(URLComponents(url: try request.url, resolvingAgainstBaseURL: false))
+        let scope = try #require(parts.queryItems?.first { $0.name == "scope" }?.value)
+        #expect(scope == [
+            "url:GET|/api/v1/users/:user_id/profile",
+            "url:GET|/api/v1/courses",
+            "url:GET|/api/v1/courses/:course_id/assignment_groups",
+            "url:GET|/api/v1/courses/:course_id/grading_periods",
+            "url:GET|/api/v1/planner/items",
+            "url:GET|/api/v1/calendar_events",
+            "url:GET|/api/v1/announcements",
+            "url:GET|/api/v1/users/:id/colors",
+            "url:GET|/api/v1/users/:user_id/observees",
+        ].joined(separator: " "))
+        #expect(scope.split(separator: " ").count == 9)
+    }
+
+    /// LIVE-FIX-1 item 2 (F3's sibling finding, `docs/pmo/reviews/live1-report.md`): a malformed
+    /// `host` (here, a caller folding a port into it, same mistake F3 reproduced against
+    /// `CanvasClient`) must throw `InstitutionHostError.invalid`, never trap `c.url!`.
+    @Test func authorizeURLThrowsOnAMalformedHostInsteadOfTrapping() {
+        var rng = SeededRandom(seed: 1)
+        let request = AuthorizationRequest.begin(host: "127.0.0.1:8790", clientID: "170000000000001",
+                                                 redirectURI: redirect, now: clock.now(), using: &rng)
+        #expect(throws: InstitutionHostError.invalid) { try request.url }
     }
 
     @Test func validCallbackYieldsCode() throws {

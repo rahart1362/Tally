@@ -138,7 +138,7 @@ public final class SignInHandoffViewModel {
                                                  now: clock.now(), using: &rng)
         do {
             let callbackURL = try await presenter.authenticate(
-                url: request.url, callbackHost: redirectURI.host ?? host, callbackPath: redirectURI.path,
+                url: try request.url, callbackHost: redirectURI.host ?? host, callbackPath: redirectURI.path,
                 ephemeral: privateSignIn
             )
             let code = try OAuthCallback.code(from: callbackURL, for: request, now: clock.now())

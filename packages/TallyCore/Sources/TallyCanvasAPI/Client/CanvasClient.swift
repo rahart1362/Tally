@@ -63,19 +63,28 @@ public actor CanvasClient {
 
     private static var baseHeaders: HTTPHeaders { HTTPHeaders(["Accept": acceptHeader, "User-Agent": userAgent]) }
 
-    private func url(path: String, query: [(String, String)]) -> URL {
+    /// F3 (`docs/pmo/reviews/live1-report.md`): `host` is expected to already be a bare,
+    /// normalized hostname, but nothing here enforced that -- a caller that folds a port (or any
+    /// other invalid character) into it made `components.url` return `nil`, and the
+    /// force-unwrap below trapped three calls deep inside every public method, from a caller
+    /// error, not a hostile input. It now throws `.unknown` instead: a non-retryable, client-side
+    /// failure, the same bucket `fetchPage` already uses for `.insufficientScope`/`.forbidden`/
+    /// `.notFound`/`.unexpected` -- never worth a token refresh or a backoff retry.
+    private func url(path: String, query: [(String, String)]) throws(RefreshFailure) -> URL {
         var components = URLComponents()
         components.scheme = "https"
         components.host = host
         components.path = path
         if !query.isEmpty { components.queryItems = query.map { URLQueryItem(name: $0.0, value: $0.1) } }
-        return components.url! // swiftlint:disable:this force_unwrapping — scheme/host/path are always well-formed here
+        guard let url = components.url else { throw .unknown }
+        return url
     }
 
     /// GET one non-paged resource's body.
     public func fetchOne(path: String, query: [(String, String)] = [],
                          budget: Duration = TallyConfig.liveRefreshBudget) async throws(RefreshFailure) -> Data {
-        try await fetchPage(HTTPRequest(url: url(path: path, query: query), headers: Self.baseHeaders), budget: budget).body
+        let request = HTTPRequest(url: try url(path: path, query: query), headers: Self.baseHeaders)
+        return try await fetchPage(request, budget: budget).body
     }
 
     /// GET, following `Link rel=next` until it is absent or `TallyConfig.maxPagesPerResource`
@@ -83,7 +92,7 @@ public actor CanvasClient {
     public func fetchAllPages(path: String, query: [(String, String)] = [],
                               budget: Duration = TallyConfig.liveRefreshBudget) async throws(RefreshFailure) -> [Data] {
         var bodies: [Data] = []
-        var request = HTTPRequest(url: url(path: path, query: query), headers: Self.baseHeaders)
+        var request = HTTPRequest(url: try url(path: path, query: query), headers: Self.baseHeaders)
         var pageCount = 0
         while true {
             let response = try await fetchPage(request, budget: budget)
@@ -108,7 +117,7 @@ public actor CanvasClient {
                         budget: Duration = TallyConfig.liveRefreshBudget) async throws(RefreshFailure) -> HTTPResponse {
         var headers = Self.baseHeaders
         if let contentType { headers["Content-Type"] = contentType }
-        let request = HTTPRequest(method: method, url: url(path: path, query: query), headers: headers, body: body)
+        let request = HTTPRequest(method: method, url: try url(path: path, query: query), headers: headers, body: body)
         return try await fetchPage(request, budget: budget, throwOnClientError: false)
     }
 

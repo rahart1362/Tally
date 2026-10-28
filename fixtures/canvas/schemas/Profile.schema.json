@@ -20,7 +20,8 @@
     },
     "avatar_url": {
       "type": "string",
-      "pattern": "^https://"
+      "pattern": "^https://",
+      "$comment": "LIVE-FIX-1 (docs/pmo/reviews/live1-report.md): optional, not required -- confirmed live, real Canvas omits this key when avatars are off for the account. Tally's own ProfileDTO never reads it."
     },
     "title": {
       "anyOf": [
@@ -112,7 +113,6 @@
     "name",
     "short_name",
     "sortable_name",
-    "avatar_url",
     "title",
     "bio",
     "pronunciation",
