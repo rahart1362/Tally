@@ -9,7 +9,14 @@ import Foundation
 public struct ETagCacheEntry: Codable, Sendable, Equatable {
     public let etag: String
     public let body: Data
-    public init(etag: String, body: Data) { self.etag = etag; self.body = body }
+    /// The original 200's own `Link` header, if it had one -- a `304` never repeats it (confirmed
+    /// live: Canvas's 304 carries only `ETag`), so pagination needs it cached alongside the body
+    /// or a cache hit on a page before the last one would stop there, one page short, exactly the
+    /// silent-truncation shape item 5 just fixed. `nil` for an unpaginated resource.
+    public let linkHeader: String?
+    public init(etag: String, body: Data, linkHeader: String? = nil) {
+        self.etag = etag; self.body = body; self.linkHeader = linkHeader
+    }
 }
 
 /// Where `CanvasClient` reads and writes `ETagCacheEntry` values, one per request URL. The

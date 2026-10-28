@@ -126,7 +126,10 @@ public final class LiveURLSessionTransport: HTTPTransport, @unchecked Sendable {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
-        for name in ["Accept", "User-Agent", "Content-Type", "Authorization"] {
+        // Item 3 (LIVE-FIX-2/LIVE-3): `If-None-Match`, the same addition the shipping
+        // `URLSessionTransport`'s own `knownRequestHeaderNames` needed -- missing here first
+        // produced a real, reproducible symptom: a second live refresh never got a single 304.
+        for name in ["Accept", "User-Agent", "Content-Type", "Authorization", "If-None-Match"] {
             if let value = request.headers[name] { urlRequest.setValue(value, forHTTPHeaderField: name) }
         }
         return urlRequest

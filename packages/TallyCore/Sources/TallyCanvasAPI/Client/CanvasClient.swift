@@ -238,7 +238,8 @@ public actor CanvasClient {
                 // Canvas page is nowhere close (see `TallyConfig.maxResponseBodyBytes`'s doc).
                 guard response.body.count <= TallyConfig.maxResponseBodyBytes else { throw .contract }
                 if request.method == .get, let etags, let etag = response.headers["ETag"] {
-                    await etags.setEntry(ETagCacheEntry(etag: etag, body: response.body), for: cacheKey)
+                    await etags.setEntry(ETagCacheEntry(etag: etag, body: response.body, linkHeader: response.headers["Link"]),
+                                        for: cacheKey)
                 }
                 return response
             case .notModified:
@@ -246,7 +247,11 @@ public actor CanvasClient {
                 // happens with a `cachedEntry` already in hand -- `.unknown` here is defensive,
                 // not a real path (a transport that fabricates a 304 unprompted).
                 guard let cachedEntry else { throw .unknown }
-                return HTTPResponse(status: 200, headers: response.headers, body: cachedEntry.body)
+                // A 304 never repeats `Link` (confirmed live), so pagination's own continuation
+                // check reads the cached entry's, not this response's.
+                var syntheticHeaders = HTTPHeaders()
+                if let link = cachedEntry.linkHeader { syntheticHeaders["Link"] = link }
+                return HTTPResponse(status: 200, headers: syntheticHeaders, body: cachedEntry.body)
             case .tokenRejected:
                 // LIVE-FIX-2 (EB-26): a second rejection in THIS call means the token this call
                 // itself just refreshed (`tokenAfterRejection` below) was rejected again right

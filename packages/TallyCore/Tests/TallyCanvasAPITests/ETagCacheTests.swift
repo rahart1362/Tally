@@ -62,6 +62,39 @@ struct ETagCacheTests {
         #expect(sent.last?.headers["If-None-Match"] == etag, "the second request sent the stored ETag back")
     }
 
+    /// Found live, against a real Canvas (not by inspection): a 304 never repeats the original
+    /// 200's `Link` header (confirmed: `GET .../planner/items` then a conditional repeat of it
+    /// -- the 304 carries only `ETag`). Caching `linkHeader` alongside the body fixes exactly
+    /// this: without it, a cache hit on a page before the last stopped pagination there, one
+    /// page short -- the same silent-truncation shape item 5 fixed, reopened by item 3 alone.
+    @Test("A 304 on a paginated page still finds its own cached Link header, so pagination continues")
+    func a304OnAPaginatedPageStillFollowsItsCachedLink() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let etag = "\"page1\""
+        let page1Body = Data(#"[{"id":"1"}]"#.utf8)
+        let page2Body = Data(#"[{"id":"2"}]"#.utf8)
+        let nextLink = "<https://\(host)/api/v1/courses?page=2>; rel=\"next\""
+        await transport.inject(response: HTTPResponse(status: 200, headers: HTTPHeaders(["ETag": etag, "Link": nextLink]), body: page1Body),
+                               times: 1, matching: { $0.url.path == "/api/v1/courses" })
+        await transport.inject(response: HTTPResponse(status: 200, body: page2Body), times: 1,
+                               matching: { $0.url.absoluteString.contains("page=2") })
+        // The 304 to the SECOND fetch's first page carries no Link at all (the live finding).
+        await transport.inject(response: HTTPResponse(status: 304, headers: HTTPHeaders(["ETag": etag])), times: 1,
+                               matching: { $0.url.path == "/api/v1/courses" })
+        await transport.inject(response: HTTPResponse(status: 200, body: page2Body), times: 1,
+                               matching: { $0.url.absoluteString.contains("page=2") })
+
+        let etags = InMemoryETagStore()
+        let client = self.client(transport, etags: etags)
+        let first = try await client.fetchAllPages(path: "/api/v1/courses", query: CanvasQuery.courses())
+        #expect(first == [page1Body, page2Body])
+        let second = try await client.fetchAllPages(path: "/api/v1/courses", query: CanvasQuery.courses())
+        #expect(second == [page1Body, page2Body], "page 2 must still be fetched after a 304 on page 1")
+
+        let requestCount = await transport.requestCount
+        #expect(requestCount == 4, "2 pages, twice -- the second page-1 request is conditional, not skipped")
+    }
+
     @Test("A write (perform, never GET) neither sends nor stores an ETag")
     func aNonGETRequestIsNeverConditionalOrCached() async throws {
         let transport = try ReplayTransport.scenario("profile/token-invalid-401") // any scenario; only the method matters here
