@@ -7,7 +7,11 @@ public enum CanvasScopes {
     public static let profile = "url:GET|/api/v1/users/:user_id/profile"
     public static let courses = "url:GET|/api/v1/courses"
     public static let assignmentGroups = "url:GET|/api/v1/courses/:course_id/assignment_groups"
-    /// UNVERIFIED string (architecture §3.3): the docs page lists it, but no scoped key was tested.
+    /// VERIFIED live, LIVE-FIX-1 (`docs/pmo/reviews/live1-report.md`): confirmed byte-for-byte
+    /// against the real local Canvas's own `GET /api/v1/accounts/:id/scopes`
+    /// (`TokenScopesHelper.scope_from_route`) -- this string is exactly what that endpoint
+    /// returns for `grading_periods#index`. Replaces the old "the docs page lists it, but no
+    /// scoped key was tested" doubt.
     public static let gradingPeriods = "url:GET|/api/v1/courses/:course_id/grading_periods"
     public static let plannerItems = "url:GET|/api/v1/planner/items"
     public static let calendarEvents = "url:GET|/api/v1/calendar_events"
@@ -18,6 +22,14 @@ public enum CanvasScopes {
     /// which is unauthenticated, and token revocation, which needs no scope).
     public static let all: [String] = [profile, courses, assignmentGroups, gradingPeriods,
                                        plannerItems, calendarEvents, announcements, colors]
+
+    /// LIVE-2 finding (`docs/pmo/reviews/live1-report.md`, "Least privilege"): Tally sent no
+    /// `scope` parameter at authorize, so a `require_scopes` developer key fails every sign-in
+    /// with `invalid_scope`. These are the exact 9 scopes Tally needs -- `all` (the 8 student-data
+    /// endpoints) plus `FamilyScopes.listObservees` (O1, "Linked students": the only family
+    /// endpoint anything shipped reads today) -- the one list `AuthorizationRequest.url`'s `scope`
+    /// parameter derives from, so the authorize request and this catalogue can never drift apart.
+    public static let tally: [String] = all + [FamilyScopes.listObservees]
 }
 
 /// One entry in the endpoint catalogue: which snapshot section an endpoint feeds, which
@@ -75,9 +87,18 @@ public enum CanvasDateWindow {
 /// The exact query for each endpoint (architecture §3.3's request column). Pair order never
 /// matters for a real Canvas request or for `ReplayTransport` (both normalize before matching).
 public enum CanvasQuery {
-    public static func courses() -> [(String, String)] {
+    /// F5 (`docs/pmo/reviews/live1-report.md`): on real Canvas, the observer's own `/courses`
+    /// response holds only the observer's own `type: observer` enrollment row -- `course.scores`
+    /// decodes `nil` for every course -- unless the request also carries
+    /// `include[]=observed_users`, which makes Canvas add the observee's `student` row (with
+    /// `computed_current_score`) too. `includeObservedUsers` is `false` by default, so every
+    /// existing student-path call (`LiveCanvasGateway.fetchCourses()`) is unchanged; an
+    /// observer-facing caller passes `true` instead of hand-appending the include item itself,
+    /// so there is one place this query can drift from what Canvas actually needs.
+    public static func courses(includeObservedUsers: Bool = false) -> [(String, String)] {
         [("enrollment_state", "active"), ("include[]", "current_grading_period_scores"),
          ("include[]", "teachers"), ("include[]", "term"), ("include[]", "total_scores"), ("per_page", "100")]
+            + (includeObservedUsers ? [("include[]", "observed_users")] : [])
     }
 
     public static func assignmentGroups() -> [(String, String)] {

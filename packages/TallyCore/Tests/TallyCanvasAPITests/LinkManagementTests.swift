@@ -185,22 +185,22 @@ struct LinkManagementTests {
 
     // MARK: - Authorization: canvas_login + force_login on the parent path
 
-    @Test func parentAuthorizeURLAlwaysCarriesBothFlags() {
+    @Test func parentAuthorizeURLAlwaysCarriesBothFlags() throws {
         var rng = SeededRandom(seed: 7)
         let request = AuthorizationRequest.begin(host: host, clientID: "client-1",
                                                  redirectURI: URL(string: "https://tally-app.dev/oauth/callback")!,
                                                  now: TestClock().now(), forceLogin: true, canvasLogin: true, using: &rng)
-        let query = URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let query = URLComponents(url: try request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let values = Dictionary(uniqueKeysWithValues: query.map { ($0.name, $0.value ?? "") })
         #expect(values["canvas_login"] == "1")
         #expect(values["force_login"] == "1")
     }
 
-    @Test func studentAuthorizeURLNeverCarriesCanvasLogin() {
+    @Test func studentAuthorizeURLNeverCarriesCanvasLogin() throws {
         var rng = SeededRandom(seed: 7)
         let request = AuthorizationRequest.begin(host: host, clientID: "client-1",
                                                  redirectURI: URL(string: "https://tally-app.dev/oauth/callback")!,
                                                  now: TestClock().now(), using: &rng)
-        #expect(!request.url.absoluteString.contains("canvas_login"))
+        #expect(try !request.url.absoluteString.contains("canvas_login"))
     }
 }

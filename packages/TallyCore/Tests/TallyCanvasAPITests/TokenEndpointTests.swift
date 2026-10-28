@@ -18,8 +18,8 @@ struct TokenEndpointTests {
         })
     }
 
-    @Test func codeExchangeSendsVerifierAndNoSecret() {
-        let request = endpoint.request(for: .authorizationCode(code: "c0de", verifier: "v/er+ifier", redirectURI: redirect))
+    @Test func codeExchangeSendsVerifierAndNoSecret() throws {
+        let request = try endpoint.request(for: .authorizationCode(code: "c0de", verifier: "v/er+ifier", redirectURI: redirect))
         #expect(request.method == .post && request.url.absoluteString == "https://canvas.northfield.example/login/oauth2/token")
         #expect(request.headers["content-type"] == "application/x-www-form-urlencoded")
         #expect(form(request) == ["client_id": "170000000000001", "grant_type": "authorization_code", "code": "c0de",
@@ -28,8 +28,8 @@ struct TokenEndpointTests {
         #expect(!raw.contains("client_secret") && !raw.contains("replace_tokens") && raw.contains("v%2Fer%2Bifier"))
     }
 
-    @Test func refreshSendsOnlyRefreshToken() {
-        #expect(form(endpoint.request(for: .refresh(refreshToken: "r1"))) ==
+    @Test func refreshSendsOnlyRefreshToken() throws {
+        #expect(try form(endpoint.request(for: .refresh(refreshToken: "r1"))) ==
                 ["client_id": "170000000000001", "grant_type": "refresh_token", "refresh_token": "r1"])
     }
 
@@ -110,12 +110,23 @@ struct TokenEndpointTests {
         #expect(missing.accessToken == "a")
     }
 
-    @Test func revokeUsesBearerAndCredentialNeverPrintsTokens() {
+    @Test func revokeUsesBearerAndCredentialNeverPrintsTokens() throws {
         let c = CanvasCredential(host: endpoint.host, userID: "42", accessToken: "SECRET-A", refreshToken: "SECRET-R", accessTokenExpiresAt: clock.now())
-        let revoke = endpoint.revokeRequest(for: c)
+        let revoke = try endpoint.revokeRequest(for: c)
         #expect(revoke.method == .delete && revoke.headers["authorization"] == "Bearer SECRET-A")
         for text in [String(describing: c), String(reflecting: c), "\(c)"] {
             #expect(!text.contains("SECRET"))
         }
+    }
+
+    /// LIVE-FIX-1 (F3's sibling finding): a host `URL(string:)` can't place in an authority
+    /// throws instead of trapping, for both the token and the revoke request.
+    @Test func requestAndRevokeThrowOnAMalformedHostInsteadOfTrapping() {
+        let malformed = TokenEndpoint(host: "bad host", clientID: "170000000000001")
+        #expect(throws: InstitutionHostError.invalid) {
+            try malformed.request(for: .refresh(refreshToken: "r1"))
+        }
+        let c = CanvasCredential(host: "bad host", userID: "42", accessToken: "a", refreshToken: "r", accessTokenExpiresAt: clock.now())
+        #expect(throws: InstitutionHostError.invalid) { try malformed.revokeRequest(for: c) }
     }
 }

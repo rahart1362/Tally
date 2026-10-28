@@ -18,12 +18,11 @@ import TallyDomain
 /// `CourseMapper` (which already handles a `student` row correctly, per that fixture test)
 /// has nothing to pick and `course.scores` is `nil` for every course. Adding
 /// `include[]=observed_users` (confirmed read-only, below) makes Canvas include the observee's
-/// `student` row (with `computed_current_score`) too. `CanvasQuery.courses()`
-/// (`Sources/TallyCanvasAPI/Client/CanvasEndpoints.swift:78-81`) has no observer variant that
-/// adds it -- proposed fix: a `CanvasQuery.observerCourses()` (or a parameter) that appends
-/// `("include[]", "observed_users")` for the observer's own `/courses` call. Not fixed here
-/// (tests only); this test adds the one include item itself, matching what a correct observer
-/// fetch needs, so assertion 4 still exercises a real Canvas response end to end.
+/// `student` row (with `computed_current_score`) too. **LIVE-FIX-1**: `CanvasQuery.courses()`
+/// (`Sources/TallyCanvasAPI/Client/CanvasEndpoints.swift:78-81`) now takes an
+/// `includeObservedUsers` parameter that appends `("include[]", "observed_users")` for exactly
+/// this call, so this test now exercises the real product query -- not a copy of it -- end to
+/// end against a real Canvas response.
 ///
 /// Gated on `TALLY_LIVE_OBSERVER_TOKEN_FILE` alone (on top of the suite-wide
 /// `TALLY_LIVE_CANVAS_URL`/`TALLY_LIVE_TOKEN_FILE`): skipped, not failed, when it is unset, per
@@ -45,9 +44,9 @@ struct LiveObserverPathTests {
         #expect(alex.name == "Alex Sample", "unexpected observee name: \(alex.name)")
 
         // The observer's own `/courses` call, real `CanvasClient` + real `CourseMapper`. F5's
-        // one extra include item (`CanvasQuery.courses()` alone is not enough for an observer --
-        // see this file's doc comment) is added here, in test code, not in product code.
-        let observerCourseQuery = CanvasQuery.courses() + [("include[]", "observed_users")]
+        // extra include item (`CanvasQuery.courses()` alone is not enough for an observer --
+        // see this file's doc comment) is now the product query itself.
+        let observerCourseQuery = CanvasQuery.courses(includeObservedUsers: true)
         let coursePages = try await session.client.fetchAllPages(path: "/api/v1/courses", query: observerCourseQuery)
         let courses = try coursePages.flatMap { try CourseMapper.map($0, host: config.host).items }
         #expect(!courses.isEmpty, "the observer's own /courses call returned no observed courses")

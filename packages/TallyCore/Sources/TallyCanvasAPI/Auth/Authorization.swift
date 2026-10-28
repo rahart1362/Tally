@@ -26,20 +26,37 @@ public struct AuthorizationRequest: Sendable, Equatable, Codable {
                              pkce: .make(using: &rng), createdAt: now, forceLogin: forceLogin, canvasLogin: canvasLogin)
     }
 
+    /// LIVE-2 finding (`docs/pmo/reviews/live1-report.md`, "Least privilege"): a `require_scopes`
+    /// developer key rejects an authorize request with no `scope` parameter (`invalid_scope`).
+    /// `CanvasScopes.tally` is the one list this and `CanvasEndpointCatalogue` both read, so the
+    /// request and the catalogue can never drift apart.
+    public static let scope = CanvasScopes.tally.joined(separator: " ")
+
     /// `https://<host>/login/oauth2/auth?...` for `ASWebAuthenticationSession`.
+    ///
+    /// LIVE-FIX-1 (F3's sibling finding, `docs/pmo/reviews/live1-report.md`): `host` is expected
+    /// to already be a bare, normalized hostname (`InstitutionHost.normalize`), but nothing here
+    /// enforces that -- a caller that folds a port or any other invalid character into it makes
+    /// `URLComponents.url` return `nil`. This used to force-unwrap that result and trap; it now
+    /// throws `InstitutionHostError.invalid` instead, the same "a malformed host" vocabulary
+    /// `InstitutionHost.normalize` already uses, so a programmer error here fails safely.
     public var url: URL {
-        var c = URLComponents()
-        c.scheme = "https"; c.host = host; c.path = "/login/oauth2/auth"
-        c.queryItems = [
-            .init(name: "client_id", value: clientID),
-            .init(name: "response_type", value: "code"),
-            .init(name: "redirect_uri", value: redirectURI.absoluteString),
-            .init(name: "state", value: state),
-            .init(name: "code_challenge", value: pkce.challenge),
-            .init(name: "code_challenge_method", value: "S256"),
-        ] + (forceLogin ? [.init(name: "force_login", value: "1")] : [])
-          + (canvasLogin ? [.init(name: "canvas_login", value: "1")] : [])
-        return c.url! // swiftlint:disable:this force_unwrapping — scheme/host/path are always well-formed here
+        get throws(InstitutionHostError) {
+            var c = URLComponents()
+            c.scheme = "https"; c.host = host; c.path = "/login/oauth2/auth"
+            c.queryItems = [
+                .init(name: "client_id", value: clientID),
+                .init(name: "response_type", value: "code"),
+                .init(name: "redirect_uri", value: redirectURI.absoluteString),
+                .init(name: "state", value: state),
+                .init(name: "code_challenge", value: pkce.challenge),
+                .init(name: "code_challenge_method", value: "S256"),
+                .init(name: "scope", value: Self.scope),
+            ] + (forceLogin ? [.init(name: "force_login", value: "1")] : [])
+              + (canvasLogin ? [.init(name: "canvas_login", value: "1")] : [])
+            guard let url = c.url else { throw .invalid }
+            return url
+        }
     }
 }
 

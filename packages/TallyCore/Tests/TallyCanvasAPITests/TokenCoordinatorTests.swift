@@ -51,6 +51,31 @@ struct TokenCoordinatorTests {
         #expect(store.credential?.refreshToken == "r2")
     }
 
+    /// LIVE-FIX-1 item 5 (`docs/pmo/reviews/live1-report.md`, "confirm refresh is serialized"):
+    /// Canvas rotates refresh tokens, so a second concurrent use of the same (now-stale) one
+    /// fails `invalid_grant`. `fiftyConcurrent401sRefreshOnceAndPersistFirst` above already
+    /// proves single-flight for the 401-rejection path (`tokenAfterRejection`); this proves the
+    /// more common real path too -- several concurrent sections of one `fetchSnapshot`
+    /// (`CanvasGateway.swift`'s `async let gradingPeriodsResult`/`eventsResult`/
+    /// `announcementsResult`/`colorsResult`) all finding an *expired* credential and calling
+    /// plain `accessToken()` at once. `refreshed()`'s single `Task` (`TokenCoordinator.swift`)
+    /// is created and captured inside one actor turn with no suspension point before it, so
+    /// every late caller joins that one `Task` instead of starting its own -- proven here by
+    /// the refresher seeing exactly one call despite 50 concurrent callers.
+    @Test func fiftyConcurrentAccessTokenCallsOnAnExpiredCredentialRefreshOnce() async throws {
+        let store = InMemoryCredentialStore(), refresher = FakeRefresher()
+        let coordinator = TokenCoordinator(initial: credential(expiresIn: 30), store: store, refresher: refresher, clock: clock)
+        let tokens = try await withThrowingTaskGroup(of: String.self) { group in
+            for _ in 0..<50 {
+                group.addTask { try await coordinator.accessToken() }
+            }
+            return try await group.reduce(into: [String]()) { $0.append($1) }
+        }
+        #expect(refresher.callCount == 1, "50 concurrent callers of an expired token must trigger exactly one refresh exchange")
+        #expect(Set(tokens) == ["a2"] && tokens.count == 50)
+        #expect(store.credential?.refreshToken == "r2")
+    }
+
     @Test func usableTokenNeedsNoRefreshExpiredOneRefreshesOnce() async throws {
         let refresher = FakeRefresher()
         let fresh = TokenCoordinator(initial: credential(expiresIn: 3000), store: InMemoryCredentialStore(), refresher: refresher, clock: clock)
