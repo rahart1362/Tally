@@ -5,6 +5,49 @@ Owner approval 2026-10-28. No new user-facing strings (verified: `check_localiza
 and `check_string_catalogs.py` both PASS unchanged, 809 catalog keys) -- the school-off notice
 already exists.
 
+## Round 2 (PMO review of PR #101 @ `c38de2e`): the ETag cache was unbounded
+
+One blocking issue, confirmed correct by reading the code before changing anything:
+`CanvasEndpoints.swift`'s planner/calendar-event/announcement queries key by a UTC calendar day
+(`CanvasDateWindow`), so those three endpoints' cache keys change every day; `SealedETagStore`
+never evicted anything and resealed/rewrote the whole file on every `ETag`-bearing response
+(12-20 times per refresh, with the whole cache held in memory throughout, including background
+refreshes). Fixed:
+
+1. **Bounded.** `ETagCacheEntry` gained `lastUsedAt` (from `CanvasClient`'s own injected
+   `wallClock`, stamped on write and on a 304 hit -- never `Date()`). `ETagCachePruning` (pure,
+   directly tested) drops anything older than `TallyConfig.etagCacheEntryMaxAge` (2 days: longer
+   than one day-rollover plus the longest realistic refresh gap), then evicts
+   least-recently-used survivors until under `TallyConfig.etagCacheMaxBodyBytes` (4 MB: roomy
+   headroom over LIVE-3's largest measured refresh, 654 KB). `ETagCacheStore.currentVersion` -> 2
+   (the new required field has no meaningful migration).
+2. **One write per refresh.** `ETagStore` gained `flush()` (persists everything pruned, once) and
+   `clear()`; `setEntry` is memory-only now. `LiveCanvasGateway.fetchSnapshot` calls `flush()`
+   exactly once, on success and on failure (a do/catch around the renamed `performFetch`).
+3. **Erase Saved Data (EB-26).** Traced it: `AccountPurger.eraseCanvasData` only deletes files;
+   `RefreshCoordinator.eraseLocalData()` (`RefreshCoordinator.swift:343-349`, pre-existing) and
+   `AppModel.eraseSavedData()` never tear down or rebuild the account's live `CanvasClient` --
+   confirmed the SAME `SealedETagStore` instance, with its stale in-memory cache, keeps serving
+   the very next refresh. Without a fix, that refresh could answer a conditional GET with a
+   cached `304` (or flush the stale entries back to disk), recreating exactly the Canvas-derived
+   content "Erase Saved Data" was supposed to delete -- a real regression against the EXISTING
+   doc comment's own invariant ("the next refresh rebuilds exactly what `AccountSignOut
+   .eraseSavedData` deleted on disk"). Fixed: `CanvasGateway.clearLocalCaches()` (new, default
+   no-op extension so no other conformance needs a change), called from
+   `RefreshCoordinator.eraseLocalData()`/`bumpEpochAndCancel()`.
+4. **Tests** (+16): `ETagCachePruningTests`-equivalent coverage in `ETagCacheStoreTests.swift`
+   (30 simulated daily refreshes stay bounded and keep every stable URL; LRU eviction order
+   under a byte cap; a successful AND a failed refresh each flush exactly once, via a counting
+   sealer; `clearLocalCaches` prevents a post-erase refresh from resurrecting the pre-erase
+   entries), plus `ETagCacheTests.swift` (a 304 hit updates `lastUsedAt`).
+5. **Live:** re-ran `scripts/dev/live-canvas-tests.sh` -- see "Live check" below for the updated
+   numbers and the cache file's own entry count/bytes after two refreshes. No Canvas setting
+   changed for this round.
+
+Local: `make core-build`/`make core-test` (226/165 in the two targets this round touched, all
+green), `make lint` (0 violations), every `check_*.py` script still PASS. One commit, one push --
+no `workflow_dispatch` this round, only the PR's own run.
+
 ## What shipped, one line per item
 
 1. **School off via the account binding (EB-26)** -- `CanvasClient.swift`'s `fetchPage`
@@ -76,6 +119,15 @@ already exists.
   the unchanged second refresh (measured, not the LIVE-3 recommendation's ballpark "~99%": not
   every endpoint's response carries an ETag, and a couple of sections' queries are `now`-derived
   and this test's two refreshes aren't simultaneous).
+- **Round 2, re-run after the bounding fix** (fresh `.build-live-etag-cache/`): still all 9/9.
+  `LIVE-PERF | requests=12 bytes=524900 ms=4977 persona=student`;
+  `LIVE-ETAG | firstRunBytes=524900 secondRunBytes=308994 savedPercent=41 requests=12` -- same
+  shape as round 1 (the account's own data moved a little between runs; the day didn't roll over
+  between the two refreshes in one process, so no pruning fired in this short a window, by
+  design). Inspected `.build-live-etag-cache/cache.json` directly after the run: **12 entries,
+  524900 bytes total** -- exactly the 12 requests and the first refresh's own byte total,
+  confirming every cacheable response landed in the ONE post-refresh file (not 12 separate
+  writes, and no stale entries from either refresh left over).
 - Item 1, with my own `live2b-schooloff` disposable developer key (never "Tally E2E", never the
   PMO's own `live2-*`/`live2b-changes.json` artifacts from the earlier LIVE-2B run; new script,
   `~/canvas-e2e/tools/live2b_schooloff_check.py`, every change logged to its own
@@ -108,3 +160,12 @@ already exists.
   invisible to every `ReplayTransport`-backed unit test, since that fixture transport has neither
   limitation -- worth a note for whoever next adds a new outbound header or relies on a cached
   response's headers: verify it live, the fixture harness will not catch it.
+- Round 2: `RefreshCoordinator.eraseLocalData()`/`bumpEpochAndCancel()` becoming `async` (needed
+  to `await gateway.clearLocalCaches()`) touches no caller's syntax (every existing call site
+  already said `await` -- actor methods, confirmed by grep across both packages), but the
+  `TallyAppleKit` call sites (`AppModel.swift`, `AccountRuntime.swift`) were not independently
+  build-verified on this host for the same no-Xcode reason as round 1's `AccountSessionFactory`
+  edit; the PR's `ios-build` is the first real compile.
+- `etagCacheEntryMaxAge`/`etagCacheMaxBodyBytes` (2 days / 4 MB) are engineering estimates, not
+  independently owner-approved numbers -- flagging in case the PMO wants a different ratio once
+  this has run against a real device for a while.

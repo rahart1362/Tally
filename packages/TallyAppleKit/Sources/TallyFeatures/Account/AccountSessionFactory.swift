@@ -115,7 +115,7 @@ public nonisolated enum AccountSessionFactory {
                                       store: environment.credentialStore, refresher: refresher, clock: environment.clock)
         let etagStore = ETagCacheStore(root: root, accountKey: account.accountKey, sealer: environment.sealer(for: account.accountKey))
         let client = CanvasClient(host: account.host, transport: environment.transport, tokens: tokens,
-                                  etags: SealedETagStore(etagStore))
+                                  etags: SealedETagStore(etagStore, clock: environment.clock))
         return LiveCanvasGateway(host: account.host, accountKey: account.accountKey, client: client,
                                  logger: environment.logger)
     }

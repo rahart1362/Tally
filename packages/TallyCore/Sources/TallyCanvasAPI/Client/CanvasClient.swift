@@ -238,7 +238,8 @@ public actor CanvasClient {
                 // Canvas page is nowhere close (see `TallyConfig.maxResponseBodyBytes`'s doc).
                 guard response.body.count <= TallyConfig.maxResponseBodyBytes else { throw .contract }
                 if request.method == .get, let etags, let etag = response.headers["ETag"] {
-                    await etags.setEntry(ETagCacheEntry(etag: etag, body: response.body, linkHeader: response.headers["Link"]),
+                    await etags.setEntry(ETagCacheEntry(etag: etag, body: response.body, linkHeader: response.headers["Link"],
+                                                        lastUsedAt: wallClock.now()),
                                         for: cacheKey)
                 }
                 return response
@@ -247,6 +248,15 @@ public actor CanvasClient {
                 // happens with a `cachedEntry` already in hand -- `.unknown` here is defensive,
                 // not a real path (a transport that fabricates a 304 unprompted).
                 guard let cachedEntry else { throw .unknown }
+                // Item 3 round 2: a 304 is a use, not just a lookup -- without this, an endpoint
+                // whose URL never changes (courses, profile, assignment groups) would still look
+                // "last used" the day it was first cached, and `ETagCachePruning`'s age check
+                // would drop it even though every refresh since has actually reused it.
+                if let etags {
+                    await etags.setEntry(ETagCacheEntry(etag: cachedEntry.etag, body: cachedEntry.body,
+                                                        linkHeader: cachedEntry.linkHeader, lastUsedAt: wallClock.now()),
+                                        for: cacheKey)
+                }
                 // A 304 never repeats `Link` (confirmed live), so pagination's own continuation
                 // check reads the cached entry's, not this response's.
                 var syntheticHeaders = HTTPHeaders()
@@ -301,5 +311,19 @@ public actor CanvasClient {
         case .transient: .server // network/server trouble refreshing the token, not a Canvas API response
         case .schoolDisabled: .schoolDisabled // PAY-10: the school turned off Tally's developer key
         }
+    }
+
+    /// Item 3 round 2 ("one write per refresh"): `LiveCanvasGateway.fetchSnapshot` calls this
+    /// exactly once, on success and on failure, so every `setEntry` this refresh made lands in
+    /// one disk write (pruned first) instead of one write per endpoint. A no-op with no `etags`.
+    public func flushETagCache() async {
+        await etags?.flush()
+    }
+
+    /// EB-26 ("Erase Saved Data"): discards the in-memory conditional-GET cache so a later
+    /// refresh cannot serve a `304` from (or flush back to disk) content the purge just erased.
+    /// See `CanvasGateway.clearLocalCaches()`. A no-op with no `etags`.
+    public func clearETagCache() async {
+        await etags?.clear()
     }
 }

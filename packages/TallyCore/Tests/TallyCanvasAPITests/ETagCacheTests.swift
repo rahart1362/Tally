@@ -12,13 +12,14 @@ import TallyTestSupport
 struct ETagCacheTests {
     private let host = "canvas.northfield.example"
 
-    private func client(_ transport: ReplayTransport, etags: any ETagStore) -> CanvasClient {
+    private func client(_ transport: ReplayTransport, etags: any ETagStore, wallClock: (any DateProviding)? = nil) -> CanvasClient {
         let clock = TestClock()
         let credential = CanvasCredential(host: host, userID: "4820117", accessToken: "token-1", refreshToken: "refresh-1",
                                           accessTokenExpiresAt: clock.now().addingTimeInterval(3600))
         let tokens = TokenCoordinator(initial: credential, store: InMemoryCredentialStore(credential),
                                       refresher: RecordingRefresher(), clock: clock)
-        return CanvasClient(host: host, transport: transport, tokens: tokens, etags: etags)
+        guard let wallClock else { return CanvasClient(host: host, transport: transport, tokens: tokens, etags: etags) }
+        return CanvasClient(host: host, transport: transport, tokens: tokens, wallClock: wallClock, etags: etags)
     }
 
     @Test("First response with no cache entry carries no If-None-Match; a fresh ETag is stored")
@@ -93,6 +94,35 @@ struct ETagCacheTests {
 
         let requestCount = await transport.requestCount
         #expect(requestCount == 4, "2 pages, twice -- the second page-1 request is conditional, not skipped")
+    }
+
+    /// Item 3 round 2 (PMO review of PR #101, "bound it"): without this, an endpoint whose own
+    /// URL never changes (courses, profile, assignment groups) would look "last used" the one
+    /// day it happened to be first cached, and `ETagCachePruning`'s age check would drop it
+    /// later even though every refresh since actually reused it via a 304.
+    @Test("A 304 hit updates lastUsedAt, not just the first write")
+    func a304HitUpdatesLastUsedAt() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let etag = "\"v1\""
+        let body = Data(#"{"id":"4820117","name":"Alex Sample"}"#.utf8)
+        await transport.inject(response: HTTPResponse(status: 200, headers: HTTPHeaders(["ETag": etag]), body: body),
+                               times: 1, matching: { $0.url.path == "/api/v1/users/self/profile" })
+        await transport.inject(response: HTTPResponse(status: 304), times: 1,
+                               matching: { $0.url.path == "/api/v1/users/self/profile" })
+
+        let wallClock = TestClock()
+        let etags = InMemoryETagStore()
+        let client = self.client(transport, etags: etags, wallClock: wallClock)
+        _ = try await client.fetchOne(path: "/api/v1/users/self/profile")
+        let key = try #require(await transport.requests().first?.url.absoluteString)
+        let firstWriteTime = try #require(await etags.entry(for: key)?.lastUsedAt)
+        #expect(firstWriteTime == wallClock.now())
+
+        wallClock.advance(by: .seconds(3600))
+        _ = try await client.fetchOne(path: "/api/v1/users/self/profile") // the 304
+        let afterHit = try #require(await etags.entry(for: key)?.lastUsedAt)
+        #expect(afterHit == wallClock.now())
+        #expect(afterHit > firstWriteTime)
     }
 
     @Test("A write (perform, never GET) neither sends nor stores an ETag")

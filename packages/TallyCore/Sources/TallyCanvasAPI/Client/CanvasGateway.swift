@@ -6,6 +6,18 @@ import TallyDomain
 /// simply replaced, and on a partial failure they seed the carry-forward values.
 public protocol CanvasGateway: Sendable {
     func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot
+    /// EB-26 ("Erase Saved Data", item 3 round 2): clears any local cache whose stale in-memory
+    /// state could recreate Canvas-derived content a purge just deleted from disk -- a purge
+    /// never tears down or rebuilds this account's existing, still-live gateway, only its files
+    /// change, so without this a later refresh on the SAME gateway instance could serve (and
+    /// re-persist) exactly what was just erased. Default no-op so every other conformance
+    /// (sample data, every test double) needs no change; `LiveCanvasGateway` overrides it for
+    /// its ETag cache. Called by `RefreshCoordinator.eraseLocalData()`/`bumpEpochAndCancel()`.
+    func clearLocalCaches() async
+}
+
+extension CanvasGateway {
+    public func clearLocalCaches() async {}
 }
 
 /// The live `CanvasGateway`: composes `CanvasClient` calls per the endpoint catalogue and
@@ -35,7 +47,26 @@ public actor LiveCanvasGateway: CanvasGateway {
         self.logger = logger
     }
 
+    /// Item 3 round 2 ("one write per refresh"): flushes the ETag cache exactly once, whether
+    /// `performFetch` below succeeds or throws -- never left for a caller to remember, and never
+    /// left to the per-endpoint `setEntry` calls inside `CanvasClient` themselves.
     public func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
+        do {
+            let snapshot = try await performFetch(previous: previous, now: now)
+            await client.flushETagCache()
+            return snapshot
+        } catch {
+            await client.flushETagCache()
+            throw error
+        }
+    }
+
+    /// EB-26: see `CanvasGateway.clearLocalCaches()`'s doc comment.
+    public func clearLocalCaches() async {
+        await client.clearETagCache()
+    }
+
+    private func performFetch(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
         // Required: all-or-nothing. The first failure here propagates and nothing is returned.
         let profile = try await fetchProfile()
         // CS-07: a course can come back once per enrollment. Drop repeats before the per-course

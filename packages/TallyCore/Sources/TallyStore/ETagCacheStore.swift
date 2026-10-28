@@ -23,8 +23,11 @@ public enum ETagCacheLoadResult: Equatable, Sendable {
 /// `ETagStore` at all. A struct, not an actor, mirroring `RefreshStateStore`: callers that need
 /// actor isolation (`SealedETagStore`, the async `ETagStore` adapter) provide their own.
 public struct ETagCacheStore: Sendable {
-    /// Bumped when the stored shape changes incompatibly; any other version is discarded.
-    public static let currentVersion = 1
+    /// Bumped to 2 (item 3 round 2, PMO review of PR #101): `ETagCacheEntry` gained
+    /// `lastUsedAt`, a required field with no meaningful default to migrate an old blob to, so
+    /// any version 1 blob is discarded like any other incompatible shape -- rederivable, same as
+    /// every other store file.
+    public static let currentVersion = 2
 
     private let layout: StoreLayout
     private let access: SealedFileAccess
@@ -79,11 +82,30 @@ private struct StoredETagCache: Codable {
 /// cannot race a concurrent `fetchAllPages`/`fetchOne` pair's read-modify-write of the same file
 /// (`LiveCanvasGateway`'s assignment-groups loop, and its `async let` optional sections, both
 /// call through the one `CanvasClient` that owns this store).
+///
+/// Item 3 round 2 (PMO review of PR #101, "one write per refresh" and "bound it"): `setEntry`
+/// only ever updates the in-memory copy and marks it dirty; `flush()` -- called exactly once per
+/// `LiveCanvasGateway.fetchSnapshot`, win or lose -- is the only thing that prunes
+/// (`ETagCachePruning`) and writes to disk. Before this, every `ETag`-bearing response in a
+/// refresh (12-20 of them) resealed and rewrote the WHOLE file, and nothing ever dropped an
+/// entry: the planner/calendar/announcement queries key by a UTC calendar day
+/// (`CanvasEndpoints.swift`'s `CanvasDateWindow`), so those entries' URLs -- and so their cache
+/// keys -- change every day, and the orphaned previous days' entries just accumulated forever.
 public actor SealedETagStore: ETagStore {
     private let store: ETagCacheStore
+    private let clock: any DateProviding
+    private let maxAge: Duration
+    private let maxBytes: Int
     private var cache: [String: ETagCacheEntry]?
+    private var isDirty = false
 
-    public init(_ store: ETagCacheStore) { self.store = store }
+    public init(_ store: ETagCacheStore, clock: any DateProviding = SystemDateProvider(),
+               maxAge: Duration = TallyConfig.etagCacheEntryMaxAge, maxBytes: Int = TallyConfig.etagCacheMaxBodyBytes) {
+        self.store = store
+        self.clock = clock
+        self.maxAge = maxAge
+        self.maxBytes = maxBytes
+    }
 
     public func entry(for key: String) async -> ETagCacheEntry? {
         loaded()[key]
@@ -93,7 +115,27 @@ public actor SealedETagStore: ETagStore {
         var entries = loaded()
         entries[key] = entry
         cache = entries
-        try? store.save(entries)
+        isDirty = true
+    }
+
+    public func flush() async {
+        guard isDirty, let entries = cache else { isDirty = false; return }
+        let pruned = ETagCachePruning.pruned(entries, now: clock.now(), maxAge: maxAge, maxBytes: maxBytes)
+        try? store.save(pruned)
+        cache = pruned
+        isDirty = false
+    }
+
+    /// EB-26 ("Erase Saved Data"): empties the in-memory copy without touching disk (the caller,
+    /// `AccountPurger.eraseCanvasData`, deletes the file itself) and clears the dirty flag, so a
+    /// `flush()` that happens to run afterwards with nothing new written does not resurrect the
+    /// erased entries. Setting `cache` to `[:]`, not `nil`, matters: `nil` would make the next
+    /// `entry`/`setEntry` call re-read whatever is on disk at that moment, which is safe once the
+    /// purge has actually run but not if this lands first (the actual call order in
+    /// `RefreshCoordinator.eraseLocalData()`/`AppModel.eraseSavedData()`) -- `[:]` never re-reads.
+    public func clear() async {
+        cache = [:]
+        isDirty = false
     }
 
     /// Reads the file at most once per `SealedETagStore` instance (one per account's
