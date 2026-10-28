@@ -21,7 +21,7 @@ public enum SnapshotCollection: String, Sendable, Equatable, Hashable, CaseItera
 /// Item 2 (LIVE-FIX-2, live2-security's "enrollment_or_course" finding): why one course's
 /// per-course fetch was skipped rather than failing the whole refresh. A reason only, never
 /// which course.
-public enum CourseFetchSkipReason: Error, Sendable, Equatable, Hashable {
+public enum CourseFetchSkipReason: String, Error, Sendable, Equatable, Hashable {
     /// 403: a concluded enrollment still exists but no longer grants access (`CanvasClient.swift`
     /// doc: "a concluded enrollment keeps read access to the course's own historical data" does
     /// NOT extend to a `deleted` enrollment -- Canvas returns 403 for that one).
