@@ -46,9 +46,8 @@ let a student sign in at a school whose key only ever granted these 8.
    flag, exactly `CanvasScopes.tally`'s 9 scopes) and its three reasons, evidence cited as
    `#98/#100/#101`; GL-05 gained the "provisional answers (2026-10-28)" list and stays `OPEN`;
    GTM-02 gained "(d) public client type, (e) Tally's 9 scopes"; a FAM-01/M4 self-registration
-   note was added next to GL-05's existing FAM-01 mention. No mention anywhere of the
-   redirect_uri check or the announcements N+1 (both stay private to Instructure per the brief;
-   checked by grepping the diff).
+   note was added next to GL-05's existing FAM-01 mention. The public docs carry Tally-side
+   guidance only (checked by grepping the diff).
 2. **`docs/go-to-market/school-admin-setup-guide.md`** -- line 19's "being verified (GL-05)" note
    replaced with the verified fact (Canvas's admin UI cannot set client type; ask the Canvas
    host). Its scope table was checked against `CanvasScopes.tally`, not silently changed: see
