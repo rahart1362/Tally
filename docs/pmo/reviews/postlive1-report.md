@@ -108,11 +108,32 @@ let a student sign in at a school whose key only ever granted these 8.
 - `scripts/go-live/find-placeholders.sh`: still exits 1 on 24 pre-existing GL-02/GL-03
   placeholders; none are in a file this work package touched.
 
+## PR #102's first run (41645820079): a regression found and fixed before the round-2 push
+
+Read the failed run back in full before touching anything. Every failure across 4 jobs (`iOS
+ThreadSanitizer`, `iOS build + test` -- main and deployment-floor -- and `iOS AddressSanitizer`)
+was the same one assertion: `ReminderPipelineTests.nothingInThePast()` ("a cache more than a day
+old: the stale-data warning is not scheduled in the past", `RemindersTests.swift:484`) -- my own
+bug, introduced by item 3's first fix (`ReminderRig.coordinator()` had started threading `now`
+into every snapshot fetch unconditionally, but this test specifically needs `fetchedAt` to stay
+the real, unshifted clock while its own `now` is 3 days ahead, to prove the planner never
+schedules a stale-data warning in the past). Fixed by making that thread-through opt-in
+(`fetchedAtOverride: Date? = nil`, default preserves every other call site exactly): only
+`defaultLocaleMatchesTallyLocaleEffective` (the actual flaky test) now passes one shared,
+explicit `fetchedAt` to both its rigs. One separate, unrelated failure (`TallyCore perf gates
+(Linux, release, non-blocking)`: a `GoalSeek.solve` perf-ceiling miss) is non-blocking by its own
+job name, outside the required-jobs list, and touches nothing this PR changed -- left open, not
+fixed. Full detail in the journal.
+
 ## Open items
 
-- Item 3's fix and the item-3 test files are UNVERIFIED by local build (no Xcode on this host);
-  read back twice by hand. The PR's `ios-build`/`ios-asan`/`ios-tsan` jobs are the first real
-  compile.
-- The two scope-table/`/admin` discrepancies above need owner approval before anyone edits them.
+- Item 3's fix and the item-3 test files are still UNVERIFIED by local build (no Xcode on this
+  host); read back twice by hand, including the regression fix above, against the CI run's own
+  printed failure value. The next PR run is the first real compile of the corrected code.
+- The two scope-table/`/admin` discrepancies above need owner approval before anyone edits them
+  (round 2 resolved the `CanvasScopes.tally` side of this by dropping to 8 scopes; the `/admin`
+  client-type sentence was fixed with owner-approved copy in round 2).
 - GL-05 stays `OPEN`: Instructure-hosted Canvas still has to confirm the provisional, locally
   measured answers.
+- `TallyCore perf gates (Linux, release, non-blocking)`'s `GoalSeek.solve` ceiling miss on PR
+  #102's first run: non-blocking, unrelated to this PR's files, not investigated further here.

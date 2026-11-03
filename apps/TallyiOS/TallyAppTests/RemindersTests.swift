@@ -154,16 +154,25 @@ struct ReminderRig: Sendable {
     /// A coordinator over the account's flagship snapshot, with no pipeline attached (the tests drive
     /// `ReminderPipeline.reconcile` themselves).
     ///
-    /// Post-live fix: this used to call `.flagship(account:)` with no `now:`, which stamped the
-    /// snapshot's `fetchedAt` from its own independent `Date()` read rather than this rig's fixed
-    /// `now`. Two rigs built back-to-back (`defaultLocaleMatchesTallyLocaleEffective`, below) each
-    /// took that read at a slightly different real instant; the stale-data sentinel's rendered body
-    /// embeds `fetchedAt` verbatim ("Tally hasn't refreshed since yesterday at H:MM"), so a pass over
-    /// a real minute boundary between the two reads made `defaultWords != explicitWords` and failed
-    /// main's iOS ASan run 40685358106. Passing `now:` here makes `fetchedAt` exactly this rig's own
-    /// fixed clock, matching the `FixedClock` below, so two rigs with the same `now` are identical.
-    func coordinator() async throws -> RefreshCoordinator {
-        let snapshot = try await FlagshipAccountGateway.flagship(account: account, now: now)
+    /// `fetchedAtOverride` defaults to `nil`, which keeps every existing call site byte-for-byte
+    /// unchanged: `FlagshipAccountGateway.flagship(account:)` stamps the snapshot's `fetchedAt`
+    /// from its own real `Date()` read, deliberately independent of `now` above --
+    /// `nothingInThePast()` (below) relies on exactly that gap: it fetches "now" (real time) but
+    /// runs the pass with `now` 3 days in the future, to prove a stale-data warning the planner
+    /// would otherwise schedule in the past is not scheduled at all. A first attempt at the
+    /// `defaultLocaleMatchesTallyLocaleEffective` flake (see that test) instead threaded this
+    /// rig's own `now` through unconditionally, which fixed that flake but broke `nothingInThePast`
+    /// by collapsing `fetchedAt` to the same instant as `now`, eliminating the staleness it needs
+    /// (main's iOS build+test and ios-asan runs on PR #102, run 41645820079). `fetchedAtOverride`
+    /// lets a caller that genuinely needs two snapshots to share one `fetchedAt` (and only that
+    /// caller) ask for it explicitly, instead of changing this method's default for everyone.
+    func coordinator(fetchedAtOverride: Date? = nil) async throws -> RefreshCoordinator {
+        let snapshot: CanvasSnapshot
+        if let fetchedAtOverride {
+            snapshot = try await FlagshipAccountGateway.flagship(account: account, now: fetchedAtOverride)
+        } else {
+            snapshot = try await FlagshipAccountGateway.flagship(account: account)
+        }
         return RefreshCoordinator(gateway: FlagshipAccountGateway(account: account),
                                   store: environment.snapshotStore(for: account, root: harness.root),
                                   clock: FixedClock(now: now), initialSnapshot: snapshot)
@@ -508,13 +517,18 @@ struct ReminderPipelineTests {
     /// pins the intended, documented behaviour (`l10n02-report.md` §8 "For L10N-03a").
     @Test("the default locale is TallyLocale.effective: same reminder words as passing it explicitly")
     func defaultLocaleMatchesTallyLocaleEffective() async throws {
+        // One shared fetchedAt for both rigs' snapshots (see `coordinator(fetchedAtOverride:)`'s doc
+        // comment): the stale-data sentinel's rendered body embeds `fetchedAt` verbatim ("Tally
+        // hasn't refreshed since yesterday at H:MM"), so two rigs that each took their own `Date()`
+        // read could disagree across a real minute boundary -- main's iOS ASan run 40685358106.
+        let sharedFetchedAt = Date()
         let defaultRig = try ReminderRig()
-        let defaultCoordinator = try await defaultRig.coordinator()
+        let defaultCoordinator = try await defaultRig.coordinator(fetchedAtOverride: sharedFetchedAt)
         _ = await ReminderPipeline.reconcile(coordinator: defaultCoordinator, environment: defaultRig.environment,
                                              timeZone: ReminderTestSupport.timeZone)
 
         let explicitRig = try ReminderRig()
-        let explicitCoordinator = try await explicitRig.coordinator()
+        let explicitCoordinator = try await explicitRig.coordinator(fetchedAtOverride: sharedFetchedAt)
         _ = await ReminderPipeline.reconcile(coordinator: explicitCoordinator, environment: explicitRig.environment,
                                              timeZone: ReminderTestSupport.timeZone, locale: TallyLocale.effective)
 
