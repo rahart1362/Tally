@@ -1,0 +1,7 @@
+# GL-02 (docs/GO-LIVE.md): the Apple App Site Association file has no file extension, so a
+# static host's default content-type guess is often wrong (e.g. octet-stream or text/plain);
+# iOS requires it served as JSON. Cloudflare Pages and Netlify both read this file (their shared
+# `_headers` syntax); GitHub Pages ignores it, so this is a no-op there, not a regression.
+# Every other path keeps the host's own default -- only this one path is touched.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
