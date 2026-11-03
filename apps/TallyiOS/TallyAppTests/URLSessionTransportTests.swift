@@ -58,6 +58,28 @@ struct URLSessionTransportTests {
         #expect(response.body == Data(#"{"ok":true}"#.utf8))
     }
 
+    /// Item 3 (LIVE-FIX-2/LIVE-3): `If-None-Match` is `CanvasClient`'s own addition to
+    /// `knownRequestHeaderNames`. Found live against a real Canvas, not by inspection: without
+    /// this, every conditional GET's header was silently dropped before it reached the socket,
+    /// so a stored ETag never once produced a 304 -- item 3 was otherwise completely inert in
+    /// this shipping transport despite every `ReplayTransport`-backed `TallyCanvasAPITests`
+    /// passing (that fixture transport has no such allowlist to miss).
+    @Test("If-None-Match is forwarded, same as Authorization")
+    func conditionalRequestHeaderIsForwarded() async throws {
+        StubURLProtocol.rule = { request in
+            #expect(request.value(forHTTPHeaderField: "If-None-Match") == "\"v1\"")
+            let response = HTTPURLResponse(url: request.url!, statusCode: 304, httpVersion: nil, headerFields: nil)!
+            return .respond(response, Data())
+        }
+        let transport = URLSessionTransport(protocolClasses: [StubURLProtocol.self])
+        var headers = HTTPHeaders()
+        headers["If-None-Match"] = "\"v1\""
+        let request = HTTPRequest(url: URL(string: "https://canvas.example.edu/api/v1/courses")!, headers: headers)
+
+        let response = try await transport.send(request)
+        #expect(response.status == 304)
+    }
+
     @Test("URLError.notConnectedToInternet maps to .offline")
     func offlineMapping() async {
         StubURLProtocol.rule = { _ in .fail(URLError(.notConnectedToInternet)) }

@@ -20,7 +20,7 @@ struct ResponseClassifierTests {
         #expect(ResponseClassifier.classify(r(403, body: #"{"status":"unauthorized"}"#)) == .forbidden)
     }
 
-    @Test(arguments: [(200, ResponseClass.success), (204, .success), (404, .notFound),
+    @Test(arguments: [(200, ResponseClass.success), (204, .success), (304, .notModified), (404, .notFound),
                       (500, .serverError), (503, .serverError), (302, .unexpected(status: 302))])
     func statusTable(_ status: Int, _ expected: ResponseClass) {
         #expect(ResponseClassifier.classify(r(status)) == expected)

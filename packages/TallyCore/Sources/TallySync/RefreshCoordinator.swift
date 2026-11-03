@@ -322,11 +322,14 @@ public actor RefreshCoordinator {
     /// `.noCache` — honest, since the account's cache is about to be purged by the rest of that
     /// use case anyway — and then `shutdown()`s, so every subscriber sees `.noCache` as its last
     /// event before its stream finishes. Does not itself touch the store, notifications or
-    /// credentials. Idempotent.
-    public func bumpEpochAndCancel() {
+    /// credentials; item 3 round 2 (`clearLocalCaches()`) is the one exception -- the account's
+    /// own purge is about to delete files a gateway-level in-memory cache could otherwise
+    /// resurrect. Idempotent.
+    public func bumpEpochAndCancel() async {
         discardInFlightRun()
         record = RefreshRecord()
         emit(.stateChanged(currentState))
+        await gateway.clearLocalCaches()
         shutdown()
     }
 
@@ -339,13 +342,20 @@ public actor RefreshCoordinator {
     /// other store file. `discardInFlightRun()` still bumps the epoch, so a fetch already in flight
     /// can never land and overwrite this reset with stale data; a *new* run started right after is
     /// unaffected (the single-flight slot is free, and `shutdown()` is the only thing that ever
-    /// refuses a new run). Does not itself touch the store, notifications or credentials. Idempotent.
-    public func eraseLocalData() {
+    /// refuses a new run). Does not itself touch the store, notifications or credentials, except
+    /// `clearLocalCaches()` (item 3 round 2, PMO review of PR #101): `AccountSignOut.eraseSavedData`
+    /// deletes this account's files, but never tears down or rebuilds this coordinator's own
+    /// gateway/`CanvasClient` -- the SAME, still-live instance keeps serving the very next
+    /// refresh. Without clearing its in-memory ETag cache here, that refresh could answer a
+    /// conditional GET with a cached `304` (or flush the cache back to disk), recreating exactly
+    /// the Canvas-derived content this erase just deleted.
+    public func eraseLocalData() async {
         discardInFlightRun()
         committedSnapshot = nil
         committedGeneration = 0
         record = RefreshRecord()
         emit(.stateChanged(currentState))
+        await gateway.clearLocalCaches()
     }
 
     /// Makes the run in flight, if any, unable to land: its captured epoch no longer matches, so

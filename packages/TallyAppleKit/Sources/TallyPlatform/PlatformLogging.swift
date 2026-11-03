@@ -58,6 +58,9 @@ public enum PlatformLogEvent: Sendable {
     /// SEC1-02: `SignOutUseCase`'s revoke call (after refreshing first if needed) reached Canvas
     /// or not.
     case signOutRevoked(ok: Bool)
+    /// TallyCore's logging port (item 2, LIVE-FIX-2): `LiveCanvasGateway` skipped one course's
+    /// assignment-groups fetch (403/404) rather than failing the whole refresh. A reason only.
+    case courseSkipped(reason: CourseFetchSkipReason)
 }
 
 extension PlatformLogEvent {
@@ -69,6 +72,8 @@ extension PlatformLogEvent {
             self = .duplicateIDsDropped(collection: collection, count: count)
         case .signOutRevoked(let ok):
             self = .signOutRevoked(ok: ok)
+        case .courseSkipped(let reason):
+            self = .courseSkipped(reason: reason)
         }
     }
 }
@@ -126,6 +131,8 @@ public struct OSLogPlatformLogger: TallyPlatformLogger, TallyLogger {
             logger.notice("duplicate_ids_dropped collection=\(collection.rawValue, privacy: .public) count=\(count, privacy: .public)")
         case .signOutRevoked(let ok):
             logger.notice("sign_out_revoked ok=\(ok, privacy: .public)")
+        case .courseSkipped(let reason):
+            logger.notice("course_skipped reason=\(reason.rawValue, privacy: .public)")
         }
     }
 

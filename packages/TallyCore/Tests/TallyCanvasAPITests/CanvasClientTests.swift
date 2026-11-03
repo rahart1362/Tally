@@ -52,13 +52,21 @@ struct CanvasClientTests {
         #expect(total == 178) // 100 + 78, matching the two page files
     }
 
-    @Test func unsafeNextLinkStopsPaginationWithoutFollowingIt() async throws {
-        let transport = try ReplayTransport.scenario("pagination/next-link-foreign-host")
+    /// Item 5 (LIVE-3, `docs/pmo/reviews/live1-report.md`): before this fix, a `next` link
+    /// `PageURLPolicy` rejects was `try?`-swallowed and pagination stopped silently, as if the
+    /// data had simply ended -- indistinguishable from a real last page. It must now throw
+    /// instead, in both ways Canvas could produce an unsafe `next`: a foreign host, and (the one
+    /// actually reproduced live, against the dev Canvas) a same-host link whose scheme is http,
+    /// not https.
+    @Test(arguments: ["pagination/next-link-foreign-host", "pagination/next-link-http"])
+    func unsafeNextLinkThrowsInsteadOfSilentlyTruncating(_ scenario: String) async throws {
+        let transport = try ReplayTransport.scenario(scenario)
         let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
-        let pages = try await client.fetchAllPages(path: "/api/v1/courses", query: CanvasQuery.courses())
-        #expect(pages.count == 1) // the unsafe `next` is never requested
+        await #expect(throws: RefreshFailure.unknown) {
+            _ = try await client.fetchAllPages(path: "/api/v1/courses", query: CanvasQuery.courses())
+        }
         let requestCount = await transport.requestCount
-        #expect(requestCount == 1)
+        #expect(requestCount == 1, "the unsafe `next` is never requested")
     }
 
     @Test func http401WithWWWAuthenticateRefreshesExactlyOnceThenSucceeds() async throws {
@@ -123,6 +131,41 @@ struct CanvasClientTests {
                                   rng: SeededRandom(seed: 1), clock: VirtualClock(), wallClock: TestClock())
         let data = try await client.fetchOne(path: "/api/v1/users/self/profile", budget: .seconds(5))
         #expect(!data.isEmpty)
+    }
+
+    // MARK: - Item 2 (LIVE-FIX-2): a deleted/forbidden resource is reported back, not thrown
+
+    @Test func fetchAllPagesOrSkipReportsForbiddenOnTheFirstPageWithoutThrowing() async throws {
+        let transport = try ReplayTransport.scenario("courses/forbidden-403")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let result = try await client.fetchAllPagesOrSkip(path: "/api/v1/courses", query: CanvasQuery.courses())
+        guard case .failure(.forbidden) = result else { Issue.record("expected .failure(.forbidden), got \(result)"); return }
+    }
+
+    @Test func fetchAllPagesOrSkipReportsNotFoundOnTheFirstPageWithoutThrowing() async throws {
+        let transport = try ReplayTransport.scenario("assignment_groups/course-not-found-404")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let result = try await client.fetchAllPagesOrSkip(path: "/api/v1/courses/51899/assignment_groups",
+                                                           query: CanvasQuery.assignmentGroups())
+        guard case .failure(.notFound) = result else { Issue.record("expected .failure(.notFound), got \(result)"); return }
+    }
+
+    @Test func fetchAllPagesOrSkipStillThrowsForAnEverydayFailure() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        await transport.inject(response: try ReplayTransport.errorResponse("500-internal-server-error"), times: 3,
+                               matching: { $0.url.path == "/api/v1/courses" })
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()), backoff: fastBackoff())
+        await #expect(throws: RefreshFailure.server) {
+            _ = try await client.fetchAllPagesOrSkip(path: "/api/v1/courses", query: CanvasQuery.courses())
+        }
+    }
+
+    @Test func fetchAllPagesOrSkipSucceedsNormallyWhenNothingIsWrong() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let client = CanvasClient(host: host, transport: transport, tokens: coordinator(clock: TestClock()))
+        let result = try await client.fetchAllPagesOrSkip(path: "/api/v1/courses", query: CanvasQuery.courses())
+        guard case .success(let pages) = result else { Issue.record("expected .success, got \(result)"); return }
+        #expect(!pages.isEmpty)
     }
 
     // MARK: - CS-05: resource limits

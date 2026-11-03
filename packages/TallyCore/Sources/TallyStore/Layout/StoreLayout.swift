@@ -56,6 +56,8 @@ public struct StoreLayout: Sendable, Equatable {
         case .ledger: return "sync-ledger.sealed"
         // Per account and sealed (the PERF-L brief), where §3.2 has one unsealed refresh-state.json.
         case .refreshState: return "refresh-state.sealed"
+        // Item 3 (LIVE-FIX-2/LIVE-3): per-account, sealed, same tier as refreshState.
+        case .etagCache: return "etag-cache.sealed"
         }
     }
 

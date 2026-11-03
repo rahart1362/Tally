@@ -61,5 +61,12 @@ let package = Package(
         // (no `@testable`), so release-mode inlining/optimization is not disturbed by
         // `-enable-testing`.
         .testTarget(name: "TallyPerfTests", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyStore", "TallyTestSupport"]),
+        // LIVE-1 (docs/pmo/reviews/live1-report.md): opt-in integration tests against a real,
+        // local Canvas LMS. Every test is skipped unless TALLY_LIVE_CANVAS_URL and
+        // TALLY_LIVE_TOKEN_FILE are set (LiveCanvasEnvironment), so `make core-test`/CI are
+        // unaffected -- only `scripts/dev/live-canvas-tests.sh` sets them. TallyTestSupport is
+        // used only for its credential-store/logger test doubles (no network involved); the
+        // transport is a real `URLSession` (LiveURLSessionTransport.swift).
+        .testTarget(name: "TallyLiveCanvasTests", dependencies: ["TallyDomain", "TallyCanvasAPI", "TallyTestSupport"]),
     ]
 )

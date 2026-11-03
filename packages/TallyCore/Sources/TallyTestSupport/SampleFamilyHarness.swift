@@ -40,7 +40,7 @@ public enum SampleFamilyHarness {
     }
 
     private static func observerCoursesQuery() -> [(String, String)] {
-        CanvasQuery.courses() + [("include[]", "observed_users")]
+        CanvasQuery.courses(includeObservedUsers: true)
     }
 
     /// Fetches both students' snapshots. Throws if the persona is missing from the manifest, or

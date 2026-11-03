@@ -54,7 +54,16 @@ public struct CanvasTokenExchange: TokenExchanging {
     }
 
     public func exchange(code: String, verifier: String, redirectURI: URL) async throws -> CanvasCredential {
-        let request = endpoint.request(for: .authorizationCode(code: code, verifier: verifier, redirectURI: redirectURI))
+        let request: HTTPRequest
+        do {
+            request = try endpoint.request(for: .authorizationCode(code: code, verifier: verifier, redirectURI: redirectURI))
+        } catch {
+            // LIVE-FIX-1: `TokenEndpoint.request(for:)` now throws `InstitutionHostError` instead
+            // of trapping on a malformed host -- never reached Canvas either, same as a
+            // transport failure below, and this protocol's own contract (doc comment above)
+            // promises callers only `TokenExchangeError`, never a raw `TallyCanvasAPI` error.
+            throw TokenExchangeError.networkFailure
+        }
         let response: HTTPResponse
         do {
             response = try await transport.send(request)
