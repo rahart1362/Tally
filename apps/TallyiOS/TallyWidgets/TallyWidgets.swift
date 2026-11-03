@@ -9,8 +9,10 @@ import WidgetKit
 /// mayCreateKeys: false), isOwner: false).loadGlance()`, with the widget-audience key alone. They
 /// never decode the snapshot, write, use the network, build a `RefreshCoordinator` or read a
 /// credential, and this target links no `TallyFeatures` (CI: scripts/ci/check_widget_isolation.py).
-/// Without a Team ID (GO-LIVE GL-02) the App Group Keychain group is unavailable (-34018 on the CI
-/// simulator) and every widget shows its message text.
+/// If the App Group Keychain group is ever unavailable (`errSecMissingEntitlement`, -34018 --
+/// CI run 40608557981 traced one such case to `xcodegen generate` stripping the `.entitlements`
+/// files, fixed in PR #97, not to the missing Team ID GO-LIVE GL-02 tracks) every widget shows its
+/// message text instead of failing.
 ///
 /// The controls' actions are app intents in `Shared/`, compiled into the app too: "Refresh Tally"
 /// is a `LiveActivityIntent` and "Next Up" an `OpenIntent`, so the system performs both in the

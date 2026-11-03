@@ -7,7 +7,7 @@ DerivedData/
 # XcodeGen output (regenerated from apps/TallyiOS/project.yml)
 apps/TallyiOS/*.xcodeproj/
 apps/TallyiOS/build/
-apps/TallyiOS/*/Generated/
+apps/TallyiOS/Generated/
 # `make ios-*` result bundles, logs and derived data (Makefile IOS_OUT)
 build/ios/
 # SwiftPM (.build-*/ holds the sanitizer and perf scratch paths the Makefile uses)
