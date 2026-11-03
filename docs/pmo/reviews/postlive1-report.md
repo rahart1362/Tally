@@ -46,9 +46,8 @@ let a student sign in at a school whose key only ever granted these 8.
    flag, exactly `CanvasScopes.tally`'s 9 scopes) and its three reasons, evidence cited as
    `#98/#100/#101`; GL-05 gained the "provisional answers (2026-10-28)" list and stays `OPEN`;
    GTM-02 gained "(d) public client type, (e) Tally's 9 scopes"; a FAM-01/M4 self-registration
-   note was added next to GL-05's existing FAM-01 mention. No mention anywhere of the
-   redirect_uri check or the announcements N+1 (both stay private to Instructure per the brief;
-   checked by grepping the diff).
+   note was added next to GL-05's existing FAM-01 mention. The public docs carry Tally-side
+   guidance only (checked by grepping the diff).
 2. **`docs/go-to-market/school-admin-setup-guide.md`** -- line 19's "being verified (GL-05)" note
    replaced with the verified fact (Canvas's admin UI cannot set client type; ask the Canvas
    host). Its scope table was checked against `CanvasScopes.tally`, not silently changed: see
@@ -135,5 +134,16 @@ fixed. Full detail in the journal.
   client-type sentence was fixed with owner-approved copy in round 2).
 - GL-05 stays `OPEN`: Instructure-hosted Canvas still has to confirm the provisional, locally
   measured answers.
-- `TallyCore perf gates (Linux, release, non-blocking)`'s `GoalSeek.solve` ceiling miss on PR
-  #102's first run: non-blocking, unrelated to this PR's files, not investigated further here.
+- `TallyCore perf gates (Linux, release, non-blocking)`'s `GoalSeek.solve` ceiling miss: failed
+  on both the first run and the one rerun, non-blocking by its own job name, not in the required
+  list, and nothing in this PR touches `GoalSeek`/`TallyDomain` perf code -- left open.
+- `iOS perf budgets (Release, CI simulator)` (required job, `ios-perf`): failed on the rerun on
+  `testUnobservedWarmLaunchGlancePaint`'s `Launch.GlancePaint` median (4.14 s vs the 3.0 s
+  ceiling). Read the raw 5-sample metrics: one sample is a 10x outlier (39.66 s vs 1.7-5.8 s for
+  the rest, same shape on `Launch.Resolve`/`Launch.ToTask` that run), consistent with the run's
+  own repeated "capacity constraints... macOS arm64 runners" annotations, not a real regression --
+  `testWarmLaunchGlancePaint`'s median (2.45 s) passes cleanly. Nothing in this PR's diff touches
+  the launch/account-resolve/glance-render path; item 4's only new code (`ETagStore.close()`'s
+  `isClosed` guard) runs on sign-out only, never during launch. Already used this work package's
+  one rerun (rule 4); per the same rule, recording this as an open item rather than rerunning
+  again or altering a product budget to paper over it.
