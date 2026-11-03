@@ -322,14 +322,19 @@ public actor RefreshCoordinator {
     /// `.noCache` — honest, since the account's cache is about to be purged by the rest of that
     /// use case anyway — and then `shutdown()`s, so every subscriber sees `.noCache` as its last
     /// event before its stream finishes. Does not itself touch the store, notifications or
-    /// credentials; item 3 round 2 (`clearLocalCaches()`) is the one exception -- the account's
-    /// own purge is about to delete files a gateway-level in-memory cache could otherwise
-    /// resurrect. Idempotent.
+    /// credentials; item 3 round 2 / item 4 (`closeLocalCaches()`) is the one exception -- the
+    /// account's own purge is about to delete files a gateway-level in-memory cache could
+    /// otherwise resurrect. This coordinator's gateway is never reused after sign-out, so this
+    /// calls the permanent `closeLocalCaches()` (not `clearLocalCaches()`): a refresh already in
+    /// flight when sign-out runs can still land and `setEntry` after `discardInFlightRun()`'s
+    /// epoch bump (that only stops its *result* from committing, not its side effects), and
+    /// without a permanent close its own later `flush()` could write that one entry straight
+    /// back to disk right after the purge deleted the file. Idempotent.
     public func bumpEpochAndCancel() async {
         discardInFlightRun()
         record = RefreshRecord()
         emit(.stateChanged(currentState))
-        await gateway.clearLocalCaches()
+        await gateway.closeLocalCaches()
         shutdown()
     }
 

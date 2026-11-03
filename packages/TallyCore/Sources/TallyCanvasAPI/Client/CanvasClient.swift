@@ -326,4 +326,10 @@ public actor CanvasClient {
     public func clearETagCache() async {
         await etags?.clear()
     }
+
+    /// Item 4 (post-live sign-out hardening): sign-out only. See `CanvasGateway.closeLocalCaches()`
+    /// and `ETagStore.close()`. A no-op with no `etags`.
+    public func closeETagCache() async {
+        await etags?.close()
+    }
 }

@@ -16,7 +16,7 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
    - **Key Name:** Tally
    - **Owner Email:** your admin contact
    - **Redirect URIs:** `https://tally-app.dev/oauth/callback` — the Tally domain (GL-02).
-   - **Client type: Public** (PKCE, no client secret). ⚠︎ *Whether your Canvas admin UI exposes this option is being verified (GL-05). If it does not, contact [[support e-mail]].*
+   - **Client type: Public** (PKCE, no client secret). ⚠︎ *Confirmed (GL-01): Canvas's developer-key admin screen has no field for this. Ask your Canvas host (for most schools, Instructure Support) to set it to Public, server-side, before you continue — contact [[support e-mail]] if you're not sure who that is for your Canvas.*
 3. **Enforce Scopes: ON.** Select only these:
 
    | Purpose | Scope |
@@ -38,7 +38,7 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
 Set the key to **OFF**. Every Tally token for your school stops working immediately.
 
 ## Optional: family access (parents and guardians)
-Tally lets a student invite a parent. The parent uses their **own** Canvas observer account, linked with a pairing code the student creates. It works only if your school allows observers to self-register with a pairing code. To enable it, also select these scopes:
+Tally lets a student invite a parent. The parent uses their **own** Canvas observer account, linked with a pairing code the student creates. It works only if your school allows observers to self-register with a pairing code. **These scopes only matter once Tally's parent-linking feature ships** (v1 does not request any of them, and the required key above works fully without this section); add them when you're ready to turn family access on:
 
 | Purpose | Scope | Type |
 |---|---|---|

@@ -16,6 +16,7 @@ public actor FileETagStore: ETagStore {
     private let url: URL
     private var cache: [String: ETagCacheEntry]?
     private var isDirty = false
+    private var isClosed = false
 
     public init(path: String) { url = URL(fileURLWithPath: path) }
 
@@ -24,6 +25,7 @@ public actor FileETagStore: ETagStore {
     }
 
     public func setEntry(_ entry: ETagCacheEntry, for key: String) async {
+        guard !isClosed else { return }
         var entries = loaded()
         entries[key] = entry
         cache = entries
@@ -31,6 +33,7 @@ public actor FileETagStore: ETagStore {
     }
 
     public func flush() async {
+        guard !isClosed else { return }
         guard isDirty, let entries = cache else { return }
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? JSONEncoder().encode(entries) else { return }
@@ -41,6 +44,14 @@ public actor FileETagStore: ETagStore {
     public func clear() async {
         cache = [:]
         isDirty = false
+    }
+
+    /// Item 4: this harness has no production sign-out path to exercise, but conforms to the
+    /// now-required `ETagStore.close()` the same permanent way `SealedETagStore` does.
+    public func close() async {
+        cache = [:]
+        isDirty = false
+        isClosed = true
     }
 
     private func loaded() -> [String: ETagCacheEntry] {
