@@ -16,7 +16,7 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
    - **Key Name:** Tally
    - **Owner Email:** your admin contact
    - **Redirect URIs:** `https://tally-app.dev/oauth/callback` — the Tally domain (GL-02).
-   - **Client type: Public** (PKCE, no client secret). ⚠︎ *Whether your Canvas admin UI exposes this option is being verified (GL-05). If it does not, contact [[support e-mail]].*
+   - **Client type: Public** (PKCE, no client secret). ⚠︎ *Confirmed (GL-01): Canvas's developer-key admin screen has no field for this. Ask your Canvas host (for most schools, Instructure Support) to set it to Public, server-side, before you continue — contact [[support e-mail]] if you're not sure who that is for your Canvas.*
 3. **Enforce Scopes: ON.** Select only these:
 
    | Purpose | Scope |

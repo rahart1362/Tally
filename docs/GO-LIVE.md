@@ -9,6 +9,10 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
 ### GL-01 — Canvas access authorization · `OPEN` · strategy chosen: **both in parallel** (owner, 2026-09-26)
 - **What:** Tally's "Sign in with Canvas" only works at a school whose Canvas recognises Tally's app key (`client_id`). Keys come either from each school's Canvas admin, or from Instructure as a *global* key that each school can switch on or off. Asking students to paste a personal token is prohibited by Instructure. Separately, Instructure's API Policy restricts "competitive purposes" and apps that "mirror or replicate" Instructure products.
 - **Strategy (owner decision):** pursue **both** routes at once. (a) An Instructure global developer key plus written API-Policy permission via the Partner Program (GTM-02). (b) Per-school keys as individual schools' Canvas admins register Tally. v1 ships an in-app **"Request Tally at my school"** flow and a school-admin setup guide.
+- **Key requirements (local live testing, #98/#100/#101):** whichever route issues it, the key must be a **public client** (PKCE, no client secret) flagged as a **mobile app**, scoped to exactly Tally's 9 scopes (`CanvasScopes.tally`, `packages/TallyCore/Sources/TallyCanvasAPI/Client/CanvasEndpoints.swift`). Why:
+  - Canvas only accepts a no-secret (PKCE) token exchange for a developer key whose `client_type` is `public`; a confidential key gets `invalid_client`.
+  - As of canvas-lms `1c9f0bb` (2026-04-30), the developer-keys API — and so every admin UI built on it — has no field to set `client_type`. Route (b) schools cannot self-serve this: they must ask their Canvas host (for most schools, Instructure Support) to set it server-side.
+  - A **mobile-app** public key gets 90-day sessions; a public key with no mobile-app flag gets only a 2-hour rolling window (GL-05).
 - **Drafts ready:** `docs/go-to-market/instructure-partner-request.md` (route a; the owner sends it) · `docs/go-to-market/school-admin-setup-guide.md` (route b).
 - **Done when:** Instructure's written permission is on file **and** at least one key (global or school) works on real Canvas (GL-05).
 - **Engineering impact:** none on the build. The app is identical either way; only the key configuration differs. Development and testing use sample data and a locally run open-source Canvas.
@@ -59,6 +63,12 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
 ### GL-05 — Real-Canvas sign-in validation · `OPEN` (depends on GL-01)
 - **What:** on Instructure-hosted Canvas, confirm three things: the public-client token lifetime (the 2-hour window), refresh-token rotation, and whether Canvas re-shows its "Authorize" page on each reconnect. Record the evidence in an ADR.
 - **Also (parent linking in v1):** run the observer spike FAM-01 (pairing-code creation with Tally's key, self-registration behaviour, and observer reads of scores and planner). Settle the disputed `observed_user` embedding. Record it in ADR 0002.
+- **FAM-01 / M4 note:** parent pairing-code creation and redemption need the school's Canvas login self-registration turned on (`observer_pairing_codes_api_controller.rb:61`) — confirmed live (#101). Without it, family linking fails at that school regardless of which scopes the key grants.
+- **Provisional answers from a locally run open-source Canvas (2026-10-28)** — still need Instructure-hosted confirmation before this item can close:
+  - a non-mobile public key's session is a 2-hour **rolling** window; a mobile-app public key's is 90 days. The token response's `expires_in` is only a hint, not the real lifetime.
+  - refresh tokens **rotate** on every use; the old one is invalid immediately (`invalid_grant`).
+  - Canvas re-shows its consent/"Authorize" page on every sign-in unless the developer key is marked `trusted` (Rails-console only; not available to a school admin).
+  - a school turning Tally off via its account binding is now detected (#101): a fresh token rejected again, or an authorize redirect's `error=unauthorized_client`.
 - **Refs:** ADR 0001 · security.md WP-SEC-17
 
 ### GL-06 — Release gate green · `OPEN`
@@ -78,7 +88,7 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
 | ID | Reminder | Notes |
 |---|---|---|
 | GTM-01 | **Apple Developer account type: Individual vs Organization** | Individual: your legal name is the seller, and for EU trader status your personal contact details are published. Organization: needs a legal entity (e.g. an LLC) and a **D-U-N-S number, which takes days to weeks**, so start early. Also decide whether to launch on EU storefronts (Digital Services Act trader details). |
-| GTM-02 | Instructure Partner Program application | Feeds GL-01. Ask for (a) written API-Policy permission, (b) a global developer key enabled broadly, (c) "mobile app" token treatment (BL-13). |
+| GTM-02 | Instructure Partner Program application | Feeds GL-01. Ask for (a) written API-Policy permission, (b) a global developer key enabled broadly, (c) "mobile app" token treatment (BL-13), (d) public client type, (e) Tally's 9 scopes (`CanvasScopes.tally`). |
 | GTM-03 | Business model | Free, paid, or subscription. Paid features must use Apple In-App Purchase (Guideline 3.1.1). This affects the store listing and paywall design. |
 | GTM-04 | Store listing | Name and subtitle without "Canvas" (PMO R11); keywords; description with the non-affiliation disclaimer; screenshots (generated by CI in sample-data mode); age-rating questionnaire; privacy label ("Data Not Collected" as designed); accessibility nutrition labels. |
 | GTM-05 | Support operations | Support email, `SECURITY.md` vulnerability-disclosure contact, response targets. |
