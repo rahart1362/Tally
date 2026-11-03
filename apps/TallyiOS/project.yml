@@ -77,8 +77,40 @@ targets:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
       UITest: Config/Identity.xcconfig
+    # The entitlements live here, not only in the file: given just `path`, XcodeGen 2.46.0 writes
+    # an empty dict to that file on every `xcodegen generate`, so every CI iOS build until this
+    # change built the app and the widget with no entitlements at all (their *-Simulated.xcent held
+    # only application-identifier). XcodeGen writes Tally/Tally.entitlements from `properties`, and
+    # ci.yml fails when a generate changes any tracked file, so the committed file (which
+    # scripts/ci/check_release.py's REL.entitlements checks read) always equals what this lists.
     entitlements:
       path: Tally/Tally.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - "$(TALLY_SHARED_APP_GROUP_ID)"
+        # ENC-03/ENC-05 (encryption.md §3.2/§3.4): the app-private group for every vault key except
+        # `glance`'s, and the App Group group so the app can write the one `glance` key the widget
+        # must also read. "$(AppIdentifierPrefix)" is an Xcode entitlements-file macro (the Team
+        # ID); it only expands in the entitlements file, never in compiled Swift, which is why
+        # KeychainVaultKeyStore takes the resolved group strings as plain init parameters instead
+        # of hard-coding this prefix.
+        keychain-access-groups:
+          - "$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)"
+          - "$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)"
+        # UNNotificationScheduler (reminder port adapter): required to actually deliver a
+        # `.timeSensitive` request so it can break through a Focus filter (security.md §3.3 D7 /
+        # architecture.md's "Time Sensitive interruption level"); without it iOS silently
+        # downgrades the interruption level.
+        com.apple.developer.usernotifications.time-sensitive: true
+        # UX-WP-09 / SEC-05: required for ASWebAuthenticationSession's .https(host:path:) callback
+        # (iOS 17.4+, security.md §3.2 item 4). Only the OAuth callback path is claimed, per the
+        # security review: "Register only this https redirect in every institution key."
+        com.apple.developer.associated-domains:
+          - "webcredentials:$(TALLY_ORG_DOMAIN)"
+        # AGE-1 (engineering-backlog-us.md §2 EB-01): required for AgeRangeService's
+        # requestAgeRange/isEligibleForAgeFeatures (DeclaredAgeRangeAdapter, TallyPlatform). Already
+        # allow-listed in scripts/ci/check_release.py's ENTITLEMENTS_ALLOWED.
+        com.apple.developer.declared-age-range: true
     settings:
       base:
         # Required for `@main` to resolve outside a file literally named
@@ -169,8 +201,17 @@ targets:
       Debug: Config/Identity.xcconfig
       Release: Config/Identity.xcconfig
       UITest: Config/Identity.xcconfig
+    # Listed here for the same reason as the Tally target's (see the comment there).
     entitlements:
       path: TallyWidgets/TallyWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - "$(TALLY_SHARED_APP_GROUP_ID)"
+        # ENC-05: only the App Group group — never the app-private group — so the widget process
+        # can open the `glance` vault key and nothing else (encryption.md §3.4: "It can therefore
+        # open glance and nothing else: a snapshot open returns keyMissing").
+        keychain-access-groups:
+          - "$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)"
     settings:
       base:
         # A distinct sub-identifier of the app's bundle ID, as extensions

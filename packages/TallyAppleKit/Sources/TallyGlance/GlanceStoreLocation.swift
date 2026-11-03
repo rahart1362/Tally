@@ -11,8 +11,11 @@ public struct GlanceConfiguration: Sendable, Equatable {
     public let appBundleID: String
     /// The Keychain access group of that key: the App Group ID behind the Team ID prefix
     /// (encryption.md §3.2, the widget entitlement's `$(AppIdentifierPrefix)$(TALLY_SHARED_APP_GROUP_ID)`).
-    /// Without a Team ID (GO-LIVE GL-02) the prefix is empty, and on the CI simulator the query
-    /// fails with `errSecMissingEntitlement` (-34018): the widget then shows its placeholder.
+    /// Without a Team ID (GO-LIVE GL-02) the prefix is empty. A query against this group fails
+    /// with `errSecMissingEntitlement` (-34018) only when the running process's entitlements don't
+    /// list it -- CI run 40608557981 traced one such case to `xcodegen generate` stripping the
+    /// `.entitlements` files (fixed in PR #97), not to the missing Team ID itself. Either way the
+    /// widget shows its placeholder, never a failure.
     public let keychainAccessGroup: String
 
     public static let appGroupIDKey = "TallyAppGroupID"
