@@ -153,8 +153,17 @@ struct ReminderRig: Sendable {
 
     /// A coordinator over the account's flagship snapshot, with no pipeline attached (the tests drive
     /// `ReminderPipeline.reconcile` themselves).
+    ///
+    /// Post-live fix: this used to call `.flagship(account:)` with no `now:`, which stamped the
+    /// snapshot's `fetchedAt` from its own independent `Date()` read rather than this rig's fixed
+    /// `now`. Two rigs built back-to-back (`defaultLocaleMatchesTallyLocaleEffective`, below) each
+    /// took that read at a slightly different real instant; the stale-data sentinel's rendered body
+    /// embeds `fetchedAt` verbatim ("Tally hasn't refreshed since yesterday at H:MM"), so a pass over
+    /// a real minute boundary between the two reads made `defaultWords != explicitWords` and failed
+    /// main's iOS ASan run 40685358106. Passing `now:` here makes `fetchedAt` exactly this rig's own
+    /// fixed clock, matching the `FixedClock` below, so two rigs with the same `now` are identical.
     func coordinator() async throws -> RefreshCoordinator {
-        let snapshot = try await FlagshipAccountGateway.flagship(account: account)
+        let snapshot = try await FlagshipAccountGateway.flagship(account: account, now: now)
         return RefreshCoordinator(gateway: FlagshipAccountGateway(account: account),
                                   store: environment.snapshotStore(for: account, root: harness.root),
                                   clock: FixedClock(now: now), initialSnapshot: snapshot)

@@ -114,8 +114,11 @@ actor FlagshipAccountGateway: CanvasGateway {
         return try await Self.flagship(account: account, generation: (previous?.generation ?? 0) + 1)
     }
 
-    static func flagship(account: AccountKey, generation: UInt64 = 1) async throws -> CanvasSnapshot {
-        try await FlagshipSnapshotHarness.fetchSnapshot(now: Date()).restamped(accountKey: account, generation: generation)
+    /// `now` defaults to the real clock so every existing call site is unchanged; a caller that
+    /// already has a fixed instant (e.g. `ReminderRig`, below) passes it explicitly instead of
+    /// letting this stamp the snapshot's `fetchedAt` from a second, independent `Date()` read.
+    static func flagship(account: AccountKey, generation: UInt64 = 1, now: Date = Date()) async throws -> CanvasSnapshot {
+        try await FlagshipSnapshotHarness.fetchSnapshot(now: now).restamped(accountKey: account, generation: generation)
     }
 }
 
