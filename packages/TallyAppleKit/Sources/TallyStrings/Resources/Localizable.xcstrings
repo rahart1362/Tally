@@ -3901,6 +3901,102 @@
         }
       }
     },
+    "dashboard.weekAhead.skipAlert.message" : {
+      "comment" : "Dashboard, \"Add This Week to Calendar\": message of the skip-or-stop alert. The cancelled item is not added; the placeholder is how many of the week's items are still to add. A plural key.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This event won't be added to Calendar. You have %lld more to add this week."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This event won't be added to Calendar. You have %lld more to add this week."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Este evento no se agregará al calendario. Te queda %lld más por agregar esta semana."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Este evento no se agregará al calendario. Te quedan %lld más por agregar esta semana."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.skipAlert.skip" : {
+      "comment" : "Dashboard, \"Add This Week to Calendar\" skip-or-stop alert: button that leaves the cancelled item out and opens the next item's \"New Event\" sheet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip and Continue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Omitir y continuar"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.skipAlert.stop" : {
+      "comment" : "Dashboard, \"Add This Week to Calendar\" skip-or-stop alert: button that stops adding the week's items. Events already added stay in Calendar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Adding"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dejar de agregar"
+          }
+        }
+      }
+    },
+    "dashboard.weekAhead.skipAlert.title" : {
+      "comment" : "Dashboard, \"Add This Week to Calendar\": alert title shown after the student cancels one item's \"New Event\" sheet while more of the week's items are still to add. The items can be assignments, quizzes, classes or events; each one becomes a calendar event.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip This Event?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Omitir este evento?"
+          }
+        }
+      }
+    },
     "dashboard.weekAheadHeader" : {
       "comment" : "Dashboard section header above the week strip.",
       "extractionState" : "manual",

@@ -35,3 +35,67 @@ enum WeekAheadCalendarDraft {
                                   isAllDay: false, location: nil, url: safeURL)
     }
 }
+
+/// Idea 10's walk through the week's drafts, one system sheet at a time. Add moves on to the next
+/// draft. Cancel with more still to go asks whether to skip that one and continue, or stop (owner,
+/// 2026-10-27: Cancel used to open the next draft silently, which read as the sheet reopening by
+/// itself). Pure, so a hosted test drives it without the system sheet.
+struct WeekAddWalk {
+    /// The draft the system sheet is showing, if any.
+    private(set) var showing: CalendarEventDraft?
+    /// The drafts still to walk through after `showing`.
+    private(set) var remaining: [CalendarEventDraft] = []
+    /// A cancel left more to go: the question waits for the sheet to finish closing, because
+    /// presenting an alert while the sheet is still on its way out can fail.
+    private(set) var questionPending = false
+    /// The skip-or-stop question is on screen.
+    private(set) var asksToSkipOrStop = false
+
+    init(drafts: [CalendarEventDraft] = []) {
+        var queue = drafts
+        showing = queue.isEmpty ? nil : queue.removeFirst()
+        remaining = queue
+    }
+
+    /// The system sheet closed: `added` when the student tapped Add. Closing the last draft, or
+    /// closing when nothing is showing (a second report of the same close), asks nothing.
+    mutating func finish(added: Bool) {
+        guard showing != nil else { return }
+        if added || remaining.isEmpty {
+            showNext()
+        } else {
+            showing = nil
+            questionPending = true
+        }
+    }
+
+    /// The sheet's `onDismiss`: it is fully gone, so a pending question can show now.
+    mutating func sheetDismissed() {
+        guard questionPending else { return }
+        questionPending = false
+        asksToSkipOrStop = true
+    }
+
+    /// "Skip and Continue": leaves the cancelled draft out and opens the next one.
+    mutating func skipAndContinue() {
+        asksToSkipOrStop = false
+        showNext()
+    }
+
+    /// "Stop Adding": ends the walk. Whatever the student already added stays in Calendar.
+    mutating func stop() {
+        asksToSkipOrStop = false
+        questionPending = false
+        showing = nil
+        remaining = []
+    }
+
+    /// The alert closed (SwiftUI resets its binding around the button's own action).
+    mutating func questionClosed() {
+        asksToSkipOrStop = false
+    }
+
+    private mutating func showNext() {
+        showing = remaining.isEmpty ? nil : remaining.removeFirst()
+    }
+}

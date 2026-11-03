@@ -26,9 +26,8 @@ struct DashboardView: View {
     /// margin.
     @State private var screenMargin: CGFloat = TallySpacing.screenMargin
     /// Idea 10 ("Add this week to Calendar"): the draft the system's per-item sheet is showing,
-    /// and the rest of the week's drafts still to walk through once it closes.
-    @State private var weekAddDraft: CalendarEventDraft?
-    @State private var weekAddQueue: [CalendarEventDraft] = []
+    /// the rest of the week's drafts still to walk through, and the skip-or-stop question.
+    @State private var weekAdd = WeekAddWalk()
     /// Idea 11 ("Send my week"): `UserState.hideCourseNamesInNotifications` (R10), read directly
     /// rather than through `SettingsModel` -- this screen only ever reads it, like
     /// `ReminderPipeline` does off the main actor. Loaded once per appearance, like `trend` above;
@@ -105,30 +104,28 @@ struct DashboardView: View {
         // variant, so the opaque fill never paints over "Dashboard" at rest.
         .tallyLargeTitleScreenChrome()
         .navigationTitle(String(localized: L10n.Dashboard.navigationTitle()))
-        // Idea 10: walks the queue one system sheet at a time -- each one is its own
-        // zero-permission confirm (R6); this only decides what opens next. Cancelling one item
-        // (the system editor's own Cancel) still advances to the next, the same as a tap on
-        // "Add": a bulk walk that stopped dead on the first skip would defeat the point of it.
-        .sheet(item: $weekAddDraft) { draft in
-            AddToCalendarView(draft: draft) { advanceWeekAddQueue() }
+        // Idea 10: walks the week one system sheet at a time -- each one is its own
+        // zero-permission confirm (R6); `WeekAddWalk` only decides what opens next. Add moves on.
+        // Cancel with more still to go asks whether to skip that one and continue, or stop (owner,
+        // 2026-10-27: a silent advance read as the sheet reopening by itself). Swiping the sheet
+        // away counts as Cancel.
+        .sheet(item: Binding(get: { weekAdd.showing }, set: { if $0 == nil { weekAdd.finish(added: false) } }),
+               onDismiss: { weekAdd.sheetDismissed() }) { draft in
+            AddToCalendarView(draft: draft) { weekAdd.finish(added: $0) }
                 .ignoresSafeArea()
         }
-    }
-
-    /// Idea 10: queues every draft but the first (shown at once) behind it.
-    private func startAddingWeek(_ days: [DashboardProjection.WeekDay]) {
-        var queue = WeekAheadCalendarDraft.drafts(for: days, accountHost: model.account.host)
-        guard !queue.isEmpty else { return }
-        weekAddDraft = queue.removeFirst()
-        weekAddQueue = queue
-    }
-
-    private func advanceWeekAddQueue() {
-        guard !weekAddQueue.isEmpty else {
-            weekAddDraft = nil
-            return
+        .alert(String(localized: L10n.Dashboard.addWeekSkipTitle()),
+               isPresented: Binding(get: { weekAdd.asksToSkipOrStop }, set: { if !$0 { weekAdd.questionClosed() } })) {
+            Button(String(localized: L10n.Dashboard.addWeekSkipButton())) { weekAdd.skipAndContinue() }
+            Button(String(localized: L10n.Dashboard.addWeekStopButton()), role: .cancel) { weekAdd.stop() }
+        } message: {
+            Text(L10n.Dashboard.addWeekSkipMessage(weekAdd.remaining.count))
         }
-        weekAddDraft = weekAddQueue.removeFirst()
+    }
+
+    /// Idea 10: opens the first of the week's drafts, with the rest queued behind it.
+    private func startAddingWeek(_ days: [DashboardProjection.WeekDay]) {
+        weekAdd = WeekAddWalk(drafts: WeekAheadCalendarDraft.drafts(for: days, accountHost: model.account.host))
     }
 
     @ViewBuilder
