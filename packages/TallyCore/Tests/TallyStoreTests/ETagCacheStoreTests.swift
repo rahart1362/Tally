@@ -262,4 +262,62 @@ struct ETagCacheStoreTests {
                "the post-clear refresh's profile request must be unconditional: nothing survived the clear to attach")
         #expect(FileManager.default.fileExists(atPath: url.path), "the second, post-clear refresh caches again -- this is a fresh cache, not a resurrection")
     }
+
+    // MARK: - Item 4 (post-live): sign-out's permanent close, not just a point-in-time clear
+
+    /// Direct store-level proof of `ETagStore.close()`'s contract: afterwards, `setEntry` then
+    /// `flush()` writes nothing, not even once -- unlike `clear()`, which still lets a later,
+    /// legitimate `setEntry`/`flush` pair write normally (covered above).
+    @Test("After close(), a setEntry + flush writes nothing")
+    func closeBlocksEverySetEntryAndFlushAfterwards() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = CountingSealer(wrapping: makeSealer())
+        let store = SealedETagStore(ETagCacheStore(root: root, accountKey: accountKey, sealer: sealer))
+        let key = "https://canvas.northfield.example/api/v1/courses"
+
+        await store.setEntry(ETagCacheEntry(etag: "\"before-close\"", body: Data()), for: key)
+        await store.flush()
+        #expect(sealer.sealCount(for: .etagCache) == 1, "a normal setEntry + flush does write once")
+        #expect(await store.entry(for: key)?.etag == "\"before-close\"")
+
+        await store.close()
+        #expect(await store.entry(for: key) == nil, "close() clears the in-memory cache like clear() does")
+
+        // The race item 4 closes: a refresh already in flight when sign-out ran, landing after.
+        await store.setEntry(ETagCacheEntry(etag: "\"after-close\"", body: Data()), for: key)
+        await store.flush()
+        #expect(await store.entry(for: key) == nil, "setEntry after close() must be a no-op")
+        #expect(sealer.sealCount(for: .etagCache) == 1, "flush after close() must never write -- still exactly the one pre-close save")
+    }
+
+    /// Gateway-level proof the sign-out wiring (`CanvasGateway.closeLocalCaches()`, which
+    /// `RefreshCoordinator.bumpEpochAndCancel()` calls) reaches `SealedETagStore.close()` and
+    /// that the block is permanent -- unlike `clearLocalCachesPreventsResurrectionAfterErase`
+    /// above, a fetch attempted on this same gateway *after* `closeLocalCaches()` must not
+    /// resurrect the file either, since a signed-out gateway is never legitimately reused.
+    @Test("closeLocalCaches() is permanent: no fetch on this gateway ever writes the ETag cache again")
+    func closeLocalCachesIsPermanentAcrossLaterFetchesToo() async throws {
+        let root = try tempStoreDirectory()
+        let sealer = makeSealer()
+        let transport = try ReplayTransport.persona("flagship")
+        try await injectCacheableProfile(transport)
+        let gateway = gatewayWithRealETagStore(root: root, sealer: sealer, transport: transport)
+
+        _ = try await gateway.fetchSnapshot(previous: nil, now: Date())
+        let url = StoreLayout(root: root, accountKey: accountKey).url(for: .etagCache)
+        #expect(FileManager.default.fileExists(atPath: url.path), "the first refresh did persist a cache")
+
+        // Sign-out: the purge deletes the file, and the coordinator closes this same gateway.
+        ProtectedFile.remove(url)
+        await gateway.closeLocalCaches()
+
+        // A request already in flight at sign-out, landing right after -- the exact race item 4
+        // fixes. `fetchSnapshot` still runs (this double has no epoch/cancellation of its own),
+        // but its ETag cache writes must now be inert.
+        try await injectCacheableProfile(transport)
+        _ = try await gateway.fetchSnapshot(previous: nil, now: Date())
+
+        #expect(!FileManager.default.fileExists(atPath: url.path),
+               "closeLocalCaches() must block every later write, not just clear what existed at the time")
+    }
 }

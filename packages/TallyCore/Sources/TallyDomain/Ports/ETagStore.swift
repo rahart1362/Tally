@@ -54,9 +54,23 @@ public protocol ETagStore: Sendable {
     /// Data"): the account's existing, still-live `CanvasClient` is never rebuilt by a purge
     /// (only the files change), so without this, a later `flush()` could write this cache's
     /// stale in-memory entries back to disk, and a later `304` could resurrect Canvas-derived
-    /// content the purge had just deleted. `RefreshCoordinator.eraseLocalData()` /
-    /// `bumpEpochAndCancel()` call this through `CanvasGateway.clearLocalCaches()`.
+    /// content the purge had just deleted. `RefreshCoordinator.eraseLocalData()` calls this
+    /// through `CanvasGateway.clearLocalCaches()`. The account stays signed in here, so a later,
+    /// legitimate refresh must still be able to `setEntry`/`flush` normally -- this alone never
+    /// blocks that.
     func clear() async
+
+    /// Sign-out only (`RefreshCoordinator.bumpEpochAndCancel()`, through
+    /// `CanvasGateway.closeLocalCaches()`): does what `clear()` does, and then *permanently*
+    /// blocks every later `setEntry`/`flush` from doing anything, for the lifetime of this store
+    /// instance. Closes the gap `clear()` alone leaves open: a refresh already in flight when
+    /// sign-out runs can still be mid-request, past `clear()`'s point in time, and go on to call
+    /// `setEntry` once its response lands; without a permanent block, that entry's later
+    /// `flush()` (`LiveCanvasGateway.fetchSnapshot`'s own, called win or lose) would write one
+    /// entry straight back to disk, after `AccountSignOut`'s purge already deleted the file --
+    /// resurrecting exactly the Canvas-derived content sign-out just erased. Never called by
+    /// `eraseLocalData()`: the account stays signed in there, and the cache must keep working.
+    func close() async
 }
 
 /// Item 3 round 2: the pure prune-before-flush policy, factored out so it is directly testable

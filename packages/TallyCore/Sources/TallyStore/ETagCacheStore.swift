@@ -98,6 +98,10 @@ public actor SealedETagStore: ETagStore {
     private let maxBytes: Int
     private var cache: [String: ETagCacheEntry]?
     private var isDirty = false
+    /// Item 4 (post-live sign-out hardening): set once, by `close()`, and never cleared --
+    /// this actor instance is retired with the account's `CanvasClient` on sign-out and must
+    /// never write again, even for a request that was already in flight when sign-out ran.
+    private var isClosed = false
 
     public init(_ store: ETagCacheStore, clock: any DateProviding = SystemDateProvider(),
                maxAge: Duration = TallyConfig.etagCacheEntryMaxAge, maxBytes: Int = TallyConfig.etagCacheMaxBodyBytes) {
@@ -112,6 +116,7 @@ public actor SealedETagStore: ETagStore {
     }
 
     public func setEntry(_ entry: ETagCacheEntry, for key: String) async {
+        guard !isClosed else { return }
         var entries = loaded()
         entries[key] = entry
         cache = entries
@@ -119,6 +124,7 @@ public actor SealedETagStore: ETagStore {
     }
 
     public func flush() async {
+        guard !isClosed else { return }
         guard isDirty, let entries = cache else { isDirty = false; return }
         let pruned = ETagCachePruning.pruned(entries, now: clock.now(), maxAge: maxAge, maxBytes: maxBytes)
         try? store.save(pruned)
@@ -136,6 +142,19 @@ public actor SealedETagStore: ETagStore {
     public func clear() async {
         cache = [:]
         isDirty = false
+    }
+
+    /// Item 4 (post-live, sign-out hardening, EB-26's sibling gap): everything `clear()` does,
+    /// plus a permanent latch -- every `setEntry`/`flush` from here on is a no-op, for the rest
+    /// of this actor instance's life. `bumpEpochAndCancel()` (sign-out) is the only caller
+    /// (through `CanvasGateway.closeLocalCaches()`): the account's `CanvasClient`/gateway is
+    /// being retired, never reused, so a request that was already in flight at that moment and
+    /// lands a moment later must not be able to `setEntry` and then `flush()` one entry back to
+    /// a file `AccountSignOut`'s purge already deleted.
+    public func close() async {
+        cache = [:]
+        isDirty = false
+        isClosed = true
     }
 
     /// Reads the file at most once per `SealedETagStore` instance (one per account's

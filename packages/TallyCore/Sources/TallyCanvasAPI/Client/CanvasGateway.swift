@@ -14,10 +14,18 @@ public protocol CanvasGateway: Sendable {
     /// (sample data, every test double) needs no change; `LiveCanvasGateway` overrides it for
     /// its ETag cache. Called by `RefreshCoordinator.eraseLocalData()`/`bumpEpochAndCancel()`.
     func clearLocalCaches() async
+
+    /// Item 4 (post-live sign-out hardening): sign-out only, through
+    /// `RefreshCoordinator.bumpEpochAndCancel()`. Does what `clearLocalCaches()` does, and then
+    /// permanently blocks this gateway's local caches from writing again, closing the gap a
+    /// plain clear leaves open for a refresh already in flight when sign-out runs (see
+    /// `ETagStore.close()`'s doc comment). Default no-op, same reasoning as `clearLocalCaches()`.
+    func closeLocalCaches() async
 }
 
 extension CanvasGateway {
     public func clearLocalCaches() async {}
+    public func closeLocalCaches() async {}
 }
 
 /// The live `CanvasGateway`: composes `CanvasClient` calls per the endpoint catalogue and
@@ -64,6 +72,11 @@ public actor LiveCanvasGateway: CanvasGateway {
     /// EB-26: see `CanvasGateway.clearLocalCaches()`'s doc comment.
     public func clearLocalCaches() async {
         await client.clearETagCache()
+    }
+
+    /// Item 4: see `CanvasGateway.closeLocalCaches()`'s doc comment.
+    public func closeLocalCaches() async {
+        await client.closeETagCache()
     }
 
     private func performFetch(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
