@@ -6,6 +6,18 @@ import TallyDomain
 /// simply replaced, and on a partial failure they seed the carry-forward values.
 public protocol CanvasGateway: Sendable {
     func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot
+    /// EB-26 ("Erase Saved Data", item 3 round 2): clears any local cache whose stale in-memory
+    /// state could recreate Canvas-derived content a purge just deleted from disk -- a purge
+    /// never tears down or rebuilds this account's existing, still-live gateway, only its files
+    /// change, so without this a later refresh on the SAME gateway instance could serve (and
+    /// re-persist) exactly what was just erased. Default no-op so every other conformance
+    /// (sample data, every test double) needs no change; `LiveCanvasGateway` overrides it for
+    /// its ETag cache. Called by `RefreshCoordinator.eraseLocalData()`/`bumpEpochAndCancel()`.
+    func clearLocalCaches() async
+}
+
+extension CanvasGateway {
+    public func clearLocalCaches() async {}
 }
 
 /// The live `CanvasGateway`: composes `CanvasClient` calls per the endpoint catalogue and
@@ -35,7 +47,26 @@ public actor LiveCanvasGateway: CanvasGateway {
         self.logger = logger
     }
 
+    /// Item 3 round 2 ("one write per refresh"): flushes the ETag cache exactly once, whether
+    /// `performFetch` below succeeds or throws -- never left for a caller to remember, and never
+    /// left to the per-endpoint `setEntry` calls inside `CanvasClient` themselves.
     public func fetchSnapshot(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
+        do {
+            let snapshot = try await performFetch(previous: previous, now: now)
+            await client.flushETagCache()
+            return snapshot
+        } catch {
+            await client.flushETagCache()
+            throw error
+        }
+    }
+
+    /// EB-26: see `CanvasGateway.clearLocalCaches()`'s doc comment.
+    public func clearLocalCaches() async {
+        await client.clearETagCache()
+    }
+
+    private func performFetch(previous: CanvasSnapshot?, now: Date) async throws -> CanvasSnapshot {
         // Required: all-or-nothing. The first failure here propagates and nothing is returned.
         let profile = try await fetchProfile()
         // CS-07: a course can come back once per enrollment. Drop repeats before the per-course
@@ -104,13 +135,23 @@ public actor LiveCanvasGateway: CanvasGateway {
         return try pages.flatMap { page in try mapOrContract(page) { try CourseMapper.map($0, host: host).items } }
     }
 
+    /// Item 2 (LIVE-FIX-2, live2-security's "enrollment_or_course" finding): a deleted or
+    /// forbidden course (a concluded enrollment that was then deleted, or the course itself
+    /// deleted) 403s/404s on its own direct fetch even though the courses *list* had already
+    /// filtered it out by `enrollment_state` -- that course is skipped, logged (a reason only,
+    /// never which course), and the rest of the refresh proceeds; the skipped course simply has
+    /// no entry in the result, same as a course with zero groups.
     private func fetchAssignmentGroups(for courses: [Course]) async throws -> [CanvasID<Course>: [AssignmentGroup]] {
         var groups: [CanvasID<Course>: [AssignmentGroup]] = [:]
         for course in courses {
-            let pages = try await client.fetchAllPages(path: "/api/v1/courses/\(course.id.rawValue)/assignment_groups",
-                                                       query: CanvasQuery.assignmentGroups())
-            groups[course.id] = try pages.flatMap { page in
-                try mapOrContract(page) { try AssignmentGroupMapper.map($0, courseID: course.id).items }
+            switch try await client.fetchAllPagesOrSkip(path: "/api/v1/courses/\(course.id.rawValue)/assignment_groups",
+                                                        query: CanvasQuery.assignmentGroups()) {
+            case .success(let pages):
+                groups[course.id] = try pages.flatMap { page in
+                    try mapOrContract(page) { try AssignmentGroupMapper.map($0, courseID: course.id).items }
+                }
+            case .failure(let reason):
+                logger.log(.courseSkipped(reason))
             }
         }
         return groups

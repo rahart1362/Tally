@@ -87,6 +87,28 @@ struct SchoolDisabledTests {
         #expect(store.credential != nil, "the school's switch is not the student's sign-in: the tokens stay")
     }
 
+    /// LIVE-FIX-2 (EB-26, live2-security's "school-disabled: binding OFF, key still active"
+    /// finding): the refresh grant itself keeps succeeding (binding is never consulted there),
+    /// but the fresh token it hands back is rejected again right away. `CanvasClient.swift`'s
+    /// `alreadyRefreshed` guard sees this as a second `.tokenRejected` inside the SAME call --
+    /// before this fix it reported `.authExpired`; it must now report `.schoolDisabled`, with
+    /// still only one refresh attempt (not a loop), and the tokens kept.
+    @Test("A fresh token rejected again within one call means .schoolDisabled, not authExpired, and never loops")
+    func freshTokenRejectedWithinOneCallMeansSchoolDisabled() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let store = InMemoryCredentialStore(credential(expiresIn: 3600))
+        let refresher = RecordingRefresher()
+        let tokens = TokenCoordinator(initial: credential(expiresIn: 3600), store: store, refresher: refresher, clock: clock)
+        let client = CanvasClient(host: host, transport: transport, tokens: tokens)
+        await transport.inject(response: try ReplayTransport.errorResponse("401-invalid-access-token"), times: 2,
+                               matching: { $0.url.path == "/api/v1/users/self/profile" })
+        await #expect(throws: RefreshFailure.schoolDisabled) {
+            _ = try await client.fetchOne(path: "/api/v1/users/self/profile")
+        }
+        #expect(refresher.callCount == 1, "without looping refreshes: still at most one refresh attempt")
+        #expect(store.credential != nil, "the school's switch is not the student's sign-in: the tokens stay")
+    }
+
     @Test("A refresh that failed with .schoolDisabled keeps the saved data on screen and persists as such")
     func freshnessKeepsSavedData() throws {
         let saved = clock.now()

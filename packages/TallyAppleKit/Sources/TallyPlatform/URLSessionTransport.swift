@@ -43,8 +43,15 @@ extension TallyConfig {
 /// `TokenEndpoint`). Extend `knownRequestHeaderNames` if a future TallyCore
 /// change adds a new outbound request header — flagged for the PMO in the
 /// platform-adapters report.
+///
+/// Item 3 (LIVE-FIX-2/LIVE-3) is exactly that future change: `CanvasClient` now sets
+/// `If-None-Match` on a conditional GET. Found live (not by inspection): a real refresh against
+/// the dev Canvas never produced a single 304 until this was added here too -- this allowlist
+/// silently dropped the header before it ever reached the socket, so item 3 was otherwise
+/// completely inert in the shipping transport despite every `ReplayTransport`-backed unit test
+/// passing (that fixture transport has no such allowlist).
 public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
-    private static let knownRequestHeaderNames = ["Accept", "User-Agent", "Content-Type", "Authorization"]
+    private static let knownRequestHeaderNames = ["Accept", "User-Agent", "Content-Type", "Authorization", "If-None-Match"]
 
     /// Internal (not private) so hosted tests can assert on the live
     /// configuration (`@testable import TallyPlatform`) without a second,

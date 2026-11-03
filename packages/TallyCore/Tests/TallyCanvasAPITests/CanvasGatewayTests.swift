@@ -9,7 +9,8 @@ struct CanvasGatewayTests {
     private let host = "canvas.northfield.example"
     private let anchor = Date(timeIntervalSince1970: 1_790_600_400) // 2026-09-28T13:00:00Z, the fixtures' anchor
 
-    private func gateway(_ transport: ReplayTransport, backoff: BackoffPolicy = BackoffPolicy(base: .milliseconds(1), maxDelay: .milliseconds(5)))
+    private func gateway(_ transport: ReplayTransport, backoff: BackoffPolicy = BackoffPolicy(base: .milliseconds(1), maxDelay: .milliseconds(5)),
+                         logger: any TallyLogger = NoOpLogger())
         -> (gateway: LiveCanvasGateway, refresher: RecordingRefresher) {
         let refresher = RecordingRefresher()
         let clock = TestClock(anchor)
@@ -18,7 +19,7 @@ struct CanvasGatewayTests {
         let coordinator = TokenCoordinator(initial: credential, store: InMemoryCredentialStore(credential),
                                            refresher: refresher, clock: clock)
         let client = CanvasClient(host: host, transport: transport, tokens: coordinator, backoff: backoff)
-        return (LiveCanvasGateway(host: host, accountKey: AccountKey("test-account"), client: client), refresher)
+        return (LiveCanvasGateway(host: host, accountKey: AccountKey("test-account"), client: client, logger: logger), refresher)
     }
 
     @Test func flagshipSnapshotMatchesMapperOutputsAndStaysUnderTheRequestBudget() async throws {
@@ -86,6 +87,25 @@ struct CanvasGatewayTests {
         let snapshot = try await gateway.fetchSnapshot(previous: nil, now: anchor)
         #expect(snapshot.profile.name == "Alex Sample")
         #expect(refresher.callCount == 1)
+    }
+
+    /// Item 2 (LIVE-FIX-2, live2-security's "enrollment_or_course" finding): one course's
+    /// assignment-groups fetch 403s (a concluded-then-deleted enrollment), but the rest of the
+    /// refresh -- including the other four courses' own assignment groups -- still completes;
+    /// the skip is logged with a reason only, never the course's ID.
+    @Test func aForbiddenCoursesAssignmentGroupsAreSkippedWithoutFailingTheWholeRefresh() async throws {
+        let transport = try ReplayTransport.persona("flagship")
+        let skippedCourseID = CanvasID<Course>("51845") // BIO 101
+        await transport.inject(response: try ReplayTransport.errorResponse("403-unauthorized"), times: 1,
+                               matching: { $0.url.path == "/api/v1/courses/\(skippedCourseID.rawValue)/assignment_groups" })
+        let logger = RecordingLogger()
+        let (gateway, _) = gateway(transport, logger: logger)
+        let snapshot = try await gateway.fetchSnapshot(previous: nil, now: anchor)
+
+        #expect(Set(snapshot.courses.map(\.id)).count == 5, "the courses list itself is untouched")
+        #expect(snapshot.groups[skippedCourseID] == nil, "the skipped course has no entry, not an empty one")
+        #expect(snapshot.groups.count == 4, "the other four courses' groups still fetched normally")
+        #expect(logger.events == [.courseSkipped(.forbidden)])
     }
 
     @Test func largePersonaChunksContextCodesAtTenAndPaginatesEachChunk() async throws {

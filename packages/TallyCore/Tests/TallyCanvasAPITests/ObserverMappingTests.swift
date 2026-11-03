@@ -12,16 +12,20 @@ struct ObserverMappingTests {
     private let alexUserID = "4820117" // parent-observer's northfield observee (== flagship's own user)
     private let jordanUserID = "6603318" // parent-observer's northgate observee (== grading-periods' own user)
 
-    /// **Finding**: neither `personas/parent-observer/northfield/courses.json` nor the
-    /// northgate one embeds an `observed_user` key anywhere. Each course's `enrollments`
-    /// array instead gains a second row — the observer's own (`type: "observer"`,
-    /// `associated_user_id` naming the observee) — alongside the observee's ordinary
-    /// `type: "student"` row with `computed_current_score` etc., byte-for-byte like a
-    /// self-view response. That resolves family-linking.md §6.1's disputed row in favour of
-    /// "the Courses API appending the observee's own enrollment rows instead": `CourseMapper`
-    /// (WP-B03) already selects the first `student`-type row regardless of who is asking, so
-    /// it needs no change to map an observer's courses response correctly.
-    @Test func courseMapperAlreadyHandlesTheObserverCoursesResponse() throws {
+    /// **Finding, corrected by LIVE-FIX-1** (`docs/pmo/reviews/live1-report.md` finding F5):
+    /// neither `personas/parent-observer/northfield/courses.json` nor the northgate one embeds
+    /// an `observed_user` key anywhere. Each course's `enrollments` array instead gains a
+    /// second row — the observer's own (`type: "observer"`, `associated_user_id` naming the
+    /// observee) — alongside the observee's ordinary `type: "student"` row with
+    /// `computed_current_score` etc., byte-for-byte like a self-view response. **That shape is
+    /// what real Canvas (`1c9f0bb`) returns only when the request also carries
+    /// `include[]=observed_users`** (`CanvasQuery.courses(includeObservedUsers: true)`) — a bare
+    /// observer `/courses` call comes back with only the observer's own row and `nil` scores
+    /// (see `courseScoresIsNilWithoutTheObservedUsersInclude` below). With the include present,
+    /// `CourseMapper` (WP-B03) already selects the first `student`-type row regardless of who is
+    /// asking, so it needs no change to map a *fully-included* observer courses response
+    /// correctly — that part of the original finding stands.
+    @Test func courseMapperHandlesTheObserverCoursesResponseWithTheObservedUsersInclude() throws {
         let courses = try CourseMapper.map(Fixtures.data("personas/parent-observer/northfield/courses.json"), host: northfieldHost).items
         #expect(courses.count == 5)
         let bio = try #require(courses.first { $0.id == "51845" })
@@ -36,6 +40,34 @@ struct ObserverMappingTests {
         let observerRow = try #require(enrollments.first { $0["type"] as? String == "observer" })
         #expect(observerRow["associated_user_id"] as? String == alexUserID)
         #expect(enrollments.contains { $0["type"] as? String == "student" })
+    }
+
+    /// **F5, the actual bug** (`docs/pmo/reviews/live1-report.md`): real Canvas's bare observer
+    /// `/courses` response (no `include[]=observed_users`) carries only the observer's own
+    /// `type: "observer"` enrollment row -- never a `student` row -- so `course.scores` must
+    /// decode `nil`, not crash and not silently reuse the observer's own (absent) totals. This
+    /// is an inline fixture, not a file under `fixtures/canvas/` (`tools/canvas-synth/validate.py`
+    /// only accepts files its manifest references; this one scenario needs no new route).
+    @Test func courseScoresIsNilWithoutTheObservedUsersInclude() throws {
+        let json = """
+        [{"id":"51845","name":"Biology 101","enrollments":[
+            {"type":"observer","role":"ObserverEnrollment","user_id":"4820990","associated_user_id":"4820117"}
+        ]}]
+        """
+        let courses = try CourseMapper.map(Data(json.utf8), host: northfieldHost).items
+        let bio = try #require(courses.first)
+        #expect(bio.scores == nil, "no student row in the response (the include was omitted): nothing to show, not a crash")
+    }
+
+    /// Unit-tests the exact query LIVE-FIX-1 added (item 6): the observer variant appends
+    /// exactly one item, `include[]=observed_users`, and the plain student query --
+    /// `LiveCanvasGateway.fetchCourses()`'s own call -- is byte-for-byte unchanged by it.
+    @Test func observerCoursesQueryAddsExactlyOneIncludeItemStudentQueryIsUnchanged() {
+        let studentQuery = CanvasQuery.courses()
+        let observerQuery = CanvasQuery.courses(includeObservedUsers: true)
+        #expect(observerQuery.count == studentQuery.count + 1)
+        #expect(observerQuery.dropLast().elementsEqual(studentQuery, by: ==))
+        #expect(observerQuery.last.map { $0 == ("include[]", "observed_users") } == true)
     }
 
     @Test func everyNorthfieldCourseAssignmentGroupFileDecodesForTheObservee() throws {

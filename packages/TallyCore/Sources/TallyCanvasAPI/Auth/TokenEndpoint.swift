@@ -29,11 +29,19 @@ public struct TokenEndpoint: Sendable {
     public let clientID: String
     public init(host: String, clientID: String) { self.host = host; self.clientID = clientID }
 
+    /// LIVE-FIX-1 (F3's sibling finding, `docs/pmo/reviews/live1-report.md`): `host` is expected
+    /// to already be a bare, normalized hostname (`InstitutionHost.normalize`), but nothing here
+    /// enforced that -- a host with a character `URL(string:)` can't place in an authority (a
+    /// space, say) made this force-unwrap trap. It now throws `InstitutionHostError.invalid`
+    /// instead, the same vocabulary `AuthorizationRequest.url` uses for the identical situation.
     private var url: URL {
-        URL(string: "https://\(host)/login/oauth2/token")! // swiftlint:disable:this force_unwrapping — https scheme + a validated host is always a well-formed URL
+        get throws(InstitutionHostError) {
+            guard let url = URL(string: "https://\(host)/login/oauth2/token") else { throw .invalid }
+            return url
+        }
     }
 
-    public func request(for grant: TokenGrant) -> HTTPRequest {
+    public func request(for grant: TokenGrant) throws(InstitutionHostError) -> HTTPRequest {
         var fields = [("client_id", clientID)]
         switch grant {
         case let .authorizationCode(code, verifier, redirectURI):
@@ -43,13 +51,13 @@ public struct TokenEndpoint: Sendable {
             fields += [("grant_type", "refresh_token"), ("refresh_token", refreshToken)]
         }
         let body = fields.map { "\(Self.formEncode($0.0))=\(Self.formEncode($0.1))" }.joined(separator: "&")
-        return HTTPRequest(method: .post, url: url,
+        return HTTPRequest(method: .post, url: try url,
                            headers: HTTPHeaders(["Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"]),
                            body: Data(body.utf8))
     }
 
-    public func revokeRequest(for credential: CanvasCredential) -> HTTPRequest {
-        HTTPRequest(method: .delete, url: url, headers: HTTPHeaders(["Authorization": "Bearer \(credential.accessToken)"]))
+    public func revokeRequest(for credential: CanvasCredential) throws(InstitutionHostError) -> HTTPRequest {
+        HTTPRequest(method: .delete, url: try url, headers: HTTPHeaders(["Authorization": "Bearer \(credential.accessToken)"]))
     }
 
     /// Turns a token response into a credential. A rotated refresh token replaces the old one;

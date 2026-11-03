@@ -24,7 +24,11 @@ public enum TallyConfig {
     // Canvas API
     public static let perPage = 100 // UNVERIFIED maximum
     public static let maxPagesPerResource = 50
-    public static let maxConcurrentRequests = 3
+    /// LIVE-3 (`docs/pmo/reviews/live1-report.md`): 3 -> 6 cut a large account's wall time by
+    /// about 10% against a live Canvas, with no new rate-limit or throttling symptom at that
+    /// concurrency (`RequestScheduler` already drops to 1 in-flight request itself whenever
+    /// Canvas reports a low `X-Rate-Limit-Remaining`, independently of this ceiling).
+    public static let maxConcurrentRequests = 6
     public static let lowQuotaThreshold = 100.0 // UNVERIFIED; X-Rate-Limit-Remaining units
     public static let backoffBase: Duration = .seconds(1)
     public static let contextCodesPerRequest = 10
@@ -34,6 +38,20 @@ public enum TallyConfig {
     /// few hundred KB at most (`perPage` items); this is generous headroom, not a realistic
     /// size, so it only ever rejects a runaway or hostile response before it reaches a mapper.
     public static let maxResponseBodyBytes = 10 * 1024 * 1024
+    /// Item 3 round 2 (LIVE-FIX-2, PMO review of PR #101): an ETag cache entry whose
+    /// `lastUsedAt` is older than this is dropped on every flush, regardless of size. The
+    /// planner/calendar-event/announcement queries key by a UTC calendar day
+    /// (`CanvasDateWindow.dateString`), so their cache entries get a brand new URL -- and so a
+    /// brand new, never-reused key -- every day; without an age limit those orphaned entries
+    /// would sit in the cache forever. 2 days is comfortably longer than one such day-rollover
+    /// plus the longest realistic gap between two refreshes.
+    public static let etagCacheEntryMaxAge: Duration = .seconds(2 * 24 * 60 * 60)
+    /// The conditional-GET cache's own size ceiling (item 3 round 2), enforced by evicting the
+    /// least-recently-used entries first once the age-based drop above still leaves it over
+    /// budget. LIVE-3's largest measured one-account refresh (Riley: 20 requests, 654 KB) is the
+    /// biggest real body total seen; 4 MB is roomy headroom above that while still bounding
+    /// worst-case memory and per-flush disk I/O for a corrupt or adversarial account.
+    public static let etagCacheMaxBodyBytes = 4 * 1024 * 1024
 
     // Storage and performance
     public static let snapshotSizeBudgetBytes = 5 * 1024 * 1024
