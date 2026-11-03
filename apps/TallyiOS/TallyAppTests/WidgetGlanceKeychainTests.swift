@@ -117,27 +117,25 @@ struct WidgetGlanceKeychainTests {
     }
 
     /// The production path end to end: the app writes the widget key into the App Group access
-    /// group and the widget reads it through the same group. The platform forces the known issue:
-    /// without a Team ID (GO-LIVE GL-02) this runner cannot use any explicit access group (-34018).
-    /// When GL-02 lands, the known issue stops occurring and Swift Testing fails this test, which
-    /// is the signal to remove `withKnownIssue`.
-    @Test("with a Team ID, the glance round-trips through the App Group access group (known issue until GL-02)")
+    /// group and the widget reads it through the same group. This needs the App Group keychain
+    /// entitlement on both the app and the widget (ENC-05). **Correction (ENT-1, 2026-11-03):**
+    /// this used to be wrapped in `withKnownIssue`, blamed on the ad-hoc CI signing identity having
+    /// no Team ID (GO-LIVE GL-02). CI run 40608557981 traced the real cause to
+    /// `apps/TallyiOS/project.yml` giving both `.entitlements` targets `entitlements: path:` with
+    /// no `properties:`, so `xcodegen generate` overwrote both committed `.entitlements` files with
+    /// an empty dict on every iOS CI job. Fixed in PR #97; the round trip now succeeds for real,
+    /// Team ID or not, so the known issue is removed.
+    @Test("the glance round-trips through the App Group access group")
     func appGroupRoundTrip() async throws {
         let configuration = try #require(Self.embeddedWidgetConfiguration())
         let bundleID = Self.uniqueBundleID()
         let appStore = KeychainVaultKeyStore(bundleID: bundleID, widgetAccessGroup: configuration.keychainAccessGroup)
         let fixture = GlanceStoreFixture()
         defer { fixture.remove(); try? appStore.deleteEverything() }
-        await withKnownIssue("""
-            SecItemAdd/SecItemCopyMatching with an explicit kSecAttrAccessGroup fail with \
-            errSecMissingEntitlement (-34018) under this runner's ad-hoc signing, which has no Team \
-            ID. Needs a real Team ID (GO-LIVE GL-02) or a device.
-            """) {
-            let account = GlanceStoreFixture.account("app-group")
-            let committed = try await Self.commit(account, root: fixture.root, appStore: appStore)
-            let reader = WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: configuration.keychainAccessGroup)
-            #expect(await GlanceReader(storeRoot: fixture.root, keyStore: reader).read() == .loaded(committed))
-        }
+        let account = GlanceStoreFixture.account("app-group")
+        let committed = try await Self.commit(account, root: fixture.root, appStore: appStore)
+        let reader = WidgetVaultKeyReader(appBundleID: bundleID, accessGroup: configuration.keychainAccessGroup)
+        #expect(await GlanceReader(storeRoot: fixture.root, keyStore: reader).read() == .loaded(committed))
     }
 
     @Test("the embedded widget's Info.plist carries the app's bundle ID and App Group, and both manifests ship")
