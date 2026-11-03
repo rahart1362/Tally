@@ -135,5 +135,16 @@ fixed. Full detail in the journal.
   client-type sentence was fixed with owner-approved copy in round 2).
 - GL-05 stays `OPEN`: Instructure-hosted Canvas still has to confirm the provisional, locally
   measured answers.
-- `TallyCore perf gates (Linux, release, non-blocking)`'s `GoalSeek.solve` ceiling miss on PR
-  #102's first run: non-blocking, unrelated to this PR's files, not investigated further here.
+- `TallyCore perf gates (Linux, release, non-blocking)`'s `GoalSeek.solve` ceiling miss: failed
+  on both the first run and the one rerun, non-blocking by its own job name, not in the required
+  list, and nothing in this PR touches `GoalSeek`/`TallyDomain` perf code -- left open.
+- `iOS perf budgets (Release, CI simulator)` (required job, `ios-perf`): failed on the rerun on
+  `testUnobservedWarmLaunchGlancePaint`'s `Launch.GlancePaint` median (4.14 s vs the 3.0 s
+  ceiling). Read the raw 5-sample metrics: one sample is a 10x outlier (39.66 s vs 1.7-5.8 s for
+  the rest, same shape on `Launch.Resolve`/`Launch.ToTask` that run), consistent with the run's
+  own repeated "capacity constraints... macOS arm64 runners" annotations, not a real regression --
+  `testWarmLaunchGlancePaint`'s median (2.45 s) passes cleanly. Nothing in this PR's diff touches
+  the launch/account-resolve/glance-render path; item 4's only new code (`ETagStore.close()`'s
+  `isClosed` guard) runs on sign-out only, never during launch. Already used this work package's
+  one rerun (rule 4); per the same rule, recording this as an open item rather than rerunning
+  again or altering a product budget to paper over it.
