@@ -38,7 +38,7 @@ Tally is an independent iOS app for students. It is not affiliated with Instruct
 Set the key to **OFF**. Every Tally token for your school stops working immediately.
 
 ## Optional: family access (parents and guardians)
-Tally lets a student invite a parent. The parent uses their **own** Canvas observer account, linked with a pairing code the student creates. It works only if your school allows observers to self-register with a pairing code. To enable it, also select these scopes:
+Tally lets a student invite a parent. The parent uses their **own** Canvas observer account, linked with a pairing code the student creates. It works only if your school allows observers to self-register with a pairing code. **These scopes only matter once Tally's parent-linking feature ships** (v1 does not request any of them, and the required key above works fully without this section); add them when you're ready to turn family access on:
 
 | Purpose | Scope | Type |
 |---|---|---|

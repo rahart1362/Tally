@@ -4,6 +4,42 @@ Work package POST-LIVE-1, branch `chore/post-live-1`, from `d984426` (origin/mai
 LIVE-FIX-2, merged). Owner approval 2026-11-03 ("proceed with these next steps"); the underlying
 O1 notes were approved 2026-10-28.
 
+## Round 2 (owner decision 2026-11-03, on round 1's scope-table finding)
+
+Owner decision: **Tally requests the 8 `CanvasScopes.all` scopes in v1, not 9** -- least
+privilege. Nothing shipped calls `/users/self/observees` against a live Canvas today (confirmed:
+the only callers are `SampleFamily`/`SampleFamilyHarness`, both `ReplayTransport`-backed sample
+data, never the network). Family scopes return with M4 parent linking, whose design must still
+let a student sign in at a school whose key only ever granted these 8.
+
+1. **Code:** `CanvasScopes.tally` is now exactly `CanvasScopes.all` (8 scopes, no
+   `FamilyScopes.listObservees`); rewrote its doc comment (least privilege, owner decision,
+   M4 note). `FamilyScopes` itself is unchanged. Updated
+   `AuthTests.authorizeURLScopeIsExactlyTheNineCanvasScopesSpaceSeparated` ->
+   `...EightCanvasScopesSpaceSeparated` (expected list, count 9 -> 8). Grepped the whole repo
+   for "9 scopes"/"nine" in code comments: the only other hit was this same doc comment (fixed);
+   `CanvasEndpointCatalogue` reads the individual `CanvasScopes.*` constants directly, never
+   `.tally`, so it needed no change.
+2. **Live proof** (`~/canvas-e2e/tools/postlive1_scope8_check.py`, new, standard library only,
+   mirrors `live2b_schooloff_check.py`'s own-disposable-key/log-before-change pattern): created
+   `postlive1-scoped8` (`require_scopes=true`, exactly the new 8 scopes), set `client_type:
+   public` via `rails runner` (the one field the admin API can't set). Signed in with the new
+   8-scope `scope` string -- success -- then called all 8 endpoints with Tally's own query
+   shapes (`e2e_api.py`'s builders, reused) -- **all 200**. A second authorize attempt against
+   the SAME key with the OLD 9-scope string (the 8 plus `observees`) -- **`invalid_scope`**, as
+   expected. Confirmed "Tally E2E"'s binding stayed `on` throughout, deleted the disposable key,
+   wrote every change to `reports/postlive1-changes.json` before making it. No secret or token
+   printed (verified by grep). Report: `reports/postlive1-scope8-20261103T144505Z.json`.
+3. **Docs (9 -> 8):** `docs/GO-LIVE.md` GL-01 and GTM-02 now say 8, with a one-line owner-decision
+   note each. `school-admin-setup-guide.md`'s required table was already the 8 (unchanged); added
+   a sentence to the optional family section saying those scopes only matter once parent linking
+   ships (v1 requests none of them).
+4. **`site/admin/index.html` line 23:** replaced with the owner-approved sentence verbatim,
+   kept the `⚠︎` marker and `muted` class, changed nothing else on the page.
+5. Local verification re-run after these changes: `make lint` (0 violations, 322 files), every
+   `scripts/ci/*.py --self-test`, the direct repo-scan checks, and TallyCore `swift test`
+   (podman, pinned `7065fb0d6add`): still 931 tests, all green.
+
 ## What shipped, one line per item
 
 1. **`docs/GO-LIVE.md`** -- GL-01 gained the key requirement (public client, PKCE, mobile-app

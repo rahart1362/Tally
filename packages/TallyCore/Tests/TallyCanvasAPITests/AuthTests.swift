@@ -44,9 +44,10 @@ struct AuthTests {
 
     /// LIVE-2 finding (`docs/pmo/reviews/live1-report.md`, "Least privilege"): Tally sent no
     /// `scope` parameter, so a `require_scopes` developer key failed authorize with
-    /// `invalid_scope`. Item 1: the exact 9 scopes, space-separated, derived from one source
-    /// (`CanvasScopes.tally`) so the authorize request and the endpoint catalogue can't drift.
-    @Test func authorizeURLScopeIsExactlyTheNineCanvasScopesSpaceSeparated() throws {
+    /// `invalid_scope`. Owner decision, 2026-11-03 (POST-LIVE-1 round 2): the exact 8 scopes,
+    /// space-separated, derived from one source (`CanvasScopes.tally`, now exactly `.all`, no
+    /// family scope) so the authorize request and the endpoint catalogue can't drift.
+    @Test func authorizeURLScopeIsExactlyTheEightCanvasScopesSpaceSeparated() throws {
         let request = begin()
         let parts = try #require(URLComponents(url: try request.url, resolvingAgainstBaseURL: false))
         let scope = try #require(parts.queryItems?.first { $0.name == "scope" }?.value)
@@ -59,9 +60,8 @@ struct AuthTests {
             "url:GET|/api/v1/calendar_events",
             "url:GET|/api/v1/announcements",
             "url:GET|/api/v1/users/:id/colors",
-            "url:GET|/api/v1/users/:user_id/observees",
         ].joined(separator: " "))
-        #expect(scope.split(separator: " ").count == 9)
+        #expect(scope.split(separator: " ").count == 8)
     }
 
     /// LIVE-FIX-1 item 2 (F3's sibling finding, `docs/pmo/reviews/live1-report.md`): a malformed

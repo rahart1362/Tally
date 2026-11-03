@@ -25,11 +25,16 @@ public enum CanvasScopes {
 
     /// LIVE-2 finding (`docs/pmo/reviews/live1-report.md`, "Least privilege"): Tally sent no
     /// `scope` parameter at authorize, so a `require_scopes` developer key fails every sign-in
-    /// with `invalid_scope`. These are the exact 9 scopes Tally needs -- `all` (the 8 student-data
-    /// endpoints) plus `FamilyScopes.listObservees` (O1, "Linked students": the only family
-    /// endpoint anything shipped reads today) -- the one list `AuthorizationRequest.url`'s `scope`
-    /// parameter derives from, so the authorize request and this catalogue can never drift apart.
-    public static let tally: [String] = all + [FamilyScopes.listObservees]
+    /// with `invalid_scope`. `AuthorizationRequest.url`'s `scope` parameter derives from this one
+    /// list, so the authorize request and this catalogue can never drift apart.
+    ///
+    /// Owner decision, 2026-11-03 (POST-LIVE-1 round 2): least privilege -- v1 requests exactly
+    /// `all`'s 8 scopes, never `FamilyScopes.listObservees`. Nothing shipped calls
+    /// `/users/self/observees` against a live Canvas today (only `SampleFamily`/
+    /// `SampleFamilyHarness`, both sample-data paths that never touch a real Canvas). Family
+    /// scopes come back with M4 parent linking, whose design must still let a student sign in at
+    /// a school whose key only ever granted these 8.
+    public static let tally: [String] = all
 }
 
 /// One entry in the endpoint catalogue: which snapshot section an endpoint feeds, which
