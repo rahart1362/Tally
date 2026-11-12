@@ -1,7 +1,15 @@
+# Response headers for the static site (Cloudflare Workers static assets and Pages, and
+# Netlify, all read this file; GitHub Pages ignores it). The contact Worker sets its own.
+
+# Every page: no third-party content, no framing, no MIME sniffing.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+
 # GL-02 (docs/GO-LIVE.md): the Apple App Site Association file has no file extension, so a
 # static host's default content-type guess is often wrong (e.g. octet-stream or text/plain);
-# iOS requires it served as JSON. Cloudflare Pages and Netlify both read this file (their shared
-# `_headers` syntax); GitHub Pages ignores it, so this is a no-op there, not a regression.
-# Every other path keeps the host's own default -- only this one path is touched.
+# iOS requires it served as JSON.
 /.well-known/apple-app-site-association
   Content-Type: application/json
