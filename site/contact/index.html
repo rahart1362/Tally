@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contact Tally</title>
+<meta name="description" content="Questions about Tally, help with the app, or bringing Tally to your school: send us a note.">
+<meta name="theme-color" content="#071A36">
+<link rel="icon" href="/assets/icon-64.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/contact.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/assets/icon-64.png" alt="" width="32" height="32">Tally</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#features">Features</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="nav-cta" href="/contact/" aria-current="page">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="page-head">
+  <div class="wrap">
+    <h1>Contact us</h1>
+    <p>Questions about Tally, help with the app, or bringing Tally to your school: send us a note and we'll reply by e-mail.</p>
+  </div>
+</div>
+
+<div class="wrap contact-layout">
+  <div class="card">
+    <form class="form" id="contact-form" method="post" action="/api/contact">
+      <div class="field">
+        <label for="name">Your name <span class="hint">(optional)</span></label>
+        <input id="name" name="name" type="text" autocomplete="name" maxlength="100">
+      </div>
+      <div class="field">
+        <label for="email">Your e-mail</label>
+        <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+      </div>
+      <div class="field">
+        <label for="topic">What it's about</label>
+        <select id="topic" name="topic">
+          <option value="question">A question about Tally</option>
+          <option value="help">Help with the app</option>
+          <option value="school">My school or Canvas setup</option>
+          <option value="press">Press</option>
+          <option value="other">Something else</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" maxlength="5000" required></textarea>
+      </div>
+      <div class="hp" aria-hidden="true">
+        <label for="website">Leave this field empty</label>
+        <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <input type="hidden" name="started" id="started" value="">
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <div><button class="btn btn-primary" type="submit" id="send">Send message</button></div>
+    </form>
+  </div>
+
+  <aside class="card" aria-label="Before you write">
+    <h3>Before you write</h3>
+    <p class="muted">Please don't include grades, passwords or other personal details about a student.</p>
+    <p class="muted">To report a security problem, see our <a href="/security/">Security page</a>.</p>
+    <p class="muted">We use what you send only to reply to you. It reaches us by e-mail and isn't stored on this website. See our <a href="/privacy/">Privacy Policy</a>.</p>
+    <p class="muted">Prefer e-mail? Write to <a href="mailto:support@tally-app.dev">support@tally-app.dev</a>.</p>
+  </aside>
+</div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <nav aria-label="Footer">
+      <a href="/privacy/">Privacy Policy</a>
+      <a href="/terms/">Terms of Use</a>
+      <a href="/support/">Support</a>
+      <a href="/security/">Security</a>
+      <a href="/admin/">For Canvas administrators</a>
+      <a href="/contact/">Contact</a>
+    </nav>
+    <p>Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc.</p>
+  </div>
+</footer>
+</body>
+</html>

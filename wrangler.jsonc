@@ -1,0 +1,17 @@
+// tally-app.dev: the static site in ./site plus the contact-form Worker (site-worker/).
+// Deployed by Cloudflare Workers Builds from this repo. The contact recipient is the
+// CONTACT_TO secret, set in the Cloudflare dashboard (never committed).
+{
+  "name": "tally-site",
+  "main": "site-worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
+  },
+  "send_email": [
+    { "name": "CONTACT_EMAIL" }
+  ],
+  "keep_vars": true
+}

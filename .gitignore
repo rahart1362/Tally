@@ -36,3 +36,7 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/
 fastlane/test_output/
+
+# Cloudflare Workers (tally-app.dev): local secrets and build output, never committed
+.dev.vars
+.wrangler/
