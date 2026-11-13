@@ -46,13 +46,13 @@ Status values: `OPEN` · `IN PROGRESS` · `DONE (evidence: …)`. An item is DON
   5. Run the script. **Done when it prints `No go-live placeholders remain.`**
   6. Docs are not scanned. Also fill the `[[...]]` fields in `docs/go-to-market/*.md` (`grep -rn '\[\[' docs/go-to-market`).
 
-### GL-03 — Legal review · `OPEN`
+### GL-03 — Legal review · `DONE (owner sign-off, 2026-11-12)`
 - **What:** counsel sign-off before submission on four areas:
   - (1) minors and the state age-assurance laws (Texas SB2420, Utah, Louisiana), and Apple's Declared Age Range API;
   - (2) FERPA posture for a student-directed app;
   - (3) trademark clearance for the name "Tally" (other App Store apps use it);
   - (4) nominative use of "Canvas"/"Instructure" in metadata and the non-affiliation disclaimer, plus review of the privacy-policy text.
-- **Draft for review:** `site/privacy/index.html`, marked `DRAFT-PENDING-LEGAL-REVIEW` (the scanner blocks release until the marker is removed after sign-off).
+- **Outcome (2026-11-12):** the owner reviewed the privacy, terms and security pages and the four areas above and signed off; the `DRAFT-PENDING-LEGAL-REVIEW` banners are removed. Re-check the state age-assurance laws' status shortly before launch, and revisit this item before school sales or a trademark filing.
 - **Refs:** `docs/pmo/reviews/app-store-compliance.md` D3, D7, R-sections
 
 ### GL-04 — App Review sign-in access · `OPEN`

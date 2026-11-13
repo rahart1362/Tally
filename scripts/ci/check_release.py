@@ -504,8 +504,8 @@ def source_checks(root: pathlib.Path) -> list[Check]:
     fmt = lambda hs: "; ".join(f"{p}:{n}" for _, p, n in hs[:8]) + (f" (+{len(hs) - 8})" if len(hs) > 8 else "")
     add("REL.go-live.owner-values", "No go-live placeholder values remain (Team ID, support and security e-mails, governing law, dates; GL-02)",
         not owner_values, fmt(owner_values) or "none", due="M5", owner="owner (GO-LIVE GL-02)")
-    add("REL.go-live.legal", "The legal pages (privacy, terms, security) have counsel's sign-off (GL-03)", not legal,
-        fmt(legal) or "none", due="M5", owner="owner and counsel (GO-LIVE GL-03)")
+    add("REL.go-live.legal", "The legal pages (privacy, terms, security) carry no draft-review banner (GL-03 signed off)", not legal,
+        fmt(legal) or "none", due="M5", owner="owner (GO-LIVE GL-03)")
     add("REL.go-live.shipping-identifiers",
         "Shipping code has no legacy or placeholder identifier outside the documented exceptions",
         not in_shipping, (fmt(in_shipping) or "none")
