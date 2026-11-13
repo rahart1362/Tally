@@ -1,8 +1,41 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tally for Canvas Administrators</title><link rel="stylesheet" href="/_style.css"></head><body><main>
-<h1>Tally for Canvas Administrators</h1>
-<p class="muted">A student at your school asked you to enable Tally. Here's what it is, and what enabling it involves.</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tally for Canvas Administrators</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#071A36">
+<link rel="icon" href="/assets/icon-64.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="preload" href="/assets/fonts/dm-serif-display-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/assets/icon-64.png" alt="" width="32" height="32">Tally</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#features">Features</a>
+      <a href="/#privacy">Privacy</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="nav-cta" href="/contact/">Contact</a>
+    </nav>
+  </div>
+</header>
 
+<main id="main">
+<div class="page-head">
+  <div class="wrap">
+    <h1>Tally for Canvas Administrators</h1>
+    <p>A student at your school asked you to enable Tally. Here's what it is, and what enabling it involves.</p>
+  </div>
+</div>
+<div class="doc-page">
+  <div class="wrap">
+    <div class="doc">
 <h2>What Tally is</h2>
 <div class="card">
 <p>Tally is an independent iOS app for students. It shows a student's own courses, grades, assignments, due dates and reminders, using that student's own Canvas sign-in.</p>
@@ -19,20 +52,20 @@
 <ol>
 <li><b>Admin → Developer Keys → + Developer Key → API Key.</b></li>
 <li>Fill in: Key Name "Tally"; Owner Email your own contact address; Redirect URI <code>https://tally-app.dev/oauth/callback</code>; Client type <b>Public</b> (PKCE, no client secret).
-<p class="muted">⚠︎ Canvas's developer-key screen doesn't currently offer a Public client type. Ask your Canvas host (for most schools, Instructure Support) to set it before you continue, or contact us below for help.</p></li>
+<p class="muted note-warn">⚠︎ Canvas's developer-key screen doesn't currently offer a Public client type. Ask your Canvas host (for most schools, Instructure Support) to set it before you continue, or contact us below for help.</p></li>
 <li><b>Enforce Scopes: ON.</b> Select only the read-only scopes a student's own Tally needs:</li>
 </ol>
-<table style="width:100%;border-collapse:collapse;font-size:0.95em">
-<tr><td class="muted">Name, personal calendar feed</td><td><code>url:GET|/api/v1/users/:user_id/profile</code></td></tr>
-<tr><td class="muted">Courses and scores</td><td><code>url:GET|/api/v1/courses</code></td></tr>
-<tr><td class="muted">Assignments and submissions</td><td><code>url:GET|/api/v1/courses/:course_id/assignment_groups</code></td></tr>
-<tr><td class="muted">Grading periods</td><td><code>url:GET|/api/v1/courses/:course_id/grading_periods</code></td></tr>
-<tr><td class="muted">To-do and due items</td><td><code>url:GET|/api/v1/planner/items</code></td></tr>
-<tr><td class="muted">Course calendar events</td><td><code>url:GET|/api/v1/calendar_events</code></td></tr>
-<tr><td class="muted">Announcements</td><td><code>url:GET|/api/v1/announcements</code></td></tr>
-<tr><td class="muted">Course colours</td><td><code>url:GET|/api/v1/users/:id/colors</code></td></tr>
+<table class="scopes" aria-label="Canvas scopes to select">
+<tr><td class="muted">Name, personal calendar feed</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>users/<wbr>:user_id/<wbr>profile</code></td></tr>
+<tr><td class="muted">Courses and scores</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>courses</code></td></tr>
+<tr><td class="muted">Assignments and submissions</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>courses/<wbr>:course_id/<wbr>assignment_groups</code></td></tr>
+<tr><td class="muted">Grading periods</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>courses/<wbr>:course_id/<wbr>grading_periods</code></td></tr>
+<tr><td class="muted">To-do and due items</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>planner/<wbr>items</code></td></tr>
+<tr><td class="muted">Course calendar events</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>calendar_events</code></td></tr>
+<tr><td class="muted">Announcements</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>announcements</code></td></tr>
+<tr><td class="muted">Course colours</td><td><code>url:GET|/<wbr>api/<wbr>v1/<wbr>users/<wbr>:id/<wbr>colors</code></td></tr>
 </table>
-<p class="muted">⚠︎ These scope strings come from Instructure's own API documentation; confirm them against the scope picker in your installed Canvas version before saving.</p>
+<p class="muted note-warn">⚠︎ These scope strings come from Instructure's own API documentation; confirm them against the scope picker in your installed Canvas version before saving.</p>
 <ol start="4">
 <li><b>Save</b>, then switch the key's state to <b>ON</b>.</li>
 <li>Send us the key's <b>Client ID</b> (the numeric key ID — it isn't secret) using the contact link below. We add your school to Tally's institution directory, and students there can connect from then on.</li>
@@ -48,5 +81,22 @@
 <div class="card"><p>Questions about any of this, or ready to send a Client ID? See our <a href="/support/">Support</a> page.</p></div>
 
 <p class="muted">Tally is an independent app and is not affiliated with, endorsed by, or sponsored by Instructure, Inc. Canvas is a trademark of Instructure, Inc.</p>
-<nav style="margin-top:24px"><a href="/">Tally</a><a href="/privacy/">Privacy Policy</a><a href="/support/">Support</a></nav>
-</main></body></html>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <nav aria-label="Footer">
+      <a href="/privacy/">Privacy Policy</a>
+      <a href="/terms/">Terms of Use</a>
+      <a href="/support/">Support</a>
+      <a href="/security/">Security</a>
+      <a href="/admin/">For Canvas administrators</a>
+      <a href="/contact/">Contact</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
